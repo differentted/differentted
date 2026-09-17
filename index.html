@@ -7772,11 +7772,24 @@ function importFromText(t){
     if(!obj||!obj.accounts||Object.keys(obj.accounts).length===0) throw new Error('bad');
     Object.keys(obj.accounts).forEach(function(id){
       if(!obj.accounts[id].state) obj.accounts[id].state=defaultState();
+      /* 老备份文件可能是很久以前导出的，缺一些后来才加的字段（比如fullDays这种migrateState自己也不会
+         补的老字段）——这里先拿defaultState()把顶层缺的字段兜底补齐，避免render()里读到undefined.length崩掉 */
+      var _base=defaultState();
+      Object.keys(_base).forEach(function(k){
+        if(typeof obj.accounts[id].state[k]==='undefined') obj.accounts[id].state[k]=_base[k];
+      });
       if(!obj.accounts[id].state.day) obj.accounts[id].state.day=freshDay(todayKey());
     });
     store=obj;
     if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
     state=store.accounts[store.currentChildId].state;
+    /* 备份恢复和正常打开网页走的是两条不同的路，之前这里漏了migrateState等这几步，
+       导致恢复出来的存档缺字段，render()里途中报错但被下面catch吞掉，表面上看着"导入成功"，
+       其实宠物表情、状态栏等一大堆内容根本没刷新对——这里补齐，让恢复备份和正常打开完全一致 */
+    migrateState(state);
+    applyRealTimeDecay();
+    onNewDay();
+    cleanDiscounts();
     saveStore();
     render();
     alert('导入成功！所有小朋友档案已恢复');
