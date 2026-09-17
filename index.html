@@ -8,8 +8,8 @@
      像App一样的桌面图标——加了它们之后，从Safari"添加到主屏幕"生成的图标才会：①用我们自己做的
      可爱图标（而不是随手截一张当前页面当图标）；②点开图标是真正的全屏App模式，没有Safari的地址栏/
      工具栏；③桌面上图标下面显示"打卡系统"这个短名字，而不是网页标题那一长串 -->
-<link rel="icon" type="image/png" href="assets/apple_touch_icon.png">
-<link rel="apple-touch-icon" href="assets/apple_touch_icon.png">
+<link rel="icon" type="image/png" href="apple_touch_icon.png">
+<link rel="apple-touch-icon" href="apple_touch_icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="打卡系统">
@@ -131,7 +131,7 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 .pet-room{
   width:100%; max-width:300px; aspect-ratio:1100/1009; margin:6px auto 4px;
   border-radius:16px; overflow:hidden; position:relative;
-  background:#111 url('assets/petroom_bg.jpg') center/cover no-repeat;
+  background:#111 url('petroom_bg.jpg') center/cover no-repeat;
   box-shadow:0 4px 16px rgba(0,0,0,.22);
 }
 #petWrap{
@@ -1405,7 +1405,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
-  <img id="petImg" class="anim-idle" src="assets/petimg_default.webp" alt="小金麟">
+  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
   <div id="petAccessory" class="pet-accessory"></div>
   <div id="petHit" onclick="petTouch()"></div>
   <div id="petHearts"></div>
@@ -1486,66 +1486,66 @@ var PET_LIBRARY = {
     name: '小金麟',
     pickDesc: '威风凛凛的小金龙，活泼好动超黏人，最爱围着你蹦蹦跳跳～',
     img: {
-      happy: 'assets/xiaojinlin_happy.webp',
-      run:   'assets/xiaojinlin_run.webp',
-      sad:   'assets/xiaojinlin_sad.webp'
+      happy: 'xiaojinlin_happy.webp',
+      run:   'xiaojinlin_run.webp',
+      sad:   'xiaojinlin_sad.webp'
     },
-    eggVideo: 'assets/xiaojinlin_egg.mp4'
+    eggVideo: 'xiaojinlin_egg.mp4'
   },
   naolong: {
     name: '毛绒小奶龙',
     pickDesc: '软软糯糯的毛绒龙宝宝，圆滚滚超喜欢卖萌撒娇～',
     img: {
-      happy: 'assets/naolong_happy.webp',
-      run:   'assets/naolong_run.webp',
-      sad:   'assets/naolong_sad.webp'
+      happy: 'naolong_happy.webp',
+      run:   'naolong_run.webp',
+      sad:   'naolong_sad.webp'
     },
     stageImg: {
-      baby:  'assets/naolong_baby.webp',
-      teen:  'assets/naolong_teen.webp',
-      adult: 'assets/naolong_adult.webp'
+      baby:  'naolong_baby.webp',
+      teen:  'naolong_teen.webp',
+      adult: 'naolong_adult.webp'
     },
     actionImg: {
-      touch: 'assets/naolong_touch.webp',
-      food:  'assets/naolong_food.webp',
-      water: 'assets/naolong_water.webp',
-      milk:  'assets/naolong_milk.webp',
-      out:   'assets/naolong_out.webp',
-      train: 'assets/naolong_train.webp',
-      train2:'assets/naolong_train2.webp',
-      bath:  'assets/naolong_bath.webp'
+      touch: 'naolong_touch.webp',
+      food:  'naolong_food.webp',
+      water: 'naolong_water.webp',
+      milk:  'naolong_milk.webp',
+      out:   'naolong_out.webp',
+      train: 'naolong_train.webp',
+      train2:'naolong_train2.webp',
+      bath:  'naolong_bath.webp'
     },
-    eggVideo: 'assets/naolong_egg.mp4',
-    danceImg: 'assets/naolong_dance.webp',
-    danceAudio: 'assets/naolong_dance.mp3',
+    eggVideo: 'naolong_egg.mp4',
+    danceImg: 'naolong_dance.webp',
+    danceAudio: 'naolong_dance.mp3',
     danceDurationMs: 10060
   },
   xiaojinlong: {
     name: '小金龙',
     pickDesc: '金光闪闪的小金龙，宝气又爱撒娇，最喜欢黏着你一起玩耍～',
     img: {
-      happy: 'assets/xiaojinlong_happy.webp',
-      run:   'assets/xiaojinlong_run.webp',
-      sad:   'assets/xiaojinlong_sad.webp'
+      happy: 'xiaojinlong_happy.webp',
+      run:   'xiaojinlong_run.webp',
+      sad:   'xiaojinlong_sad.webp'
     },
     stageImg: {
-      baby:  'assets/xiaojinlong_baby.webp',
-      teen:  'assets/xiaojinlong_baby.webp',
-      adult: 'assets/xiaojinlong_adult.webp'
+      baby:  'xiaojinlong_baby.webp',
+      teen:  'xiaojinlong_baby.webp',
+      adult: 'xiaojinlong_adult.webp'
     },
     actionImg: {
-      touch: 'assets/xiaojinlong_touch.webp',
-      food:  'assets/xiaojinlong_food.webp',
-      water: 'assets/xiaojinlong_water.webp',
-      milk:  'assets/xiaojinlong_milk.webp',
-      out:   'assets/xiaojinlong_out.webp',
-      train: 'assets/xiaojinlong_train.webp',
-      train2:'assets/xiaojinlong_train2.webp',
-      bath:  'assets/xiaojinlong_bath.webp'
+      touch: 'xiaojinlong_touch.webp',
+      food:  'xiaojinlong_food.webp',
+      water: 'xiaojinlong_water.webp',
+      milk:  'xiaojinlong_milk.webp',
+      out:   'xiaojinlong_out.webp',
+      train: 'xiaojinlong_train.webp',
+      train2:'xiaojinlong_train2.webp',
+      bath:  'xiaojinlong_bath.webp'
     },
-    eggImg: 'assets/xiaojinlong_eggImg.webp',
-    danceImg: 'assets/xiaojinlong_dance.webp',
-    danceAudio: 'assets/xiaojinlong_dance.mp3',
+    eggImg: 'xiaojinlong_eggImg.webp',
+    danceImg: 'xiaojinlong_dance.webp',
+    danceAudio: 'xiaojinlong_dance.mp3',
     danceDurationMs: 10060
   }
 };
@@ -2451,9 +2451,9 @@ function petSpinInPlace(){ setPetAnim('spin',{duration:800,after:'idle'}); }
    音乐素材均为 CC0 / MIT 免版权授权，可自由使用，无需署名。
    出于浏览器自动播放限制，音乐要等小朋友第一次点按屏幕之后才会真正响起。 */
 var BGM_TRACKS=[
-  {id:'ukulele', src:'assets/bgm_ukulele.mp3'},
-  {id:'garden', src:'assets/bgm_garden.mp3'},
-  {id:'funshine', src:'assets/bgm_funshine.mp3'}
+  {id:'ukulele', src:'bgm_ukulele.mp3'},
+  {id:'garden', src:'bgm_garden.mp3'},
+  {id:'funshine', src:'bgm_funshine.mp3'}
 ];
 
 var bgmMain=null;
