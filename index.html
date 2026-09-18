@@ -5942,22 +5942,6 @@ function exBeep(freq,dur){
     o.stop(now+(dur||0.12)+0.02);
   }catch(e){}
 }
-/* 人声报数：count_sprite.mp3 是提前用语音引擎生成好的固定音频文件（1~60，每个数字占1秒钟一个音轨位），
-   不是网页当场调用手机语音引擎朗读——纯粹播放一个静态mp3文件，跟背景音乐用的是同一套机制，
-   不会碰到"定时器触发系统语音在苹果手机上经常不出声"那个问题，可以放心在setInterval里反复调用 */
-var exCountAudio=null;
-function exPlayCount(n){
-  try{
-    n=Math.max(1,Math.min(60,Math.round(n)));
-    if(!exCountAudio){
-      exCountAudio=new Audio('count_sprite.mp3');
-      exCountAudio.preload='auto';
-    }
-    exCountAudio.currentTime=(n-1)*1.0;
-    var p=exCountAudio.play();
-    if(p&&p.catch) p.catch(function(){});
-  }catch(e){}
-}
 function startExerciseTimer(cat,key,mode){
   if(exTimer) return; // 已经有一个在进行中了，不重复开
   var cfg=EX_CFG[key];
@@ -5968,11 +5952,6 @@ function startExerciseTimer(cat,key,mode){
   if(selectedFree&&state.backpack.freeCard>0&&!state.day.freeCardUsed){
     if(key==='burpee') completeBurpee(mode); else completeTask(cat,key);
     return;
-  }
-  // 提前把报数音频预加载好，等小朋友点"开始第1组"时能立刻播放，不用现下载
-  if(!exCountAudio){
-    exCountAudio=new Audio('count_sprite.mp3');
-    exCountAudio.preload='auto';
   }
   var t=targets();
   var groupsTotal,repsTarget=null;
@@ -6004,7 +5983,7 @@ function exStartGroup(){
   ex.phase='counting';
   if(cfg.kind==='hold'){
     ex.remain=cfg.holdSec;
-    exPlayCount(ex.remain); // 人声报"30"，作为开始信号
+    exBeep(880,0.12);
     renderExerciseTimer();
     ex.tickHandle=setInterval(function(){
       ex.remain--;
@@ -6014,23 +5993,23 @@ function exStartGroup(){
         exGroupComplete();
         return;
       }
-      exPlayCount(ex.remain);
+      if(ex.remain<=3) exBeep(1000,0.1);
       renderExerciseTimer();
     },1000);
   }else{
     ex.repsThisGroup=(ex.mode==='once')?ex.repsTarget:Math.min(cfg.groupReps, ex.repsTarget-ex.repsDoneTotal);
     ex.repsDoneInGroup=0;
+    exBeep(880,0.12);
     renderExerciseTimer();
     ex.tickHandle=setInterval(function(){
       ex.repsDoneInGroup++;
       if(ex.repsDoneInGroup>=ex.repsThisGroup){
         exClearTick();
-        exPlayCount(ex.repsDoneInGroup); // 报出最后一个数，再叠加完成提示音
         exBeep(1200,0.2);
         exGroupComplete();
         return;
       }
-      exPlayCount(ex.repsDoneInGroup);
+      exBeep(880,0.1);
       renderExerciseTimer();
     },cfg.secPerRep*1000);
   }
