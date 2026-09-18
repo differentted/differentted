@@ -182,6 +182,18 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
   box-shadow:0 1px 4px rgba(0,0,0,.35); display:none;
 }
 .care-badge.show{display:block}
+.stock-badge{
+  position:absolute; bottom:-6px; right:-5px; min-width:17px; height:17px; padding:0 3px; border-radius:9px;
+  background:#ff9800; color:#fff; font-size:10px; font-weight:700; line-height:17px; text-align:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.stock-badge.zero{background:#bdbdbd}
+.ex-timer-modal{text-align:center}
+.ex-timer-groups{font-size:14px;color:#7b1fa2;font-weight:700;margin:4px 0 8px}
+.ex-timer-big{font-size:60px;font-weight:800;color:#ab47bc;line-height:1;margin:8px 0;font-family:'Baloo 2',system-ui,sans-serif}
+.ex-timer-big.rest{color:#4caf50}
+.ex-timer-big.grace{color:#ff9800}
+.ex-timer-sub{font-size:13px;color:#8a7796;margin-bottom:16px;min-height:36px;line-height:1.5}
 #petStats .hud-top-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
 #petStats .hud-pet-name{font-size:13px;font-weight:700;color:#7b1fa2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #petStats .pet-reskin-btn,#petStats .pet-wardrobe-btn,#petStats .pet-help-btn{margin:0;padding:2px 7px;font-size:13px;flex-shrink:0;pointer-events:auto}
@@ -840,8 +852,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
         <small id="burpeeNote"></small>
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button class="btn btn-success" id="btnBurpeeGroup" onclick="completeBurpee('group')">✅分组完成</button>
-        <button class="btn btn-success" id="btnBurpeeOnce" onclick="completeBurpee('once')">✅一次完成</button>
+        <button class="btn btn-success" id="btnBurpeeGroup" onclick="startExerciseTimer('sport','burpee','group')">✅分组完成</button>
+        <button class="btn btn-success" id="btnBurpeeOnce" onclick="startExerciseTimer('sport','burpee','once')">✅一次完成</button>
       </div>
     </div>
     <div id="list-sport"></div>
@@ -1152,6 +1164,18 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 运动打卡计时/计数验证弹窗：平板支撑/单腿平衡/波比跳/仰卧起坐都要真的跟着计时做完才能打卡 -->
+<div class="modal-mask" id="exerciseTimerModal">
+  <div class="modal ex-timer-modal">
+    <button class="modal-close" onclick="exCancelTimer()">✕</button>
+    <h3 id="exTimerTitle">💪 波比跳</h3>
+    <div class="ex-timer-groups" id="exTimerGroupsLabel">第 1/4 组</div>
+    <div class="ex-timer-big" id="exTimerBigNum">30</div>
+    <div class="ex-timer-sub" id="exTimerSubText"></div>
+    <button class="btn btn-primary btn-block" id="exTimerActionBtn" onclick="exActionBtnClick()">▶️ 开始第1组</button>
+  </div>
+</div>
+
 <!-- 更换宠物造型弹窗 -->
 <div class="modal-mask" id="reskinModal">
   <div class="modal">
@@ -1377,12 +1401,12 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petActionsBackdrop" onclick="closePetActionsPanel()"></div>
 <div id="petActionsList" class="pet-actions-list">
   <button class="hud-act-btn" onclick="petQuickAction('petTouch')" title="抚摸">🖐️</button>
-  <button class="hud-act-btn care-btn" onclick="petQuickAction('buyItem','food')" title="喂食">🍖<span class="care-badge" id="careBadge-feed">✔</span></button>
-  <button class="hud-act-btn care-btn" onclick="petQuickAction('buyItem','water')" title="喝水">💧<span class="care-badge" id="careBadge-water">✔</span></button>
-  <button class="hud-act-btn care-btn" onclick="petQuickAction('buyItem','milk')" title="牛奶">🥛<span class="care-badge" id="careBadge-milk">✔</span></button>
-  <button class="hud-act-btn care-btn" onclick="petQuickAction('buyItem','out')" title="陪玩">🎡<span class="care-badge" id="careBadge-play">✔</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','food')" title="喂食（用背包里买好的宠物粮食）">🍖<span class="care-badge" id="careBadge-feed">✔</span><span class="stock-badge" id="stockBadge-food">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','water')" title="喝水（用背包里买好的饮用水）">💧<span class="care-badge" id="careBadge-water">✔</span><span class="stock-badge" id="stockBadge-water">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','milk')" title="牛奶（用背包里买好的牛奶）">🥛<span class="care-badge" id="careBadge-milk">✔</span><span class="stock-badge" id="stockBadge-milk">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','out')" title="陪玩（用背包里买好的外出游玩券）">🎡<span class="care-badge" id="careBadge-play">✔</span><span class="stock-badge" id="stockBadge-out">0</span></button>
   <button class="hud-act-btn" onclick="petQuickAction('buyItem','train')" title="训练">🎯</button>
-  <button class="hud-act-btn care-btn" onclick="petQuickAction('buyItem','bath')" title="美容">🛁<span class="care-badge" id="careBadge-bath">✔</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','bath')" title="美容（用背包里买好的美容洗护）">🛁<span class="care-badge" id="careBadge-bath">✔</span><span class="stock-badge" id="stockBadge-bath">0</span></button>
   <button class="hud-act-btn" onclick="petQuickAction('petDanceManual')" title="跳舞">💃</button>
   <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon')" title="副本挑战">⚔️</button>
 </div>
@@ -3273,6 +3297,7 @@ function freshDay(key){
     fullCounted:false,
     petCare:{feed:false,water:false,milk:false,play:false,bath:false},
     careAllBonus:false,
+    trainBought:{train:false,train2:false}, // 训练道具/高级训练道具每天各限购1次，防止囤金币一次性买很多经验绕过真实运动
     dungeon:{count:0},
     math:{rewardedLevels:[]},
     readEn:{count:0},
@@ -3294,7 +3319,7 @@ function defaultState(){
     restCardMonthKey:getMonthKey(),
     restCardMonthGranted:false,
     moneyBalance:0,
-    backpack:{freeCard:0,d7:[],d8:[],restCards:[]},
+    backpack:{freeCard:0,d7:[],d8:[],restCards:[],supplies:{food:0,water:0,milk:0,out:0,bath:0}},
     log:[],
     pet:{chosen:false},
     pets:[], // 多宠物系统：所有养过的宠物都在这个数组里，state.pet 始终指向其中"当前出战/展示"的那一只
@@ -4077,25 +4102,21 @@ function studySpeak(text,lang){
         u.onend=petStopTalking;
         u.onerror=petStopTalking;
       }
-      setTimeout(function(){
-        try{ window.speechSynthesis.speak(u); }
-        catch(e2){ if(canShowPet) petStopTalking(); }
-      }, 30);
+      /* 这里以前用setTimeout(...,30)把speak()往后错开一点点，是为了避开个别Chrome版本"cancel()后立刻
+         speak()会被吞掉"的老问题；但iPad/iPhone上的Safari要求speak()必须和点击这个用户操作同步发生，
+         哪怕只错开一瞬间也可能导致完全没声音——这里改成直接同步调用，优先保证iPad上能出声音 */
+      try{ window.speechSynthesis.speak(u); }
+      catch(e2){ if(canShowPet) petStopTalking(); }
     }catch(e){
       if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*180)));
     }
   }
-  var readyVoices=window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[];
-  if(readyVoices.length===0 && typeof window.speechSynthesis.addEventListener==='function'){
-    var voiceFallbackTimer=setTimeout(doSpeak, 350);
-    window.speechSynthesis.addEventListener('voiceschanged', function onVoicesReady(){
-      clearTimeout(voiceFallbackTimer);
-      window.speechSynthesis.removeEventListener('voiceschanged', onVoicesReady);
-      doSpeak();
-    }, {once:true});
-  }else{
-    doSpeak();
-  }
+  /* 这里以前是：如果voices列表还没加载好，就先等voiceschanged事件（或最多等350ms）才真正调用speak()。
+     这个"等一下"在iPad/iPhone的Safari上是致命的——朗读必须紧跟着点击这个用户操作同步发生，
+     哪怕只等几百毫秒，浏览器都会认为"这次speak()不是用户点出来的"，直接悄悄不出声、也不报错，
+     表现出来就是"点了没反应"。所以改成：不管voices有没有就绪，点了就立刻真正调用一次speak()
+     （第一次可能还挑不到最匹配的音色，但至少有声音；voices加载好之后，下一次点击自然就能挑对音色了）。 */
+  doSpeak();
 }
 function studyEscape(s){
   // 这个转义专门给"塞进onclick="..."这种双引号HTML属性里的JS字符串参数"用的：
@@ -5216,10 +5237,12 @@ function migrateState(s){
   if(typeof s.day.wheel.custom==='undefined') s.day.wheel.custom=false;
   if(typeof s.day.wheel.comm==='undefined') s.day.wheel.comm=false;
   if(typeof s.day.spStudyFullCounted==='undefined') s.day.spStudyFullCounted=false;
+  if(!s.day.trainBought) s.day.trainBought={train:false,train2:false};
   if(!s.sportStudyFullDays) s.sportStudyFullDays=[];
   if(!s.restCardMonthKey) s.restCardMonthKey=getMonthKey();
   if(typeof s.restCardMonthGranted==='undefined') s.restCardMonthGranted=false;
   if(!s.backpack) s.backpack={freeCard:0,d7:[],d8:[],restCards:[]};
+  if(!s.backpack.supplies) s.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
   if(!s.backpack.restCards){
     s.backpack.restCards=[];
     // 旧版"每周家务攒4项换休息卡"机制下已攒的休息卡，按获得时间为今天迁移，保留满额12天有效期
@@ -5891,6 +5914,206 @@ function completeBurpee(mode){
   afterTask('sport');
   save();
 }
+/* ========== 运动打卡：计时/计数验证，防止孩子没真做就直接点"完成" ==========
+   平板支撑/单腿平衡：举高/支撑类，每组倒计时30秒，组间休息15秒
+   波比跳/仰卧起坐：计数类，每隔几秒"滴"一声提示做一个，用时间保证真的在连续动，组间休息30秒
+   不管哪一种，组与组之间如果超过15秒不点"继续"，就整个从第1组重新开始，不能中途撂下很久再回来凑数 */
+var EX_CFG={
+  plank:   {kind:'hold', holdSec:30, restSec:15, graceSec:15},
+  balance: {kind:'hold', holdSec:30, restSec:15, graceSec:15},
+  burpee:  {kind:'rep',  secPerRep:5, groupReps:30, restSec:30, graceSec:15},
+  situp:   {kind:'rep',  secPerRep:3, groupReps:10, restSec:30, graceSec:15}
+};
+var EX_NAME={plank:'平板支撑',balance:'单腿平衡',burpee:'波比跳',situp:'仰卧起坐'};
+var exTimer=null;
+var exAudioCtx=null;
+function exBeep(freq,dur){
+  try{
+    if(!exAudioCtx) exAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(exAudioCtx.state==='suspended') exAudioCtx.resume();
+    var o=exAudioCtx.createOscillator(), g=exAudioCtx.createGain();
+    o.frequency.value=freq||880; o.type='sine';
+    g.gain.value=0.16;
+    o.connect(g); g.connect(exAudioCtx.destination);
+    var now=exAudioCtx.currentTime;
+    g.gain.setValueAtTime(0.16,now);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+(dur||0.12));
+    o.start(now);
+    o.stop(now+(dur||0.12)+0.02);
+  }catch(e){}
+}
+function startExerciseTimer(cat,key,mode){
+  if(exTimer) return; // 已经有一个在进行中了，不重复开
+  var cfg=EX_CFG[key];
+  if(!cfg||!state||!state.pet) return;
+  var already=(key==='burpee')?(state.day.sport.burpee>0):!!state.day[cat][key];
+  if(already){ alert(EX_NAME[key]+'今天已经完成啦'); return; }
+  // 有免做卡选中时，直接走原来的豁免流程，不需要真的做/计时
+  if(selectedFree&&state.backpack.freeCard>0&&!state.day.freeCardUsed){
+    if(key==='burpee') completeBurpee(mode); else completeTask(cat,key);
+    return;
+  }
+  var t=targets();
+  var groupsTotal,repsTarget=null;
+  if(cfg.kind==='hold'){
+    groupsTotal=(key==='plank')?t.plank:t.balance;
+  }else{
+    repsTarget=(key==='burpee')?t.burpee:t.situp;
+    groupsTotal=(key==='burpee'&&mode==='once')?1:Math.max(1,Math.ceil(repsTarget/cfg.groupReps));
+  }
+  exTimer={
+    cat:cat,key:key,mode:mode||null,cfg:cfg,
+    groupsTotal:groupsTotal,groupsDone:0,
+    repsTarget:repsTarget,repsDoneTotal:0,repsDoneInGroup:0,repsThisGroup:0,
+    phase:'ready',remain:0,tickHandle:null
+  };
+  showModal('exerciseTimerModal');
+  renderExerciseTimer();
+}
+function exClearTick(){ if(exTimer&&exTimer.tickHandle){ clearInterval(exTimer.tickHandle); exTimer.tickHandle=null; } }
+function exActionBtnClick(){
+  if(!exTimer) return;
+  if(exTimer.phase==='ready'||exTimer.phase==='grace'||exTimer.phase==='failed'){
+    exClearTick();
+    exStartGroup();
+  }
+}
+function exStartGroup(){
+  var ex=exTimer, cfg=ex.cfg;
+  ex.phase='counting';
+  if(cfg.kind==='hold'){
+    ex.remain=cfg.holdSec;
+    exBeep(880,0.12);
+    renderExerciseTimer();
+    ex.tickHandle=setInterval(function(){
+      ex.remain--;
+      if(ex.remain<=0){
+        exClearTick();
+        exBeep(1200,0.2);
+        exGroupComplete();
+        return;
+      }
+      if(ex.remain<=3) exBeep(1000,0.1);
+      renderExerciseTimer();
+    },1000);
+  }else{
+    ex.repsThisGroup=(ex.mode==='once')?ex.repsTarget:Math.min(cfg.groupReps, ex.repsTarget-ex.repsDoneTotal);
+    ex.repsDoneInGroup=0;
+    exBeep(880,0.12);
+    renderExerciseTimer();
+    ex.tickHandle=setInterval(function(){
+      ex.repsDoneInGroup++;
+      if(ex.repsDoneInGroup>=ex.repsThisGroup){
+        exClearTick();
+        exBeep(1200,0.2);
+        exGroupComplete();
+        return;
+      }
+      exBeep(880,0.1);
+      renderExerciseTimer();
+    },cfg.secPerRep*1000);
+  }
+}
+function exGroupComplete(){
+  var ex=exTimer, cfg=ex.cfg;
+  ex.groupsDone++;
+  if(cfg.kind==='rep') ex.repsDoneTotal+=ex.repsThisGroup;
+  if(ex.groupsDone>=ex.groupsTotal){
+    exFinishAll();
+    return;
+  }
+  ex.phase='resting';
+  ex.remain=cfg.restSec;
+  renderExerciseTimer();
+  ex.tickHandle=setInterval(function(){
+    ex.remain--;
+    if(ex.remain<=0){
+      exClearTick();
+      exEnterGrace();
+      return;
+    }
+    renderExerciseTimer();
+  },1000);
+}
+function exEnterGrace(){
+  var ex=exTimer, cfg=ex.cfg;
+  ex.phase='grace';
+  ex.remain=cfg.graceSec;
+  exBeep(660,0.15);
+  renderExerciseTimer();
+  ex.tickHandle=setInterval(function(){
+    ex.remain--;
+    if(ex.remain<=0){
+      exClearTick();
+      exFailReset();
+      return;
+    }
+    renderExerciseTimer();
+  },1000);
+}
+function exFailReset(){
+  var ex=exTimer;
+  ex.groupsDone=0; ex.repsDoneTotal=0; ex.repsDoneInGroup=0;
+  ex.phase='failed';
+  renderExerciseTimer();
+}
+function exFinishAll(){
+  var ex=exTimer;
+  hideModal('exerciseTimerModal');
+  exTimer=null;
+  if(ex.key==='burpee') completeBurpee(ex.mode);
+  else completeTask(ex.cat,ex.key);
+}
+function exCancelTimer(){
+  exClearTick();
+  exTimer=null;
+  hideModal('exerciseTimerModal');
+}
+function renderExerciseTimer(){
+  if(!exTimer) return;
+  var ex=exTimer;
+  var title=document.getElementById('exTimerTitle');
+  var groupsLabel=document.getElementById('exTimerGroupsLabel');
+  var big=document.getElementById('exTimerBigNum');
+  var sub=document.getElementById('exTimerSubText');
+  var btn=document.getElementById('exTimerActionBtn');
+  if(!title||!groupsLabel||!big||!sub||!btn) return;
+  title.textContent=(ex.key==='burpee'?'💪 ':ex.key==='situp'?'🤸 ':ex.key==='plank'?'🧘 ':'🦩 ')+EX_NAME[ex.key];
+  groupsLabel.textContent='第 '+Math.min(ex.groupsDone+1,ex.groupsTotal)+'/'+ex.groupsTotal+' 组';
+  big.className='ex-timer-big';
+  if(ex.phase==='ready'){
+    big.textContent=ex.cfg.kind==='hold'?(ex.cfg.holdSec+'"'):(ex.repsThisGroupPreview||'');
+    sub.textContent='准备好了就点下面开始第1组吧！';
+    btn.style.display='block'; btn.disabled=false;
+    btn.textContent='▶️ 开始第1组';
+  }else if(ex.phase==='counting'){
+    if(ex.cfg.kind==='hold'){
+      big.textContent=ex.remain;
+      sub.textContent='坚持住，倒计时结束这一组就算完成～';
+    }else{
+      big.textContent=ex.repsDoneInGroup+' / '+ex.repsThisGroup;
+      sub.textContent='跟着"滴"声的节奏，连续做，别停～';
+    }
+    btn.style.display='none';
+  }else if(ex.phase==='resting'){
+    big.textContent=ex.remain;
+    big.className='ex-timer-big rest';
+    sub.textContent='✅ 这一组完成啦！先休息一下～';
+    btn.style.display='none';
+  }else if(ex.phase==='grace'){
+    big.textContent=ex.remain;
+    big.className='ex-timer-big grace';
+    sub.textContent='休息结束啦，'+ex.remain+'秒内点"继续"开始下一组，超时要重新开始哦！';
+    btn.style.display='block'; btn.disabled=false;
+    btn.textContent='▶️ 开始第'+(ex.groupsDone+1)+'组';
+  }else if(ex.phase==='failed'){
+    big.textContent='😥';
+    sub.textContent='太久没继续，这次打卡失败啦，要从第1组重新开始～';
+    btn.style.display='block'; btn.disabled=false;
+    btn.textContent='🔄 重新开始第1组';
+  }
+}
+
 function markDone(cat,key,viaFree){
   if(!state.day[cat]) state.day[cat]={};
   if(cat==='house'){ state.day.house[key]=true; state.day.houseDone++; }
@@ -6256,7 +6479,10 @@ function gainExpForPet(pet,amt){
 }
 function gainExp(amt){ gainExpForPet(state.pet,amt); }
 
-/* ========== 商店购买 + 每日照顾任务 ========== */
+/* ========== 商店购买 + 每日照顾任务 ==========
+   宠物日常照顾用品（吃的/喝的/玩的/洗的这5样）现在改成"先在商店买、囤进背包，宠物页面再用背包里的存货喂"，
+   不能在宠物页面现场花钱——buyItem()只负责"买进背包"（不直接生效），真正喂/用要靠下面的 useSupply() */
+var PET_SUPPLY_IDS=['food','water','milk','out','bath'];
 function buyItem(id){
   var pet=state.pet;
   if(!pet||!pet.chosen){alert('先选择一只宠物伙伴吧');return;}
@@ -6272,7 +6498,24 @@ function buyItem(id){
     alert('🥱 宠物现在吃饱饱、水汪汪或香喷喷太低，没力气训练啦！先喂食🍖、喝水💧、洗澡🛁，把这几项都补到'+TRAIN_MIN_STAT+'%以上再来训练吧～');
     return;
   }
+  // 训练道具/高级训练道具每天各限购1次，避免囤够金币就一次性猛买好几个经验，绕开真实运动打卡的验证
+  if(isTraining){
+    if(!state.day.trainBought) state.day.trainBought={train:false,train2:false};
+    if(state.day.trainBought[id]){alert('【'+item.name+'】今天已经买过啦，明天再来吧～');return;}
+  }
   if(state.moneyBalance<item.price){alert('金币不足，先去完成打卡赚金币吧！');return;}
+  if(PET_SUPPLY_IDS.indexOf(id)>=0){
+    // 日常照顾用品：买进背包囤货，不直接喂给宠物，也不算今日照顾——真正喂的时候在useSupply()里再算
+    state.moneyBalance-=item.price;
+    if(!state.backpack.supplies) state.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
+    state.backpack.supplies[id]=(state.backpack.supplies[id]||0)+1;
+    addLog('🛒购入【'+item.name+'】x1（-'+item.price+'金币），存进了背包');
+    save();
+    renderShop();
+    renderPetSupplyBadges();
+    showPetToast('🛍️ 买了1份'+item.name+'，存进背包啦～');
+    return;
+  }
   state.moneyBalance-=item.price;
   item.fx(pet);
   if(isTraining){
@@ -6280,6 +6523,8 @@ function buyItem(id){
     pet.food=Math.max(0,(pet.food||0)-TRAIN_STAT_COST);
     pet.thirst=Math.max(0,(pet.thirst||0)-TRAIN_STAT_COST);
     pet.clean=Math.max(0,(pet.clean||0)-TRAIN_STAT_COST);
+    if(!state.day.trainBought) state.day.trainBought={train:false,train2:false};
+    state.day.trainBought[id]=true;
   }
   clampPet();
   petSpriteReact(id);
@@ -6300,6 +6545,52 @@ function buyItem(id){
     showReward(item.emoji+' 新家到啦','给 <b>'+pet.name+'</b> 换上了【'+item.name+'】！'+item.desc);
   }else{
     showPetToast(item.emoji+' '+item.name+' '+item.desc);
+  }
+}
+/* 宠物页面这边点🍖💧🥛🎡🛁，用的是背包里已经买好的存货，不再现场花钱——
+   跟buyItem()是两件事：buyItem()负责"花钱买进背包"，这里负责"从背包里拿出来用" */
+function useSupply(id){
+  var pet=state.pet;
+  if(!pet||!pet.chosen){alert('先选择一只宠物伙伴吧');return;}
+  if(!pet.hatched){alert('宠物还没出生（还是蛋），先完成打卡攒经验让它破壳吧');return;}
+  var item=null;
+  for(var i=0;i<CONFIG.shop.length;i++){if(CONFIG.shop[i].id===id) item=CONFIG.shop[i];}
+  if(!item) return;
+  if(!state.backpack.supplies) state.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
+  var stock=state.backpack.supplies[id]||0;
+  if(stock<=0){
+    alert('背包里的【'+item.name+'】用完啦，先去商店买一些再来吧～');
+    return;
+  }
+  state.backpack.supplies[id]=stock-1;
+  item.fx(pet);
+  clampPet();
+  petSpriteReact(id);
+  addLog('🐾使用【'+item.name+'】：'+item.desc);
+  var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath'};
+  if(careMap[id]&&!state.day.petCare[careMap[id]]){
+    state.day.petCare[careMap[id]]=true;
+    state.moneyBalance+=CONFIG.careReward.coin;
+    state.day.earned+=CONFIG.careReward.coin;
+    pet.happy=Math.min(100,(pet.happy||0)+CONFIG.careReward.happy);
+    addLog('💖完成每日照顾【'+careName(careMap[id])+'】：+'+CONFIG.careReward.coin+'金币 +'+CONFIG.careReward.happy+'好感度');
+    checkCareAll();
+  }
+  if(CARE_FX[id]) spawnPetFx(CARE_FX[id]);
+  save();
+  showPetToast(item.emoji+' '+item.name+' '+item.desc);
+  renderPetSupplyBadges();
+}
+function renderPetSupplyBadges(){
+  if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched) return;
+  var supplies=(state.backpack&&state.backpack.supplies)||{};
+  for(var i=0;i<PET_SUPPLY_IDS.length;i++){
+    var id=PET_SUPPLY_IDS[i];
+    var badge=document.getElementById('stockBadge-'+id);
+    if(!badge) continue;
+    var n=supplies[id]||0;
+    badge.textContent=n>99?'99+':String(n);
+    badge.classList.toggle('zero', n<=0);
   }
 }
 function careName(k){
@@ -7162,8 +7453,8 @@ function render(){
   var burpeeDone=state.day.sport.burpee>0;
   var groupBtn=document.getElementById('btnBurpeeGroup');
   var onceBtn=document.getElementById('btnBurpeeOnce');
-  groupBtn.innerHTML=(burpeeDone?'✔':'✅')+'分组完成<br><small style="font-size:10px;font-weight:400">2组×'+Math.round(t.base/2)+'</small>';
-  onceBtn.innerHTML=(burpeeDone?'✔':'✅')+'一次完成<br><small style="font-size:10px;font-weight:400">1次'+t.base+'个</small>';
+  groupBtn.innerHTML=(burpeeDone?'✔':'✅')+'分组完成<br><small style="font-size:10px;font-weight:400">每组30个，分'+Math.max(1,Math.ceil(t.burpee/30))+'组</small>';
+  onceBtn.innerHTML=(burpeeDone?'✔':'✅')+'一次完成<br><small style="font-size:10px;font-weight:400">连续'+t.burpee+'个不休息</small>';
   groupBtn.disabled=burpeeDone;
   onceBtn.disabled=burpeeDone;
   document.getElementById('item-burpee').classList.toggle('done',burpeeDone);
@@ -7257,6 +7548,9 @@ function renderCategoryList(cat,containerId){
         mainBtn='<button class="btn btn-success" onclick="completeSentenceRepeat()">🔁 再练一次 +经验</button>'
           +'<div class="small" style="margin-top:2px">今日已练 '+(repeatCnt+1)+' 次</div>';
       }
+    }else if(cat==='sport'&&EX_CFG[it.id]){
+      // 平板支撑/单腿平衡/仰卧起坐这几项运动任务，要真的跟着计时/计数做完才能打卡，不能直接一点就完成
+      mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="startExerciseTimer(\''+cat+'\',\''+it.id+'\')">▶️ 开始计时打卡</button>';
     }else{
       mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
     }
@@ -7630,6 +7924,7 @@ window.addEventListener('resize', function(){ positionPetActionsColumn(); });
 function renderCare(){
   var pet=state.pet;
   if(!pet||!pet.chosen||!pet.hatched) return;
+  renderPetSupplyBadges();
   var care=state.day.petCare;
   var keys=['feed','water','milk','play','bath'];
   var doneCount=0;
@@ -7667,18 +7962,25 @@ function setBar(barId,valId,val,cls){
 function renderShop(){
   var box=document.getElementById('shopList');
   var pet=state.pet,info=pet&&pet.chosen?petLevelInfo():{level:0},hatched=pet&&pet.chosen&&pet.hatched;
+  var supplies=(state.backpack&&state.backpack.supplies)||{};
+  var trainBought=(state.day&&state.day.trainBought)||{};
   var html='';
   for(var i=0;i<CONFIG.shop.length;i++){
     var it=CONFIG.shop[i];
     var locked=!hatched||info.level<it.lv;
     var owned=(it.id==='house'&&pet&&pet.house>=1);
+    var isSupply=PET_SUPPLY_IDS.indexOf(it.id)>=0;
+    var isTraining=(it.id==='train'||it.id==='train2');
+    var boughtToday=isTraining&&trainBought[it.id];
     html+='<div class="shop-item'+(locked?' locked':'')+'">'
       +'<div class="s-emoji">'+it.emoji+'</div>'
       +'<div class="s-name">'+it.name+'</div>'
       +'<div class="s-desc">'+it.desc+(it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
+      +(isSupply?'<div class="s-desc" style="color:#4caf50;font-weight:700">🎒 背包库存：'+(supplies[it.id]||0)+' 份（要去宠物页面用哦）</div>':'')
+      +(isTraining?'<div class="s-desc" style="color:#e65100">⏱️ 每天限购1次</div>':'')
       +'<div class="s-price">💰 '+it.price+' 金币</div>'
-      +'<button class="btn '+(it.id==='house'?'btn-info':'btn-primary')+'" '+((locked||owned)?'disabled':'')+' onclick="buyItem(\''+it.id+'\')">'
-      +(locked?(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁'):(owned?'已拥有':'购买'))
+      +'<button class="btn '+(it.id==='house'?'btn-info':'btn-primary')+'" '+((locked||owned||boughtToday)?'disabled':'')+' onclick="buyItem(\''+it.id+'\')">'
+      +(locked?(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁'):(owned?'已拥有':(boughtToday?'今日已买':(isSupply?'购买 +1':'购买'))))
       +'</button></div>';
   }
   box.innerHTML=html;
