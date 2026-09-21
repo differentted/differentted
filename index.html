@@ -279,6 +279,26 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 #petNeglectTip.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
 #petNeglectTip .pnt-line1{ font-weight:700; color:#ffe082; margin-bottom:4px; }
 #petNeglectTip .pnt-line2{ color:#f5ecff; }
+/* 受伤倒计时徽章：只在宠物调皮受伤时才出现（平时完全隐藏，不像护体灵光那样常驻），
+   叠在护体灵光徽章正下方，红色+跳动动画，提醒家长赶紧去商城买【特效药】 */
+#petInjuryBadge{
+  position:fixed; top:84px; right:10px; z-index:53; display:none;
+  background:linear-gradient(135deg,#ffe1e6,#ffd0d8); color:#c2185b;
+  border-radius:20px; padding:6px 12px; font-size:12px; font-weight:700;
+  box-shadow:0 4px 14px rgba(233,30,99,.35); border:1px solid rgba(233,30,99,.5);
+  pointer-events:auto; cursor:pointer; transition:.3s; user-select:none;
+  animation:pnbPulse 1.6s ease-in-out infinite;
+}
+#petInjuryTip{
+  position:fixed; top:116px; right:10px; z-index:54; max-width:min(78vw,260px);
+  background:linear-gradient(160deg,rgba(120,25,45,.94),rgba(70,15,30,.94)); color:#fff2d6;
+  border:1px solid rgba(255,150,170,.5); border-radius:16px; padding:11px 13px;
+  font-size:12.5px; line-height:1.6; box-shadow:0 10px 26px rgba(0,0,0,.4);
+  opacity:0; transform:translateY(-6px); pointer-events:none; transition:.2s;
+}
+#petInjuryTip.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+#petInjuryTip .pnt-line1{ font-weight:700; color:#ffb3c1; margin-bottom:4px; }
+#petInjuryTip .pnt-line2{ color:#fff2d6; }
 .pet-switcher{
   position:fixed; top:100px; left:10px; z-index:47;
   display:flex; flex-wrap:wrap; gap:6px; width:148px;
@@ -1021,6 +1041,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <button class="btn btn-primary btn-block" id="btnChoosePet" onclick="openChoose()">🥚 选择你的电子宠物伙伴</button>
   </div>
 
+  <!-- 三维能力值雷达图：体力(运动)/智力(学习)/生活(家务)，累计打卡驱动，也决定宠物性格 -->
+  <div class="card" id="abilityRadarCard" style="display:none">
+    <h2>📊 能力雷达图</h2>
+    <div id="abilityRadarSvg"></div>
+    <div class="small" style="text-align:center;margin-top:2px" id="abilityScoreText"></div>
+    <div class="small" style="text-align:center;margin-top:4px;font-weight:700;color:#7b1fa2" id="abilityPersonalityText"></div>
+    <div class="small" style="margin-top:6px">💪 体力值来自运动打卡，🧠 智力值来自学习打卡，🏠 生活值来自家务打卡，长期累计、不会每天清零。三项的相对高低会决定宠物平时的性格表现。</div>
+  </div>
+
 </div>
 
 <!-- ============ 页3：转盘 ============ -->
@@ -1404,6 +1433,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','food')" title="喂食（用背包里买好的宠物粮食）">🍖<span class="care-badge" id="careBadge-feed">✔</span><span class="stock-badge" id="stockBadge-food">0</span></button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','water')" title="喝水（用背包里买好的饮用水）">💧<span class="care-badge" id="careBadge-water">✔</span><span class="stock-badge" id="stockBadge-water">0</span></button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','milk')" title="牛奶（用背包里买好的牛奶）">🥛<span class="care-badge" id="careBadge-milk">✔</span><span class="stock-badge" id="stockBadge-milk">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','kfc_wing')" title="炸鸡翅（Lv4解锁的高级餐点，用背包里买好的存货）">🍗<span class="stock-badge" id="stockBadge-kfc_wing">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','egg_tart')" title="葡式蛋挞（Lv4解锁的高级餐点，用背包里买好的存货）">🥧<span class="stock-badge" id="stockBadge-egg_tart">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','wagyu')" title="日式和牛（Lv4解锁的高级餐点，用背包里买好的存货）">🥩<span class="stock-badge" id="stockBadge-wagyu">0</span></button>
+  <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','matcha')" title="抹茶拿铁（Lv4解锁的高级餐点，用背包里买好的存货）">🍵<span class="stock-badge" id="stockBadge-matcha">0</span></button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','out')" title="陪玩（用背包里买好的外出游玩券）">🎡<span class="care-badge" id="careBadge-play">✔</span><span class="stock-badge" id="stockBadge-out">0</span></button>
   <button class="hud-act-btn" onclick="petQuickAction('buyItem','train')" title="训练">🎯</button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','bath')" title="美容（用背包里买好的美容洗护）">🛁<span class="care-badge" id="careBadge-bath">✔</span><span class="stock-badge" id="stockBadge-bath">0</span></button>
@@ -1422,6 +1455,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petHouseBadge" style="display:none">🏠 温馨小屋</div>
 <div id="petNeglectBadge" style="display:none" onmouseenter="showPetNeglectTip()" onmouseleave="hidePetNeglectTip()" onclick="petNeglectBadgeTap()">⏳ 护体灵光</div>
 <div id="petNeglectTip"></div>
+<div id="petInjuryBadge" style="display:none" onmouseenter="showPetInjuryTip()" onmouseleave="hidePetInjuryTip()" onclick="petInjuryBadgeTap()">🤕 受伤了</div>
+<div id="petInjuryTip"></div>
 <div id="petSwitcher" class="pet-switcher" style="display:none"></div>
 <div id="petAddWrap" style="display:none">
   <button class="btn btn-success btn-sm" id="btnAddAnotherPet" onclick="openChoose()">➕ 再养一只新宠物</button>
@@ -1459,6 +1494,46 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
    ============================================================ */
 const TRAIN_MIN_STAT = 70; // 吃饱饱/水汪汪/香喷喷低于这个百分比就没力气训练了，得先照顾好宠物
 const TRAIN_STAT_COST = 10; // 每次训练（锻炼）额外消耗掉的吃饱饱/水汪汪/香喷喷
+/* ========== 商城等级锁 + 基础食物随等级"过期" ==========
+   宠物长到 PREMIUM_FOOD_UNLOCK_LEVEL 级之后："胃口变大了"，商店里解锁四款高级餐点（炸鸡翅/葡式蛋挞/
+   日式和牛/抹茶拿铁）。BASIC_FOOD_SUPPLY_IDS 里这几样基础食物（宠物粮食/饮用水/牛奶）这时候
+   还是能买、能吃/喝（不会被拦下来），但2026-09起改成了"过期食物"式的处理：恢复效果打到
+   AGED_BASIC_FOOD_EFFECT_RATIO 这么低（几乎没什么用），而且宠物会不高兴——吃完会随机发脾气，
+   要么赌气弄脏自己（掉清洁度），要么赌气再浪费掉一份同款存货，逼着孩子自己感受到"该换成
+   下面的高级餐点了"，而不是被系统硬性拦住。 */
+var PREMIUM_FOOD_UNLOCK_LEVEL = 4;
+var BASIC_FOOD_SUPPLY_IDS = ['food','water','milk'];
+var AGED_BASIC_FOOD_EFFECT_RATIO = 0.15; // 长大后基础食物只剩这么点恢复效果（约15%），象征"勉强垫垫肚子"
+var AGED_BASIC_FOOD_FX={
+  food:function(p){p.food=Math.min(100,(p.food||0)+Math.round(18*AGED_BASIC_FOOD_EFFECT_RATIO));},
+  water:function(p){p.thirst=Math.min(100,(p.thirst||0)+Math.round(18*AGED_BASIC_FOOD_EFFECT_RATIO));},
+  milk:function(p){p.food=Math.min(100,(p.food||0)+Math.round(11*AGED_BASIC_FOOD_EFFECT_RATIO));}
+};
+/* 长大后勉强吃基础食物：套用极低的恢复效果，再让宠物发一次小脾气——
+   要么赌气弄脏自己（清洁度下降），要么赌气再浪费掉一份同款存货，两种结果二选一，
+   写法上跟"叛逆性格离线捣乱"的 messy/waste 两个结果是同一路数，情绪上更连贯、也不用另造一套文案体系 */
+function applyAgedBasicFoodTantrum(pet, id){
+  var fx=AGED_BASIC_FOOD_FX[id];
+  if(fx) fx(pet);
+  var dropHappy=8+Math.floor(Math.random()*10); // 生气掉一点好感度：8~17
+  pet.happy=Math.max(0,(pet.happy||0)-dropHappy);
+  var petName=pet.name||'宠物';
+  var itemName=(CONFIG.shop.filter(function(x){return x.id===id;})[0]||{}).name||'食物';
+  if(Math.random()<0.5){
+    var dropClean=6+Math.floor(Math.random()*12);
+    pet.clean=Math.max(0,(pet.clean||0)-dropClean);
+    addLog('😠'+petName+' 嫌弃这份【'+itemName+'】，气鼓鼓地把自己和周围弄脏了');
+  }else{
+    var supplies=state.backpack.supplies||{};
+    if((supplies[id]||0)>0){
+      supplies[id]=Math.max(0,supplies[id]-1);
+      addLog('😠'+petName+' 赌气把另一份【'+itemName+'】弄洒浪费掉了');
+    }else{
+      addLog('😠'+petName+' 气鼓鼓地把【'+itemName+'】剩下的部分推得到处都是');
+    }
+  }
+  spawnPetFx(['😠','💢']);
+}
 const CONFIG = {
   coins: { burpee:5, plank:4, balance:4, situp:5, word:3, hanzi:3, sentence:5, math:5, sing:4, dance:4, diary:5, custom:2, house:1, grandpa:4, inlaw:4, hello:1, readEn:3, readCn:3, storyEn:3, storyCn:3, quiz:1 },
   taskExp: 2,
@@ -1473,10 +1548,15 @@ const CONFIG = {
     {id:'food', name:'宠物粮食', emoji:'🍖', price:1, lv:1, desc:'吃饱饱 +18', fx:function(p){p.food+=18}},
     {id:'water', name:'饮用水', emoji:'💧', price:1, lv:1, desc:'水汪汪 +18', fx:function(p){p.thirst+=18}},
     {id:'milk', name:'牛奶', emoji:'🥛', price:2, lv:1, desc:'饱食+11，开心+7', fx:function(p){p.food+=11;p.happy+=7}},
+    {id:'kfc_wing', name:'炸鸡翅', emoji:'🍗', price:4, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'吃饱饱 +26', fx:function(p){p.food+=26}},
+    {id:'egg_tart', name:'葡式蛋挞', emoji:'🥧', price:4, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'吃饱饱 +16，开心 +10', fx:function(p){p.food+=16;p.happy+=10}},
+    {id:'wagyu', name:'日式和牛', emoji:'🥩', price:7, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'吃饱饱 +38', fx:function(p){p.food+=38}},
+    {id:'matcha', name:'抹茶拿铁', emoji:'🍵', price:4, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'水汪汪 +26，开心 +8', fx:function(p){p.thirst+=26;p.happy+=8}},
     {id:'out', name:'外出游玩券', emoji:'🎡', price:5, lv:1, desc:'开心 +32', fx:function(p){p.happy+=32}},
     {id:'train', name:'训练道具', emoji:'🎯', price:3, lv:1, desc:'经验 +30（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', fx:function(p){gainExp(30)}},
     {id:'train2', name:'高级训练道具', emoji:'🏆', price:8, lv:10, desc:'经验 +60（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', fx:function(p){gainExp(60)}},
     {id:'bath', name:'美容洗护', emoji:'🛁', price:5, lv:1, desc:'香喷喷 +22', fx:function(p){p.clean+=22}},
+    {id:'medicine', name:'特效药', emoji:'💊', price:15, lv:1, desc:'立刻治好受伤，避免变回蛋', fx:function(p){p.injured=false;p.injuredAt=null;}},
     {id:'house', name:'新小窝（豪华大房子）', emoji:'🏰', price:20, lv:7, desc:'更换房子外观', fx:function(p){p.house=1}}
   ],
   /* 副本挑战：按宠物等级解锁，每天只能挑战一次；挑战成功获得金币 + 该副本专属装饰（只在首次通关时发放）
@@ -1706,10 +1786,14 @@ function syncPetImmersive(){
   // renderPetNeglectBadge() 内部自己会按当前状态决定该显示还是该收起（是蛋/没宠物/在棋盘打卡页都会自动收起），
   // 不放进上面那个"只有孵化了才处理"的分支里，这样宠物刚变回蛋的那一刻，这个徽章也能跟着立刻消失，不会卡在画面上
   renderPetNeglectBadge();
+  renderPetInjuryBadge();
   if(hideChrome){
     var nb=document.getElementById('petNeglectBadge');
     if(nb) nb.style.display='none';
     hidePetNeglectTip();
+    var ib=document.getElementById('petInjuryBadge');
+    if(ib) ib.style.display='none';
+    hidePetInjuryTip();
   }
   // 多宠物切换器 + "再养一只新宠物"入口：只在宠物页显示，跟其它悬浮面板一个规矩，别的页面先收起来
   var showMultiPetUi=isActive && !hideChrome && !!(state.pets && state.pets.length>=1);
@@ -2328,6 +2412,10 @@ function petSpriteReact(id){
   }
   var dx=(Math.random()<0.5?-1:1);
   var totalMs=900;
+  /* 高级餐点（炸鸡翅/葡式蛋挞/日式和牛算"吃的"，抹茶拿铁算"喝的"）暂时没有专属美术，
+     直接复用食物/饮用水的吃喝动画演出，视觉上都是"蹲下来吃/喝完把家伙什收走"这一套 */
+  if(id==='kfc_wing'||id==='egg_tart'||id==='wagyu') id='food';
+  else if(id==='matcha') id='water';
   if(id==='food'){
     /* 喂食：跑过去抱起食盆，边吃食物边可见地变少，吃完把食盆收走 */
     var fMoveDx=dx*(40+Math.random()*30);
@@ -3134,8 +3222,60 @@ function petNeglectBadgeTap(){
   clearTimeout(petNeglectTipAutoHideTimer);
   petNeglectTipAutoHideTimer=setTimeout(hidePetNeglectTip,4000);
 }
+/* ========== 受伤倒计时装置：调皮的宠物离线时"有时候"会做危险动作受伤（见 rollRebelEvent 的 injured 分支），
+   受伤后必须在 PET_INJURY_REVERT_HOURS 小时内去商城买【特效药】治好，不然会伤心地变回蛋。
+   这个徽章平时完全不显示，只有真的受伤了才会跳出来，逼着家长第一时间注意到、赶紧去买药 ========== */
+var PET_INJURY_MSGS=[
+  '它一瘸一拐的，眼泪汪汪地看着你，好像在说"疼疼，快带我去买药"……',
+  '伤口还没好，它有点没精神，蜷在原地，等着你带它去商城买【特效药】。',
+  '它悄悄跟你说，其实它也很怕变回蛋，希望你能快点带它去买药治好伤。',
+  '受伤之后它变乖了一点，安安静静地等着，盼着你能早点注意到它。'
+];
+var petInjuryLastMsgIdx=-1;
+function petInjuryPickMsg(){
+  if(!PET_INJURY_MSGS.length) return '';
+  var idx=Math.floor(Math.random()*PET_INJURY_MSGS.length);
+  if(PET_INJURY_MSGS.length>1 && idx===petInjuryLastMsgIdx) idx=(idx+1)%PET_INJURY_MSGS.length;
+  petInjuryLastMsgIdx=idx;
+  return PET_INJURY_MSGS[idx];
+}
+function petInjuryStatus(){
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched||!pet.injured||!pet.injuredAt) return null;
+  var elapsed=Math.max(0,(Date.now()-pet.injuredAt)/3600000);
+  var remainHours=Math.max(0,PET_INJURY_REVERT_HOURS-elapsed);
+  return {remainHours:remainHours};
+}
+function renderPetInjuryBadge(){
+  var badge=document.getElementById('petInjuryBadge');
+  if(!badge) return;
+  var st=petInjuryStatus();
+  if(!st){ badge.style.display='none'; hidePetInjuryTip(); return; }
+  badge.style.display='block';
+  badge.innerText='🤕 受伤·'+formatRemainHours(st.remainHours);
+}
+var petInjuryTipAutoHideTimer=null;
+function showPetInjuryTip(){
+  var tip=document.getElementById('petInjuryTip');
+  if(!tip) return;
+  var st=petInjuryStatus();
+  if(!st) return;
+  var line1='还剩 '+formatRemainHours(st.remainHours)+'，没治好会伤心地变回蛋……';
+  tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+petInjuryPickMsg()+'</div>';
+  tip.classList.add('show');
+}
+function hidePetInjuryTip(){
+  clearTimeout(petInjuryTipAutoHideTimer);
+  var tip=document.getElementById('petInjuryTip');
+  if(tip) tip.classList.remove('show');
+}
+function petInjuryBadgeTap(){
+  showPetInjuryTip();
+  clearTimeout(petInjuryTipAutoHideTimer);
+  petInjuryTipAutoHideTimer=setTimeout(hidePetInjuryTip,4000);
+}
 /* ========== 互动反馈动画：喂食/喝水/喂奶/陪玩/训练/美容 各自弹出不同的漂浮图标 ========== */
-const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨']};
+const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],kfc_wing:['🍗','✨'],egg_tart:['🥧','✨'],wagyu:['🥩','✨','⭐'],matcha:['🍵','💧'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨'],medicine:['💊','✨','💚']};
 function spawnPetFx(icons){
   var host=document.getElementById('petWrap');
   if(!host||!petSpriteVisible()) return;
@@ -3337,6 +3477,15 @@ function defaultState(){
     childGrade:3, // 小朋友当前年级（1~6），只影响"学习打卡"内容出题（古诗、纯英文数学题），不影响"守卫家园"游戏本身的难度曲线
     studyThemeMode:'auto', // 学习打卡主题挑选方式：'auto'=30天自动轮换不重复（默认）/'random'=每天随机主题（同一天不变）/'manual'=自己指定固定主题
     studyThemeManualId:null, // studyThemeMode 为 'manual' 时，小朋友自己选定的主题 id（对应 THEMES 里的 id）
+    abilityStr:0, // 三维能力值：运动类打卡累计次数（驱动"体力值"）
+    abilityInt:0, // 学习类打卡累计次数（驱动"智力值"）
+    abilityLife:0, // 家务类打卡累计次数（驱动"生活值"）
+    abilityFun:0, // 才艺类打卡累计次数（唱歌/跳舞，驱动"才艺值"）
+    abilityEmotion:0, // 日记打卡累计次数（驱动"情感值"）
+    abilitySocial:0, // 社交类打卡累计次数（打电话问候爷爷奶奶外公外婆，驱动"社交值"）
+    abilityChar:0, // 自定义加分项累计次数（驱动"品格值"）
+    pendingOfflineNotice:null, // 离线期间触发的性格行为事件，下次打开时弹一次通知，展示完就清空
+    lastCheckinDayKey:todayKey(), // 最近一次真的有打卡拿到金币是哪一天，连续零打卡满2天会触发金币兜底清空
     version:4
   };
 }
@@ -3401,6 +3550,7 @@ function load(){
   showPage('home');
   render();
   maybeShowWishResetPrompt();
+  maybeShowOfflineNotice();
   scheduleAppEntranceGreeting();
   checkBackupReminder();
 }
@@ -4064,6 +4214,47 @@ function toggleSentenceMeaning(btn){
   span.style.display=showing?'none':'inline';
   btn.textContent=showing?'👀 查看中文意思':'🙈 隐藏中文意思';
 }
+/* 有些设备（比如部分定制安卓学习机/平板自带的浏览器内核）压根没有装"文字转语音"引擎，
+   或者装了但没有对应语言的语音包——这种情况下 speechSynthesis 这个接口本身可能还在，
+   调用 speak() 也不报任何错，但就是自始至终发不出声音，从孩子/家长的角度看就是"点了没反应"。
+   之前完全没有提示，家长很难判断到底是没点中、还是设备本身不支持。这里加一个"仅提示一次"的
+   兜底：调用之后等一小段时间，如果连 onstart/onboundary 这种"确实开始念了"的事件都没等到，
+   就认为这台设备大概率发不出朗读声音，用宠物气泡提示一句，并且用localStorage记一下，
+   避免每次点🔊都弹一遍提示、显得很吵。 */
+/* 独立于宠物气泡系统之外的一个兜底浮层提示：不依赖petSpriteVisible/sleeping/busy这些条件，
+   保证不管当前宠物是不是显示着，家长/小朋友都能看到这句提示，不会因为宠物刚好被收起来
+   （比如在棋盘页、或者状态不好被收起来）就完全看不到任何反馈。 */
+function ttsToast(msg,ms){
+  try{
+    var old=document.getElementById('ttsToastEl');
+    if(old) old.remove();
+    var el=document.createElement('div');
+    el.id='ttsToastEl';
+    el.textContent=msg;
+    el.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:88vw;'
+      +'background:rgba(40,20,50,0.92);color:#fff;font-size:13px;line-height:1.5;padding:10px 16px;'
+      +'border-radius:14px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.25);text-align:center;';
+    document.body.appendChild(el);
+    setTimeout(function(){ if(el&&el.parentNode) el.remove(); }, ms||6000);
+  }catch(e){}
+}
+var TTS_SILENT_NOTICE_KEY='ttsSilentDeviceNoticeShownV1';
+function ttsShowSilentDeviceNotice(){
+  var already=false;
+  try{ already=localStorage.getItem(TTS_SILENT_NOTICE_KEY)==='1'; }catch(e){}
+  if(already) return;
+  try{ localStorage.setItem(TTS_SILENT_NOTICE_KEY,'1'); }catch(e){}
+  var msg='🔇 这台设备好像听不到朗读声音，可能是没装"文字转语音"语音包，可以去设备的"设置-无障碍-文字转语音"里检查一下～（文字还是能看的，不影响做题）';
+  var canShowPet = petSpriteVisible && petSpriteVisible() && typeof sleeping!=='undefined' && !sleeping && typeof busy!=='undefined' && !busy;
+  if(canShowPet){
+    clearTimeout(petTalkEndTimer);
+    setPetAnim('talk');
+    petSay(msg, 6000);
+    petTalkEndTimer=setTimeout(petStopTalking, 6000);
+  }
+  /* 不管宠物气泡有没有显示，都再用这个不依赖宠物状态的浮层提示一次，保证家长/小朋友一定能看到 */
+  ttsToast(msg, 6000);
+}
 function studySpeak(text,lang){
   /* 点🔊的时候让宠物"亲口"把这句话讲给小朋友听：冒泡显示这句话 + 一边讲一边做出说话的表情动作，
      而不只是浏览器安安静静地念一遍，更拟人化 */
@@ -4075,6 +4266,7 @@ function studySpeak(text,lang){
   }
   if(!window.speechSynthesis){
     if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*180)));
+    setTimeout(ttsShowSilentDeviceNotice, 1300);
     return;
   }
   /* 浏览器朗读这几个坑很常见，不处理的话经常"点了但没声音"：
@@ -4098,17 +4290,28 @@ function studySpeak(text,lang){
           || voices.filter(function(v){return v.lang && v.lang.split('-')[0]===langShort;})[0];
         if(match) u.voice=match;
       }catch(matchErr){ /* 挑voice失败就算了，不影响下面继续朗读 */ }
+      var spoke=false;
+      u.onstart=function(){ spoke=true; };
+      u.onboundary=function(){ spoke=true; };
       if(canShowPet){
-        u.onend=petStopTalking;
-        u.onerror=petStopTalking;
+        var _origOnEnd=u.onend, _origOnErr=u.onerror;
+        u.onend=function(){ if(_origOnEnd)_origOnEnd(); petStopTalking(); };
+        u.onerror=function(){ if(_origOnErr)_origOnErr(); petStopTalking(); };
       }
       /* 这里以前用setTimeout(...,30)把speak()往后错开一点点，是为了避开个别Chrome版本"cancel()后立刻
          speak()会被吞掉"的老问题；但iPad/iPhone上的Safari要求speak()必须和点击这个用户操作同步发生，
          哪怕只错开一瞬间也可能导致完全没声音——这里改成直接同步调用，优先保证iPad上能出声音 */
-      try{ window.speechSynthesis.speak(u); }
-      catch(e2){ if(canShowPet) petStopTalking(); }
+      try{
+        window.speechSynthesis.speak(u);
+        /* 有些设备（如部分安卓学习机自带浏览器）speak()调用完全不报错、也不触发onerror，
+           但从头到尾没有任何声音，onstart/onboundary自然也不会触发——用这个超时兜底识别出来，
+           给家长一个"这是设备问题、不是没点中"的提示，而不是让人一直以为是网页坏了 */
+        setTimeout(function(){ if(!spoke) ttsShowSilentDeviceNotice(); }, 1300);
+      }
+      catch(e2){ if(canShowPet) petStopTalking(); setTimeout(ttsShowSilentDeviceNotice, 100); }
     }catch(e){
       if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*180)));
+      setTimeout(ttsShowSilentDeviceNotice, 1300);
     }
   }
   /* 这里以前是：如果voices列表还没加载好，就先等voiceschanged事件（或最多等350ms）才真正调用speak()。
@@ -5035,6 +5238,7 @@ function completeReadingTask(cat){
   var coin=specialCoin(cat);
   earnCoins(coin, cfg.log);
   if(state.pet&&state.pet.chosen) gainTaskExp();
+  gainAbilityPoint('study'); // 中英文阅读/名著故事都算"学习"类，累加智力值
   addLog(cfg.log+'，+'+coin+'金币');
   state[cfg.idxKey] = ((state[cfg.idxKey]||0)+1) % bank.length;
   save();
@@ -5271,9 +5475,21 @@ function migrateState(s){
     if(typeof _onePet.equippedAccessory==='undefined') _onePet.equippedAccessory=null;
     if(typeof _onePet.dungeonBestTier==='undefined') _onePet.dungeonBestTier=-1;
     if(typeof _onePet.neglectHours==='undefined') _onePet.neglectHours=0;
+    if(typeof _onePet.injured==='undefined') _onePet.injured=false;
+    if(typeof _onePet.injuredAt==='undefined') _onePet.injuredAt=null;
   }
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
   if(!s.pvpFriends) s.pvpFriends=[];
+  if(typeof s.abilityStr!=='number') s.abilityStr=0;
+  if(typeof s.abilityInt!=='number') s.abilityInt=0;
+  if(typeof s.abilityLife!=='number') s.abilityLife=0;
+  if(typeof s.abilityFun!=='number') s.abilityFun=0;
+  if(typeof s.abilityEmotion!=='number') s.abilityEmotion=0;
+  if(typeof s.abilitySocial!=='number') s.abilitySocial=0;
+  if(typeof s.abilityChar!=='number') s.abilityChar=0;
+  if(typeof s.pendingOfflineNotice==='undefined') s.pendingOfflineNotice=null;
+  // 老存档没有这个字段时，从"现在"开始起算，不倒查历史——不能因为补了这个新字段就反倒把老玩家一直攒的金币冤枉清空
+  if(!s.lastCheckinDayKey) s.lastCheckinDayKey=todayKey();
 }
 
 /* ========== 档案切换 / 新建 ========== */
@@ -5292,6 +5508,7 @@ function switchChild(id){
   saveStore();
   render();
   maybeShowWishResetPrompt();
+  maybeShowOfflineNotice();
 }
 let pickedAvatar=AVATARS[0];
 let pickedGrade=3;
@@ -5667,6 +5884,7 @@ function onNewDay(){
     if(!wasStudyFull) state.studyStreak=0;
     checkWishDayRollover(state.day.key);
     applyDecayAcrossDays(state.day.key, today);
+    maybeTriggerCoinWipe(today);
     var carry=state.nextBurpeeBonus||0;
     state.day=freshDay(today);
     state.day.burpeeBonus=carry;
@@ -5698,16 +5916,150 @@ function applyDecayAcrossDays(fromKey,toKey){
    一直提示"需要好好照顾"而已）。72小时=连续3整天四项都彻底见底，是本次新增时选的默认阈值，
    足够宽松不会误伤"忘了喂一两天"，但一周不管肯定会触发 */
 var PET_NEGLECT_REVERT_HOURS = 72;
-function revertPetToEgg(pet){
+/* 调皮做危险动作受伤后，如果3小时内没有买【特效药】治好，也会伤心地变回蛋——
+   跟"长期没人照顾"共用同一个 revertPetToEgg()，用 reason 参数区分变回蛋的文案，
+   两个计时器彼此独立（受伤计时更短、更紧急，不影响原来72小时的忽略计时）。 */
+var PET_INJURY_REVERT_HOURS = 3;
+function revertPetToEgg(pet, reason){
   var isActive=(pet===state.pet);
+  var name=pet.name||'宠物';
   pet.hatched=false;
   pet.exp=0;
   pet.food=100; pet.thirst=100; pet.happy=100; pet.clean=100;
   pet.neglectHours=0;
-  addLog('💔'+(pet.name||'宠物')+' 因为太久没人照顾，伤心地变回了蛋……需要重新好好养大它啦');
-  if(isActive){
-    curPetStage=null; curPetLevel=null;
-    showReward('🥚 变回蛋啦……','<b>'+(pet.name||'宠物')+'</b> 因为太长时间没有被喂食/喝水/清洁/陪玩，伤心地缩回了蛋里。<br>重新用心照顾它，它会再次破壳长大的！');
+  pet.injured=false; pet.injuredAt=null;
+  if(reason==='injury'){
+    addLog('💔'+name+' 因为受伤后一直没吃到特效药，伤心地变回了蛋……需要重新好好养大它啦');
+    if(isActive){
+      curPetStage=null; curPetLevel=null;
+      showReward('🥚 变回蛋啦……','<b>'+name+'</b> 因为受伤后太久没有吃到【特效药】，伤心地缩回了蛋里。<br>下次它调皮受伤时，要记得及时去商城买药救它哦！');
+    }
+  }else{
+    addLog('💔'+name+' 因为太久没人照顾，伤心地变回了蛋……需要重新好好养大它啦');
+    if(isActive){
+      curPetStage=null; curPetLevel=null;
+      showReward('🥚 变回蛋啦……','<b>'+name+'</b> 因为太长时间没有被喂食/喝水/清洁/陪玩，伤心地缩回了蛋里。<br>重新用心照顾它，它会再次破壳长大的！');
+    }
+  }
+}
+/* ========== 七维能力值驱动的宠物性格 + 离线行为事件 ==========
+   性格判定规则（2026-09 更新为全部7个维度一起参与，不再只看体力/智力/生活三项）：
+   - 智力（学习）值明显落后于其它维度的平均水平 → 好动叛逆，离线期间会调皮捣蛋做坏事
+     （乱花钱/浪费食物/弄脏耍脾气，甚至做危险动作受伤，见 rollRebelEvent）；
+   - 智力值高（>=ABILITY_HIGH，且没有触发上面的叛逆条件）→ 乖巧懂事，行为稳定，不触发任何负面离线事件；
+   - 生活值高（且不满足上面两条）→ 离线期间自动出门打工赚金币；
+   - 都够不上门槛 → 性格中性，安安静静，不触发事件。
+   "学习落后"具体用"智力值 < 其余6个维度的平均分"来判定：不用固定阈值，而是让学习和孩子自己
+   其它方面的发展水平比较——哪怕其它维度都不高，只要学习明显是短板，也会被判定为叛逆，
+   这样"多陪孩子做其它事、但完全不管学习"不会被误判为均衡发展。 */
+var ABILITY_HIGH=60;
+function petPersonality(){
+  var sc=petAbilityScores();
+  var otherKeys=RADAR_AXES.map(function(ax){return ax.key;}).filter(function(k){return k!=='intl';});
+  var otherSum=otherKeys.reduce(function(sum,k){return sum+sc[k];},0);
+  var otherAvg=otherSum/otherKeys.length;
+  if(sc.intl<otherAvg) return 'rebel';
+  if(sc.intl>=ABILITY_HIGH) return 'good';
+  if(sc.life>=ABILITY_HIGH) return 'worker';
+  return 'neutral';
+}
+var OFFLINE_EVENT_MIN_HOURS=2; // 离线至少这么久才判定一次性格行为事件，避免开关App/挂机也频繁触发
+function rollOfflineEvent(pet){
+  var personality=petPersonality();
+  if(personality==='rebel') return rollRebelEvent(pet);
+  if(personality==='worker') return rollWorkerEvent(pet);
+  return null; // 乖巧(good)和中性(neutral)都保持安静，不弹通知
+}
+function rollRebelEvent(pet){
+  var supplies=state.backpack.supplies||{};
+  var pool=[];
+  if(state.moneyBalance>0) pool.push('spend');
+  if((supplies.food>0)||(supplies.water>0)||(supplies.milk>0)) pool.push('waste');
+  pool.push('messy'); // 弄脏耍脾气这个选项总是可以发生，保证叛逆性格离线时一定会有点动静
+  // 已经受伤了就不会再触发"受伤"这个结果（避免离线一段时间连续判定好几次都是受伤，剧情说不通），
+  // 且概率不用太高——不是每次叛逆离线都会受伤，只是"有时候"，太频繁反而会让孩子觉得防不胜防
+  if(!pet.injured && Math.random()<0.28) pool.push('injured');
+  var pick=pool[Math.floor(Math.random()*pool.length)];
+  var petName=pet.name||'宠物';
+  if(pick==='injured'){
+    pet.injured=true; pet.injuredAt=Date.now();
+    addLog('🤕'+petName+' 趁你不在偷偷玩危险动作，不小心受伤了！要在3小时内买【特效药】给它治好');
+    return '🤕 你不在的这段时间，'+petName+' 偷偷玩了些危险动作，结果不小心受伤了！<br>要赶紧去商城买【特效药】给它治疗，不然3小时内没治好，它会伤心地变回蛋哦！';
+  }
+  if(pick==='spend'){
+    var lost=Math.max(5,Math.min(80,Math.round(state.moneyBalance*(0.1+Math.random()*0.2))));
+    lost=Math.min(lost,state.moneyBalance);
+    state.moneyBalance-=lost;
+    addLog('😈'+petName+' 趁你不在，偷偷拿了 '+lost+' 金币出去买玩具/零食/冰淇淋了');
+    return '😈 你不在的这段时间，'+petName+' 偷偷拿金币出去买了玩具和零食，乱花掉了 <b>'+lost+' 金币</b>！下次要多陪陪它、多带它打卡运动/学习，性格才会慢慢稳重起来哦～';
+  }
+  if(pick==='waste'){
+    var items=[]; if(supplies.food>0) items.push('food'); if(supplies.water>0) items.push('water'); if(supplies.milk>0) items.push('milk');
+    var it=items[Math.floor(Math.random()*items.length)];
+    supplies[it]=Math.max(0,supplies[it]-1);
+    var itName={food:'宠物粮食',water:'饮用水',milk:'牛奶'}[it];
+    addLog('😈'+petName+' 趁你不在，故意糟蹋掉了1份【'+itName+'】');
+    return '😈 你不在的这段时间，'+petName+' 生气地把1份【'+itName+'】弄洒浪费掉了，需要重新去商店补货。';
+  }
+  var dropClean=10+Math.floor(Math.random()*15);
+  var dropHappy=5+Math.floor(Math.random()*10);
+  pet.clean=Math.max(0,(pet.clean||0)-dropClean);
+  pet.happy=Math.max(0,(pet.happy||0)-dropHappy);
+  addLog('😈'+petName+' 趁你不在到处捣乱，把自己和房间弄脏了，还有点不听指挥');
+  return '😈 你不在的这段时间，'+petName+' 到处捣乱，把自己和房间弄得脏兮兮的，还有点不听指挥，需要重新帮它洗澡哄一哄。';
+}
+function rollWorkerEvent(pet){
+  var petName=pet.name||'宠物';
+  var gain=8+Math.floor(Math.random()*13); // 8~20金币
+  state.moneyBalance+=gain;
+  addLog('💼'+petName+' 趁你不在出门打工，赚了 '+gain+' 金币');
+  return '💼 你不在的这段时间，你的宠物出门打工啦，赚了 <b>'+gain+' 金币</b> 给自己买食物哦！';
+}
+/* ========== 防刷金币兜底：连续2天完全零打卡，自动清空全部金币 ==========
+   不管攒了多少金币（几百～上万），只要连续2整天一次真的打卡都没有，系统就会自动把金币清零，
+   不需要家长手动干预、不需要排查是不是有漏洞被利用。清空这件事本身对孩子来说会比较有冲击力，
+   所以不是干巴巴弹一句"金币已清零"，而是让宠物自己背这个锅——按当前性格编一个"金币是宠物自己花掉的"
+   理由，读起来更像宠物做了什么事，而不是系统在惩罚孩子，也更容易被接受。
+   叛逆型的理由偏"乱花钱让人生气"，乖巧/聪明型偏"好心办坏事/投资失败"这种更容易被原谅的理由，
+   勤劳型偏"做生意亏本"，性格中性时给两条比较中立、谁都适用的理由。 */
+var COIN_WIPE_ZERO_DAYS=2;
+var COIN_WIPE_REASONS={
+  rebel:[
+    '偷偷跑去游乐场，把所有金币都投进了抓娃娃机，一个娃娃也没抓到',
+    '半夜爬起来把能买到的零食、冰淇淋全买了个遍，吃撑了也没剩下一个金币',
+    '看见新出的限量款玩具，一冲动全款拿下，回来才发现钱包空空'
+  ],
+  good:[
+    '学着大人的样子，把钱拿去"投资"想给你一个惊喜，结果全部亏光了',
+    '偷偷报名了一个"包教包会"的培训班，结果被骗光了所有学费',
+    '看到别的宠物囤货能赚差价，也跟着屯了一批东西，结果砸在手里贱卖出去，倒亏了本'
+  ],
+  worker:[
+    '自己悄悄开了个小摊做生意，进货进多了卖不出去，只能倒贴钱清仓甩卖',
+    '借钱给隔壁摊位的朋友周转，结果朋友没能力还上，这笔钱就这么打了水漂'
+  ],
+  neutral:[
+    '突然生病了，偷偷自己跑去看病拿药，花光了所有积蓄',
+    '看到路边有需要帮助的小动物，把所有金币都捐出去帮它治病了'
+  ]
+};
+function rollCoinWipeReason(){
+  var personality=petPersonality();
+  var pool=COIN_WIPE_REASONS[personality]||COIN_WIPE_REASONS.neutral;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function maybeTriggerCoinWipe(today){
+  if(!state.lastCheckinDayKey){ state.lastCheckinDayKey=today; return; }
+  if(!(state.moneyBalance>0)) return; // 已经没钱可清了，不用再触发
+  var gap=daysBetween(state.lastCheckinDayKey, today);
+  if(gap>=COIN_WIPE_ZERO_DAYS){
+    var lost=state.moneyBalance;
+    var reason=rollCoinWipeReason();
+    var petName=(state.pet&&state.pet.chosen&&state.pet.name)||'宠物';
+    state.moneyBalance=0;
+    addLog('💸连续'+gap+'天没有打卡，'+petName+' 把攒下的 '+lost+' 金币全部花光了：'+reason);
+    var msg='💸 好几天没见你打卡啦，'+petName+' 把攒下的 <b>'+lost+' 金币</b> 全部花光了——'+reason+'。快回来打卡，重新攒金币吧！';
+    state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
   }
 }
 function applyRealTimeDecay(){
@@ -5731,6 +6083,16 @@ function applyRealTimeDecay(){
     pet.clean=Math.max(0,preClean-rateClean*elapsedHours);
     pet.lastTickAt=now;
 
+    /* 性格驱动的离线行为事件：只对当前出战/展示的这只宠物生成（家里养了不止一只时，不用每只都弹一遍，
+       避免一开App连续弹好几个通知）。离线至少要够 OFFLINE_EVENT_MIN_HOURS 小时才判定一次，挂机时
+       每分钟触发的微量补扣（elapsedHours远小于1小时）天然不会命中，只有真的"隔了一段时间没来看"才会触发。
+       同一次离线只roll一次事件（不按小时数重复叠加），事件文案存进pendingOfflineNotice，
+       下次render()之后统一弹窗告诉主人离线期间发生了什么。 */
+    if(pet===state.pet && pet.hatched && elapsedHours>=OFFLINE_EVENT_MIN_HOURS){
+      var _notice=rollOfflineEvent(pet);
+      if(_notice) state.pendingOfflineNotice=_notice;
+    }
+
     /* 倒推出"这一段时间里，四项状态是从什么时候开始全部同时归零的"，而不是简单地把整段离线时长都当成
        "已经归零"的时长——这样不管是挂机时每分钟微量掉一点，还是隔了很久重新打开一次性补扣一大段，
        算出来的"已经零蛋着放了多久"都是一致、准确的 */
@@ -5746,7 +6108,18 @@ function applyRealTimeDecay(){
       pet.neglectHours=0;
     }
     if(pet.neglectHours>=PET_NEGLECT_REVERT_HOURS){
-      revertPetToEgg(pet);
+      revertPetToEgg(pet, 'neglect');
+      continue; // 已经变回蛋了，不用再往下判定受伤倒计时
+    }
+
+    /* 受伤倒计时：跟忽略倒计时是完全独立的两套计时器，不管家里养了几只宠物，只要受伤了都会一直跑
+       （不像离线行为事件那样只处理当前展示的那只），这样"后台"的宠物受伤了也不会被忘记而悄悄变回蛋，
+       家长能第一时间知道要去买药 */
+    if(pet.injured && pet.injuredAt){
+      var injuredElapsedHours=Math.max(0,(now-pet.injuredAt)/3600000);
+      if(injuredElapsedHours>=PET_INJURY_REVERT_HOURS){
+        revertPetToEgg(pet, 'injury');
+      }
     }
   }
 }
@@ -5910,6 +6283,7 @@ function completeBurpee(mode){
   if(mode==='once') state.nextBurpeeBonus=60;
   earnCoins(specialCoin('burpee'),'波比跳');
   gainTaskExp();
+  gainAbilityPoint('sport');
   addLog('✅波比跳完成（'+(mode==='once'?'1次做完，明日免做':'分组完成，明日无优惠')+'），+'+specialCoin('burpee')+'金币');
   afterTask('sport');
   save();
@@ -6120,7 +6494,7 @@ function markDone(cat,key,viaFree){
   else { state.day[cat][key]=true; }
   var mult=studyRewardMultiplier(cat,key);
   var coins=taskCoinsOf(cat,key)*mult;
-  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult);}
+  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult);gainAbilityPoint(cat);}
   else{markDayActive();}
   addLog('✅完成：'+taskLabel(cat,key)+(viaFree?'（免做卡豁免）':'')+(viaFree?'':'，+'+coins+'金币'+(mult>1?'（难度较高，双倍奖励）':'')));
   afterTask(cat);
@@ -6136,6 +6510,7 @@ function completeSentenceRepeat(){
   if(d.sentenceRepeatCount>=cap){ alert('今天已经练习10次啦，明天再来吧！'); return; }
   d.sentenceRepeatCount++;
   gainTaskExp();
+  gainAbilityPoint('study');
   addLog('💬重复练习今日句子，+经验');
   save();
 }
@@ -6155,7 +6530,7 @@ function taskCoinsOf(cat,key){
   if(d) return d.coins;
   return CONFIG.coins[key]||0;
 }
-function earnCoins(n,label){state.day.earned+=n;state.moneyBalance+=n;markDayActive();}
+function earnCoins(n,label){state.day.earned+=n;state.moneyBalance+=n;markDayActive();state.lastCheckinDayKey=state.day.key;}
 function categoriesDoneToday(){
   var d=state.day;
   var td=store.taskDefs||{};
@@ -6235,6 +6610,100 @@ function markDayActive(){
   }
 }
 function gainTaskExp(mult){if(state.pet&&state.pet.chosen) gainExp(CONFIG.taskExp*(mult||1));}
+/* ========== 三维能力值（体力/智力/生活）：运动→体力，学习→智力，家务→生活 ==========
+   每完成一项对应类别的真实打卡（不是用免做卡豁免掉的），对应维度累加1点，长期累计、不会每天清零，
+   用来驱动宠物专属页面的雷达图和性格判定。跟经验值(exp)是两套独立的东西：exp只管等级，
+   这三个维度只管"孩子平时更偏爱/更擅长哪一类"，用来给宠物加点"个性"。 */
+function gainAbilityPoint(cat){
+  if(cat==='sport') state.abilityStr=(state.abilityStr||0)+1;
+  else if(cat==='study') state.abilityInt=(state.abilityInt||0)+1;
+  else if(cat==='house') state.abilityLife=(state.abilityLife||0)+1;
+  else if(cat==='fun') state.abilityFun=(state.abilityFun||0)+1;
+  else if(cat==='diary') state.abilityEmotion=(state.abilityEmotion||0)+1;
+  else if(cat==='comm') state.abilitySocial=(state.abilitySocial||0)+1;
+  else if(cat==='custom') state.abilityChar=(state.abilityChar||0)+1;
+}
+/* 把累计次数映射成0~100用于雷达图展示：用跟boardBonusLevelFactor类似的"渐进逼近"曲线，
+   前期涨得快、看得到明显变化，后期慢慢趋近100但不会真的"点满封顶不动"，长期坚持还是能看到缓慢增长 */
+function abilityScore(raw){
+  raw=raw||0;
+  return Math.round(100*(1-Math.exp(-raw/30)));
+}
+function petAbilityScores(){
+  return {
+    str: abilityScore(state.abilityStr),
+    intl: abilityScore(state.abilityInt),
+    life: abilityScore(state.abilityLife),
+    fun: abilityScore(state.abilityFun),
+    emotion: abilityScore(state.abilityEmotion),
+    social: abilityScore(state.abilitySocial),
+    char: abilityScore(state.abilityChar)
+  };
+}
+/* ========== 能力雷达图渲染：纯SVG画多轴雷达图 ==========
+   覆盖现在真实存在的全部打卡类型，一共7个维度：体力(运动)/智力(学习)/生活(家务)/才艺(唱歌跳舞)/
+   情感(日记)/社交(问候+打招呼)/品格(自定义加分项)，N个轴按360/N均匀分布，N轴角度和标签都是动态生成的，
+   以后再加新的打卡类型/维度，只要往下面的 RADAR_AXES 里加一条配置即可，不用改画图逻辑。
+   注意：petPersonality() 的"叛逆"判定会用到这里全部7个维度（智力 vs 其余6维平均分），
+   新增/调整维度时记得一并检查性格判定是否还合理。 */
+var RADAR_AXES=[
+  {key:'str', label:'💪 体力'},
+  {key:'intl', label:'🧠 智力'},
+  {key:'life', label:'🏠 生活'},
+  {key:'fun', label:'🎨 才艺'},
+  {key:'emotion', label:'💌 情感'},
+  {key:'social', label:'🤝 社交'},
+  {key:'char', label:'⭐ 品格'}
+];
+function radarPoint(cx,cy,R,angleDeg,valuePct){
+  var rad=angleDeg*Math.PI/180;
+  var r=R*Math.max(0,Math.min(100,valuePct))/100;
+  return [cx+r*Math.cos(rad), cy+r*Math.sin(rad)];
+}
+var ABILITY_PERSONALITY_LABEL={
+  rebel:'😈 好动叛逆型（学习落后于其它方面，容易离线捣乱，甚至做危险动作受伤）',
+  good:'😇 乖巧懂事型（智力值高，行为稳定不捣乱）',
+  worker:'💼 勤劳打工型（生活值高，离线时会自动打工赚金币）',
+  neutral:'🙂 均衡型（还没有特别突出的方向，多打卡试试看）'
+};
+function renderAbilityRadar(){
+  var card=document.getElementById('abilityRadarCard');
+  if(!card) return;
+  var pet=state.pet;
+  if(!pet||!pet.chosen){ card.style.display='none'; return; }
+  card.style.display='block';
+  var sc=petAbilityScores();
+  var cx=130,cy=138,R=88;
+  var n=RADAR_AXES.length;
+  var angles=RADAR_AXES.map(function(ax,i){ return -90+i*(360/n); }); // 第一个轴朝上，其余顺时针均匀分布
+  var vals=RADAR_AXES.map(function(ax){ return sc[ax.key]; });
+  var labels=RADAR_AXES.map(function(ax){ return ax.label+' '+sc[ax.key]; });
+  var gridLevels=[33,66,100];
+  var gridSvg=gridLevels.map(function(lv,i){
+    var pts=angles.map(function(a){ return radarPoint(cx,cy,R,a,lv).join(','); }).join(' ');
+    return '<polygon points="'+pts+'" fill="none" stroke="#e1bee7" stroke-width="'+(i===gridLevels.length-1?1.5:1)+'"/>';
+  }).join('');
+  var axisLines=angles.map(function(a){
+    var p=radarPoint(cx,cy,R,a,100);
+    return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="#e1bee7" stroke-width="1"/>';
+  }).join('');
+  var dataPts=angles.map(function(a,i){ return radarPoint(cx,cy,R,a,vals[i]).join(','); }).join(' ');
+  var labelSvg=angles.map(function(a,i){
+    var lp=radarPoint(cx,cy,R+26,a,100);
+    return '<text x="'+lp[0]+'" y="'+lp[1]+'" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+labels[i]+'</text>';
+  }).join('');
+  var svg='<svg viewBox="0 0 260 276" width="100%" style="max-width:300px;display:block;margin:0 auto">'
+    +gridSvg+axisLines
+    +'<polygon points="'+dataPts+'" fill="rgba(156,39,176,0.35)" stroke="#9c27b0" stroke-width="2"/>'
+    +labelSvg
+    +'</svg>';
+  var svgHost=document.getElementById('abilityRadarSvg');
+  if(svgHost) svgHost.innerHTML=svg;
+  var scoreEl=document.getElementById('abilityScoreText');
+  if(scoreEl) scoreEl.innerText='累计打卡：运动'+state.abilityStr+'次 · 学习'+state.abilityInt+'次 · 家务'+state.abilityLife+'次 · 才艺'+state.abilityFun+'次 · 日记'+state.abilityEmotion+'次 · 社交'+state.abilitySocial+'次 · 加分'+state.abilityChar+'次';
+  var pEl=document.getElementById('abilityPersonalityText');
+  if(pEl) pEl.innerText=ABILITY_PERSONALITY_LABEL[petPersonality()];
+}
 function completeCustomTask(){
   var d=state.day;
   if(!d.custom) d.custom={count:0,log:[]};
@@ -6246,6 +6715,7 @@ function completeCustomTask(){
   d.custom.log.push(text);
   earnCoins(specialCoin('custom'),'自定义：'+text);
   gainTaskExp();
+  gainAbilityPoint('custom');
   addLog('⭐完成自定义加分项【'+text+'】，+'+specialCoin('custom')+'金币');
   if(input) input.value='';
   if(d.custom.count>=5&&!d.wheel.custom){
@@ -6261,6 +6731,7 @@ function completeHelloTask(){
   d.comm.hello++;
   earnCoins(specialCoin('hello'),'主动打招呼');
   gainTaskExp();
+  gainAbilityPoint('comm');
   addLog('🙋完成一次主动打招呼，+'+specialCoin('hello')+'金币（今日'+d.comm.hello+'/10次）');
   afterTask('comm');
   save();
@@ -6335,10 +6806,10 @@ function makeUpMiss(){
   if(!confirm('确认执行漏打卡补做（波比跳90、仰卧起坐60、平板/平衡各多1组）？完成后将自动帮你勾选今日运动打卡并发放金币。本周还剩 '+(1-state.makeUpUsed)+' 次机会')) return;
   state.makeUpUsed++;
   var d=state.day;
-  if(!(d.sport.burpee>0)){ d.sport.burpee=1; earnCoins(specialCoin('burpee'),'波比跳(补卡)'); gainTaskExp(); }
-  if(!d.sport.plank){ d.sport.plank=true; earnCoins(taskCoinsOf('sport','plank'),'平板支撑(补卡)'); gainTaskExp(); }
-  if(!d.sport.balance){ d.sport.balance=true; earnCoins(taskCoinsOf('sport','balance'),'单腿平衡(补卡)'); gainTaskExp(); }
-  if(!d.sport.situp){ d.sport.situp=true; earnCoins(taskCoinsOf('sport','situp'),'仰卧起坐(补卡)'); gainTaskExp(); }
+  if(!(d.sport.burpee>0)){ d.sport.burpee=1; earnCoins(specialCoin('burpee'),'波比跳(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
+  if(!d.sport.plank){ d.sport.plank=true; earnCoins(taskCoinsOf('sport','plank'),'平板支撑(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
+  if(!d.sport.balance){ d.sport.balance=true; earnCoins(taskCoinsOf('sport','balance'),'单腿平衡(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
+  if(!d.sport.situp){ d.sport.situp=true; earnCoins(taskCoinsOf('sport','situp'),'仰卧起坐(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
   addLog('⚠️漏打卡补卡执行：波比跳90，仰卧起坐60，平板/平衡训练多1组，今日运动打卡已全部补齐');
   afterTask('sport');
   save();
@@ -6414,7 +6885,7 @@ function confirmName(){
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
   if(!name) name=lib.name;
   var isAdditional=!!(state.pets && state.pets.length>0);
-  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,lastTickAt:Date.now()};
+  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null};
   if(!state.pets) state.pets=[];
   state.pets.push(newPet);
   state.activePetIdx=state.pets.length-1; // 新宠物自动成为当前"出战/展示"的宠物
@@ -6482,7 +6953,7 @@ function gainExp(amt){ gainExpForPet(state.pet,amt); }
 /* ========== 商店购买 + 每日照顾任务 ==========
    宠物日常照顾用品（吃的/喝的/玩的/洗的这5样）现在改成"先在商店买、囤进背包，宠物页面再用背包里的存货喂"，
    不能在宠物页面现场花钱——buyItem()只负责"买进背包"（不直接生效），真正喂/用要靠下面的 useSupply() */
-var PET_SUPPLY_IDS=['food','water','milk','out','bath'];
+var PET_SUPPLY_IDS=['food','water','milk','kfc_wing','egg_tart','wagyu','matcha','out','bath'];
 function buyItem(id){
   var pet=state.pet;
   if(!pet||!pet.chosen){alert('先选择一只宠物伙伴吧');return;}
@@ -6493,6 +6964,7 @@ function buyItem(id){
   var info=petLevelInfo();
   if(info.level<item.lv){alert('宠物等级不足（需要 Lv'+item.lv+'），先带它训练升级吧');return;}
   if(id==='house'&&pet.house>=1){alert('已经拥有这个小窝啦，暂时不能重复购买');return;}
+  if(id==='medicine'&&!pet.injured){alert('🩺 '+pet.name+' 现在很健康，还不需要吃特效药哦～');return;}
   var isTraining=(id==='train'||id==='train2');
   if(isTraining&&((pet.food||0)<TRAIN_MIN_STAT||(pet.thirst||0)<TRAIN_MIN_STAT||(pet.clean||0)<TRAIN_MIN_STAT)){
     alert('🥱 宠物现在吃饱饱、水汪汪或香喷喷太低，没力气训练啦！先喂食🍖、喝水💧、洗澡🛁，把这几项都补到'+TRAIN_MIN_STAT+'%以上再来训练吧～');
@@ -6529,8 +7001,8 @@ function buyItem(id){
   clampPet();
   petSpriteReact(id);
   addLog('🛒购买【'+item.name+'】（-'+item.price+'金币）');
-  // 每日照顾任务
-  var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath'};
+  // 每日照顾任务（高级餐点算作对应基础食物的替代，同样能计入喂食/喝水的每日照顾）
+  var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath',kfc_wing:'feed',egg_tart:'feed',wagyu:'feed',matcha:'water'};
   if(careMap[id]&&!state.day.petCare[careMap[id]]){
     state.day.petCare[careMap[id]]=true;
     state.moneyBalance+=CONFIG.careReward.coin;
@@ -6543,6 +7015,8 @@ function buyItem(id){
   save();
   if(id==='house'){
     showReward(item.emoji+' 新家到啦','给 <b>'+pet.name+'</b> 换上了【'+item.name+'】！'+item.desc);
+  }else if(id==='medicine'){
+    showReward('💊 药到病除！','<b>'+pet.name+'</b> 吃下特效药，伤已经好啦！以后要多陪它一起学习哦，别再调皮受伤啦～');
   }else{
     showPetToast(item.emoji+' '+item.name+' '+item.desc);
   }
@@ -6563,12 +7037,24 @@ function useSupply(id){
     return;
   }
   state.backpack.supplies[id]=stock-1;
-  item.fx(pet);
+  // 长大后（Lv4+）还能吃/喝基础食物，只是几乎没用还会惹它生气——不再是"不能吃"，
+  // 而是"能吃但吃了不划算"，让孩子自己感受到该换高级餐点了
+  var isAgedBasicFood=BASIC_FOOD_SUPPLY_IDS.indexOf(id)>=0 && petLevelInfo().level>=PREMIUM_FOOD_UNLOCK_LEVEL;
+  if(isAgedBasicFood){
+    applyAgedBasicFoodTantrum(pet, id);
+  }else{
+    item.fx(pet);
+  }
   clampPet();
   petSpriteReact(id);
-  addLog('🐾使用【'+item.name+'】：'+item.desc);
-  var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath'};
-  if(careMap[id]&&!state.day.petCare[careMap[id]]){
+  if(isAgedBasicFood){
+    addLog('🐾使用【'+item.name+'】：宝宝已经长大啦，这份基础食物起不了太大作用，还惹它生气了');
+  }else{
+    addLog('🐾使用【'+item.name+'】：'+item.desc);
+  }
+  // 长大后勉强吃基础食物不算"用心照顾"，不计入每日照顾任务——想拿每日照顾奖励，还是得换成下面的高级餐点
+  var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath',kfc_wing:'feed',egg_tart:'feed',wagyu:'feed',matcha:'water'};
+  if(!isAgedBasicFood && careMap[id]&&!state.day.petCare[careMap[id]]){
     state.day.petCare[careMap[id]]=true;
     state.moneyBalance+=CONFIG.careReward.coin;
     state.day.earned+=CONFIG.careReward.coin;
@@ -6576,9 +7062,13 @@ function useSupply(id){
     addLog('💖完成每日照顾【'+careName(careMap[id])+'】：+'+CONFIG.careReward.coin+'金币 +'+CONFIG.careReward.happy+'好感度');
     checkCareAll();
   }
-  if(CARE_FX[id]) spawnPetFx(CARE_FX[id]);
+  if(!isAgedBasicFood && CARE_FX[id]) spawnPetFx(CARE_FX[id]);
   save();
-  showPetToast(item.emoji+' '+item.name+' '+item.desc);
+  if(isAgedBasicFood){
+    showPetToast('😠 '+pet.name+' 勉强吃了几口，没吃饱还有点生气……');
+  }else{
+    showPetToast(item.emoji+' '+item.name+' '+item.desc);
+  }
   renderPetSupplyBadges();
 }
 function renderPetSupplyBadges(){
@@ -7339,6 +7829,14 @@ function useRestCard(){
 function showModal(id){document.getElementById(id).classList.add('show');}
 function hideModal(id){document.getElementById(id).classList.remove('show');}
 function showReward(title,text){document.getElementById('rewardTitle').innerHTML=title;document.getElementById('rewardText').innerHTML=text;showModal('rewardModal');}
+/* 离线性格行为事件的通知弹窗：读一次就清空，避免刷新页面反复弹同一条 */
+function maybeShowOfflineNotice(){
+  if(!state || !state.pendingOfflineNotice) return;
+  var msg=state.pendingOfflineNotice;
+  state.pendingOfflineNotice=null;
+  saveStore();
+  showReward('📣 你回来啦', msg);
+}
 function closeReward(){hideModal('rewardModal');}
 /* 按 ESC 关闭当前打开的弹窗（档案新建/改名弹窗走它自己的关闭逻辑，会自动回到选择小朋友弹窗）；
    如果这会儿正好点了🔊在念课文/单词，按ESC也能马上打断朗读，不想听的时候不用干等它念完；
@@ -7737,6 +8235,9 @@ function renderPet(){
     var nbNone=document.getElementById('petNeglectBadge');
     if(nbNone){ nbNone.style.display='none'; }
     hidePetNeglectTip();
+    var ibNone=document.getElementById('petInjuryBadge');
+    if(ibNone){ ibNone.style.display='none'; }
+    hidePetInjuryTip();
     syncPetSprite();syncPetImmersive();return;
   }
   btn.style.display='none';main.style.display='block';
@@ -7828,6 +8329,7 @@ function renderPet(){
     if(fsOverlay) fsOverlay.classList.toggle('house-upgraded',houseUpgraded);
   }
   renderCare();
+  renderAbilityRadar();
   syncPetSprite();
   syncPetImmersive();
   positionPetActionsColumn();
@@ -7967,20 +8469,39 @@ function renderShop(){
   var html='';
   for(var i=0;i<CONFIG.shop.length;i++){
     var it=CONFIG.shop[i];
-    var locked=!hatched||info.level<it.lv;
+    var isBasicFood=BASIC_FOOD_SUPPLY_IDS.indexOf(it.id)>=0;
+    // 基础食物（宠物粮食/饮用水/牛奶）宠物长到解锁高级餐点的等级之后，还是能买、能吃/喝——
+    // 不再灰掉锁死，只是在这里给个显眼的提醒：效果很差、还会惹它生气，引导孩子改用下面的高级餐点
+    var aged=isBasicFood&&hatched&&info.level>=PREMIUM_FOOD_UNLOCK_LEVEL;
+    var isMedicine=(it.id==='medicine');
+    var isInjured=!!(pet&&pet.injured);
+    // 特效药不受等级限制，改成受"宠物是否受伤"限制——没受伤时买不了（也不用买），
+    // 真的受伤了才会解锁，配合下面的红色紧急提示，让家长一眼就知道要不要点进商城
+    var medicineDisabled=isMedicine&&!(hatched&&isInjured);
+    var locked=!hatched||info.level<it.lv||medicineDisabled;
     var owned=(it.id==='house'&&pet&&pet.house>=1);
     var isSupply=PET_SUPPLY_IDS.indexOf(it.id)>=0;
     var isTraining=(it.id==='train'||it.id==='train2');
     var boughtToday=isTraining&&trainBought[it.id];
+    var btnLabel;
+    if(isMedicine) btnLabel=(!hatched?'宠物出生后解锁':(isInjured?'购买':'暂时不需要'));
+    else if(locked) btnLabel=(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁');
+    else if(owned) btnLabel='已拥有';
+    else if(boughtToday) btnLabel='今日已买';
+    else if(isSupply) btnLabel='购买 +1';
+    else btnLabel='购买';
     html+='<div class="shop-item'+(locked?' locked':'')+'">'
       +'<div class="s-emoji">'+it.emoji+'</div>'
       +'<div class="s-name">'+it.name+'</div>'
-      +'<div class="s-desc">'+it.desc+(it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
+      +'<div class="s-desc">'+it.desc+(!isMedicine&&it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
+      +(aged?'<div class="s-desc" style="color:#e65100;font-weight:700">🎓 宝宝长大啦，这份基础餐点效果很差，吃了还会让它生气捣乱，建议换成下面的高级餐点！</div>':'')
+      +(isMedicine&&hatched&&isInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝受伤啦，赶紧买药救它，不然3小时内会变回蛋！</div>':'')
+      +(isMedicine&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在很健康，暂时不需要吃药～</div>':'')
       +(isSupply?'<div class="s-desc" style="color:#4caf50;font-weight:700">🎒 背包库存：'+(supplies[it.id]||0)+' 份（要去宠物页面用哦）</div>':'')
       +(isTraining?'<div class="s-desc" style="color:#e65100">⏱️ 每天限购1次</div>':'')
       +'<div class="s-price">💰 '+it.price+' 金币</div>'
       +'<button class="btn '+(it.id==='house'?'btn-info':'btn-primary')+'" '+((locked||owned||boughtToday)?'disabled':'')+' onclick="buyItem(\''+it.id+'\')">'
-      +(locked?(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁'):(owned?'已拥有':(boughtToday?'今日已买':(isSupply?'购买 +1':'购买'))))
+      +btnLabel
       +'</button></div>';
   }
   box.innerHTML=html;
@@ -8095,6 +8616,7 @@ function importFromText(t){
     saveStore();
     render();
     alert('导入成功！所有小朋友档案已恢复');
+    maybeShowOfflineNotice();
   }catch(e){alert('导入失败，文件或文本格式不对');}
 }
 function importData(){
@@ -8190,6 +8712,7 @@ function petMinuteTick(){
   applyRealTimeDecay();
   syncPetSprite(); // 状态挂机掉到阈值以下/宠物被养回蛋，不用等切页面，每分钟这一下就能让宠物按新状态该出现/该收起
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
+  renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
   save();
 }
 setInterval(petMinuteTick, 60000);
