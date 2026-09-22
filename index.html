@@ -928,7 +928,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div id="studyReadingBox"></div>
     <div class="small" style="margin:6px 0 2px">🧮 纯英文数学题：</div>
     <div id="studyMathEnBox"></div>
-    <div class="small" style="margin:6px 0 2px">📜 今日古诗背诵（人教版小学1-6年级）：</div>
+    <div class="row-between" style="margin:6px 0 2px">
+      <span class="small">📜 今日古诗背诵（人教版小学1-6年级）：</span>
+      <button class="btn btn-gray btn-sm" onclick="refreshPoem()">🔄 换一首</button>
+    </div>
     <div id="studyPoemBox"></div>
     <div class="row-between" style="margin-top:6px">
       <span class="tag tag-purple">🎫 免背卡：<span id="freeStudyCard">0</span> 张</span>
@@ -1851,6 +1854,16 @@ function syncPetImmersive(){
     var arT=document.getElementById('abilityRadarToggle');
     if(arT) arT.style.display='none';
     closeAbilityRadarPanel();
+    var dgT=document.getElementById('dungeonEntryBtn');
+    if(dgT) dgT.style.display='none';
+  }else{
+    // 2026-09fix：能力雷达/副本挑战这两个悬浮按钮"有时候出现有时候消失"——上面只处理了"切到打卡/棋盘页时隐藏"，
+    // 却没处理"切回宠物页时要重新显示"，全靠下一次完整render()里的renderAbilityRadar()/renderDungeonEntry()
+    // 才会补回来，中间这段时间（切到宠物页但还没触发下一次render前）按钮就一直是消失的。showPage()切页面时
+    // 只调用了syncPetImmersive()，不会触发完整render()，所以这里必须主动补调一次，把显示状态立刻纠正过来，
+    // 不能指望"总会有下一次render()"。
+    renderAbilityRadar();
+    renderDungeonEntry();
   }
   // 多宠物切换器 + "再养一只新宠物"入口：只在宠物页显示，跟其它悬浮面板一个规矩，别的页面先收起来
   var showMultiPetUi=isActive && !hideChrome && !!(state.pets && state.pets.length>=1);
@@ -3883,7 +3896,15 @@ function todaysPoem(){
   var pool=POEM_STUDY_BANK.filter(function(p){ var r=POEM_GRADE_RANK[p.grade]||0; return r===g||r===hi; });
   if(!pool.length) pool=POEM_STUDY_BANK; // 安全兜底，理论上不会触发
   var doyP=studyDayOfYear(new Date());
-  return pool[doyP%pool.length];
+  // poemBatchOffset：点"🔄换一首"时+1，思路跟 refreshSentenceBatch() 的 sentenceBatchOffset 一样，
+  // 只是给每天固定的那个索引加一个持久偏移量，换到池子里的另一首诗，不用额外单独存"今天具体是哪首"
+  var offset=(state&&state.poemBatchOffset)?state.poemBatchOffset:0;
+  return pool[((doyP+offset)%pool.length+pool.length)%pool.length];
+}
+function refreshPoem(){
+  if(!state) return;
+  state.poemBatchOffset=(state.poemBatchOffset||0)+1;
+  save();
 }
 function isAdvancedStudyItem(cat,key){
   var g=childGradeNum();
@@ -7769,10 +7790,12 @@ function dungeonPetBattleStats(level){
 }
 function renderDungeonEntry(){
   // 2026-09起：入口按钮改由 dungeon2（新版"投入+概率结算"副本）驱动，老的回合制 dungeon 永久隐藏
-  // 同时从"点🐾才展开"的互动小面板里独立出来，改成宠物界面单独常驻的悬浮按钮，点一下直接进副本，不用先展开面板
+  // 同时从"点🐾才展开"的互动小面板里独立出来，改成宠物界面单独常驻的悬浮按钮，点一下直接进副本，不用先展开面板；
+  // 跟能力雷达按钮同一个规矩——只在"宠物"这个专门页面显示，切到打卡/棋盘/商店等其它页面时收起来，
+  // 不然会跟那些页面自己的内容重叠、挡住东西
   var btn=document.getElementById('dungeonEntryBtn');
   if(!btn) return;
-  btn.style.display=(state.pet&&state.pet.chosen)?'flex':'none'; // 还没选宠物/没有宠物时不显示这个入口
+  btn.style.display=(state.pet&&state.pet.chosen&&pageActive('pet'))?'flex':'none';
   if(!CONFIG.dungeon2Enabled){
     btn.style.opacity=.35;
     btn.innerHTML='🔒';
