@@ -299,6 +299,17 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 #petInjuryTip.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
 #petInjuryTip .pnt-line1{ font-weight:700; color:#ffb3c1; margin-bottom:4px; }
 #petInjuryTip .pnt-line2{ color:#fff2d6; }
+/* 能力雷达图以前是宠物页里普通排版的一张卡片，结果被"沉浸式整屏"背景层(#petFsOverlay，z-index:40)整个盖住，
+   小朋友根本看不见。现在跟护体灵光/受伤徽章一样改成悬浮按钮 + 点开的浮层面板，z-index 都比40高，
+   平时只留一个小圆按钮，点一下从屏幕中间弹出雷达图，点旁边空白处或按钮再收起来 */
+#abilityRadarToggle{ position:fixed; right:10px; bottom:104px; z-index:58; font-size:20px; } /* 比下面的背景层(56)和面板(57)都高，不然面板打开时按钮会被背景层挡住，点不到、关不掉 */
+#abilityRadarBackdrop{ display:none; position:fixed; inset:0; z-index:56; background:rgba(30,10,45,.45); }
+#abilityRadarBackdrop.show{ display:block; }
+#abilityRadarCard{
+  display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:57;
+  width:min(86vw,320px); max-height:80vh; overflow-y:auto; margin:0;
+}
+#abilityRadarCard.open{ display:block; }
 .pet-switcher{
   position:fixed; top:100px; left:10px; z-index:47;
   display:flex; flex-wrap:wrap; gap:6px; width:148px;
@@ -1041,15 +1052,6 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <button class="btn btn-primary btn-block" id="btnChoosePet" onclick="openChoose()">🥚 选择你的电子宠物伙伴</button>
   </div>
 
-  <!-- 三维能力值雷达图：体力(运动)/智力(学习)/生活(家务)，累计打卡驱动，也决定宠物性格 -->
-  <div class="card" id="abilityRadarCard" style="display:none">
-    <h2>📊 能力雷达图</h2>
-    <div id="abilityRadarSvg"></div>
-    <div class="small" style="text-align:center;margin-top:2px" id="abilityScoreText"></div>
-    <div class="small" style="text-align:center;margin-top:4px;font-weight:700;color:#7b1fa2" id="abilityPersonalityText"></div>
-    <div class="small" style="margin-top:6px">💪 体力值来自运动打卡，🧠 智力值来自学习打卡，🏠 生活值来自家务打卡，长期累计、不会每天清零。三项的相对高低会决定宠物平时的性格表现。</div>
-  </div>
-
 </div>
 
 <!-- ============ 页3：转盘 ============ -->
@@ -1457,6 +1459,18 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petNeglectTip"></div>
 <div id="petInjuryBadge" style="display:none" onmouseenter="showPetInjuryTip()" onmouseleave="hidePetInjuryTip()" onclick="petInjuryBadgeTap()">🤕 受伤了</div>
 <div id="petInjuryTip"></div>
+<button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" style="display:none">📊</button>
+<div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
+<!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
+     因为沉浸式整屏模式下 body.pet-fs-active #page-pet{display:none!important}，
+     放在 #page-pet 里面的话，不管 z-index 多高都会跟着整个不渲染，这正是之前"看不到雷达图"的真正原因 -->
+<div class="card" id="abilityRadarCard">
+  <h2>📊 能力雷达图</h2>
+  <div id="abilityRadarSvg"></div>
+  <div class="small" style="text-align:center;margin-top:2px" id="abilityScoreText"></div>
+  <div class="small" style="text-align:center;margin-top:4px;font-weight:700;color:#7b1fa2" id="abilityPersonalityText"></div>
+  <div class="small" style="margin-top:6px">💪 体力值来自运动打卡，🧠 智力值来自学习打卡，🏠 生活值来自家务打卡，🎨 才艺值来自才艺打卡，📔 情感值来自日记打卡，🤝 社交值来自社交打卡，⭐ 加分值来自额外加分打卡，长期累计、不会每天清零。7项能力里，只要"学习"明显低于其余6项的平均分，宠物就容易调皮捣蛋；其余维度的相对高低也会影响宠物平时的性格表现。</div>
+</div>
 <div id="petSwitcher" class="pet-switcher" style="display:none"></div>
 <div id="petAddWrap" style="display:none">
   <button class="btn btn-success btn-sm" id="btnAddAnotherPet" onclick="openChoose()">➕ 再养一只新宠物</button>
@@ -1794,6 +1808,9 @@ function syncPetImmersive(){
     var ib=document.getElementById('petInjuryBadge');
     if(ib) ib.style.display='none';
     hidePetInjuryTip();
+    var arT=document.getElementById('abilityRadarToggle');
+    if(arT) arT.style.display='none';
+    closeAbilityRadarPanel();
   }
   // 多宠物切换器 + "再养一只新宠物"入口：只在宠物页显示，跟其它悬浮面板一个规矩，别的页面先收起来
   var showMultiPetUi=isActive && !hideChrome && !!(state.pets && state.pets.length>=1);
@@ -6668,10 +6685,15 @@ var ABILITY_PERSONALITY_LABEL={
 };
 function renderAbilityRadar(){
   var card=document.getElementById('abilityRadarCard');
+  var toggle=document.getElementById('abilityRadarToggle');
   if(!card) return;
   var pet=state.pet;
-  if(!pet||!pet.chosen){ card.style.display='none'; return; }
-  card.style.display='block';
+  if(!pet||!pet.chosen){
+    if(toggle) toggle.style.display='none';
+    closeAbilityRadarPanel();
+    return;
+  }
+  if(toggle) toggle.style.display='';
   var sc=petAbilityScores();
   var cx=130,cy=138,R=88;
   var n=RADAR_AXES.length;
@@ -6703,6 +6725,27 @@ function renderAbilityRadar(){
   if(scoreEl) scoreEl.innerText='累计打卡：运动'+state.abilityStr+'次 · 学习'+state.abilityInt+'次 · 家务'+state.abilityLife+'次 · 才艺'+state.abilityFun+'次 · 日记'+state.abilityEmotion+'次 · 社交'+state.abilitySocial+'次 · 加分'+state.abilityChar+'次';
   var pEl=document.getElementById('abilityPersonalityText');
   if(pEl) pEl.innerText=ABILITY_PERSONALITY_LABEL[petPersonality()];
+}
+function abilityRadarPanelOpen(){
+  var card=document.getElementById('abilityRadarCard');
+  return !!(card && card.classList.contains('open'));
+}
+function openAbilityRadarPanel(){
+  var card=document.getElementById('abilityRadarCard');
+  var backdrop=document.getElementById('abilityRadarBackdrop');
+  if(!card) return;
+  renderAbilityRadar();
+  card.classList.add('open');
+  if(backdrop) backdrop.classList.add('show');
+}
+function closeAbilityRadarPanel(){
+  var card=document.getElementById('abilityRadarCard');
+  var backdrop=document.getElementById('abilityRadarBackdrop');
+  if(card) card.classList.remove('open');
+  if(backdrop) backdrop.classList.remove('show');
+}
+function toggleAbilityRadarPanel(){
+  if(abilityRadarPanelOpen()) closeAbilityRadarPanel(); else openAbilityRadarPanel();
 }
 function completeCustomTask(){
   var d=state.day;
@@ -8238,6 +8281,9 @@ function renderPet(){
     var ibNone=document.getElementById('petInjuryBadge');
     if(ibNone){ ibNone.style.display='none'; }
     hidePetInjuryTip();
+    var arTNone=document.getElementById('abilityRadarToggle');
+    if(arTNone){ arTNone.style.display='none'; }
+    closeAbilityRadarPanel();
     syncPetSprite();syncPetImmersive();return;
   }
   btn.style.display='none';main.style.display='block';
