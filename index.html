@@ -8,8 +8,7 @@
      像App一样的桌面图标——加了它们之后，从Safari"添加到主屏幕"生成的图标才会：①用我们自己做的
      可爱图标（而不是随手截一张当前页面当图标）；②点开图标是真正的全屏App模式，没有Safari的地址栏/
      工具栏；③桌面上图标下面显示"打卡系统"这个短名字，而不是网页标题那一长串 -->
-<link rel="icon" type="image/png" href="apple_touch_icon.png">
-<link rel="apple-touch-icon" href="apple_touch_icon.png">
+<link rel="apple-touch-icon" href="宠物素材/apple_touch_icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="打卡系统">
@@ -131,7 +130,7 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 .pet-room{
   width:100%; max-width:300px; aspect-ratio:1100/1009; margin:6px auto 4px;
   border-radius:16px; overflow:hidden; position:relative;
-  background:#111 url('petroom_bg.jpg') center/cover no-repeat;
+  background:#111 url('宠物素材/petroom_bg.jpg') center/cover no-repeat;
   box-shadow:0 4px 16px rgba(0,0,0,.22);
 }
 #petWrap{
@@ -1301,6 +1300,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 新版副本挑战弹窗（dungeon2，2026-09新增，"投入+概率结算"，跟上面 dungeonModal 那套老的回合制战斗完全独立 -->
+<div class="modal-mask" id="dungeon2Modal">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeDungeon2Modal()">✕</button>
+    <h3 style="margin-top:0">⚔️ 副本挑战</h3>
+    <div id="dungeon2ListBox"></div>
+  </div>
+</div>
+
 <!-- 取名弹窗 -->
 <div class="modal-mask" id="nameModal">
   <div class="modal">
@@ -1443,7 +1451,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="hud-act-btn" onclick="petQuickAction('buyItem','train')" title="训练">🎯</button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','bath')" title="美容（用背包里买好的美容洗护）">🛁<span class="care-badge" id="careBadge-bath">✔</span><span class="stock-badge" id="stockBadge-bath">0</span></button>
   <button class="hud-act-btn" onclick="petQuickAction('petDanceManual')" title="跳舞">💃</button>
-  <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon')" title="副本挑战">⚔️</button>
+  <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战">⚔️</button>
 </div>
 <div id="petEggWrap">
   <span class="pet-egg-emoji" id="petEggEmoji" style="display:none">🥚</span>
@@ -1469,7 +1477,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div id="abilityRadarSvg"></div>
   <div class="small" style="text-align:center;margin-top:2px" id="abilityScoreText"></div>
   <div class="small" style="text-align:center;margin-top:4px;font-weight:700;color:#7b1fa2" id="abilityPersonalityText"></div>
-  <div class="small" style="margin-top:6px">💪 体力值来自运动打卡，🧠 智力值来自学习打卡，🏠 生活值来自家务打卡，🎨 才艺值来自才艺打卡，📔 情感值来自日记打卡，🤝 社交值来自社交打卡，⭐ 加分值来自额外加分打卡，长期累计、不会每天清零。7项能力里，只要"学习"明显低于其余6项的平均分，宠物就容易调皮捣蛋；其余维度的相对高低也会影响宠物平时的性格表现。</div>
+  <div class="small" style="margin-top:6px">🏃 运动来自运动打卡，📖 学习来自学习打卡，🧹 家务来自家务打卡，🎨 创造力来自⭐自定义加分项，💞 共情爱心来自☎️沟通打卡+📔日记打卡，🎵 音律来自🎉娱乐打卡（唱歌跳舞），🗡️ 勇气探险来自⚔️副本挑战（暂未开放，先是0）。每项0~100是基础阶段，满100分后进入"专精星级"，不封顶，会一直慢慢涨；同一天反复刷同一类打卡，收益会衰减，连续多天打卡才有额外奖励。7项能力里，只要"学习"明显低于其它维度的平均分，宠物就容易调皮捣蛋；七维全部满100可解锁终极形态【均衡仙灵】，是长期目标，不用急。</div>
 </div>
 <div id="petSwitcher" class="pet-switcher" style="display:none"></div>
 <div id="petAddWrap" style="display:none">
@@ -1478,7 +1486,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
-  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
+  <img id="petImg" class="anim-idle" src="宠物素材/petimg_default.webp" alt="小金麟">
   <div id="petAccessory" class="pet-accessory"></div>
   <div id="petHit" onclick="petTouch()"></div>
   <div id="petHearts"></div>
@@ -1553,7 +1561,9 @@ const CONFIG = {
   taskExp: 2,
   eggHatchExp: 50,
   maxLevel: 999,
-  dungeonEnabled: false, // 副本挑战功能开关：暂时关闭，改回 true 即可恢复开放
+  dungeonEnabled: false, // 老版副本挑战功能开关（回合制打怪：攻击/必杀技/血条）：2026-09起永久隐藏，
+  // 换成下面 dungeon2 这套新版"投入+概率结算"的副本，不再跟这套老的战斗玩法有关系，这个开关不用再打开了
+  dungeon2Enabled: true, // 新版副本挑战开关：做完直接开放给小朋友玩
   careReward: { coin:2, happy:6, allBonus:5 },   // 每日照顾任务奖励：金币+好感度（不再直接给经验，经验只能靠打卡任务和训练道具获得）
   decay: { food:150, thirst:150, happy:150, clean:150 }, // 基础日常消耗（等级越高会在此基础上加成，见 decayForLevel）——半天左右从满值掉到很低
   decayPerLevel: { food:6, thirst:6, happy:6, clean:6 }, // 每级额外增加的消耗，等级越高宠物"饭量"越大
@@ -1586,6 +1596,20 @@ const CONFIG = {
     {name:'星光沙漠', lvReq:55,  monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          hp:205, dmg:[8,16],  coin:22, exp:50, accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
     {name:'珊瑚海底', lvReq:80,  monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            hp:250, dmg:[9,18],  coin:26, exp:65, accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
     {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           hp:300, dmg:[10,20], coin:32, exp:85, accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
+  ],
+  /* ===== 新版副本（dungeon2）：2026-09 仙侠灵宠改版新增，"投入+概率结算"玩法，跟上面这套老的回合制战斗完全无关 =====
+     不再有血条/攻击，点一下"挑战"直接按概率结算成功/失败；等级越低，概率越低，但从不会是0%或100%；
+     所有关卡随时都能挑战（没有"必须先打赢上一关"的顺序锁），只是等级不够时风险更高。
+     胜率还会被 courage(勇气探险) 维度加成，呼应设定文档"副本和勇气探险维度联动" */
+  dungeon2: [
+    {name:'蘑菇林',   lvReq:1,   monster:'野生奶龙宝宝',   title:'新手勇士',   intro:'新手村传来消息——蘑菇林里的野生奶龙宝宝总是调皮捣蛋，去会一会它吧！',           listIcon:'🍄', petKey:'naolong',    tint:'sepia(.45) hue-rotate(-8deg) saturate(1.5) brightness(.98)',  winBase:0.62, coinMin:6,  coinMax:12, exp:15, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'}],                                                    accessory:{id:'acc_cap',        emoji:'🧢',  name:'酷跑棒球帽'}},
+    {name:'萤火沼泽', lvReq:5,   monster:'沼泽小金麟',     title:'沼泽猎人',   intro:'沼泽深处萤光闪烁，沼泽小金麟正守着这片神秘的萤火沼泽。',                       listIcon:'🐸', petKey:'xiaojinlin', tint:'hue-rotate(85deg) saturate(1.5) brightness(.95)',             winBase:0.58, coinMin:8,  coinMax:16, exp:20, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_bow',        emoji:'🎀',  name:'俏皮蝴蝶结'}},
+    {name:'风车草原', lvReq:10,  monster:'草原小金龙',     title:'草原骑士',   intro:'风车草原上，草原小金龙乘风追逐旅人，勇士们对它又爱又怕。',                     listIcon:'🐑', petKey:'xiaojinlong', tint:'hue-rotate(65deg) saturate(1.3)',                             winBase:0.55, coinMin:10, coinMax:20, exp:25, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_scarf',      emoji:'🧣',  name:'温暖小围巾'}},
+    {name:'水晶洞穴', lvReq:20,  monster:'水晶奶龙',       title:'洞穴探险家', intro:'水晶洞穴幽深空旷，水晶奶龙的鳞片会随光线闪烁七彩光芒。',                       listIcon:'🦀', petKey:'naolong',    tint:'hue-rotate(175deg) saturate(1.6) brightness(1.05)',           winBase:0.52, coinMin:14, coinMax:26, exp:30, materialPool:[{id:'stone', emoji:'🪨', name:'灵石'},{id:'iron',  emoji:'⚙️', name:'精铁'}],               accessory:{id:'acc_sunglasses', emoji:'🕶️', name:'炫酷墨镜'}},
+    {name:'云端阶梯', lvReq:35,  monster:'云端小金麟',     title:'云端行者',   intro:'踏上云端阶梯，云端小金麟在云雾之间若隐若现，行踪飘忽不定。',                   listIcon:'🦙', petKey:'xiaojinlin', tint:'grayscale(.3) brightness(1.25) saturate(1.1)',                winBase:0.50, coinMin:18, coinMax:32, exp:40, materialPool:[{id:'iron',  emoji:'⚙️', name:'精铁'},{id:'silk',  emoji:'🧵', name:'云锦'}],               accessory:{id:'acc_wings',      emoji:'🦋',  name:'梦幻翅膀'}},
+    {name:'星光沙漠', lvReq:55,  monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          winBase:0.48, coinMin:24, coinMax:40, exp:50, materialPool:[{id:'silk',  emoji:'🧵', name:'云锦'},{id:'crystal',emoji:'💎', name:'星辉晶'}],              accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
+    {name:'珊瑚海底', lvReq:80,  monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            winBase:0.46, coinMin:30, coinMax:50, exp:65, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'iron', emoji:'⚙️', name:'精铁'}],              accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
+    {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.45, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
   ]
 };
 /* 等级越高，宠物"饭量"越大：每日消耗在基础值上按等级线性增加，封顶为基础值的 decayCapMul 倍 */
@@ -1604,66 +1628,66 @@ var PET_LIBRARY = {
     name: '小金麟',
     pickDesc: '威风凛凛的小金龙，活泼好动超黏人，最爱围着你蹦蹦跳跳～',
     img: {
-      happy: 'xiaojinlin_happy.webp',
-      run:   'xiaojinlin_run.webp',
-      sad:   'xiaojinlin_sad.webp'
+      happy: '宠物素材/xiaojinlin_happy.webp',
+      run:   '宠物素材/xiaojinlin_run.webp',
+      sad:   '宠物素材/xiaojinlin_sad.webp'
     },
-    eggVideo: 'xiaojinlin_egg.mp4'
+    eggVideo: '宠物素材/xiaojinlin_egg.mp4'
   },
   naolong: {
     name: '毛绒小奶龙',
     pickDesc: '软软糯糯的毛绒龙宝宝，圆滚滚超喜欢卖萌撒娇～',
     img: {
-      happy: 'naolong_happy.webp',
-      run:   'naolong_run.webp',
-      sad:   'naolong_sad.webp'
+      happy: '宠物素材/naolong_happy.webp',
+      run:   '宠物素材/naolong_run.webp',
+      sad:   '宠物素材/naolong_sad.webp'
     },
     stageImg: {
-      baby:  'naolong_baby.webp',
-      teen:  'naolong_teen.webp',
-      adult: 'naolong_adult.webp'
+      baby:  '宠物素材/naolong_baby.webp',
+      teen:  '宠物素材/naolong_teen.webp',
+      adult: '宠物素材/naolong_adult.webp'
     },
     actionImg: {
-      touch: 'naolong_touch.webp',
-      food:  'naolong_food.webp',
-      water: 'naolong_water.webp',
-      milk:  'naolong_milk.webp',
-      out:   'naolong_out.webp',
-      train: 'naolong_train.webp',
-      train2:'naolong_train2.webp',
-      bath:  'naolong_bath.webp'
+      touch: '宠物素材/naolong_touch.webp',
+      food:  '宠物素材/naolong_food.webp',
+      water: '宠物素材/naolong_water.webp',
+      milk:  '宠物素材/naolong_milk.webp',
+      out:   '宠物素材/naolong_out.webp',
+      train: '宠物素材/naolong_train.webp',
+      train2:'宠物素材/naolong_train2.webp',
+      bath:  '宠物素材/naolong_bath.webp'
     },
-    eggVideo: 'naolong_egg.mp4',
-    danceImg: 'naolong_dance.webp',
-    danceAudio: 'naolong_dance.mp3',
+    eggVideo: '宠物素材/naolong_egg.mp4',
+    danceImg: '宠物素材/naolong_dance.webp',
+    danceAudio: '宠物素材/naolong_dance.mp3',
     danceDurationMs: 10060
   },
   xiaojinlong: {
     name: '小金龙',
     pickDesc: '金光闪闪的小金龙，宝气又爱撒娇，最喜欢黏着你一起玩耍～',
     img: {
-      happy: 'xiaojinlong_happy.webp',
-      run:   'xiaojinlong_run.webp',
-      sad:   'xiaojinlong_sad.webp'
+      happy: '宠物素材/xiaojinlong_happy.webp',
+      run:   '宠物素材/xiaojinlong_run.webp',
+      sad:   '宠物素材/xiaojinlong_sad.webp'
     },
     stageImg: {
-      baby:  'xiaojinlong_baby.webp',
-      teen:  'xiaojinlong_baby.webp',
-      adult: 'xiaojinlong_adult.webp'
+      baby:  '宠物素材/xiaojinlong_baby.webp',
+      teen:  '宠物素材/xiaojinlong_baby.webp',
+      adult: '宠物素材/xiaojinlong_adult.webp'
     },
     actionImg: {
-      touch: 'xiaojinlong_touch.webp',
-      food:  'xiaojinlong_food.webp',
-      water: 'xiaojinlong_water.webp',
-      milk:  'xiaojinlong_milk.webp',
-      out:   'xiaojinlong_out.webp',
-      train: 'xiaojinlong_train.webp',
-      train2:'xiaojinlong_train2.webp',
-      bath:  'xiaojinlong_bath.webp'
+      touch: '宠物素材/xiaojinlong_touch.webp',
+      food:  '宠物素材/xiaojinlong_food.webp',
+      water: '宠物素材/xiaojinlong_water.webp',
+      milk:  '宠物素材/xiaojinlong_milk.webp',
+      out:   '宠物素材/xiaojinlong_out.webp',
+      train: '宠物素材/xiaojinlong_train.webp',
+      train2:'宠物素材/xiaojinlong_train2.webp',
+      bath:  '宠物素材/xiaojinlong_bath.webp'
     },
-    eggImg: 'xiaojinlong_eggImg.webp',
-    danceImg: 'xiaojinlong_dance.webp',
-    danceAudio: 'xiaojinlong_dance.mp3',
+    eggImg: '宠物素材/xiaojinlong_eggImg.webp',
+    danceImg: '宠物素材/xiaojinlong_dance.webp',
+    danceAudio: '宠物素材/xiaojinlong_dance.mp3',
     danceDurationMs: 10060
   }
 };
@@ -2237,15 +2261,47 @@ var PET_TOUCH_LINES={
   dirty:['身上脏兮兮的，有点不好意思……','别摸啦，先带我去洗澡嘛！','浑身臭臭的，它有点躲着你……'],
   found:['被发现啦！😳','哎呀，被找到了～']
 };
+/* 2026-09update：等级越高，摸摸这类日常互动的台词也更丰富、更像真人在跟你说话——
+   teen/adult/mature 每往上一档，就在基础台词之上再解锁一批更细腻的台词，随机抽取范围越来越大，
+   感觉起来就像宠物长大了，表达也变得更丰富了。只在最常触发、最能体现"感情"的 happy/more/found
+   这三类上加了这一层，其余（annoy/flee/dirty）保持不变，避免整个文件铺开改动过大。 */
+var PET_TOUCH_LINES_BONUS_BY_TIER={
+  teen:{
+    happy:['你的手好温暖呀～','今天摸得好舒服，谢谢你陪我！'],
+    more:['它悄悄往你手心里又蹭了蹭。','开心得原地转了个圈！'],
+    found:['哈哈被你找到啦，下次我要藏得更好！']
+  },
+  adult:{
+    happy:['被你摸着的时候，感觉什么烦恼都没有了。','谢谢你还记得来陪我呀～'],
+    more:['它把头轻轻靠在你手边，像在说"再多摸一会儿嘛"。','满足地眯起了眼睛，好像在说"就喜欢这样"。'],
+    found:['被你发现的这一下，心里还是会小小雀跃一下呢。']
+  },
+  mature:{
+    happy:['不管长多大，被你这样摸着，还是会觉得特别安心。','谢谢你一直都在——这份陪伴，它记在心里呢。'],
+    more:['它靠着你的手，久久没有挪开，像是舍不得这一刻。','这么多年了，还是最喜欢被你这样轻轻摸着。'],
+    found:['都这么大了还喜欢跟你玩捉迷藏，其实就是想多一点被你找到的瞬间。']
+  }
+};
 function petPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function petPickTouchLine(category, level){
+  var base=(PET_TOUCH_LINES[category]||[]).slice();
+  var idx=maturityTierIndex(petMaturityTier(level));
+  for(var i=1;i<=idx;i++){
+    var tKey=MATURITY_TIER_ORDER[i];
+    var bonus=(PET_TOUCH_LINES_BONUS_BY_TIER[tKey]&&PET_TOUCH_LINES_BONUS_BY_TIER[tKey][category])||[];
+    base=base.concat(bonus);
+  }
+  return petPick(base.length?base:(PET_TOUCH_LINES[category]||['']));
+}
 function petTouch(){
   ensurePetSpriteRefs();
   var pet=state.pet;
   if(!pet||!pet.chosen||!pet.hatched||busy||!petSpriteVisible()) return;
+  var petLv=petLevelInfo(pet).level;
   if(petHiding){
     /* 小朋友在犄角旮旯把偷偷躲起来的宠物找到了：先"抓包"一下，再走正常摸摸流程 */
     petRevealFromHiding();
-    petSay(petPick(PET_TOUCH_LINES.found));
+    petSay(petPickTouchLine('found', petLv));
     petHeartFx(2);
     return;
   }
@@ -2259,7 +2315,7 @@ function petTouch(){
   lastPetTime=now; petsInARow++;
   if(petsInARow<=2){
     setPetAnim('happy',{duration:900,after:'idle',actionKey:'touch'});
-    petSay(petPick(petsInARow===1?PET_TOUCH_LINES.happy:PET_TOUCH_LINES.more));
+    petSay(petPickTouchLine(petsInARow===1?'happy':'more', petLv));
     petHeartFx(petsInARow===1?3:4);
   }else if(petsInARow===3){
     /* 连续摸了3下，别摸出感情了，摸出个"彩蛋"：宠物被逗得打了个嗝，喷出一小团火球 */
@@ -2580,9 +2636,9 @@ function petSpinInPlace(){ setPetAnim('spin',{duration:800,after:'idle'}); }
    音乐素材均为 CC0 / MIT 免版权授权，可自由使用，无需署名。
    出于浏览器自动播放限制，音乐要等小朋友第一次点按屏幕之后才会真正响起。 */
 var BGM_TRACKS=[
-  {id:'ukulele', src:'bgm_ukulele.mp3'},
-  {id:'garden', src:'bgm_garden.mp3'},
-  {id:'funshine', src:'bgm_funshine.mp3'}
+  {id:'ukulele', src:'宠物素材/bgm_ukulele.mp3'},
+  {id:'garden', src:'宠物素材/bgm_garden.mp3'},
+  {id:'funshine', src:'宠物素材/bgm_funshine.mp3'}
 ];
 
 var bgmMain=null;
@@ -3501,6 +3557,11 @@ function defaultState(){
     abilityEmotion:0, // 日记打卡累计次数（驱动"情感值"）
     abilitySocial:0, // 社交类打卡累计次数（打电话问候爷爷奶奶外公外婆，驱动"社交值"）
     abilityChar:0, // 自定义加分项累计次数（驱动"品格值"）
+    // 2026-09update：新版"七大能力维度"（运动/学习/家务/创造力/共情爱心/音律/勇气探险）——
+    // 每个维度存 {pts,streak,lastDay,todayCount}，pts 没有100封顶，满100后进入"专精星级"阶段继续慢慢涨。
+    // 上面这7个老 ability* 字段继续保留累加（历史累计次数展示 + 给新维度做一次性迁移基准），
+    // 但雷达图/性格判定/念叨系统全部改用下面这套新数据，不再直接用老字段。
+    abilityDim:null,
     pendingOfflineNotice:null, // 离线期间触发的性格行为事件，下次打开时弹一次通知，展示完就清空
     lastCheckinDayKey:todayKey(), // 最近一次真的有打卡拿到金币是哪一天，连续零打卡满2天会触发金币兜底清空
     version:4
@@ -3575,6 +3636,14 @@ function load(){
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
    委屈表情自相矛盾。现在只有心情好的时候才放这段开心迎接；心情不好就不额外插这一段，
    让 render() 已经算好的、按心情显示的哭脸/生气表情老老实实留在画面上，不被这里盖掉 */
+// 2026-09update：进门欢迎语也按等级分了几档——等级越高，欢迎的话越丰富、越像真人在跟你打招呼，
+// 不再永远是同一句"快来陪我玩"
+var ENTRANCE_GREETING_BY_TIER={
+  baby:['主人你终于回来了，快来陪我玩！'],
+  teen:['主人你回来啦，我等你好久啦！','太好了，你终于回来了，快来陪陪我嘛～'],
+  adult:['你可算回来了，我一直在等你呢！','看到你回来，心情一下子就变好了！','欢迎回来～今天有没有想我呀？'],
+  mature:['你回来了呀——不管等多久，看到你的这一刻都特别开心。','终于等到你了，这段时间我一直惦记着你呢。','欢迎回家，有你在，才是最踏实的时候。']
+};
 function scheduleAppEntranceGreeting(){
   clearTimeout(scheduleAppEntranceGreeting._t);
   scheduleAppEntranceGreeting._t=setTimeout(function(){
@@ -3586,7 +3655,7 @@ function scheduleAppEntranceGreeting(){
       setTimeout(function(){ if(petWrap) petWrap.classList.remove('pet-entrance'); }, 750);
     }
     setPetAnim('happy',{duration:1400,after:'idle'});
-    petSay('主人你终于回来了，快来陪我玩！',2600);
+    petSay(petTierTail(ENTRANCE_GREETING_BY_TIER, petLevelInfo(state.pet).level),2600);
     petHeartFx(6);
   }, 550);
 }
@@ -5436,6 +5505,7 @@ function migrateState(s){
   if(!s.day.comm) s.day.comm={grandpa:false,inlaw:false,hello:0};
   if(!s.day.dungeon) s.day.dungeon={count:0};
   else if(typeof s.day.dungeon.count!=='number') s.day.dungeon.count=s.day.dungeon.done?1:0;
+  if(!s.day.dungeon2) s.day.dungeon2={count:0}; // 新版副本：今日挑战次数，仅用于入口按钮上的小徽标显示
   if(!s.day.readEn) s.day.readEn={count:0};
   if(!s.day.readCn) s.day.readCn={count:0};
   if(typeof s.readEnIdx!=='number') s.readEnIdx=0;
@@ -5464,6 +5534,7 @@ function migrateState(s){
   if(typeof s.restCardMonthGranted==='undefined') s.restCardMonthGranted=false;
   if(!s.backpack) s.backpack={freeCard:0,d7:[],d8:[],restCards:[]};
   if(!s.backpack.supplies) s.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
+  if(!s.backpack.materials) s.backpack.materials={}; // 新版副本(dungeon2)产出的仙宅建材，key=材料id，value=数量
   if(!s.backpack.restCards){
     s.backpack.restCards=[];
     // 旧版"每周家务攒4项换休息卡"机制下已攒的休息卡，按获得时间为今天迁移，保留满额12天有效期
@@ -5491,9 +5562,12 @@ function migrateState(s){
     if(!_onePet.accessories) _onePet.accessories=[];
     if(typeof _onePet.equippedAccessory==='undefined') _onePet.equippedAccessory=null;
     if(typeof _onePet.dungeonBestTier==='undefined') _onePet.dungeonBestTier=-1;
+    if(!_onePet.dungeon2Tried) _onePet.dungeon2Tried={}; // 新版副本：{tierIdx: true} 记录是否已经挑战过（首次挑战失败不惩罚）
+    if(!_onePet.dungeon2Cleared) _onePet.dungeon2Cleared={}; // 新版副本：{tierIdx: true} 记录是否已首通（只在首通时发装饰奖励）
     if(typeof _onePet.neglectHours==='undefined') _onePet.neglectHours=0;
     if(typeof _onePet.injured==='undefined') _onePet.injured=false;
     if(typeof _onePet.injuredAt==='undefined') _onePet.injuredAt=null;
+    if(typeof _onePet.idleNagDayKey==='undefined') _onePet.idleNagDayKey=null;
   }
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
   if(!s.pvpFriends) s.pvpFriends=[];
@@ -5504,6 +5578,7 @@ function migrateState(s){
   if(typeof s.abilityEmotion!=='number') s.abilityEmotion=0;
   if(typeof s.abilitySocial!=='number') s.abilitySocial=0;
   if(typeof s.abilityChar!=='number') s.abilityChar=0;
+  ensureAbilityDim(s);
   if(typeof s.pendingOfflineNotice==='undefined') s.pendingOfflineNotice=null;
   // 老存档没有这个字段时，从"现在"开始起算，不倒查历史——不能因为补了这个新字段就反倒把老玩家一直攒的金币冤枉清空
   if(!s.lastCheckinDayKey) s.lastCheckinDayKey=todayKey();
@@ -5619,6 +5694,8 @@ function confirmCreateChild(){
   store.accounts[id]={id:id,name:name,avatar:pickedAvatar,state:defaultState()};
   store.accounts[id].state.childGrade=pickedGrade;
   ensureWishState(store.accounts[id].state);
+  ensureAbilityDim(store.accounts[id].state); // 新档案直接把七维度结构初始化好，不用等下一次 migrateState() 才有
+
   store.currentChildId=id;
   state=store.accounts[id].state;
   hideModal('childCreateModal');
@@ -5961,40 +6038,110 @@ function revertPetToEgg(pet, reason){
 }
 /* ========== 七维能力值驱动的宠物性格 + 离线行为事件 ==========
    性格判定规则（2026-09 更新为全部7个维度一起参与，不再只看体力/智力/生活三项）：
-   - 智力（学习）值明显落后于其它维度的平均水平 → 好动叛逆，离线期间会调皮捣蛋做坏事
+   - 学习值明显落后于其它维度的平均水平 → 好动叛逆，离线期间会调皮捣蛋做坏事
      （乱花钱/浪费食物/弄脏耍脾气，甚至做危险动作受伤，见 rollRebelEvent）；
-   - 智力值高（>=ABILITY_HIGH，且没有触发上面的叛逆条件）→ 乖巧懂事，行为稳定，不触发任何负面离线事件；
-   - 生活值高（且不满足上面两条）→ 离线期间自动出门打工赚金币；
+   - 学习值高（>=ABILITY_HIGH，且没有触发上面的叛逆条件）→ 乖巧懂事，行为稳定，不触发任何负面离线事件；
+   - 家务值高（且不满足上面两条）→ 离线期间自动出门打工赚金币；
    - 都够不上门槛 → 性格中性，安安静静，不触发事件。
-   "学习落后"具体用"智力值 < 其余6个维度的平均分"来判定：不用固定阈值，而是让学习和孩子自己
+   "学习落后"具体用"学习值 < 其余维度的平均分"来判定：不用固定阈值，而是让学习和孩子自己
    其它方面的发展水平比较——哪怕其它维度都不高，只要学习明显是短板，也会被判定为叛逆，
-   这样"多陪孩子做其它事、但完全不管学习"不会被误判为均衡发展。 */
+   这样"多陪孩子做其它事、但完全不管学习"不会被误判为均衡发展。
+   2026-09update（七维度改版）：参与"其它维度平均分"计算的故意只取 sport/house/creativity/empathy/music
+   这5个目前真的有打卡来源在驱动的维度，不含 courage（勇气探险，绑在副本系统上，副本目前还没开放，
+   永远是0）——如果把一个永远是0的维度也算进平均分，会不公平地拉低平均分、让"学习"更容易显得"没落后"，
+   等以后副本系统正式开放、courage 有了真实数据来源，再把它加回这个平均分里。 */
 var ABILITY_HIGH=60;
+var PERSONALITY_OTHER_KEYS=['sport','house','creativity','empathy','music'];
 function petPersonality(){
   var sc=petAbilityScores();
-  var otherKeys=RADAR_AXES.map(function(ax){return ax.key;}).filter(function(k){return k!=='intl';});
-  var otherSum=otherKeys.reduce(function(sum,k){return sum+sc[k];},0);
-  var otherAvg=otherSum/otherKeys.length;
-  if(sc.intl<otherAvg) return 'rebel';
-  if(sc.intl>=ABILITY_HIGH) return 'good';
-  if(sc.life>=ABILITY_HIGH) return 'worker';
+  var otherSum=PERSONALITY_OTHER_KEYS.reduce(function(sum,k){return sum+sc[k];},0);
+  var otherAvg=otherSum/PERSONALITY_OTHER_KEYS.length;
+  if(sc.study<otherAvg) return 'rebel';
+  if(sc.study>=ABILITY_HIGH) return 'good';
+  if(sc.house>=ABILITY_HIGH) return 'worker';
   return 'neutral';
 }
-var OFFLINE_EVENT_MIN_HOURS=2; // 离线至少这么久才判定一次性格行为事件，避免开关App/挂机也频繁触发
+var OFFLINE_EVENT_MIN_HOURS=0.5; // 2026-09：从2小时改成半小时——离线只要够半小时，一上线就会有描述"宠物做了什么"的提示，让小朋友更有惦记着要上线看看的动力
 function rollOfflineEvent(pet){
   var personality=petPersonality();
   if(personality==='rebel') return rollRebelEvent(pet);
   if(personality==='worker') return rollWorkerEvent(pet);
-  return null; // 乖巧(good)和中性(neutral)都保持安静，不弹通知
+  if(personality==='good') return rollGoodEvent(pet);
+  return rollNeutralEvent(pet); // 均衡型(neutral)兜底
 }
+/* 2026-09update：以前只有叛逆/勤劳型离线才会弹通知，乖巧/均衡型一直保持安静——现在改成不管什么性格，
+   离线够半小时一上线都要"编"一段描述宠物做了什么的话，让每次登录都有惊喜/期待感，才更能激发小朋友
+   想上线看看的心情。乖巧/均衡型这两类本身不该被惩罚，所以这里的随机小剧情都是纯粹的flavor文字，
+   不扣任何状态、不影响金币，纯粹是"讲个故事"给小朋友看。 */
+var GOOD_EVENT_FLAVORS=[
+  '乖乖趴在小窝里等你，还顺手把周围的玩具收拾得整整齐齐的',
+  '自己安安静静地把今天学过的内容又复习了一遍，样子特别认真',
+  '一直望着门口，好像在想你什么时候回来陪它',
+  '把自己的毛发梳得整整齐齐，还练习了几次跟你打招呼的动作'
+];
+var NEUTRAL_EVENT_FLAVORS=[
+  '在小窝里晒了会儿太阳，舒服得打了个小盹',
+  '跑去院子里追了几只蝴蝶，跑来跑去玩得很开心',
+  '翻出自己的玩具球，一个人拍着玩了好一会儿',
+  '趴在窗边看了好久外面的风景，尾巴悠闲地摇来摇去'
+];
+// 2026-09update：乖巧/均衡型离线小剧情的收尾也跟着等级分几档——等级越高，收尾越走心，
+// 从一句简单的"等你回来"，慢慢变成更像是它自己在表达"想你"的话
+var GOOD_TAIL_BY_TIER={
+  baby:['，乖乖等你回来一起玩～'],
+  teen:['，还时不时抬头看看门口，等你回来夸夸它。','，心里一直惦记着你，盼着你快点回来。'],
+  adult:['，其实它一直记挂着你什么时候回来，只是不太会表达。','，看得出它很懂事，也很想你——只是都憋在心里没说出口。'],
+  mature:['，它已经懂事得让人心疼了，可心里最想要的，从来都只是你能多陪陪它。','，它什么都做得很好，唯独没学会怎么撒娇要你陪它——但其实很想。']
+};
+var NEUTRAL_TAIL_BY_TIER={
+  baby:['，一直等着你回来呢～'],
+  teen:['，玩着玩着又想起你，抬头看了好几次门口。','，一个人玩得挺开心，但还是最盼着你回来。'],
+  adult:['，日子过得平平淡淡，但每次听到开门声都会立刻抬起头看看是不是你。','，它好像已经习惯了自己找乐子，可眼神里还是藏着盼你回来的期待。'],
+  mature:['，它早就学会了自己打发时间，但你一回来，那份藏了很久的雀跃还是藏不住。','，看似云淡风轻，其实每一次等待里都攒着满满的想念。']
+};
+function petTierTail(pool, level){
+  var tier=petMaturityTier(level);
+  var arr=pool[tier]||pool.baby;
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+function rollGoodEvent(pet){
+  var petName=pet.name||'宠物';
+  var level=petLevelInfo(pet).level;
+  var flavor=GOOD_EVENT_FLAVORS[Math.floor(Math.random()*GOOD_EVENT_FLAVORS.length)];
+  addLog('😇'+petName+' 趁你不在，'+flavor);
+  return '😇 你不在的这段时间，'+petName+' '+flavor+petTierTail(GOOD_TAIL_BY_TIER, level);
+}
+function rollNeutralEvent(pet){
+  var petName=pet.name||'宠物';
+  var level=petLevelInfo(pet).level;
+  var flavor=NEUTRAL_EVENT_FLAVORS[Math.floor(Math.random()*NEUTRAL_EVENT_FLAVORS.length)];
+  addLog('🙂'+petName+' 趁你不在，'+flavor);
+  return '🙂 你不在的这段时间，'+petName+' '+flavor+petTierTail(NEUTRAL_TAIL_BY_TIER, level);
+}
+/* 2026-09update：等级越高，叛逆宠物闯祸的"破坏力"也越强——乱花的钱占比更高/上限更高、
+   弄脏时掉的心情清洁值更多、浪费的东西数量更多，只调力度，不调"受伤"这件事触发的概率
+   （受伤本身够严重了，概率还是稳定在0.28，不然孩子会觉得防不胜防）。
+   同时离线小剧情的结尾也按等级分了几档不同的"走心"收尾——等级越高，宠物"长大了"，
+   闯祸时配的那句话也从简单一句"要多陪陪它"，慢慢变得更像是它自己在委屈巴巴地表达心情。 */
+var REBEL_PUNISH_SCALE={baby:1, teen:1.3, adult:1.6, mature:2.1};
+var REBEL_TAIL_BY_TIER={
+  baby:['下次要多陪陪它、多带它打卡运动/学习，性格才会慢慢稳重起来哦～'],
+  teen:['它长大了一点，闯的祸也跟着大了一点——多花点时间陪它，它其实很想变得更懂事。','希望它能慢慢少闯点祸，多聊聊天、多带它打卡就会好一些。'],
+  adult:['它已经长这么大了还是这么调皮，是不是因为最近陪它的时间太少了？多跟它聊聊，它会懂的。','看着长大不少的它又闯祸，你是不是也有点又气又心疼？多花点心思陪陪它吧。'],
+  mature:['都长这么大了还这样，其实它心里也挺委屈的——它只是想让你多注意它一点。','长这么大了还闯祸，与其说是调皮，不如说是太想你了、又不知道怎么开口说。']
+};
 function rollRebelEvent(pet){
   var supplies=state.backpack.supplies||{};
+  var level=petLevelInfo(pet).level;
+  var tier=petMaturityTier(level);
+  var scale=REBEL_PUNISH_SCALE[tier]||1;
   var pool=[];
   if(state.moneyBalance>0) pool.push('spend');
   if((supplies.food>0)||(supplies.water>0)||(supplies.milk>0)) pool.push('waste');
   pool.push('messy'); // 弄脏耍脾气这个选项总是可以发生，保证叛逆性格离线时一定会有点动静
   // 已经受伤了就不会再触发"受伤"这个结果（避免离线一段时间连续判定好几次都是受伤，剧情说不通），
   // 且概率不用太高——不是每次叛逆离线都会受伤，只是"有时候"，太频繁反而会让孩子觉得防不胜防
+  // （受伤只调"是否发生"的概率保持不变，破坏力升级只体现在下面这三种日常闯祸上）
   if(!pet.injured && Math.random()<0.28) pool.push('injured');
   var pick=pool[Math.floor(Math.random()*pool.length)];
   var petName=pet.name||'宠物';
@@ -6004,33 +6151,50 @@ function rollRebelEvent(pet){
     return '🤕 你不在的这段时间，'+petName+' 偷偷玩了些危险动作，结果不小心受伤了！<br>要赶紧去商城买【特效药】给它治疗，不然3小时内没治好，它会伤心地变回蛋哦！';
   }
   if(pick==='spend'){
-    var lost=Math.max(5,Math.min(80,Math.round(state.moneyBalance*(0.1+Math.random()*0.2))));
+    var pct=(0.1+Math.random()*0.2)*scale;
+    var cap=Math.round(80*scale);
+    var lost=Math.max(5,Math.min(cap,Math.round(state.moneyBalance*pct)));
     lost=Math.min(lost,state.moneyBalance);
     state.moneyBalance-=lost;
     addLog('😈'+petName+' 趁你不在，偷偷拿了 '+lost+' 金币出去买玩具/零食/冰淇淋了');
-    return '😈 你不在的这段时间，'+petName+' 偷偷拿金币出去买了玩具和零食，乱花掉了 <b>'+lost+' 金币</b>！下次要多陪陪它、多带它打卡运动/学习，性格才会慢慢稳重起来哦～';
+    return '😈 你不在的这段时间，'+petName+' 偷偷拿金币出去买了玩具和零食，乱花掉了 <b>'+lost+' 金币</b>！'+petTierTail(REBEL_TAIL_BY_TIER, level);
   }
   if(pick==='waste'){
-    var items=[]; if(supplies.food>0) items.push('food'); if(supplies.water>0) items.push('water'); if(supplies.milk>0) items.push('milk');
-    var it=items[Math.floor(Math.random()*items.length)];
-    supplies[it]=Math.max(0,supplies[it]-1);
-    var itName={food:'宠物粮食',water:'饮用水',milk:'牛奶'}[it];
-    addLog('😈'+petName+' 趁你不在，故意糟蹋掉了1份【'+itName+'】');
-    return '😈 你不在的这段时间，'+petName+' 生气地把1份【'+itName+'】弄洒浪费掉了，需要重新去商店补货。';
+    // 等级越高，一次浪费掉的份数也越多（adult:2份，mature:3份，每次都从当前还有库存的东西里随机挑，
+    // 挑完随即重新算一次库存，避免把同一样东西减到负数）
+    var wasteCount=tier==='mature'?3:(tier==='adult'?2:1);
+    var wastedNames=[];
+    for(var w=0; w<wasteCount; w++){
+      var items=[]; if(supplies.food>0) items.push('food'); if(supplies.water>0) items.push('water'); if(supplies.milk>0) items.push('milk');
+      if(!items.length) break;
+      var it=items[Math.floor(Math.random()*items.length)];
+      supplies[it]=Math.max(0,supplies[it]-1);
+      wastedNames.push({food:'宠物粮食',water:'饮用水',milk:'牛奶'}[it]);
+    }
+    var wastedDesc=wastedNames.join('、');
+    addLog('😈'+petName+' 趁你不在，故意糟蹋掉了【'+wastedDesc+'】');
+    return '😈 你不在的这段时间，'+petName+' 生气地把【'+wastedDesc+'】弄洒浪费掉了，需要重新去商店补货。'+petTierTail(REBEL_TAIL_BY_TIER, level);
   }
-  var dropClean=10+Math.floor(Math.random()*15);
-  var dropHappy=5+Math.floor(Math.random()*10);
+  var dropClean=Math.round((10+Math.floor(Math.random()*15))*scale);
+  var dropHappy=Math.round((5+Math.floor(Math.random()*10))*scale);
   pet.clean=Math.max(0,(pet.clean||0)-dropClean);
   pet.happy=Math.max(0,(pet.happy||0)-dropHappy);
   addLog('😈'+petName+' 趁你不在到处捣乱，把自己和房间弄脏了，还有点不听指挥');
-  return '😈 你不在的这段时间，'+petName+' 到处捣乱，把自己和房间弄得脏兮兮的，还有点不听指挥，需要重新帮它洗澡哄一哄。';
+  return '😈 你不在的这段时间，'+petName+' 到处捣乱，把自己和房间弄得脏兮兮的，还有点不听指挥，需要重新帮它洗澡哄一哄。'+petTierTail(REBEL_TAIL_BY_TIER, level);
 }
+var WORKER_TAIL_BY_TIER={
+  baby:[''],
+  teen:[' 干活的时候还哼着小曲儿，看着挺有劲头的。',' 忙前忙后的样子，好像特别想让你看到它的努力。'],
+  adult:[' 它已经很习惯自己攒钱了，但赚到钱的那一刻，第一反应还是想给你看看。',' 干起活来又稳又利索，只是偶尔停下来，还是会想你什么时候回来。'],
+  mature:[' 它早就是攒钱的老手了，可每次数着赚到的金币，心里想的都是"这下可以陪你多买点东西了"。',' 忙碌的样子看着很独立，但那份想让你为它骄傲的心思，其实一直都在。']
+};
 function rollWorkerEvent(pet){
   var petName=pet.name||'宠物';
+  var level=petLevelInfo(pet).level;
   var gain=8+Math.floor(Math.random()*13); // 8~20金币
   state.moneyBalance+=gain;
   addLog('💼'+petName+' 趁你不在出门打工，赚了 '+gain+' 金币');
-  return '💼 你不在的这段时间，你的宠物出门打工啦，赚了 <b>'+gain+' 金币</b> 给自己买食物哦！';
+  return '💼 你不在的这段时间，你的宠物出门打工啦，赚了 <b>'+gain+' 金币</b> 给自己买食物哦！'+petTierTail(WORKER_TAIL_BY_TIER, level);
 }
 /* ========== 防刷金币兜底：连续2天完全零打卡，自动清空全部金币 ==========
    不管攒了多少金币（几百～上万），只要连续2整天一次真的打卡都没有，系统就会自动把金币清零，
@@ -6300,7 +6464,7 @@ function completeBurpee(mode){
   if(mode==='once') state.nextBurpeeBonus=60;
   earnCoins(specialCoin('burpee'),'波比跳');
   gainTaskExp();
-  gainAbilityPoint('sport');
+  gainAbilityPoint('sport',{highQuality:mode==='once'}); // 一次性做完60个难度更高，算"优质完成"
   addLog('✅波比跳完成（'+(mode==='once'?'1次做完，明日免做':'分组完成，明日无优惠')+'），+'+specialCoin('burpee')+'金币');
   afterTask('sport');
   save();
@@ -6504,14 +6668,13 @@ function renderExerciseTimer(){
     btn.textContent='🔄 重新开始第1组';
   }
 }
-
 function markDone(cat,key,viaFree){
   if(!state.day[cat]) state.day[cat]={};
   if(cat==='house'){ state.day.house[key]=true; state.day.houseDone++; }
   else { state.day[cat][key]=true; }
   var mult=studyRewardMultiplier(cat,key);
   var coins=taskCoinsOf(cat,key)*mult;
-  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult);gainAbilityPoint(cat);}
+  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult);gainAbilityPoint(cat,{highQuality:mult>1});}
   else{markDayActive();}
   addLog('✅完成：'+taskLabel(cat,key)+(viaFree?'（免做卡豁免）':'')+(viaFree?'':'，+'+coins+'金币'+(mult>1?'（难度较高，双倍奖励）':'')));
   afterTask(cat);
@@ -6627,11 +6790,25 @@ function markDayActive(){
   }
 }
 function gainTaskExp(mult){if(state.pet&&state.pet.chosen) gainExp(CONFIG.taskExp*(mult||1));}
-/* ========== 三维能力值（体力/智力/生活）：运动→体力，学习→智力，家务→生活 ==========
-   每完成一项对应类别的真实打卡（不是用免做卡豁免掉的），对应维度累加1点，长期累计、不会每天清零，
-   用来驱动宠物专属页面的雷达图和性格判定。跟经验值(exp)是两套独立的东西：exp只管等级，
-   这三个维度只管"孩子平时更偏爱/更擅长哪一类"，用来给宠物加点"个性"。 */
-function gainAbilityPoint(cat){
+/* ========== 七大能力维度（2026-09 大改版）==========
+   旧版是"三维能力值"(体力/智力/生活)后来扩展到7维(+才艺/情感/社交/品格)，用的是次数->0~100的固定
+   渐进曲线，100封顶。新版按照"仙侠灵宠"设定文档重做成：运动/学习/家务/创造力/共情爱心/音律/勇气探险，
+   0~100是"基础熟练度"阶段，100分以后进入"专精星级"阶段继续涨、不封顶；同一天里反复刷同一类打卡，
+   收益会持续衰减，防止靠刷屏拿满；连续多天打同一类卡会有连续奖励（封顶+2）。
+   7个新维度和打卡类型的对应关系（ABILITY_CAT_TO_DIM）：
+     运动(sport)←运动打卡｜学习(study)←学习打卡｜家务(house)←家务打卡｜
+     音律(music)←娱乐打卡(唱歌/跳舞)｜创造力(creativity)←⭐自定义加分项（手工/画画等家长自定义任务多半会用这里）｜
+     共情爱心(empathy)←☎️沟通打卡(问候关心家人) + 📔日记打卡（两者都算共情，一起累加）｜
+     勇气探险(courage)←⚔️副本挑战获胜（副本系统目前是关闭状态 CONFIG.dungeonEnabled=false，
+       这个维度暂时长期是0，等以后正式开放副本，会自动开始累积，不用再改这里的代码）。
+   老的 abilityStr/Int/Life/Fun/Emotion/Social/Char 这7个字段继续原样累加，只作为"历史累计打卡次数"
+   展示用（见下面 abilityScoreText），不再驱动雷达图/性格判定——那些全部改用 state.abilityDim。 */
+var ABILITY_CAT_TO_DIM={
+  sport:'sport', study:'study', house:'house',
+  fun:'music', diary:'empathy', comm:'empathy',
+  custom:'creativity', dungeon:'courage'
+};
+function gainAbilityPoint(cat, opts){
   if(cat==='sport') state.abilityStr=(state.abilityStr||0)+1;
   else if(cat==='study') state.abilityInt=(state.abilityInt||0)+1;
   else if(cat==='house') state.abilityLife=(state.abilityLife||0)+1;
@@ -6639,38 +6816,117 @@ function gainAbilityPoint(cat){
   else if(cat==='diary') state.abilityEmotion=(state.abilityEmotion||0)+1;
   else if(cat==='comm') state.abilitySocial=(state.abilitySocial||0)+1;
   else if(cat==='custom') state.abilityChar=(state.abilityChar||0)+1;
+  var dim=ABILITY_CAT_TO_DIM[cat];
+  if(dim) gainAbilityDimPoint(dim, opts);
 }
-/* 把累计次数映射成0~100用于雷达图展示：用跟boardBonusLevelFactor类似的"渐进逼近"曲线，
-   前期涨得快、看得到明显变化，后期慢慢趋近100但不会真的"点满封顶不动"，长期坚持还是能看到缓慢增长 */
+/* 老版本"次数->0~100"的渐进曲线，新版只用来给新维度做一次性迁移基准（把老玩家已经攒的次数换算成
+   一个合理的起始pts，不让长期玩家一次改版就"归零"），本身不再直接驱动任何UI */
 function abilityScore(raw){
   raw=raw||0;
   return Math.round(100*(1-Math.exp(-raw/30)));
 }
+var ABILITY_DIM_KEYS=['sport','study','house','creativity','empathy','music','courage'];
+function ensureAbilityDim(s){
+  if(s.abilityDim && s.abilityDim.__v2) return; // 已经迁移过：往后只能靠 gainAbilityDimPoint 持续累加，不能每次读存档都被这里重新播种
+  var old=s.abilityDim||{};
+  var seed={
+    sport: abilityScore(s.abilityStr),
+    study: abilityScore(s.abilityInt),
+    house: abilityScore(s.abilityLife),
+    music: abilityScore(s.abilityFun),
+    creativity: abilityScore(s.abilityChar),
+    empathy: Math.round((abilityScore(s.abilityEmotion)+abilityScore(s.abilitySocial))/2),
+    courage: 0
+  };
+  s.abilityDim={__v2:true};
+  for(var i=0;i<ABILITY_DIM_KEYS.length;i++){
+    var k=ABILITY_DIM_KEYS[i];
+    var prev=(old && old[k]) || {};
+    s.abilityDim[k]={
+      pts: (typeof prev.pts==='number') ? prev.pts : (seed[k]||0),
+      streak: prev.streak||0,
+      lastDay: prev.lastDay||null,
+      todayCount: prev.todayCount||0
+    };
+  }
+}
+var ABILITY_STREAK_BONUS_CAP=2;
+/* 七维度核心打分引擎：0~100阶段普通完成+3/优质完成+5，且首次打卡当天有连续天数奖励（封顶+2）；
+   100分以后进入"专精星级"阶段，普通+1/优质+2，且不再有连续奖励，但也永远不封顶。
+   同一天同一维度第2次及以后再拿分，按1/第几次衰减（且不低于15%），防止靠反复刷同一类打卡短时间刷爆 */
+function gainAbilityDimPoint(dimKey, opts){
+  if(!state.abilityDim) ensureAbilityDim(state);
+  var d=state.abilityDim[dimKey];
+  if(!d){ d=state.abilityDim[dimKey]={pts:0,streak:0,lastDay:null,todayCount:0}; }
+  var today=todayKey();
+  if(d.lastDay!==today){
+    d.streak=(d.lastDay===prevKey(today))?(d.streak||0)+1:1;
+    d.todayCount=0;
+    d.lastDay=today;
+  }
+  d.todayCount+=1;
+  var highQuality=!!(opts&&opts.highQuality);
+  var starPhase=d.pts>=100;
+  var base=starPhase?(highQuality?2:1):(highQuality?5:3);
+  var repeatFactor=d.todayCount<=1?1:Math.max(0.15,1/d.todayCount);
+  var streakBonus=0;
+  if(d.todayCount===1 && !starPhase){
+    streakBonus=Math.min(ABILITY_STREAK_BONUS_CAP,Math.max(0,(d.streak||1)-1));
+  }
+  var gain=Math.round(base*repeatFactor+streakBonus);
+  if(gain<0) gain=0;
+  d.pts=(d.pts||0)+gain;
+  maybeUnlockBalancedImmortal();
+  return gain;
+}
+function abilityDimPts(key){ return (state.abilityDim && state.abilityDim[key] && state.abilityDim[key].pts) || 0; }
+function abilityDimScore(key){ return Math.min(100,Math.round(abilityDimPts(key))); } // 雷达图/性格判定用：封顶显示100
+function abilityStarRank(pts){ return pts<100?0:Math.floor((pts-100)/50)+1; } // 100分后每再涨50分多一颗星，不封顶
+function petAllDimsMaxed(){
+  for(var i=0;i<ABILITY_DIM_KEYS.length;i++){ if(abilityDimPts(ABILITY_DIM_KEYS[i])<100) return false; }
+  return true;
+}
+/* 终极形态【均衡仙灵】：七大维度全部达到100（包含勇气探险，所以副本系统开放前几乎不可能达成，
+   这是设定文档里"长期高难度目标"的本意）。目前没有新的专属外观素材，先用日志+一句台词庆祝，
+   以后有专属皮肤素材了再接上换装逻辑。 */
+function maybeUnlockBalancedImmortal(){
+  if(state.balancedImmortalUnlocked) return;
+  if(!petAllDimsMaxed()) return;
+  state.balancedImmortalUnlocked=true;
+  addLog('🌟🌟🌟 七大能力全部达到100！解锁终极形态【均衡仙灵】，太厉害了！');
+  if(state.pet && petSpriteVisible && petSpriteVisible()){
+    petSay('我感觉浑身充满了光……我要变身啦！✨',3000);
+  }
+}
 function petAbilityScores(){
   return {
-    str: abilityScore(state.abilityStr),
-    intl: abilityScore(state.abilityInt),
-    life: abilityScore(state.abilityLife),
-    fun: abilityScore(state.abilityFun),
-    emotion: abilityScore(state.abilityEmotion),
-    social: abilityScore(state.abilitySocial),
-    char: abilityScore(state.abilityChar)
+    sport: abilityDimScore('sport'),
+    study: abilityDimScore('study'),
+    house: abilityDimScore('house'),
+    creativity: abilityDimScore('creativity'),
+    empathy: abilityDimScore('empathy'),
+    music: abilityDimScore('music'),
+    courage: abilityDimScore('courage')
   };
 }
+function petAbilityStars(){
+  var out={};
+  for(var i=0;i<ABILITY_DIM_KEYS.length;i++){ var k=ABILITY_DIM_KEYS[i]; out[k]=abilityStarRank(abilityDimPts(k)); }
+  return out;
+}
 /* ========== 能力雷达图渲染：纯SVG画多轴雷达图 ==========
-   覆盖现在真实存在的全部打卡类型，一共7个维度：体力(运动)/智力(学习)/生活(家务)/才艺(唱歌跳舞)/
-   情感(日记)/社交(问候+打招呼)/品格(自定义加分项)，N个轴按360/N均匀分布，N轴角度和标签都是动态生成的，
-   以后再加新的打卡类型/维度，只要往下面的 RADAR_AXES 里加一条配置即可，不用改画图逻辑。
-   注意：petPersonality() 的"叛逆"判定会用到这里全部7个维度（智力 vs 其余6维平均分），
-   新增/调整维度时记得一并检查性格判定是否还合理。 */
+   七大维度：运动/学习/家务/创造力/共情爱心/音律/勇气探险，N个轴按360/N均匀分布，N轴角度和标签都是
+   动态生成的，以后再加新维度，只要往下面的 RADAR_AXES 里加一条配置即可，不用改画图逻辑。
+   注意：petPersonality() 的"叛逆"判定用到这里的维度（学习 vs 其余维度平均分，故意不含courage，
+   见 PERSONALITY_OTHER_KEYS 处的说明），新增/调整维度时记得一并检查性格判定是否还合理。 */
 var RADAR_AXES=[
-  {key:'str', label:'💪 体力'},
-  {key:'intl', label:'🧠 智力'},
-  {key:'life', label:'🏠 生活'},
-  {key:'fun', label:'🎨 才艺'},
-  {key:'emotion', label:'💌 情感'},
-  {key:'social', label:'🤝 社交'},
-  {key:'char', label:'⭐ 品格'}
+  {key:'sport', label:'🏃 运动'},
+  {key:'study', label:'📖 学习'},
+  {key:'house', label:'🧹 家务'},
+  {key:'creativity', label:'🎨 创造力'},
+  {key:'empathy', label:'💞 共情爱心'},
+  {key:'music', label:'🎵 音律'},
+  {key:'courage', label:'🗡️ 勇气探险'}
 ];
 function radarPoint(cx,cy,R,angleDeg,valuePct){
   var rad=angleDeg*Math.PI/180;
@@ -6679,10 +6935,70 @@ function radarPoint(cx,cy,R,angleDeg,valuePct){
 }
 var ABILITY_PERSONALITY_LABEL={
   rebel:'😈 好动叛逆型（学习落后于其它方面，容易离线捣乱，甚至做危险动作受伤）',
-  good:'😇 乖巧懂事型（智力值高，行为稳定不捣乱）',
-  worker:'💼 勤劳打工型（生活值高，离线时会自动打工赚金币）',
+  good:'😇 乖巧懂事型（学习值高，行为稳定不捣乱）',
+  worker:'💼 勤劳打工型（家务值高，离线时会自动打工赚金币）',
   neutral:'🙂 均衡型（还没有特别突出的方向，多打卡试试看）'
 };
+/* ========== 上线后"想做喜欢的事"念叨提醒 ==========
+   宠物按几个"有固定每日打卡来源"的维度里最高的那一项，判定出自己"最喜欢/最擅长"的类别（创造力绑
+   在自由发挥的⭐加分项上，没有固定"今天做没做"的判定方式；勇气探险绑在还没开放的副本系统上，两者
+   都不参与这个判定）；本次打开App后，如果宠物本体一直可见、却过了 IDLE_NAG_AFTER_MINUTES 分钟
+   还没打今天对应类别的卡，宠物就会自己蹦出一句话念叨"好无聊，想做XX了"，提醒小朋友该去打卡了。
+   跟七维能力值一样，这里也不区分"哪一页"，只要宠物本体当前实际显示在屏幕上（打卡页/宠物页都算），
+   念叨的话就能被看到。每天只念叨一次，不会一直刷屏打扰。 */
+var IDLE_NAG_AFTER_MINUTES=10;
+var IDLE_NAG_CATEGORY_META=[
+  {key:'study', abilityKey:'study', emoji:'📖'},
+  {key:'sport', abilityKey:'sport', emoji:'🏃'},
+  {key:'house', abilityKey:'house', emoji:'🧹'},
+  {key:'music', abilityKey:'music', emoji:'🎵'},
+  {key:'empathy', abilityKey:'empathy', emoji:'💞'}
+];
+var IDLE_NAG_FLAVORS={
+  study:['好无聊呀，想学点新知识啦！','脑袋闲着好难受，快带我打卡学习嘛～','想听你给我念本故事书、讲讲课文呀～'],
+  sport:['浑身都是劲儿没处使，好想运动一下！','坐不住啦，想跟你一起蹦跶蹦跶～'],
+  house:['家里感觉有点乱，手痒痒想帮忙整理整理！','好想跟你一起做点家务呀～'],
+  music:['好想跳个舞、唱首歌给你看呀！','手痒痒的，想展示一下我的小才艺～'],
+  empathy:['好想给爷爷奶奶打个电话，聊聊天呀～','今天发生好多事，想跟你说说心里话！','好想写今天的小日记，讲给你听！']
+};
+function petFavoriteCategory(){
+  var sc=petAbilityScores();
+  var best=null;
+  for(var i=0;i<IDLE_NAG_CATEGORY_META.length;i++){
+    var m=IDLE_NAG_CATEGORY_META[i];
+    var v=sc[m.abilityKey]||0;
+    if(!best || v>best.score){ best={key:m.key, emoji:m.emoji, score:v}; }
+  }
+  return best;
+}
+function petCategoryDoneToday(key){
+  var d=state.day;
+  if(key==='study') return !!(d.study&&(d.study.word||d.study.hanzi||d.study.sentence||d.study.mathen||d.study.poem||d.study.reading))
+    || (d.readEn&&d.readEn.count>0) || (d.readCn&&d.readCn.count>0) || (d.storyEn&&d.storyEn.count>0) || (d.storyCn&&d.storyCn.count>0);
+  if(key==='sport') return !!(d.sport&&(d.sport.burpee>0||d.sport.plank||d.sport.balance||d.sport.situp));
+  if(key==='house') return !!(d.houseDone>0);
+  if(key==='music') return !!(d.fun&&(d.fun.sing||d.fun.dance));
+  if(key==='empathy') return !!(d.diary&&d.diary.diary) || !!(d.comm&&(d.comm.grandpa||d.comm.inlaw||d.comm.hello>0));
+  return true; // 未知类别兜底当作"已完成"，不念叨
+}
+var appSessionStartAt=Date.now(); // 每次打开App（刷新页面）算一次"上线"，从这一刻开始计算"闲置了多久没做喜欢的事"
+function maybeShowIdleNag(){
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched) return;
+  if(!petSpriteVisible()) return; // 宠物本体当前没显示在屏幕上（比如在棋盘页/被隐藏），念叨了也看不见，等它出现了再说
+  if(pet.idleNagDayKey===todayKey()) return; // 今天已经念叨过一次了，不重复刷屏打扰
+  var elapsedMin=(Date.now()-appSessionStartAt)/60000;
+  if(elapsedMin<IDLE_NAG_AFTER_MINUTES) return;
+  var fav=petFavoriteCategory();
+  if(!fav || petCategoryDoneToday(fav.key)) return; // 今天已经打过喜欢的这类卡了，不用念叨
+  var pool=IDLE_NAG_FLAVORS[fav.key]||[];
+  if(!pool.length) return;
+  var msg=pool[Math.floor(Math.random()*pool.length)];
+  petSay(msg, 6000);
+  pet.idleNagDayKey=todayKey();
+  addLog(fav.emoji+(pet.name||'宠物')+' 念叨着："'+msg+'"');
+  save();
+}
 function renderAbilityRadar(){
   var card=document.getElementById('abilityRadarCard');
   var toggle=document.getElementById('abilityRadarToggle');
@@ -6695,11 +7011,12 @@ function renderAbilityRadar(){
   }
   if(toggle) toggle.style.display='';
   var sc=petAbilityScores();
+  var stars=petAbilityStars();
   var cx=130,cy=138,R=88;
   var n=RADAR_AXES.length;
   var angles=RADAR_AXES.map(function(ax,i){ return -90+i*(360/n); }); // 第一个轴朝上，其余顺时针均匀分布
   var vals=RADAR_AXES.map(function(ax){ return sc[ax.key]; });
-  var labels=RADAR_AXES.map(function(ax){ return ax.label+' '+sc[ax.key]; });
+  var labels=RADAR_AXES.map(function(ax){ return ax.label+' '+sc[ax.key]+(stars[ax.key]>0?' ⭐'+stars[ax.key]:''); }); // 满100分后显示星级，没有封顶
   var gridLevels=[33,66,100];
   var gridSvg=gridLevels.map(function(lv,i){
     var pts=angles.map(function(a){ return radarPoint(cx,cy,R,a,lv).join(','); }).join(' ');
@@ -6722,7 +7039,13 @@ function renderAbilityRadar(){
   var svgHost=document.getElementById('abilityRadarSvg');
   if(svgHost) svgHost.innerHTML=svg;
   var scoreEl=document.getElementById('abilityScoreText');
-  if(scoreEl) scoreEl.innerText='累计打卡：运动'+state.abilityStr+'次 · 学习'+state.abilityInt+'次 · 家务'+state.abilityLife+'次 · 才艺'+state.abilityFun+'次 · 日记'+state.abilityEmotion+'次 · 社交'+state.abilitySocial+'次 · 加分'+state.abilityChar+'次';
+  if(scoreEl){
+    var txt='能力点数：运动'+abilityDimPts('sport')+' · 学习'+abilityDimPts('study')+' · 家务'+abilityDimPts('house')
+      +' · 创造力'+abilityDimPts('creativity')+' · 共情爱心'+abilityDimPts('empathy')+' · 音律'+abilityDimPts('music')
+      +' · 勇气探险'+abilityDimPts('courage')+'（100分后进入专精星级，不封顶）';
+    if(state.balancedImmortalUnlocked) txt='🌟 已达成终极形态【均衡仙灵】！ '+txt;
+    scoreEl.innerText=txt;
+  }
   var pEl=document.getElementById('abilityPersonalityText');
   if(pEl) pEl.innerText=ABILITY_PERSONALITY_LABEL[petPersonality()];
 }
@@ -6928,7 +7251,7 @@ function confirmName(){
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
   if(!name) name=lib.name;
   var isAdditional=!!(state.pets && state.pets.length>0);
-  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null};
+  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,idleNagDayKey:null};
   if(!state.pets) state.pets=[];
   state.pets.push(newPet);
   state.activePetIdx=state.pets.length-1; // 新宠物自动成为当前"出战/展示"的宠物
@@ -6973,6 +7296,21 @@ function stageOf(level){
   if(level<=5) return 'baby';
   if(level<=12) return 'teen';
   return 'adult';
+}
+/* ========== "成熟度"分级：等级越高，叛逆闯祸的破坏力越强，同时平时的互动/聊天也更细腻、更像真人 ==========
+   跟 stageOf() 的外形阶段（蛋/幼年/少年/成年）是两套独立但呼应的概念：stageOf 只管长什么样子，
+   这里额外在"成年"里再切出一档 mature（30级封顶，跟"所有宠物到30级才能再养一只新宠物"这个里程碑对齐），
+   专门用来调节"叛逆惩罚力度"和"说话内容丰富度"这两件事——等级越高，两头都往上走。 */
+function petMaturityTier(level){
+  if(level<=5) return 'baby';
+  if(level<=12) return 'teen';
+  if(level<30) return 'adult';
+  return 'mature';
+}
+var MATURITY_TIER_ORDER=['baby','teen','adult','mature'];
+function maturityTierIndex(tier){
+  var i=MATURITY_TIER_ORDER.indexOf(tier);
+  return i<0?0:i;
 }
 /* 通用版本：可以指定给"哪一只"宠物加经验（不一定是当前出战展示的那只），
    棋盘每日奖励要给家里每一只宠物各自加经验时会用到这个；gainExp(amt)仍然保留，
@@ -7204,9 +7542,10 @@ function dungeonPetBattleStats(level){
   return { hpMax:hpMax, dmgMin:Math.round(dmgBase*0.82), dmgMax:Math.round(dmgBase*1.18) };
 }
 function renderDungeonEntry(){
+  // 2026-09起：入口按钮改由 dungeon2（新版"投入+概率结算"副本）驱动，老的回合制 dungeon 永久隐藏
   var btn=document.getElementById('dungeonEntryBtn');
   if(!btn) return;
-  if(!CONFIG.dungeonEnabled){
+  if(!CONFIG.dungeon2Enabled){
     btn.style.opacity=.35;
     btn.innerHTML='🔒';
     btn.title='副本挑战（暂时关闭，维护中）';
@@ -7215,7 +7554,7 @@ function renderDungeonEntry(){
   var pet=state.pet;
   var hatched=pet&&pet.chosen&&pet.hatched;
   btn.style.opacity=hatched?1:.45;
-  var cnt=(state.day&&state.day.dungeon&&state.day.dungeon.count)||0;
+  var cnt=(state.day&&state.day.dungeon2&&state.day.dungeon2.count)||0;
   btn.innerHTML='⚔️'+(cnt>0?('<span class="care-badge show">'+cnt+'</span>'):'');
   btn.title=cnt>0?('副本挑战（今日已挑战 '+cnt+' 次）'):'副本挑战';
 }
@@ -7506,8 +7845,9 @@ function dungeonEnd(win){
     state.day.earned+=st.coin;
     var dgExp=st.exp||(10+dg.idx*8); // 通关层数（idx）越高，奖励经验越多；老配置万一没写 exp 字段时兜底按层数算
     gainExp(dgExp);
-    dgLog('🎉 打败了 '+st.monster+'！');
     var isFinale=(isNewProgress && dg.idx===CONFIG.dungeon.length-1);
+    gainAbilityPoint('dungeon',{highQuality:isNewProgress||isFinale}); // 打通副本累加"勇气探险"维度；这个功能目前是关闭状态(CONFIG.dungeonEnabled=false)，等以后开放了自动生效
+    dgLog('🎉 打败了 '+st.monster+'！');
     addLog('⚔️副本挑战成功【'+st.name+'】：+'+st.coin+'金币，+'+dgExp+'经验'+(newAcc?'，获得装饰【'+newAcc.name+'】':'')+(isNewProgress?'，解锁称号【'+st.title+'】':''));
     var resultHtml='<div style="font-size:15px;font-weight:700;color:#66bb6a">'+(isFinale?'🏆 通关黄金神殿！':'🎉 挑战成功！')+'</div>'
       +'<div style="margin:6px 0">💰 获得 '+st.coin+' 金币　✨ 获得 '+dgExp+' 经验'
@@ -7532,6 +7872,122 @@ function backToDungeonList(){
   var wasPvp=dg&&dg.mode==='pvp';
   document.getElementById('dungeonBattleView').style.display='none';
   if(wasPvp) switchDungeonTab('pvp'); else switchDungeonTab('dungeon');
+}
+
+/* ========================================================================
+   新版副本挑战（dungeon2）：2026-09 仙侠灵宠改版新增，跟上面这套老的回合制
+   打怪战斗（dungeon/#dungeonModal，含PVP）完全独立、互不影响，老系统只是
+   永久隐藏入口，代码原样保留。玩法：点"挑战"直接按概率结算成功/失败，
+   不需要一下一下攻击；等级越高、勇气探险维度越强，胜率越高，但从不会是
+   0%或100%；所有关卡随时都能挑战，没有"必须先打赢上一关"的顺序锁。
+   ======================================================================== */
+function dungeon2WinProb(tier, level, courageScore){
+  var p = (tier.winBase||0.5) + (level - tier.lvReq)*0.03 + ((courageScore||0)/100)*0.15;
+  return Math.max(0.08, Math.min(0.92, p));
+}
+function dungeon2RandInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; } // 注意：不能直接叫 randInt——那是"数学挑战小游戏"内嵌iframe源码里自己的同名函数，跟外层页面是两个独立作用域，外层这里拿不到
+function openDungeon2(){
+  if(!CONFIG.dungeon2Enabled){ alert('🗺️副本挑战功能暂时关闭，敬请期待恢复通知～'); return; }
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched){ alert('宠物还没出生（还是蛋），先完成打卡攒经验让它破壳吧'); return; }
+  renderDungeon2List();
+  showModal('dungeon2Modal');
+}
+function closeDungeon2Modal(){ hideModal('dungeon2Modal'); }
+function renderDungeon2List(){
+  var box=document.getElementById('dungeon2ListBox');
+  if(!box) return;
+  var pet=state.pet;
+  if(!pet||!pet.chosen){ box.innerHTML=''; return; }
+  if(!pet.dungeon2Tried) pet.dungeon2Tried={};
+  if(!pet.dungeon2Cleared) pet.dungeon2Cleared={};
+  var info=petLevelInfo();
+  var courageScore=abilityDimScore('courage');
+  var html='<div class="dg-village">🗺️ 仙侠秘境<div class="small" style="margin-top:2px">每个副本随时都能挑战，不用按顺序解锁；等级越高、勇气探险维度越强，胜率越高。第一次挑战某个副本失败不会扣任何东西，放心试！</div></div>';
+  html+='<div class="dg-trail">';
+  for(var i=0;i<CONFIG.dungeon2.length;i++){
+    var tier=CONFIG.dungeon2[i];
+    var pct=Math.round(dungeon2WinProb(tier, info.level, courageScore)*100);
+    var cleared=!!pet.dungeon2Cleared[i];
+    var firstTry=!pet.dungeon2Tried[i];
+    var matNames=tier.materialPool.map(function(m){ return m.emoji+m.name; }).join('/');
+    var cardCls='dungeon-card'+(cleared?' done':'')+(tier.boss?' boss':'');
+    var side=(i%2===0)?'L':'R';
+    html+='<div class="dg-node dg-node-'+side+'">'
+      +'<div class="'+cardCls+'">'
+      +(tier.boss?'<div class="dc-boss-tag">👑 终极秘境</div>':'')
+      +'<div class="dc-emoji">'+tier.listIcon+'</div>'
+      +'<div class="dc-info">'
+        +'<div class="dc-name">'+(cleared?'✅ ':'')+tier.name+'（'+tier.monster+'）</div>'
+        +'<div class="dc-desc">预计胜率 '+pct+'%'+(info.level<tier.lvReq?'　·　推荐Lv'+tier.lvReq+'以上再来，等级不够会更容易失败':'')+(firstTry?'　·　首次挑战失败不扣东西':'')
+          +'<br>胜利：'+tier.coinMin+'~'+tier.coinMax+'金币 + '+matNames+(cleared?'（装饰「'+tier.accessory.name+'」已获得）':'　首通额外送 '+tier.accessory.emoji+tier.accessory.name)+'</div>'
+      +'</div>'
+      +'<button class="btn btn-primary btn-sm" onclick="challengeDungeon2('+i+')">挑战</button>'
+      +'</div></div>';
+  }
+  html+='</div>';
+  box.innerHTML=html;
+}
+function challengeDungeon2(idx){
+  if(!CONFIG.dungeon2Enabled) return;
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched) return;
+  var tier=CONFIG.dungeon2[idx];
+  if(!tier) return;
+  if(!pet.dungeon2Tried) pet.dungeon2Tried={};
+  if(!pet.dungeon2Cleared) pet.dungeon2Cleared={};
+  if(!state.backpack.materials) state.backpack.materials={};
+  if(!state.day.dungeon2) state.day.dungeon2={count:0};
+  var info=petLevelInfo();
+  var courageScore=abilityDimScore('courage');
+  var winProb=dungeon2WinProb(tier, info.level, courageScore);
+  var firstTry=!pet.dungeon2Tried[idx];
+  pet.dungeon2Tried[idx]=true;
+  state.day.dungeon2.count=(state.day.dungeon2.count||0)+1;
+  var win=Math.random()<winProb;
+  var resultHtml='';
+  if(win){
+    var coin=dungeon2RandInt(tier.coinMin,tier.coinMax);
+    state.moneyBalance+=coin;
+    state.day.earned+=coin;
+    var mat=tier.materialPool[dungeon2RandInt(0,tier.materialPool.length-1)];
+    state.backpack.materials[mat.id]=(state.backpack.materials[mat.id]||0)+1;
+    var dgExp=tier.exp||15;
+    gainExp(dgExp);
+    var firstClear=!pet.dungeon2Cleared[idx];
+    var newAcc=null;
+    if(firstClear){
+      pet.dungeon2Cleared[idx]=true;
+      if(!pet.accessories) pet.accessories=[];
+      if(pet.accessories.indexOf(tier.accessory.id)<0){
+        pet.accessories.push(tier.accessory.id);
+        newAcc=tier.accessory;
+        if(!pet.equippedAccessory) pet.equippedAccessory=tier.accessory.id;
+      }
+    }
+    gainAbilityPoint('dungeon',{highQuality:firstClear}); // 打通副本累加"勇气探险"维度
+    addLog('🗺️新版副本挑战成功【'+tier.name+'】：+'+coin+'金币，+'+dgExp+'经验，+'+mat.emoji+mat.name+(newAcc?'，获得装饰【'+newAcc.name+'】':''));
+    resultHtml='<div style="font-size:15px;font-weight:700;color:#66bb6a">🎉 挑战成功！</div>'
+      +'<div style="margin:6px 0">💰 获得 '+coin+' 金币　'+mat.emoji+' 获得 '+mat.name+' ×1　✨ 获得 '+dgExp+' 经验'
+      +(newAcc?'<br>'+newAcc.emoji+' 获得新装饰【'+newAcc.name+'】，可以去衣柜给宠物戴上～':'')
+      +(firstClear&&!newAcc?'<br>🎖️ 首次通关【'+tier.name+'】！':'')
+      +'</div>';
+  }else{
+    var penaltyText;
+    if(firstTry){
+      penaltyText='<br>💡 第一次挑战这里失败不会扣任何东西，多攒点经验、多练练勇气探险，再来试试！';
+    }else{
+      state.pet.happy=Math.max(0,state.pet.happy-6);
+      penaltyText='<br>😮‍💨 '+tier.monster+'有点强，'+pet.name+'有点沮丧（开心-6）';
+    }
+    addLog('🗺️新版副本挑战失败【'+tier.name+'】'+(firstTry?'（首次豁免，无惩罚）':''));
+    resultHtml='<div style="font-size:15px;font-weight:700;color:#ef5350">😢 没有打赢……</div>'
+      +'<div style="margin:6px 0">'+tier.monster+' 这次有点强，没能打过。'+penaltyText+'</div>';
+  }
+  save();
+  render();
+  renderDungeon2List();
+  showReward(win?'🎉 挑战成功':'😢 挑战失败', resultHtml);
 }
 
 /* ========== 好友对战：不需要服务器，靠双方手动交换一段"口令"文本来切磋 ==========
@@ -8759,6 +9215,7 @@ function petMinuteTick(){
   syncPetSprite(); // 状态挂机掉到阈值以下/宠物被养回蛋，不用等切页面，每分钟这一下就能让宠物按新状态该出现/该收起
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
   renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
+  maybeShowIdleNag(); // 上线闲置够久、还没打今天最喜欢那类的卡，宠物就念叨一句提醒小朋友
   save();
 }
 setInterval(petMinuteTick, 60000);
