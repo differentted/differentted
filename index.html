@@ -230,6 +230,12 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
   max-height:min(60vh,420px); overflow-y:auto;
 }
 .pet-actions-list.open{ display:flex }
+/* 副本挑战入口：从"点开🐾才能看到的互动小面板"里独立出来，单独常驻悬浮按钮，方便小朋友/家长一眼看到、直接点进去挑战，
+   不用再多点一次🐾展开面板才能找到；位置放在能力雷达按钮正上方，同一列不冲突 */
+#dungeonEntryBtn{
+  position:fixed; right:10px; bottom:158px; z-index:58; font-size:20px;
+  background:linear-gradient(135deg,#ffe0b2,#ffcc80);
+}
 #petEggWrap{
   position:fixed; left:50%; top:42%; transform:translate(-50%,-50%); z-index:46;
   width:min(72vw,260px); text-align:center; pointer-events:none;
@@ -831,6 +837,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <input type="range" id="bgmVolumeSlider" min="0" max="100" value="100" oninput="onBgmVolumeInput(this.value)" style="width:100%">
     <div class="small" style="margin:14px 0 4px">📖 朗读音量（点🔊读句子/古诗/短文时）</div>
     <input type="range" id="ttsVolumeSlider" min="0" max="100" value="100" oninput="onTtsVolumeInput(this.value)" style="width:100%">
+    <div class="small" style="margin:14px 0 4px">🐢 朗读语速（小朋友英文基础还弱的话，建议先选0.5倍速）</div>
+    <div id="ttsRateBtns" style="display:flex;gap:6px"></div>
   </div>
 </div>
 
@@ -1452,7 +1460,6 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="hud-act-btn" onclick="petQuickAction('buyItem','train')" title="训练">🎯</button>
   <button class="hud-act-btn care-btn" onclick="petQuickAction('useSupply','bath')" title="美容（用背包里买好的美容洗护）">🛁<span class="care-badge" id="careBadge-bath">✔</span><span class="stock-badge" id="stockBadge-bath">0</span></button>
   <button class="hud-act-btn" onclick="petQuickAction('petDanceManual')" title="跳舞">💃</button>
-  <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战">⚔️</button>
 </div>
 <div id="petEggWrap">
   <span class="pet-egg-emoji" id="petEggEmoji" style="display:none">🥚</span>
@@ -1468,6 +1475,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petNeglectTip"></div>
 <div id="petInjuryBadge" style="display:none" onmouseenter="showPetInjuryTip()" onmouseleave="hidePetInjuryTip()" onclick="petInjuryBadgeTap()">🤕 受伤了</div>
 <div id="petInjuryTip"></div>
+<button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" style="display:none">⚔️</button>
 <button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" style="display:none">📊</button>
 <div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
 <!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
@@ -1526,6 +1534,9 @@ const TRAIN_STAT_COST = 10; // 每次训练（锻炼）额外消耗掉的吃饱�
    下面的高级餐点了"，而不是被系统硬性拦住。 */
 var PREMIUM_FOOD_UNLOCK_LEVEL = 4;
 var BASIC_FOOD_SUPPLY_IDS = ['food','water','milk'];
+// 2026-09新增："吃完食物后找主人要求洗澡美容"——这里只算真正意义上"吃"的这几样（都是在给"吃饱饱"加分的），
+// 喝水/抹茶拿铁属于"喝"的，不算在内，触发概率见下面 maybeAskForBath()
+var FOOD_EATING_SUPPLY_IDS = ['food','milk','kfc_wing','egg_tart','wagyu'];
 var AGED_BASIC_FOOD_EFFECT_RATIO = 0.15; // 长大后基础食物只剩这么点恢复效果（约15%），象征"勉强垫垫肚子"
 var AGED_BASIC_FOOD_FX={
   food:function(p){p.food=Math.min(100,(p.food||0)+Math.round(18*AGED_BASIC_FOOD_EFFECT_RATIO));},
@@ -1581,7 +1592,8 @@ const CONFIG = {
     {id:'train', name:'训练道具', emoji:'🎯', price:3, lv:1, desc:'经验 +30（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', fx:function(p){gainExp(30)}},
     {id:'train2', name:'高级训练道具', emoji:'🏆', price:8, lv:10, desc:'经验 +60（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', fx:function(p){gainExp(60)}},
     {id:'bath', name:'美容洗护', emoji:'🛁', price:5, lv:1, desc:'香喷喷 +22', fx:function(p){p.clean+=22}},
-    {id:'medicine', name:'特效药', emoji:'💊', price:15, lv:1, desc:'立刻治好受伤，避免变回蛋', fx:function(p){p.injured=false;p.injuredAt=null;}},
+    {id:'medicine', name:'特效药', emoji:'💊', price:15, lv:1, desc:'立刻治好轻伤，避免变回蛋（对重伤无效）', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
+    {id:'medicine2', name:'高级特效药', emoji:'✨💊', price:40, lv:1, desc:'轻伤/重伤都能立刻治好，避免变回蛋', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
     {id:'house', name:'新小窝（豪华大房子）', emoji:'🏰', price:20, lv:7, desc:'更换房子外观', fx:function(p){p.house=1}}
   ],
   /* 副本挑战：按宠物等级解锁，每天只能挑战一次；挑战成功获得金币 + 该副本专属装饰（只在首次通关时发放）
@@ -1601,16 +1613,19 @@ const CONFIG = {
   /* ===== 新版副本（dungeon2）：2026-09 仙侠灵宠改版新增，"投入+概率结算"玩法，跟上面这套老的回合制战斗完全无关 =====
      不再有血条/攻击，点一下"挑战"直接按概率结算成功/失败；等级越低，概率越低，但从不会是0%或100%；
      所有关卡随时都能挑战（没有"必须先打赢上一关"的顺序锁），只是等级不够时风险更高。
-     胜率还会被 courage(勇气探险) 维度加成，呼应设定文档"副本和勇气探险维度联动" */
+     胜率还会被 courage(勇气探险) 维度加成，呼应设定文档"副本和勇气探险维度联动"。
+     2026-09update：应家长要求整体调低胜率（8关均值约30%，越难的关卡越低，配合等级/勇气探险仍能往上修正），
+     并新增 severeChance——每一关失败时"重伤"（需要更贵的高级特效药、只有1小时抢救时间）的概率，
+     关卡越难 severeChance 越高，呼应"越到后面越凶险"的设定 */
   dungeon2: [
-    {name:'蘑菇林',   lvReq:1,   monster:'野生奶龙宝宝',   title:'新手勇士',   intro:'新手村传来消息——蘑菇林里的野生奶龙宝宝总是调皮捣蛋，去会一会它吧！',           listIcon:'🍄', petKey:'naolong',    tint:'sepia(.45) hue-rotate(-8deg) saturate(1.5) brightness(.98)',  winBase:0.62, coinMin:6,  coinMax:12, exp:15, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'}],                                                    accessory:{id:'acc_cap',        emoji:'🧢',  name:'酷跑棒球帽'}},
-    {name:'萤火沼泽', lvReq:5,   monster:'沼泽小金麟',     title:'沼泽猎人',   intro:'沼泽深处萤光闪烁，沼泽小金麟正守着这片神秘的萤火沼泽。',                       listIcon:'🐸', petKey:'xiaojinlin', tint:'hue-rotate(85deg) saturate(1.5) brightness(.95)',             winBase:0.58, coinMin:8,  coinMax:16, exp:20, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_bow',        emoji:'🎀',  name:'俏皮蝴蝶结'}},
-    {name:'风车草原', lvReq:10,  monster:'草原小金龙',     title:'草原骑士',   intro:'风车草原上，草原小金龙乘风追逐旅人，勇士们对它又爱又怕。',                     listIcon:'🐑', petKey:'xiaojinlong', tint:'hue-rotate(65deg) saturate(1.3)',                             winBase:0.55, coinMin:10, coinMax:20, exp:25, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_scarf',      emoji:'🧣',  name:'温暖小围巾'}},
-    {name:'水晶洞穴', lvReq:20,  monster:'水晶奶龙',       title:'洞穴探险家', intro:'水晶洞穴幽深空旷，水晶奶龙的鳞片会随光线闪烁七彩光芒。',                       listIcon:'🦀', petKey:'naolong',    tint:'hue-rotate(175deg) saturate(1.6) brightness(1.05)',           winBase:0.52, coinMin:14, coinMax:26, exp:30, materialPool:[{id:'stone', emoji:'🪨', name:'灵石'},{id:'iron',  emoji:'⚙️', name:'精铁'}],               accessory:{id:'acc_sunglasses', emoji:'🕶️', name:'炫酷墨镜'}},
-    {name:'云端阶梯', lvReq:35,  monster:'云端小金麟',     title:'云端行者',   intro:'踏上云端阶梯，云端小金麟在云雾之间若隐若现，行踪飘忽不定。',                   listIcon:'🦙', petKey:'xiaojinlin', tint:'grayscale(.3) brightness(1.25) saturate(1.1)',                winBase:0.50, coinMin:18, coinMax:32, exp:40, materialPool:[{id:'iron',  emoji:'⚙️', name:'精铁'},{id:'silk',  emoji:'🧵', name:'云锦'}],               accessory:{id:'acc_wings',      emoji:'🦋',  name:'梦幻翅膀'}},
-    {name:'星光沙漠', lvReq:55,  monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          winBase:0.48, coinMin:24, coinMax:40, exp:50, materialPool:[{id:'silk',  emoji:'🧵', name:'云锦'},{id:'crystal',emoji:'💎', name:'星辉晶'}],              accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
-    {name:'珊瑚海底', lvReq:80,  monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            winBase:0.46, coinMin:30, coinMax:50, exp:65, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'iron', emoji:'⚙️', name:'精铁'}],              accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
-    {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.45, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
+    {name:'蘑菇林',   lvReq:1,   monster:'野生奶龙宝宝',   title:'新手勇士',   intro:'新手村传来消息——蘑菇林里的野生奶龙宝宝总是调皮捣蛋，去会一会它吧！',           listIcon:'🍄', petKey:'naolong',    tint:'sepia(.45) hue-rotate(-8deg) saturate(1.5) brightness(.98)',  winBase:0.40, severeChance:0.08, coinMin:6,  coinMax:12, exp:15, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'}],                                                    accessory:{id:'acc_cap',        emoji:'🧢',  name:'酷跑棒球帽'}},
+    {name:'萤火沼泽', lvReq:5,   monster:'沼泽小金麟',     title:'沼泽猎人',   intro:'沼泽深处萤光闪烁，沼泽小金麟正守着这片神秘的萤火沼泽。',                       listIcon:'🐸', petKey:'xiaojinlin', tint:'hue-rotate(85deg) saturate(1.5) brightness(.95)',             winBase:0.36, severeChance:0.14, coinMin:8,  coinMax:16, exp:20, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_bow',        emoji:'🎀',  name:'俏皮蝴蝶结'}},
+    {name:'风车草原', lvReq:10,  monster:'草原小金龙',     title:'草原骑士',   intro:'风车草原上，草原小金龙乘风追逐旅人，勇士们对它又爱又怕。',                     listIcon:'🐑', petKey:'xiaojinlong', tint:'hue-rotate(65deg) saturate(1.3)',                             winBase:0.33, severeChance:0.20, coinMin:10, coinMax:20, exp:25, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_scarf',      emoji:'🧣',  name:'温暖小围巾'}},
+    {name:'水晶洞穴', lvReq:20,  monster:'水晶奶龙',       title:'洞穴探险家', intro:'水晶洞穴幽深空旷，水晶奶龙的鳞片会随光线闪烁七彩光芒。',                       listIcon:'🦀', petKey:'naolong',    tint:'hue-rotate(175deg) saturate(1.6) brightness(1.05)',           winBase:0.30, severeChance:0.28, coinMin:14, coinMax:26, exp:30, materialPool:[{id:'stone', emoji:'🪨', name:'灵石'},{id:'iron',  emoji:'⚙️', name:'精铁'}],               accessory:{id:'acc_sunglasses', emoji:'🕶️', name:'炫酷墨镜'}},
+    {name:'云端阶梯', lvReq:35,  monster:'云端小金麟',     title:'云端行者',   intro:'踏上云端阶梯，云端小金麟在云雾之间若隐若现，行踪飘忽不定。',                   listIcon:'🦙', petKey:'xiaojinlin', tint:'grayscale(.3) brightness(1.25) saturate(1.1)',                winBase:0.28, severeChance:0.36, coinMin:18, coinMax:32, exp:40, materialPool:[{id:'iron',  emoji:'⚙️', name:'精铁'},{id:'silk',  emoji:'🧵', name:'云锦'}],               accessory:{id:'acc_wings',      emoji:'🦋',  name:'梦幻翅膀'}},
+    {name:'星光沙漠', lvReq:55,  monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          winBase:0.25, severeChance:0.45, coinMin:24, coinMax:40, exp:50, materialPool:[{id:'silk',  emoji:'🧵', name:'云锦'},{id:'crystal',emoji:'💎', name:'星辉晶'}],              accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
+    {name:'珊瑚海底', lvReq:80,  monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            winBase:0.22, severeChance:0.52, coinMin:30, coinMax:50, exp:65, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'iron', emoji:'⚙️', name:'精铁'}],              accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
+    {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.18, severeChance:0.60, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
   ]
 };
 /* 等级越高，宠物"饭量"越大：每日消耗在基础值上按等级线性增加，封顶为基础值的 decayCapMul 倍 */
@@ -2741,11 +2756,31 @@ function onTtsVolumeInput(v){
   store.ttsVolumePct=pct;
   try{ saveStore(); }catch(e){}
 }
+// 2026-09update：朗读倍速——之前studySpeak()里u.rate写死0.88，英文基础弱的小朋友听着偏快跟不上。
+// 现在做成几个预设挡位按钮（存在store里，跟音量一样是账号级设置，不分孩子），默认保持原来的0.88不变，
+// 家长/孩子自己去"声音设置"里调到0.5倍速最慢最清楚
+var TTS_RATE_PRESETS=[0.5,0.75,0.88,1.0,1.25];
+function ttsRateFrac(){ var r=store&&store.ttsRate; return (typeof r==='number'&&r>0)?r:0.88; }
+function setTtsRate(r){
+  store.ttsRate=r;
+  try{ saveStore(); }catch(e){}
+  renderTtsRateBtns();
+}
+function renderTtsRateBtns(){
+  var box=document.getElementById('ttsRateBtns');
+  if(!box) return;
+  var cur=ttsRateFrac();
+  box.innerHTML=TTS_RATE_PRESETS.map(function(r){
+    var active=Math.abs(r-cur)<0.001;
+    return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="flex:1;padding:6px 2px;font-size:12px" onclick="setTtsRate('+r+')">'+r+'x'+(r===0.5?'（推荐新手）':'')+'</button>';
+  }).join('');
+}
 function openVolumeModal(){
   var bs=document.getElementById('bgmVolumeSlider');
   var ts=document.getElementById('ttsVolumeSlider');
   if(bs) bs.value=Math.round(bgmVolFrac()*100);
   if(ts) ts.value=Math.round(ttsVolFrac()*100);
+  renderTtsRateBtns();
   showModal('volumeModal');
 }
 document.addEventListener('pointerdown', bgmToUnlock, {once:true});
@@ -3313,12 +3348,18 @@ function petInjuryPickMsg(){
   petInjuryLastMsgIdx=idx;
   return PET_INJURY_MSGS[idx];
 }
+// 2026-09update：受伤现在分"轻伤"（离线叛逆事件触发，跟以前一样3小时/买普通特效药）和
+// "重伤"（副本挑战失败触发，只有1小时/必须买高级特效药）两档，petInjuryStatus() 按 pet.injurySeverity
+// 动态选用对应的倒计时上限，其余调用方（badge/tip/revert判定）都改从这里读 remainHours，不用各自记时限
+var PET_INJURY_REVERT_HOURS_SEVERE = 1;
+function petInjuryLimitHours(pet){ return (pet&&pet.injurySeverity==='severe') ? PET_INJURY_REVERT_HOURS_SEVERE : PET_INJURY_REVERT_HOURS; }
 function petInjuryStatus(){
   var pet=state.pet;
   if(!pet||!pet.chosen||!pet.hatched||!pet.injured||!pet.injuredAt) return null;
+  var limit=petInjuryLimitHours(pet);
   var elapsed=Math.max(0,(Date.now()-pet.injuredAt)/3600000);
-  var remainHours=Math.max(0,PET_INJURY_REVERT_HOURS-elapsed);
-  return {remainHours:remainHours};
+  var remainHours=Math.max(0,limit-elapsed);
+  return {remainHours:remainHours, severity:pet.injurySeverity||'light', limitHours:limit};
 }
 function renderPetInjuryBadge(){
   var badge=document.getElementById('petInjuryBadge');
@@ -3326,7 +3367,7 @@ function renderPetInjuryBadge(){
   var st=petInjuryStatus();
   if(!st){ badge.style.display='none'; hidePetInjuryTip(); return; }
   badge.style.display='block';
-  badge.innerText='🤕 受伤·'+formatRemainHours(st.remainHours);
+  badge.innerText=(st.severity==='severe'?'🚨 重伤·':'🤕 受伤·')+formatRemainHours(st.remainHours);
 }
 var petInjuryTipAutoHideTimer=null;
 function showPetInjuryTip(){
@@ -3334,7 +3375,9 @@ function showPetInjuryTip(){
   if(!tip) return;
   var st=petInjuryStatus();
   if(!st) return;
-  var line1='还剩 '+formatRemainHours(st.remainHours)+'，没治好会伤心地变回蛋……';
+  var line1 = st.severity==='severe'
+    ? ('🚨 重伤！还剩 '+formatRemainHours(st.remainHours)+'，必须买【高级特效药】，不然会伤心地变回蛋……')
+    : ('还剩 '+formatRemainHours(st.remainHours)+'，没治好会伤心地变回蛋……');
   tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+petInjuryPickMsg()+'</div>';
   tip.classList.add('show');
 }
@@ -4366,7 +4409,7 @@ function studySpeak(text,lang){
       window.speechSynthesis.cancel();
       var u=new SpeechSynthesisUtterance(text);
       u.lang=lang||'en-US';
-      u.rate=0.88;
+      u.rate=ttsRateFrac();
       u.volume=ttsVolFrac();
       try{
         // 挑一个匹配语言的voice是"锦上添花"，就算这一步本身出问题（比如极个别浏览器的voice对象有兼容性问题），
@@ -4640,6 +4683,8 @@ function renderStudyAids(){
       return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
         +'<b>'+w.en+'</b> <span style="color:#9c7ab0">'+w.ph+'</span>'
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(w.en)+'\',\'en-US\')">🔊</button>'
+        +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 不知道？看中文意思</button>'
+        +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+w.cn+'</span>'
         +quizFillHtml(qkey,w.cn,'单词：'+w.en,'这个单词是什么意思？')
         +'</div>';
     }).join('');
@@ -4983,6 +5028,28 @@ const STORY_EN_BANK=[
   {title:'Goldilocks and the Three Bears', text:"Goldilocks walked into a house in the forest. She tasted three bowls of porridge and liked the small bowl best. Then she fell asleep in the smallest bed until the three bears came home.", question:'Which bowl of porridge did Goldilocks like best?', optA:'The small bowl', optB:'The big bowl', answer:'A'},
   {title:'The Three Little Pigs', text:"Three little pigs built three houses: one of straw, one of sticks, and one of bricks. A big bad wolf blew down the first two houses, but he could not blow down the strong brick house.", question:'Which house could the wolf not blow down?', optA:'The brick house', optB:'The straw house', answer:'A'},
   {title:'Jack and the Beanstalk', text:"Jack traded his cow for some magic beans. Overnight, the beans grew into a giant beanstalk that reached the sky. Jack climbed up and found a castle above the clouds.", question:'What did the magic beans grow into?', optA:'A giant beanstalk', optB:'A tall tree', answer:'A'},
+  {title:'Hansel and Gretel', text:"Hansel and Gretel got lost in a dark forest and found a little house made of candy. A wicked witch lived inside and wanted to eat them. The clever children pushed the witch into her own oven and ran safely home.", question:'How did the children escape the witch?', optA:'They pushed the witch into her own oven', optB:'They gave the witch all their candy', answer:'A'},
+  {title:'The Frog Prince', text:"A princess dropped her golden ball into a deep pond. A frog brought it back and asked to be her friend. When the princess finally kissed the frog, he turned into a handsome prince.", question:'What happened after the princess kissed the frog?', optA:'He turned into a handsome prince', optB:'He jumped back into the pond', answer:'A'},
+  {title:'Rapunzel', text:"A girl named Rapunzel had very long golden hair and lived alone in a tall tower. A prince climbed up her hair to visit her every day. In the end, the prince helped Rapunzel escape the tower and they lived happily together.", question:'How did the prince reach Rapunzel in the tower?', optA:'He climbed up her long hair', optB:'He built a tall ladder', answer:'A'},
+  {title:'Puss in Boots', text:"A clever cat wore boots and tricked a fearsome ogre into turning into a tiny mouse. The cat quickly ate the mouse and helped his poor master become rich and respected. Everyone was amazed by the clever cat's plan.", question:'How did the cat defeat the ogre?', optA:'He tricked the ogre into turning into a tiny mouse', optB:'He fought the ogre with a sword', answer:'A'},
+  {title:'The Emperor\'s New Clothes', text:"Two tricksters told a vain emperor they had woven magic clothes that only smart people could see. The emperor paraded through town wearing nothing at all. Only a small child was brave enough to say that the emperor was not wearing any clothes.", question:'Who was brave enough to tell the truth?', optA:'A small child', optB:'The two tricksters', answer:'A'},
+  {title:'Thumbelina', text:"A tiny girl no bigger than a thumb was born inside a flower. She faced many dangers on her tiny adventures, but a kind swallow helped carry her to safety. In a warm land far away, Thumbelina finally found a home where she belonged.", question:'Who helped Thumbelina travel to a warm, safe land?', optA:'A kind swallow', optB:'A large frog', answer:'A'},
+  {title:'The Little Mermaid', text:"A young mermaid dreamed of living on land instead of under the sea. She gave up her beautiful voice for a chance to walk on two legs. Even though her wish came at a great cost, she stayed brave and kind through every difficulty.", question:'What did the little mermaid give up for legs?', optA:'Her beautiful voice', optB:'Her long tail', answer:'A'},
+  {title:'Beauty and the Beast', text:"A kind girl named Belle agreed to live in a castle with a fearsome Beast to save her father. Over time, Belle saw past the Beast's scary appearance and grew to care about him. Her kindness finally broke the curse and the Beast became a prince again.", question:'What broke the curse on the Beast?', optA:'Belle\'s kindness toward him', optB:'A magic spell from a wizard', answer:'A'},
+  {title:'Sleeping Beauty', text:"A wicked fairy cursed a princess to fall into a deep sleep for one hundred years. The whole castle fell asleep along with her, surrounded by tall, thorny bushes. At last, a brave prince found his way through and woke the princess with true love's kiss.", question:'How did the princess finally wake up?', optA:'A prince woke her with true love\'s kiss', optB:'She woke up by herself after one hundred years', answer:'A'},
+  {title:'Rumpelstiltskin', text:"A strange little man helped a miller's daughter spin straw into gold, but he asked for her firstborn child in return. The queen later guessed his unusual name and was allowed to keep her baby. The little man stomped away in anger, never to be seen again.", question:'How did the queen save her baby?', optA:'She guessed the little man\'s name', optB:'She gave him more gold instead', answer:'A'},
+  {title:'The Gingerbread Man', text:"A gingerbread man jumped out of the oven and ran away from everyone who tried to catch him, shouting that they could not catch him. A clever fox offered to help him cross a river safely. Sadly, the gingerbread man trusted the fox and was eaten in the end.", question:'What happened to the gingerbread man at the river?', optA:'The fox tricked him and ate him', optB:'He swam across the river safely', answer:'A'},
+  {title:'The Boy Who Cried Wolf', text:"A bored shepherd boy shouted that a wolf was attacking his sheep, but it was only a joke. The villagers ran to help him several times, only to find it was never true. When a real wolf finally appeared, nobody believed him and the sheep ran away.", question:'Why did nobody help the boy when the real wolf came?', optA:'He had lied about a wolf too many times before', optB:'The villagers were all asleep', answer:'A'},
+  {title:'The Ant and the Grasshopper', text:"All summer long, a hardworking ant collected food for the winter while a grasshopper sang and played instead. When the cold winter finally arrived, the ant had plenty of food stored away safely. The hungry grasshopper realised too late that he should have prepared as well.", question:'Why did the ant have enough food in winter?', optA:'The ant worked hard to store food in summer', optB:'The grasshopper shared his food with the ant', answer:'A'},
+  {title:'The Fox and the Grapes', text:"A hungry fox saw juicy grapes hanging high on a vine and jumped again and again, but he could not reach them. After many failed tries, the tired fox walked away and said the grapes were probably sour anyway. He pretended he never really wanted them at all.", question:'What did the fox say after he could not reach the grapes?', optA:'He said the grapes were probably sour', optB:'He said he would try again tomorrow', answer:'A'},
+  {title:'The Town Musicians of Bremen', text:"A donkey, a dog, a cat, and a rooster left their old farms and set off together to become musicians in the town of Bremen. Along the dark road, their loud, mixed-up singing frightened a group of robbers out of a cosy little house. The four friends happily moved into the house and never returned to their old farms.", question:'How did the four animals scare the robbers away?', optA:'They made loud, mixed-up singing sounds together', optB:'They chased the robbers with sticks', answer:'A'},
+  {title:'The Little Match Girl', text:"On a freezing winter night, a poor girl tried to sell matches on a busy street corner, but nobody stopped to buy any. To keep warm, she struck one match after another and saw wonderful, warm visions in the flickering light. Her small matches gave her comfort and hope through the cold, lonely night.", question:'What did the girl do to try to keep warm?', optA:'She struck her matches one by one', optB:'She ran quickly around the block', answer:'A'},
+  {title:'The Princess and the Pea', text:"A young woman claimed to be a real princess, so a clever queen placed a tiny pea under twenty soft mattresses on her bed. The next morning, the guest complained that something hard had kept her awake all night. Because she was so sensitive, the queen knew she truly was a real princess.", question:'How did the queen know the girl was a real princess?', optA:'The girl felt the tiny pea through many mattresses', optB:'The girl wore a golden crown', answer:'A'},
+  {title:'The Elves and the Shoemaker', text:"A poor shoemaker left out leather each night, and mysterious little elves quietly finished beautiful shoes while he slept. Amazed and thankful, the shoemaker and his wife decided to sew the elves tiny new clothes as a gift. The delighted elves danced with joy and never needed to work in secret again.", question:'What did the shoemaker and his wife make for the elves?', optA:'Tiny new clothes', optB:'A brand new workshop', answer:'A'},
+  {title:'The Golden Goose', text:"A kind young man shared his simple lunch with a strange old man in the forest and was rewarded with a magical goose covered in golden feathers. Everyone who touched the goose became stuck to it and had to follow behind in a long, silly line. The funny sight finally made a sad princess laugh for the very first time.", question:'Why did people get stuck to the golden goose?', optA:'Anyone who touched the magical goose became stuck', optB:'The goose was covered in sticky honey', answer:'A'},
+  {title:'The Wolf in Sheep\'s Clothing', text:"A hungry wolf once covered himself in soft, woolly sheep's skin so he could sneak into a flock without being noticed. He fooled the shepherd for a while and walked freely among the sheep every day. In the end, the shepherd caught him and learned to look more carefully at every sheep in the flock.", question:'How did the wolf try to trick the flock?', optA:'He covered himself in sheep\'s wool as a disguise', optB:'He learned to make sheep sounds', answer:'A'},
+  {title:'The North Wind and the Sun', text:"The North Wind and the Sun argued over which of them was stronger and decided to test their power on a traveller's coat. The harder the wind blew, the tighter the traveller pulled his coat around himself. Then the sun simply shone warmly, and the traveller soon took his coat off on his own.", question:'How did the sun get the traveller to remove his coat?', optA:'The sun shone warmly instead of blowing hard', optB:'The sun asked the traveller politely', answer:'A'},
+  {title:'The Lion and the Mouse', text:"A mighty lion once let a tiny mouse go free instead of eating it, even though the mouse had woken him from his nap. Later, the lion was trapped in a hunter's net and could not break free no matter how hard he struggled. The grateful little mouse then chewed through the ropes and set the lion free.", question:'How did the mouse repay the lion\'s kindness?', optA:'The mouse chewed through the ropes to free him', optB:'The mouse brought the lion some food', answer:'A'},
 ];
 /* ================================================================
    中文阅读打卡题库（按年级，覆盖记叙文/说明文/议论文/说明性文章），
@@ -5232,6 +5299,28 @@ const STORY_CN_BANK=[
   {book:'水浒传', title:'武松打虎（水浒传）', text:'武松是《水浒传》中的一位好汉，生得身材魁梧、力大无穷。这一天，他在阳谷县地界赶路，途经一座叫景阳冈的山岗，天色渐晚，他走进岗下的一家小店打尖歇脚，一连喝了十八碗酒，浑身发热、脚下生风。店家再三劝他，说这景阳冈上新近出了一只吊睛白额大老虎，已经伤了不少过路的行人，官府都贴出了告示，劝客人切莫在傍晚单独上山，最好等凑够人数结伴而行，或是白天再走。\n武松却觉得店家是想诓骗自己不敢过冈，便执意不听劝告，独自一人趁着酒兴上了山冈。走到半山腰，他看见树上果然贴着官府的告示，这才知道店家所说非虚，但转念一想，若是就此转身回去，未免让人笑话自己胆小，索性横下心继续向前走去。\n走着走着，忽然一阵狂风卷过，草丛中窜出一只吊睛白额的大老虎，张牙舞爪、直扑过来。武松吓出一身冷汗，酒也醒了大半，急忙一个闪身躲开。那老虎扑了个空，气势汹汹地转身又是一扑一掀一剪，武松凭着敏捷的身手，一次次险险避开。眼见手中哨棒因用力过猛打在树枝上折成两段，武松索性扔掉断棒，赤手空拳纵身跳到老虎背上，一只手死死揪住老虎顶花皮，另一只手接连不断地朝老虎头上、脸上猛击，一连打了七八十拳，直打得老虎眼、口、鼻子内都迸出鲜血，再也动弹不得，终于被武松赤手空拳打死在景阳冈上。这段"武松打虎"的故事后来家喻户晓，成为《水浒传》里流传最广的英雄事迹之一。', question:'武松是用什么打死老虎的？', optA:'赤手空拳', optB:'一把大刀', answer:'A'},
   {book:'水浒传', title:'林冲棒打洪教头（水浒传）', text:'林冲原本是东京八十万禁军教头，武艺高强，为人正直，因遭奸臣高俅陷害，被发配沧州，途中几经波折，最终来到柴进的庄园暂住。柴进是当地有名的大财主，向来喜欢结交天下英雄好汉，对落难的林冲十分敬重，热情款待。\n庄上还住着一位叫洪教头的武师，仗着自己也懂些拳脚功夫，又是柴进请来的座上宾，向来目中无人。听说柴进如此高看林冲这个"发配的囚犯"，洪教头心里很不服气，觉得对方不过是徒有虚名，便当着众人的面出言讥讽，非要与林冲比试棍棒，想借机让林冲当众出丑，也好在柴进面前显显自己的本事。\n柴进有心成全，便命人摆开场地，请两人当场较量。林冲深知自己戴罪之身，处处谦让，一再表示不敢与教头相争，可洪教头咄咄逼人、步步紧逼，连声催促，还出言羞辱，说林冲是不是心虚怕了。林冲无奈，只得应战，他手持一根棒子，从容应对，一开始只是且战且退，并不还击。\n柴进和众庄客在一旁看得分明，都觉得洪教头的棒法不过如此，反倒是林冲每一次退让都显得游刃有余。众人正议论纷纷，只见林冲瞅准一个破绽，大喝一声，一个转身，棒法陡然一变，几个回合下来，"当"的一声，正正打在洪教头小腿之上，洪教头猝不及防，"扑通"一声便仰面摔倒在地，棒也脱手飞了出去，在场众人无不喝彩叫好。洪教头这才知道人外有人、天外有天，闹了个灰头土脸，从此再也不敢在人前托大逞强。', question:'比试的结果怎么样？', optA:'林冲几招就打赢了洪教头', optB:'洪教头轻松获胜', answer:'A'},
   {book:'红楼梦', title:'黛玉进贾府（红楼梦）', text:'林黛玉是江南巡盐御史林如海与贾敏的独生女儿，从小体弱多病，聪慧过人。在她年纪尚小的时候，母亲贾敏就因病去世，父亲林如海公务繁忙，又担心女儿无人照料，便修书一封，将黛玉托付给外祖母贾母，送她进京前往荣国府居住。\n黛玉第一次离开家乡，坐船沿着运河一路北上，心里既忐忑又难过。临行前，父亲一再叮嘱她，到了外祖母家，凡事都要小心谨慎，不可多说一句话，不可多行一步路，免得被人耻笑了去。这句话，黛玉一路上都牢牢记在心里。\n船到京城，换乘轿子，一路来到荣国府门前，只见朱漆大门、兽头石狮，气派非凡，比自己家中大了何止十倍。刚进府门，黛玉便留意到，府里的下人一举一动都透着规矩体面，与别处大不相同，心中越发觉得自己要处处留心才是。见到外祖母贾母时，贾母一把搂住她放声大哭，又是心疼又是想念女儿贾敏，黛玉也跟着落下泪来，众人好一番劝慰才渐渐止住。\n随后，黛玉又依次拜见了大舅母、二舅母，以及府里的姐妹们，处处言语得体、行止有礼。吃饭时，她注意到府里的规矩与自家不同，便不动声色地照着旁人的样子做，唯恐被人笑话不懂规矩。就在这时，府里的公子贾宝玉从外面进来，两人一见如故，仿佛曾经相识一般，从此开始了这段传世的情谊。黛玉初来乍到，事事小心，处处留意，正是因为深知寄人篱下，不比在家中自在，这份谨慎懂事，也让贾府上下都对这位远道而来的表小姐另眼相看。', question:'林黛玉刚到贾府时是什么样的心情和态度？', optA:'小心谨慎', optB:'大大咧咧', answer:'A'},
+  {book:'西游记', title:'猪八戒拜师（西游记）', text:'唐僧师徒一行路过高老庄，庄主高太公愁眉不展，说自己的女儿被一个妖怪抢去做了媳妇，那妖怪长着一张猪脸，力气极大，庄里没人敢惹。孙悟空听后主动请缨，变成高小姐的模样，躲在房里等妖怪回来。\n到了夜里，那猪脸妖怪大摇大摆地回房，孙悟空现出原形，两人打斗起来。妖怪自知打不过，化作一阵狂风逃走，孙悟空一路追到云栈洞，才知道这妖怪原是天上的天蓬元帅，因犯了天条被贬下凡间，投错了猪胎，这才生了一张猪脸，法号猪八戒。\n孙悟空说明自己是保护唐僧西天取经的徒弟，正缺人手，猪八戒听说取经能将功赎罪，便决定痛改前非，拜别高太公一家，跟随唐僧和孙悟空一同上路，从此成为取经队伍里憨厚又贪吃的二徒弟。', question:'猪八戒原来是天上的什么神仙？', optA:'天蓬元帅', optB:'阎罗王', answer:'A'},
+  {book:'西游记', title:'流沙河收沙僧（西游记）', text:'唐僧师徒走到流沙河边，只见河水又宽又急，河面上波涛汹涌，找不到一条船。正为难间，河中忽然窜出一个青脸红发的妖怪，抡起一根月牙铲直奔唐僧而来，孙悟空和猪八戒连忙上前迎战，三人在河边打得难解难分。\n那妖怪水性极好，一见打不赢就钻入水中，孙悟空虽然本领高强，却不熟悉水战，几次交手都没能将妖怪擒住。猪八戒索性也跳入河中，与妖怪缠斗了许久，双方都精疲力竭，谁也奈何不了谁。\n正在僵持之际，观音菩萨派木叉惠岸下凡，说这妖怪原是天上的卷帘大将，因打碎了王母的琉璃盏被贬到流沙河，一直等着取经人经过好将功赎罪。妖怪听闻，赶紧拜倒在地，表示愿意皈依，唐僧为他取名沙悟净，从此挑担牵马，忠心耿耿地跟随取经队伍。', question:'沙僧原来是天上的什么官职？', optA:'卷帘大将', optB:'巡海夜叉', answer:'A'},
+  {book:'西游记', title:'偷吃人参果（西游记）', text:'唐僧师徒路过五庄观，观里种着一棵三千年才结一次果的人参果树，果子模样像刚出生的婴儿，闻一闻就能活三百六十岁，吃一个更能延寿数万年，是天下难得一见的仙果。观主镇元大仙有事外出，特意叮嘱两个徒弟摘两个人参果招待唐僧师徒。\n两个徒弟按吩咐摘了果子送来，唐僧一见果子形似婴儿，只当是吃人的妖物，吓得连连摆手不敢吃。猪八戒在一旁看得口水直流，缠着孙悟空一定要尝尝鲜。孙悟空便翻墙潜入果园，用金箍棒一敲，敲落三个果子，兄弟三人分着吃了，猪八戒三两口就囫囵吞下，压根没尝出滋味，还直嚷嚷不过瘾。\n两个道童发现果子少了，便对着唐僧师徒冷言冷语，说他们偷吃了宝贝。孙悟空一怒之下，趁夜溜进果园，一棒子把那棵三千年的仙树连根打倒，果子滚落一地。镇元大仙回来后又惊又怒，将唐僧师徒团团围住，非要讨个说法，孙悟空几经周折，最终请来观音菩萨，用玉净瓶中的甘露救活了人参果树，这场风波才算平息，双方也因此结为好友。', question:'孙悟空最后是怎么救活人参果树的？', optA:'请观音菩萨用甘露救活了树', optB:'重新种了一棵新的树', answer:'A'},
+  {book:'西游记', title:'车迟国斗法（西游记）', text:'唐僧师徒来到车迟国，发现城中的和尚都被国王驱赶去做苦工，只因三个会呼风唤雨的道士——虎力、鹿力、羊力大仙深得国王宠信，处处打压佛教。孙悟空听闻此事十分气愤，决心为和尚们讨回公道。\n国王起初半信半疑，便安排孙悟空与三个道士当众比试法术，先是求雨，孙悟空略施小计便让大雨倾盆而下，虎力大仙的法术反倒不灵；接着又比隔板猜物，孙悟空巧妙调换物件，屡屡获胜，气得三位道士脸色铁青。\n三个道士不肯服输，又提出要比下油锅洗澡、砍头之后重新安上等惊险法术，孙悟空施展变化之术，每一次都有惊无险地化解，最终虎力大仙现出原形竟是一只老虎精，鹿力、羊力也分别现出鹿精和羊精的原形，当场毙命。国王这才恍然大悟，从此善待寺院里的和尚，敬重取经的师徒四人。', question:'孙悟空为什么要跟三个道士比试法术？', optA:'为了帮被欺压的和尚讨回公道', optB:'为了向国王炫耀本领', answer:'A'},
+  {book:'西游记', title:'真假美猴王（西游记）', text:'唐僧因为孙悟空又一次动手打死了拦路抢劫的强盗，心中不满，坚持要将悟空赶走。孙悟空满心委屈，只得离开师门，回花果山去了。谁知没过多久，队伍里竟出现了另一个一模一样的孙悟空，抢了唐僧的行李，还打伤了猪八戒和沙僧。\n真假两个悟空长相举止一般无二，谁也分辨不出真假，两人一路打到南海观音菩萨面前，观音念动咒语试探，两人的反应也一模一样；又打到天庭，请玉帝用照妖镜来照，镜中同样是两个一模一样的身影，众神仙都束手无策。\n最后两人一路打到西天，如来佛祖法眼一看便知端底，说出真相：这假悟空原是一只六耳猕猴，天生善于模仿他人。如来用金钵盂将六耳猕猴罩住，孙悟空一棒将其打死，这才真相大白。唐僧得知事情原委，深感愧疚，从此对孙悟空更加信任，师徒重归于好，继续西行。', question:'假悟空的真实身份是什么？', optA:'六耳猕猴', optB:'白骨精的化身', answer:'A'},
+  {book:'西游记', title:'四圣试禅心（西游记）', text:'唐僧师徒走到一处山林，见一座庄院富丽堂皇，院中住着一位年轻貌美的妇人，说自己家中良田千顷、金银无数，只因丈夫和三个女儿都盼着招个女婿持家，愿将三个女儿一并许配给师徒四人，还热情备下丰盛的酒席相留。\n猪八戒一听有如此好事，顿时心猿意马，几次三番想要留下入赘，被孙悟空和沙僧又是拉扯又是数落，闹了不少笑话，唐僧则始终不为所动，一心只想着西行取经，对这般富贵美色毫无留恋之意。\n原来这一处豪宅、这母女四人都是黎山老母、观音菩萨、文殊菩萨和普贤菩萨联手变化出来的，特意用这场"美色富贵"的考验，试探取经人是否真的心志坚定。猪八戒因为一时贪心动摇，被吊在树上捉弄了一整夜才被放下来，从此对师父和师兄们更加信服，众人也更明白了取经路上必须时刻守住本心的道理。', question:'这场"招女婿"的考验，其实是谁变化出来的？', optA:'黎山老母和几位菩萨联手变化的', optB:'一群山贼假扮的', answer:'A'},
+  {book:'水浒传', title:'鲁智深拳打镇关西（水浒传）', text:'鲁达是渭州经略府的一名提辖官，为人豪爽仗义，最见不得恃强凌弱之事。这一天他在酒楼喝酒，听见隔壁传来阵阵哭声，一问才知道，是父女二人被当地恶霸镇关西郑屠强娶强卖，骗去了卖身钱，如今走投无路，只能以泪洗面。\n鲁达听后怒火中烧，当即拿出银两资助这对父女连夜逃离此地，自己则大摇大摆地走进郑屠的肉铺，故意刁难，一会儿要瘦肉臊子，一会儿要肥肉臊子，一会儿又要软骨臊子，每样都要剁得极细，存心消磨他的耐性，惹得郑屠又累又气。\n郑屠终于按捺不住破口大骂，鲁达等的就是这一刻，抡起拳头劈头盖脸就打，几拳下去，郑屠竟被活活打死。鲁达这才意识到闯下大祸，怕连累旁人，索性弃了官职，连夜逃走，从此浪迹江湖，后来出家为僧，法号智深，成为梁山好汉中一位重情重义的豪杰。', question:'鲁达为什么要打郑屠？', optA:'郑屠强娶强卖，欺压父女二人', optB:'郑屠卖的肉不新鲜', answer:'A'},
+  {book:'水浒传', title:'花和尚倒拔垂杨柳（水浒传）', text:'鲁智深出家做了和尚之后，被派到大相国寺看管菜园，寺里的菜园紧挨着一群泼皮无赖常年聚集的地方，这些人见新来了个和尚看管菜园，便商量好要合伙捉弄他，给他一个下马威。\n这天，一群泼皮假装恭敬地请鲁智深到粪坑边说话，实则想合力把他推进粪坑里出丑。鲁智深早就看出他们不怀好意，趁着几人靠近，飞起两脚，把带头的两个泼皮一脚一个，结结实实踢进了粪坑，其余人吓得连忙跪地求饶。\n众泼皮从此对鲁智深心服口服，天天来菜园里巴结奉承。有一天大家正饮酒说笑，忽然听见门外乌鸦聒噪，泼皮们说这是不祥之兆，商量着要砍倒园中的那棵大柳树。鲁智深笑着走到树下，也不用刀斧，只一探身，双手抱住树干，运足力气，竟连根拔起，惊得众泼皮目瞪口呆，从此对这位花和尚更加敬佩不已。', question:'鲁智深是怎么处理那棵大柳树的？', optA:'他徒手把柳树连根拔起', optB:'他找人用斧头把树砍倒', answer:'A'},
+  {book:'水浒传', title:'智取生辰纲（水浒传）', text:'北京大名府梁中书为讨好岳父蔡京，每年都要送去一份价值十万贯的生辰纲作为寿礼，可去年押送的队伍在半路就被劫走，今年他便挑选了心腹杨志，让他小心押送，务必平安送到。\n杨志一路上格外谨慎，专挑烈日当空的正午赶路，不许队伍在树荫下歇息，惹得挑担的军汉们又累又渴，怨声载道。这一日队伍走到黄泥冈，天气酷热难当，军汉们再也走不动了，纷纷坐在树荫下不肯起身，杨志无可奈何，只得让大家暂歇片刻。\n就在这时，晁盖、吴用等七位好汉假扮成贩枣的客商经过，还带来一桶下了蒙汗药的好酒。军汉们又累又渴，一见有酒解渴，不顾杨志阻拦纷纷抢着喝了起来，不多时便一个个头晕眼花，昏倒在地。晁盖等人这才不慌不忙地把十万贯生辰纲全部劫走，扬长而去，杨志酒醒之后追悔莫及，只能仓皇逃走，从此再也不敢回大名府复命。', question:'晁盖等人是用什么办法劫走生辰纲的？', optA:'在酒里下药，趁军汉们昏睡时下手', optB:'直接带兵硬抢', answer:'A'},
+  {book:'水浒传', title:'李逵沂岭杀四虎（水浒传）', text:'李逵是梁山好汉中出了名的孝子，虽然性子鲁莽火爆，却一直惦记着家中年迈失明的老母亲。他向宋江请假，专程回乡将母亲接上山来享福，一路上小心搀扶，唯恐老母亲有半分闪失。\n走到沂岭一带，天色渐渐暗了下来，母亲口渴难耐，李逵便将母亲安置在一块大石头上，自己下山去找水。谁知这一去一回耽搁了不少时辰，等他捧着水赶回原地时，只见地上一片血迹，母亲已经不见了踪影，只剩下几片衣裳的碎布。\n李逵顺着血迹一路寻去，发现一个虎穴里两只小老虎正在啃食母亲的遗骨，李逵又惊又怒，悲痛欲绝，抡起朴刀冲进虎穴，先杀了两只小老虎，紧接着母虎和公虎相继扑来，李逵毫不畏惧，凭着一身蛮力和满腔悲愤，接连将两只大老虎也杀死，为母亲报了大仇，这才抱着仅剩的衣物骨殖，含泪安葬了母亲。', question:'李逵在沂岭杀了几只老虎？', optA:'四只', optB:'两只', answer:'A'},
+  {book:'水浒传', title:'杨志卖刀（水浒传）', text:'杨志本是杨家将的后人，武艺高强，一心想凭本事博取功名，谁知官场失意，盘缠也用尽了，无奈之下只好把祖上传下来的一把宝刀拿到街市上出售，想换些银两糊口度日。\n他刚在街边插标卖刀，就遇上当地一个横行霸道的泼皮牛二，牛二仗着自己是本地一霸，专门欺行霸市，见杨志的刀标价不低，便故意刁难，一会儿让杨志证明宝刀削铁如泥，一会儿又要杨志证明吹毛断发，杨志一一照办，牛二却越发无理取闹。\n牛二得寸进尺，竟蛮横地要白拿宝刀，还动手推搡、出言侮辱，围观百姓虽觉不平，却都惧怕牛二平日的凶名，没人敢上前劝阻。杨志本就一肚子怨气无处发泄，被牛二逼到忍无可忍，终于拔刀怒起，一刀结果了牛二的性命，随后主动投案自首，也因此被发配充军，从此踏上了一条更加坎坷的江湖路。', question:'杨志为什么会跟牛二发生冲突？', optA:'牛二无理取闹，还想白拿宝刀', optB:'杨志想抢牛二的钱', answer:'A'},
+  {book:'水浒传', title:'神行太保戴宗传书（水浒传）', text:'戴宗是梁山好汉中出了名的飞毛腿，只要在腿上绑上两个甲马，念动咒语，便能日行八百里，人称神行太保。梁山每逢遇到紧急军情，都少不了戴宗快马加鞭、星夜传送消息。\n有一回梁山急需搬请远方的好汉相助，宋江便派戴宗火速前往传信。戴宗绑好甲马，脚下生风般地赶路，一路翻山越岭、餐风露宿，别人走上十天半月的路程，他往往一两天就能赶到，沿途百姓见了都惊叹不已，还以为遇上了神仙。\n凭着这一身脚力，戴宗屡次在关键时刻及时把消息送到，帮梁山好汉们化解了不少危机，也因此结识了不少江湖豪杰，一并请上梁山聚义。梁山好汉们都十分敬重戴宗这份任劳任怨、风雨无阻的本事，都说他这双腿，抵得上千军万马。', question:'戴宗为什么被称为神行太保？', optA:'他绑上甲马后可以日行八百里', optB:'他力气很大，能举起千斤重物', answer:'A'},
+  {book:'三国演义', title:'桃园三结义（三国演义）', text:'东汉末年，天下大乱，各地纷纷起兵，官府张榜招募义军抵御黄巾之乱。刘备虽是汉室宗亲，却家境贫寒，只能靠编草席草鞋为生，见到榜文，心中忧国忧民，不由得叹了口气。\n这一声叹息，引来了身旁一位豹头环眼的壮汉，正是张飞，他见刘备志向不凡，便邀请他到自家庄上共商大事。两人正在酒馆商议，又遇见一位面如重枣、手持青龙偃月刀的关羽路过，三人一见如故，相谈甚欢，越聊越觉得志同道合。\n三人当即在张飞庄后的桃园之中，摆下香烛美酒，对天盟誓，结为异姓兄弟，誓言不求同年同月同日生，但求同年同月同日死，从此同心协力，共扶汉室。这便是流传千古的桃园三结义，三兄弟从此患难与共，成为三国故事里最动人的一段情谊。', question:'刘备、关羽、张飞是在什么地方结拜的？', optA:'桃园', optB:'军营', answer:'A'},
+  {book:'三国演义', title:'关羽温酒斩华雄（三国演义）', text:'十八路诸侯联合起兵讨伐董卓，联军推举袁绍为盟主。董卓手下大将华雄骁勇善战，连续斩杀了联军多员将领，士气大挫，一时间众诸侯都面面相觑，无人敢应战，营帐里的气氛十分沉闷压抑。\n就在这时，一名当时还只是马弓手的将领挺身而出，主动请战，此人正是关羽。可惜他官职低微，在座的诸侯大多面露轻蔑之色，觉得区区一个马弓手怎能对付得了骁勇的华雄，纷纷出言阻拦，不愿让他出战。\n曹操却独具慧眼，看出关羽气度不凡，力排众议，命人斟上一杯热酒为他壮行。关羽却说等他斩了华雄回来再饮此酒也不迟，说罢提刀翻身上马，扬长而去。营帐中众人还没来得及议论，便听得帐外战鼓齐鸣，不多时关羽已经提着华雄的首级返回帐中，那杯酒竟还温热着，在场诸侯无不惊叹关羽的神勇。', question:'关羽出战之前，曹操为他准备了什么？', optA:'一杯热酒', optB:'一匹宝马', answer:'A'},
+  {book:'三国演义', title:'火烧赤壁（三国演义）', text:'曹操统一北方之后率领大军南下，号称八十万大军，想要一举吞并江东。东吴孙权和刘备结成联盟，共同抵抗曹操，双方大军在长江边的赤壁一带对峙，形势对兵力较少的孙刘联军十分不利。\n东吴都督周瑜和军师诸葛亮都看准了曹军的一个致命弱点：曹操的士兵大多是北方人，不习水战，晕船严重，曹操便下令用铁索把战船连在一起，好让船身平稳一些。诸葛亮和周瑜由此定下了火攻的计策，只等东风一起，便可付诸行动。\n黄盖假意向曹操投降，趁夜驾船靠近曹军水寨，船上装满浇了油的干柴，等靠近之后突然点火，借着东南风的势头，熊熊大火迅速蔓延，把首尾相连的曹军战船烧成一片火海。曹操的军队被打得溃不成军，只得狼狈撤退回北方，孙刘联军以少胜多，这一战奠定了三国鼎立的基础。', question:'孙刘联军是用什么办法打败曹操大军的？', optA:'用火攻烧毁曹军相连的战船', optB:'直接派兵正面强攻', answer:'A'},
+  {book:'三国演义', title:'空城计（三国演义）', text:'诸葛亮率军北伐，因为错用了马谡镇守街亭，街亭一失，蜀军处境十分危急。当时诸葛亮身边只剩下一座西城，城中兵力空虚，大批精锐都已分派出去，而司马懿率领的十五万魏军正大举逼近，情势万分紧急。\n众将士都吓得面色发白，不知如何是好，诸葛亮却出人意料地下令打开城门，派几个老兵扮作百姓在城门口洒扫，自己则带着两个小书童，端坐在城楼之上，摆开香炉焚香弹琴，神情从容不迫，仿佛丝毫不把大军压境放在心上。\n司马懿率军赶到城下，看到这般景象，反而心生疑惑，他深知诸葛亮向来用兵谨慎，从不弄险，怀疑城中必定设有埋伏，若贸然进攻恐怕中计，思虑再三，最终下令全军后撤，缓缓退兵而去。诸葛亮凭着一身胆识和对司马懿性格的精准判断，仅凭一座空城便吓退了十五万大军，成就了这段脍炙人口的空城计。', question:'诸葛亮是用什么办法吓退司马懿大军的？', optA:'打开城门，从容弹琴，故布疑阵', optB:'调集全部兵力死守城墙', answer:'A'},
+  {book:'三国演义', title:'单刀赴会（三国演义）', text:'东吴都督鲁肃为了讨回荆州，设下酒宴，邀请镇守荆州的关羽渡江赴会，暗中却在宴席周围埋伏了刀斧手，只等一声号令便要拿下关羽，逼他归还荆州，这场宴会看似寻常，实则暗藏杀机。\n关羽事先已经察觉此行凶险，身边众将都极力劝阻，认为此去恐怕有去无回。关羽却毫不畏惧，只带了几名亲随和一把青龙偃月刀，独自乘船渡江赴宴，展现出过人的胆魄，这便是单刀赴会的由来。\n酒宴之上，鲁肃几次提起归还荆州之事，关羽从容应对，谈笑风生，丝毫不露怯意。酒过三巡，关羽借着醉意，一手提刀，一手挽住鲁肃的手臂，一边说笑一边缓步走向江边，鲁肃投鼠忌器，不敢轻举妄动，四周埋伏的刀斧手更是不敢贸然出手。关羽就这样谈笑之间安全脱身，登船返回荆州，其胆识和气魄令东吴众人无不叹服。', question:'关羽是怎样安全离开这场宴会的？', optA:'挽住鲁肃手臂，谈笑间脱身', optB:'带兵强行杀出重围', answer:'A'},
+  {book:'红楼梦', title:'宝黛初见（红楼梦）', text:'林黛玉初到贾府，正在拜见过众人之后，府里的公子贾宝玉恰好从外面回来。黛玉抬眼一看，只见这位表哥面如敷粉、眼含灵秀，虽是男儿身，却生得比女孩儿还要俊秀几分，心中不觉一惊，暗想这人怎的如此面善，倒像是哪里见过一般。\n宝玉见了黛玉，也是同样的感觉，笑着说这个妹妹他曾经见过，众人都笑他胡说，宝玉却认真说虽没见过，却看着面善，心里倒像是远别重逢一般。他仔细打量黛玉，见她眉尖若蹙，一段风流态度，便脱口问她是否有玉佩戴，黛玉说自己并无此物。\n宝玉听后忽然发起呆来，随即摘下自己出生时便衔在口中的那块通灵宝玉，狠狠摔在地上，说什么神仙似的妹妹也没有，可知这不是个好东西，唬得众人手忙脚乱地去拾玉哄劝。这一场初见，既充满了似曾相识的缘分，也为这段刻骨铭心的情缘埋下了伏笔。', question:'宝玉见到黛玉后，做了什么让人意外的举动？', optA:'摔了自己随身佩戴的通灵宝玉', optB:'立刻送给黛玉一件礼物', answer:'A'},
+  {book:'红楼梦', title:'刘姥姥进大观园（红楼梦）', text:'刘姥姥是个乡下的老妇人，家境贫寒，因为与贾府沾着一点远亲的关系，便壮着胆子进城，想请贾府接济一些银两度过难关。她辗转找到了贾府的当家人王熙凤，凤姐见她言语朴实、处境可怜，便送了她一些银两和衣物。\n后来贾母听说来了这样一位乡下老人家，觉得新鲜有趣，便留她多住几日，还特意让她陪着游览府中那座精美绝伦的大观园。刘姥姥这辈子从未见过如此奢华的园林景致，处处都看得目瞪口呆，闹出不少笑话，比如把水晶穿衣镜当成了门，一头撞了上去。\n最有趣的一幕，是众人在缀锦阁摆宴用餐，凤姐和丫鬟们捉弄刘姥姥，特意给她一双沉甸甸的象牙镶金筷子夹鸽子蛋，刘姥姥笨拙地怎么也夹不稳，还故意说了一句老刘老刘，食量大如牛，吃个老母猪不抬头的乡野俏皮话，逗得满座的公子小姐们前仰后合，笑得直不起腰来，连一向端庄的贾母都笑出了眼泪。', question:'刘姥姥在宴席上闹的最大笑话跟什么有关？', optA:'用象牙镶金筷子夹鸽子蛋', optB:'把点心撒了一地', answer:'A'},
+  {book:'红楼梦', title:'黛玉葬花（红楼梦）', text:'阳春三月，大观园里桃花盛开，落英缤纷，满地都是被风吹落的花瓣。黛玉生性多愁善感，见落花随处飘零，无人怜惜，心中不忍它们被人踩踏或是冲入污水沟中，便拿起一把小锄头和一个绢袋，一片片将落花轻轻拾起。\n她把收集来的花瓣小心翼翼地装进绢袋，走到园子僻静的一角，亲手挖了一个小小的花冢，将这些花瓣埋入土中，认为这样才是花朵最干净、最体面的归宿，不至于被泥沙污浊玷污了它们原本的美丽。\n埋花之时，黛玉触景生情，想到自己寄居贾府、身世飘零，就如同这些随风而落的花瓣一般，孤苦无依，不禁吟出了一首缠绵哀婉的《葬花吟》，字字句句道尽了她对身世的伤感与对美好易逝的叹惋。这一幕后来被宝玉无意间撞见，两人相对垂泪，成为《红楼梦》中最令人动容的经典场景之一。', question:'黛玉为什么要把落花埋起来？', optA:'不忍落花被踩踏污染，想给它们干净的归宿', optB:'为了给花瓣做成香囊', answer:'A'},
+  {book:'红楼梦', title:'元春省亲（红楼梦）', text:'贾府的大小姐贾元春自幼被选入宫中，后来凭借自身的贤德才貌被封为贵妃，这本是贾府天大的荣耀。为了迎接元春回家探亲，贾府上下耗费巨资，特意修建了一座金碧辉煌的省亲别墅，也就是后来大观园的前身。\n省亲当日，贾府张灯结彩，处处布置得富丽堂皇，元春的车驾在众多随从的簇拥下缓缓入府，一路仪仗森严，气派非凡，贾母率领阖府老小跪地相迎，场面十分隆重庄严，令人叹为观止。\n然而元春见到日夜思念的祖母和父母，心中激动万分，却又不能像普通人家团聚那样尽情言语，只能强忍着宫廷礼仪的约束，含泪低声说这般骨肉各方，不能常聚的深宫日子，其实并不如外人想象中那般风光快乐，反倒充满了身不由己的辛酸，这番肺腑之言让阖府上下无不为之动容。', question:'元春回家省亲时，心里是什么感受？', optA:'表面风光，内心却充满身不由己的辛酸', optB:'非常开心，毫无烦恼', answer:'A'},
+  {book:'红楼梦', title:'宝钗扑蝶（红楼梦）', text:'一个晴朗的午后，薛宝钗独自在大观园中游玩，忽然看见一双玉色蝴蝶上下翩飞，一忽儿飞向东，一忽儿又飞向西，姿态轻盈美丽，宝钗一时童心大发，便取出扇子，蹑手蹑脚地跟着蝴蝶扑了过去。\n那对蝴蝶越飞越远，一直引着宝钗追到池边的滴翠亭附近，宝钗追得香汗微微，粉面含春，正想歇一歇脚，忽然听见亭子里有丫鬟说话的声音，谈的似乎是几句私密的悄悄话，宝钗心中一惊，怕被发现自己在偷听，显得十分尴尬。\n情急之下，宝钗灵机一动，故意放重脚步，扬声笑着喊道颦儿，我看你往哪里藏，装作是在寻找林黛玉的样子，一边说一边故意走远，亭子里的丫鬟们听见动静，只当真是黛玉恰好经过，谁也没有起疑，宝钗这才不动声色地脱身离开，这一段扑蝶的插曲也展现出她心思机敏、随机应变的一面。', question:'宝钗在滴翠亭外听到丫鬟说话后，做了什么聪明的举动？', optA:'假装在寻找林黛玉，借此脱身', optB:'直接推门进去责问丫鬟', answer:'A'},
 ];
 // 按题目在题库里的位置固定决定要不要把A/B选项调换（而不是每次渲染都随机），避免孩子靠"永远选A"蒙对，
 // 同时保证同一道题在没答完之前，每次重新渲染时A/B的顺序都是一样的，不会出现"提交时选的A，回头一看变成了B"
@@ -5281,6 +5370,24 @@ function selectStoryChapter(cat,val){
   state[cfg.manualIdxKey]=(val==='auto')?null:parseInt(val,10);
   save();
 }
+// "换一个"按钮：孩子不想读当前这篇故事时，随机换成题库里的另一篇（不算完成打卡，不给金币/经验），
+// 跟"完成打卡"逻辑完全分开——换故事不受3分钟冷却和每日次数限制，只是单纯换一篇来看/读
+function skipStoryItem(cat){
+  var cfg=READING_CONFIG[cat];
+  if(!state || !cfg || !cfg.bank) return;
+  var bank=cfg.bank;
+  if(!bank.length) return;
+  var cur = (cfg.manualIdxKey && state[cfg.manualIdxKey]!=null && state[cfg.manualIdxKey]>=0 && state[cfg.manualIdxKey]<bank.length)
+    ? state[cfg.manualIdxKey]
+    : (((state[cfg.idxKey]||0)%bank.length+bank.length)%bank.length);
+  var next=cur;
+  if(bank.length>1){
+    while(next===cur){ next=Math.floor(Math.random()*bank.length); }
+  }
+  state[cfg.idxKey]=next;
+  if(cfg.manualIdxKey) state[cfg.manualIdxKey]=next; // 有手动选章节下拉框的（如storyCn），换一个之后下拉框也同步选中新的那一篇
+  save();
+}
 function renderReadingCard(cat){
   var cfg=READING_CONFIG[cat];
   if(!cfg) return;
@@ -5304,13 +5411,37 @@ function renderReadingCard(cat){
     : '';
   // readEn/readCn 的题库都按年级变化，题库不同年级同一个idx对应的短文不一样，quiz key要带上年级避免撞在一起
   var qkey='quiz:read:'+cat+':'+idx+((cat==='readEn'||cat==='readCn')?(':g'+childGradeNum()):'');
+  var cooldownMs=readingCooldownRemainMs(cat);
+  var cooldownHtml=cooldownMs>0
+    ? '<div style="margin:4px 0;padding:4px 8px;background:#fff3e0;border-radius:8px;color:#e65100;font-size:12px">⏳ 还要 '+formatCooldownMs(cooldownMs)+' 才能打卡下一篇，先认真读读这篇吧～</div>'
+    : '';
+  var skipBtnHtml = cfg.bank
+    ? ' <button style="border:none;background:#ede7f6;color:#5e35b1;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="skipStoryItem(\''+cat+'\')">🔄换一个</button>'
+    : '';
   box.innerHTML = selectorHtml + '<div style="padding:6px 0;font-size:13px;line-height:1.7">'
     +'<b>《'+it.title+'》</b>'
     +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+speakText+'\',\''+cfg.lang+'\')">🔊</button>'
+    +skipBtnHtml
     +'<br>'+textHtml
     +'<br><span style="color:#7b1fa2;font-weight:700">小问题：</span>'+it.question
     +quizSelectHtml(qkey,[{letter:'A',text:it.optA},{letter:'B',text:it.optB}],it.answer,cfg.log)
+    +cooldownHtml
+    +readingHistoryHtml(cat)
     +'</div>';
+}
+// 2026-09update：以前完成一篇阅读打卡后立刻就能刷下一篇，小朋友会靠"秒点"快速刷经验/金币，
+// 完全不用真的去读——现在加一个3分钟冷却，两次打卡必须隔够3分钟，读完想一想题目也差不多要这么久；
+// READING_COOLDOWN_MS 统一控制，readEn/readCn/storyEn/storyCn 四类各自独立计时，互不影响
+var READING_COOLDOWN_MS = 3*60*1000;
+function readingCooldownRemainMs(cat){
+  var d=state.day;
+  if(!d||!d[cat]||!d[cat].lastAt) return 0;
+  return Math.max(0, READING_COOLDOWN_MS-(Date.now()-d[cat].lastAt));
+}
+function formatCooldownMs(ms){
+  var s=Math.ceil(ms/1000);
+  var m=Math.floor(s/60); s=s%60;
+  return m>0?(m+'分'+s+'秒'):(s+'秒');
 }
 function completeReadingTask(cat){
   var cfg=READING_CONFIG[cat];
@@ -5321,15 +5452,38 @@ function completeReadingTask(cat){
   if(!d[cat]) d[cat]={count:0};
   var cap=8;
   if(d[cat].count>=cap){ alert('今天这个已经打卡好多次啦，明天再来吧！'); return; }
+  var cooldown=readingCooldownRemainMs(cat);
+  if(cooldown>0){ alert('⏳ 还要认真读完这一篇才能打卡下一篇哦，请等 '+formatCooldownMs(cooldown)+' 后再来～'); return; }
   d[cat].count++;
+  d[cat].lastAt=Date.now();
   var coin=specialCoin(cat);
   earnCoins(coin, cfg.log);
   if(state.pet&&state.pet.chosen) gainTaskExp();
   gainAbilityPoint('study'); // 中英文阅读/名著故事都算"学习"类，累加智力值
   addLog(cfg.log+'，+'+coin+'金币');
-  state[cfg.idxKey] = ((state[cfg.idxKey]||0)+1) % bank.length;
+  // 记一笔"已读记录"（标题+完成时间），只记这次刚打卡完成的这篇，供家长核实小朋友是不是真的一篇篇读过来的，
+  // 不是靠秒点刷出来的——跟"冷却3分钟"配合，读得越"密"，家长越该点开这个列表看看
+  var manualIdx=cfg.manualIdxKey ? state[cfg.manualIdxKey] : null;
+  var justIdx=(manualIdx!=null && manualIdx>=0 && manualIdx<bank.length) ? manualIdx : (((state[cfg.idxKey]||0)%bank.length+bank.length)%bank.length);
+  var justTitle=(bank[justIdx]&&bank[justIdx].title)||'';
+  if(!state.readingHistory) state.readingHistory={};
+  if(!state.readingHistory[cat]) state.readingHistory[cat]=[];
+  state.readingHistory[cat].push({title:justTitle, at:Date.now()});
+  if(state.readingHistory[cat].length>50) state.readingHistory[cat]=state.readingHistory[cat].slice(-50);
+  state[cfg.idxKey] = ((state[cfg.idxKey]||0)+1) % bank.length; // 手动选章节时这个自动序号在背后照样走，但不影响显示（renderReadingCard里manualIdx优先），跟以前行为一致
   save();
   render();
+}
+function readingHistoryHtml(cat){
+  var list=(state.readingHistory&&state.readingHistory[cat])||[];
+  if(!list.length) return '';
+  var rows=list.slice().reverse().slice(0,12).map(function(it){
+    var d=new Date(it.at);
+    var t=d.getMonth()+1+'/'+d.getDate()+' '+(''+d.getHours()).padStart(2,'0')+':'+(''+d.getMinutes()).padStart(2,'0');
+    return '<div style="padding:2px 0;border-bottom:1px dashed #f0e0f5">'+t+'　'+it.title+'</div>';
+  }).join('');
+  return '<details style="margin-top:8px"><summary style="cursor:pointer;color:#7b1fa2;font-weight:700;font-size:12.5px">📋 已读记录（共'+list.length+'篇，家长可以点开核实）</summary>'
+    +'<div style="max-height:160px;overflow-y:auto;font-size:12px;color:#666;margin-top:4px">'+rows+'</div></details>';
 }
 function save(){ saveStore(); render(); }
 
@@ -5536,6 +5690,7 @@ function migrateState(s){
   if(!s.backpack) s.backpack={freeCard:0,d7:[],d8:[],restCards:[]};
   if(!s.backpack.supplies) s.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
   if(!s.backpack.materials) s.backpack.materials={}; // 新版副本(dungeon2)产出的仙宅建材，key=材料id，value=数量
+  if(!s.readingHistory) s.readingHistory={}; // 阅读/故事打卡的"已读标题"记录，{cat:[{title,at}]}，给家长核实小朋友是不是真的一篇篇读过来的
   if(!s.backpack.restCards){
     s.backpack.restCards=[];
     // 旧版"每周家务攒4项换休息卡"机制下已攒的休息卡，按获得时间为今天迁移，保留满额12天有效期
@@ -5565,9 +5720,12 @@ function migrateState(s){
     if(typeof _onePet.dungeonBestTier==='undefined') _onePet.dungeonBestTier=-1;
     if(!_onePet.dungeon2Tried) _onePet.dungeon2Tried={}; // 新版副本：{tierIdx: true} 记录是否已经挑战过（首次挑战失败不惩罚）
     if(!_onePet.dungeon2Cleared) _onePet.dungeon2Cleared={}; // 新版副本：{tierIdx: true} 记录是否已首通（只在首通时发装饰奖励）
+    if(!_onePet.dungeon2ClearedDate) _onePet.dungeon2ClearedDate={}; // 新版副本：{tierIdx: 'YYYY-MM-DD'} 记录最近一次成功通关这一关是哪天，每天每关只能通关一次
     if(typeof _onePet.neglectHours==='undefined') _onePet.neglectHours=0;
     if(typeof _onePet.injured==='undefined') _onePet.injured=false;
     if(typeof _onePet.injuredAt==='undefined') _onePet.injuredAt=null;
+    if(typeof _onePet.injurySeverity==='undefined') _onePet.injurySeverity=null; // 'light'|'severe'|null，配合 petInjuryLimitHours() 决定倒计时上限和该买哪种药
+    if(typeof _onePet.bathRequestPending==='undefined') _onePet.bathRequestPending=false; // 吃完食物后有没有正开口找主人要求洗澡美容，配合 maybeAskForBath()
     if(typeof _onePet.idleNagDayKey==='undefined') _onePet.idleNagDayKey=null;
   }
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
@@ -6022,12 +6180,12 @@ function revertPetToEgg(pet, reason){
   pet.exp=0;
   pet.food=100; pet.thirst=100; pet.happy=100; pet.clean=100;
   pet.neglectHours=0;
-  pet.injured=false; pet.injuredAt=null;
+  pet.injured=false; pet.injuredAt=null; pet.injurySeverity=null;
   if(reason==='injury'){
-    addLog('💔'+name+' 因为受伤后一直没吃到特效药，伤心地变回了蛋……需要重新好好养大它啦');
+    addLog('💔'+name+' 因为受伤后一直没吃到药，伤心地变回了蛋……需要重新好好养大它啦');
     if(isActive){
       curPetStage=null; curPetLevel=null;
-      showReward('🥚 变回蛋啦……','<b>'+name+'</b> 因为受伤后太久没有吃到【特效药】，伤心地缩回了蛋里。<br>下次它调皮受伤时，要记得及时去商城买药救它哦！');
+      showReward('🥚 变回蛋啦……','<b>'+name+'</b> 因为受伤后太久没有吃到药，伤心地缩回了蛋里。<br>下次它受伤时，要记得及时去商城买药救它哦（重伤要买高级特效药）！');
     }
   }else{
     addLog('💔'+name+' 因为太久没人照顾，伤心地变回了蛋……需要重新好好养大它啦');
@@ -6147,7 +6305,7 @@ function rollRebelEvent(pet){
   var pick=pool[Math.floor(Math.random()*pool.length)];
   var petName=pet.name||'宠物';
   if(pick==='injured'){
-    pet.injured=true; pet.injuredAt=Date.now();
+    pet.injured=true; pet.injuredAt=Date.now(); pet.injurySeverity='light'; // 离线叛逆事件触发的都是轻伤，重伤只会由副本挑战失败触发
     addLog('🤕'+petName+' 趁你不在偷偷玩危险动作，不小心受伤了！要在3小时内买【特效药】给它治好');
     return '🤕 你不在的这段时间，'+petName+' 偷偷玩了些危险动作，结果不小心受伤了！<br>要赶紧去商城买【特效药】给它治疗，不然3小时内没治好，它会伤心地变回蛋哦！';
   }
@@ -6613,10 +6771,21 @@ function exFailReset(){
   ex.phase='failed';
   renderExerciseTimer();
 }
+// 2026-09fix：运动计时的"滴"声用的是Web Audio API（exAudioCtx），这个AudioContext以前全程不关，
+// 挂着不放——部分安卓学习机（比如科大讯飞系列）上，页面里只要有AudioContext一直占着音频通道，
+// 就会导致后面speechSynthesis朗读完全没声音（不报错，就是哑的）。运动打卡一结束/取消就该把这个
+// AudioContext关掉，把音频通道让出来，不然做完一次运动倒计时，后面所有朗读都会失效。
+function exReleaseAudioCtx(){
+  if(exAudioCtx){
+    try{ exAudioCtx.close(); }catch(e){}
+    exAudioCtx=null;
+  }
+}
 function exFinishAll(){
   var ex=exTimer;
   hideModal('exerciseTimerModal');
   exTimer=null;
+  exReleaseAudioCtx();
   if(ex.key==='burpee') completeBurpee(ex.mode);
   else completeTask(ex.cat,ex.key);
 }
@@ -6624,6 +6793,7 @@ function exCancelTimer(){
   exClearTick();
   exTimer=null;
   hideModal('exerciseTimerModal');
+  exReleaseAudioCtx();
 }
 function renderExerciseTimer(){
   if(!exTimer) return;
@@ -6669,7 +6839,6 @@ function renderExerciseTimer(){
     btn.textContent='🔄 重新开始第1组';
   }
 }
-
 function markDone(cat,key,viaFree){
   if(!state.day[cat]) state.day[cat]={};
   if(cat==='house'){ state.day.house[key]=true; state.day.houseDone++; }
@@ -7001,6 +7170,39 @@ function maybeShowIdleNag(){
   addLog(fav.emoji+(pet.name||'宠物')+' 念叨着："'+msg+'"');
   save();
 }
+/* ========== 吃完食物后找主人要求洗澡美容 ==========
+   宠物每次真正"吃"完一顿（宠物粮食/牛奶/炸鸡翅/葡式蛋挞/日式和牛，不含喝水/抹茶拿铁）之后，
+   有一定概率开口找主人要求洗澡美容；运动值(sport)越高的宠物代谢越旺盛、越容易觉得自己脏兮兮的，
+   概率也就越高——不是每次都会开口（不然太吵），运动值越高只是"更频繁"而不是"每次必开口"。
+   同一时间只会有一个"正在等洗澡"的请求，没处理完不会重复开口刷屏；小朋友用【美容洗护】喂它洗完
+   之后请求才会消掉，还会额外说一句感谢的话，形成一个小小的"要求→满足"互动闭环。 */
+var PET_BATH_ASK_LINES=[
+  '我吃饱啦，可是身上黏糊糊的，能帮我洗个澡、美容一下吗？',
+  '吃得好满足呀～不过毛都蹭乱啦，陪我洗香香好不好？',
+  '吃完饭感觉浑身不清爽，可以带我去洗澡美容吗？',
+  '肚子饱饱的，可是有点脏脏的，能不能帮我美容一下呀？',
+  '吃饱就想蹦跶，蹦跶完更想洗个澡，快帮帮我嘛～'
+];
+var PET_BATH_THANKS_LINES=[
+  '谢谢你帮我洗澡呀，现在香喷喷的啦！',
+  '洗得好舒服，我又变干净啦，谢谢你～',
+  '香香的感觉真好，谢谢你帮我美容！'
+];
+function maybeAskForBath(pet){
+  if(!pet||!pet.chosen||!pet.hatched) return;
+  if(!petSpriteVisible()) return; // 宠物本体没显示在屏幕上，开口了也看不见，等它出现了再说
+  if(pet.bathRequestPending) return; // 已经有一个还没满足的洗澡请求，不重复开口刷屏
+  if((pet.clean||0)>=95) return; // 已经很干净了，没必要非要洗
+  var sport=petAbilityScores().sport||0;
+  // 运动值0时基础25%概率开口，每+100运动值大约多20%，最高封顶到80%，避免高等级宠物几乎每次吃完都开口
+  var prob=Math.min(0.8, 0.25+sport/100*0.2);
+  if(Math.random()>=prob) return;
+  pet.bathRequestPending=true;
+  var msg=petPick(PET_BATH_ASK_LINES);
+  petSay(msg, 5000);
+  addLog('🛁'+(pet.name||'宠物')+' 吃完饭想洗澡啦："'+msg+'"');
+  save();
+}
 function renderAbilityRadar(){
   var card=document.getElementById('abilityRadarCard');
   var toggle=document.getElementById('abilityRadarToggle');
@@ -7029,11 +7231,17 @@ function renderAbilityRadar(){
     return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="#e1bee7" stroke-width="1"/>';
   }).join('');
   var dataPts=angles.map(function(a,i){ return radarPoint(cx,cy,R,a,vals[i]).join(','); }).join(' ');
+  // 2026-09fix："家务"等右侧几个轴的标签之前固定用 text-anchor:middle，右侧轴的文字有一半会画到 viewBox
+  // 右边界外面，被SVG默认裁掉——现在按标签点相对圆心的左右位置动态选 anchor（右侧start/左侧end/正上正下middle），
+  // 文字整体往圆心内侧长，就不会再顶到画布边缘；同时把 viewBox 左右各加宽一点、加 overflow:visible 兜底。
   var labelSvg=angles.map(function(a,i){
-    var lp=radarPoint(cx,cy,R+26,a,100);
-    return '<text x="'+lp[0]+'" y="'+lp[1]+'" text-anchor="middle" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+labels[i]+'</text>';
+    var lp=radarPoint(cx,cy,R+22,a,100);
+    var cosv=Math.cos(a*Math.PI/180);
+    var anchor = cosv>0.25 ? 'start' : (cosv<-0.25 ? 'end' : 'middle');
+    var dx = anchor==='start' ? 3 : (anchor==='end' ? -3 : 0);
+    return '<text x="'+(lp[0]+dx)+'" y="'+lp[1]+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+labels[i]+'</text>';
   }).join('');
-  var svg='<svg viewBox="0 0 260 276" width="100%" style="max-width:300px;display:block;margin:0 auto">'
+  var svg='<svg viewBox="-30 0 320 276" width="100%" style="max-width:320px;display:block;margin:0 auto;overflow:visible">'
     +gridSvg+axisLines
     +'<polygon points="'+dataPts+'" fill="rgba(156,39,176,0.35)" stroke="#9c27b0" stroke-width="2"/>'
     +labelSvg
@@ -7253,7 +7461,7 @@ function confirmName(){
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
   if(!name) name=lib.name;
   var isAdditional=!!(state.pets && state.pets.length>0);
-  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,idleNagDayKey:null};
+  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},dungeon2ClearedDate:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,injurySeverity:null,idleNagDayKey:null,bathRequestPending:false};
   if(!state.pets) state.pets=[];
   state.pets.push(newPet);
   state.activePetIdx=state.pets.length-1; // 新宠物自动成为当前"出战/展示"的宠物
@@ -7348,6 +7556,8 @@ function buyItem(id){
   if(info.level<item.lv){alert('宠物等级不足（需要 Lv'+item.lv+'），先带它训练升级吧');return;}
   if(id==='house'&&pet.house>=1){alert('已经拥有这个小窝啦，暂时不能重复购买');return;}
   if(id==='medicine'&&!pet.injured){alert('🩺 '+pet.name+' 现在很健康，还不需要吃特效药哦～');return;}
+  if(id==='medicine'&&pet.injured&&pet.injurySeverity==='severe'){alert('🚨 '+pet.name+' 是重伤，普通特效药没用！要买【高级特效药】才能治好，不然1小时内会变回蛋！');return;}
+  if(id==='medicine2'&&!pet.injured){alert('🩺 '+pet.name+' 现在很健康，还不需要吃高级特效药哦～');return;}
   var isTraining=(id==='train'||id==='train2');
   if(isTraining&&((pet.food||0)<TRAIN_MIN_STAT||(pet.thirst||0)<TRAIN_MIN_STAT||(pet.clean||0)<TRAIN_MIN_STAT)){
     alert('🥱 宠物现在吃饱饱、水汪汪或香喷喷太低，没力气训练啦！先喂食🍖、喝水💧、洗澡🛁，把这几项都补到'+TRAIN_MIN_STAT+'%以上再来训练吧～');
@@ -7400,6 +7610,8 @@ function buyItem(id){
     showReward(item.emoji+' 新家到啦','给 <b>'+pet.name+'</b> 换上了【'+item.name+'】！'+item.desc);
   }else if(id==='medicine'){
     showReward('💊 药到病除！','<b>'+pet.name+'</b> 吃下特效药，伤已经好啦！以后要多陪它一起学习哦，别再调皮受伤啦～');
+  }else if(id==='medicine2'){
+    showReward('✨💊 药到病除！','<b>'+pet.name+'</b> 吃下高级特效药，伤（不管轻伤重伤）都已经好啦！');
   }else{
     showPetToast(item.emoji+' '+item.name+' '+item.desc);
   }
@@ -7446,6 +7658,18 @@ function useSupply(id){
     checkCareAll();
   }
   if(!isAgedBasicFood && CARE_FX[id]) spawnPetFx(CARE_FX[id]);
+  // 吃完饭找主人要求洗澡美容：真的吃了东西（不是过期食物闹脾气）才会触发，
+  // 延迟到吃的动画（约3秒）播完之后再开口，感觉更像是"吃完了才想起来"，而不是叼着食物就喊
+  if(!isAgedBasicFood && FOOD_EATING_SUPPLY_IDS.indexOf(id)>=0){
+    setTimeout(function(){ maybeAskForBath(pet); render(); }, 3200);
+  }
+  // 用美容洗护满足了正等着的洗澡请求，消掉请求并额外说一句感谢的话，形成"要求→满足"的小闭环
+  if(!isAgedBasicFood && id==='bath' && pet.bathRequestPending){
+    pet.bathRequestPending=false;
+    var thanksMsg=petPick(PET_BATH_THANKS_LINES);
+    setTimeout(function(){ petSay(thanksMsg, 4000); }, 900);
+    addLog('🛁'+pet.name+' 洗完澡了："'+thanksMsg+'"');
+  }
   save();
   if(isAgedBasicFood){
     showPetToast('😠 '+pet.name+' 勉强吃了几口，没吃饱还有点生气……');
@@ -7545,8 +7769,10 @@ function dungeonPetBattleStats(level){
 }
 function renderDungeonEntry(){
   // 2026-09起：入口按钮改由 dungeon2（新版"投入+概率结算"副本）驱动，老的回合制 dungeon 永久隐藏
+  // 同时从"点🐾才展开"的互动小面板里独立出来，改成宠物界面单独常驻的悬浮按钮，点一下直接进副本，不用先展开面板
   var btn=document.getElementById('dungeonEntryBtn');
   if(!btn) return;
+  btn.style.display=(state.pet&&state.pet.chosen)?'flex':'none'; // 还没选宠物/没有宠物时不显示这个入口
   if(!CONFIG.dungeon2Enabled){
     btn.style.opacity=.35;
     btn.innerHTML='🔒';
@@ -7888,10 +8114,24 @@ function dungeon2WinProb(tier, level, courageScore){
   return Math.max(0.08, Math.min(0.92, p));
 }
 function dungeon2RandInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; } // 注意：不能直接叫 randInt——那是"数学挑战小游戏"内嵌iframe源码里自己的同名函数，跟外层页面是两个独立作用域，外层这里拿不到
+// 2026-09update：副本挑战前置条件——今天必须先完成"背单词"和"波比跳"打卡，练好基本功才能去闯关；
+// 宠物受伤（不管轻伤重伤）期间也不能挑战，得先去商城买药治好
+function dungeon2PrereqMissing(){
+  var d=state.day||{};
+  var studyDone=!!(d.study&&d.study.word);
+  var sportDone=!!(d.sport&&d.sport.burpee>0);
+  var missing=[];
+  if(!studyDone) missing.push('📖 背单词打卡');
+  if(!sportDone) missing.push('💪 波比跳打卡');
+  return missing;
+}
 function openDungeon2(){
   if(!CONFIG.dungeon2Enabled){ alert('🗺️副本挑战功能暂时关闭，敬请期待恢复通知～'); return; }
   var pet=state.pet;
   if(!pet||!pet.chosen||!pet.hatched){ alert('宠物还没出生（还是蛋），先完成打卡攒经验让它破壳吧'); return; }
+  if(pet.injured){ alert('🤕 '+pet.name+' 还在养伤，得先去商城买药治好才能继续挑战副本哦！'); return; }
+  var missing=dungeon2PrereqMissing();
+  if(missing.length){ alert('⚔️ 副本挑战前，要先完成今天的 '+missing.join('和')+' 哦，练好基本功才能去闯关！'); return; }
   renderDungeon2List();
   showModal('dungeon2Modal');
 }
@@ -7903,15 +8143,18 @@ function renderDungeon2List(){
   if(!pet||!pet.chosen){ box.innerHTML=''; return; }
   if(!pet.dungeon2Tried) pet.dungeon2Tried={};
   if(!pet.dungeon2Cleared) pet.dungeon2Cleared={};
+  if(!pet.dungeon2ClearedDate) pet.dungeon2ClearedDate={};
   var info=petLevelInfo();
   var courageScore=abilityDimScore('courage');
-  var html='<div class="dg-village">🗺️ 仙侠秘境<div class="small" style="margin-top:2px">每个副本随时都能挑战，不用按顺序解锁；等级越高、勇气探险维度越强，胜率越高。第一次挑战某个副本失败不会扣任何东西，放心试！</div></div>';
+  var today=todayKey();
+  var html='<div class="dg-village">🗺️ 仙侠秘境<div class="small" style="margin-top:2px">每个副本随时都能挑战，不用按顺序解锁；等级越高、勇气探险维度越强，胜率越高。第一次挑战某个副本失败不会扣任何东西，放心试！每一关每天只能成功通关一次，通关后要等明天才能再挑战这关。</div></div>';
   html+='<div class="dg-trail">';
   for(var i=0;i<CONFIG.dungeon2.length;i++){
     var tier=CONFIG.dungeon2[i];
     var pct=Math.round(dungeon2WinProb(tier, info.level, courageScore)*100);
     var cleared=!!pet.dungeon2Cleared[i];
     var firstTry=!pet.dungeon2Tried[i];
+    var clearedToday=pet.dungeon2ClearedDate[i]===today;
     var matNames=tier.materialPool.map(function(m){ return m.emoji+m.name; }).join('/');
     var cardCls='dungeon-card'+(cleared?' done':'')+(tier.boss?' boss':'');
     var side=(i%2===0)?'L':'R';
@@ -7923,8 +8166,11 @@ function renderDungeon2List(){
         +'<div class="dc-name">'+(cleared?'✅ ':'')+tier.name+'（'+tier.monster+'）</div>'
         +'<div class="dc-desc">预计胜率 '+pct+'%'+(info.level<tier.lvReq?'　·　推荐Lv'+tier.lvReq+'以上再来，等级不够会更容易失败':'')+(firstTry?'　·　首次挑战失败不扣东西':'')
           +'<br>胜利：'+tier.coinMin+'~'+tier.coinMax+'金币 + '+matNames+(cleared?'（装饰「'+tier.accessory.name+'」已获得）':'　首通额外送 '+tier.accessory.emoji+tier.accessory.name)+'</div>'
+        +(clearedToday?'<div class="dc-desc" style="color:#66bb6a;font-weight:700">🎉 今日已通关，明天再来挑战～</div>':'')
       +'</div>'
-      +'<button class="btn btn-primary btn-sm" onclick="startDungeon2Battle('+i+')">挑战</button>'
+      +(clearedToday
+        ? '<button class="btn btn-gray btn-sm" disabled>今日已通关</button>'
+        : '<button class="btn btn-primary btn-sm" onclick="startDungeon2Battle('+i+')">挑战</button>')
       +'</div></div>';
   }
   html+='</div>';
@@ -7950,8 +8196,13 @@ function startDungeon2Battle(idx){
   var baseSt=CONFIG.dungeon[idx];     // 美术/怪物基础数值：复用老配置
   var rewardSt=CONFIG.dungeon2[idx];  // 奖励：金币区间/建材/首通装饰，走新配置
   if(!baseSt||!rewardSt||!pet||!pet.chosen||!pet.hatched){ alert('宠物还没出生（还是蛋），先完成打卡攒经验让它破壳吧'); return; }
+  if(pet.injured){ alert('🤕 '+pet.name+' 还在养伤，得先去商城买药治好才能继续挑战副本哦！'); return; }
+  var missing=dungeon2PrereqMissing();
+  if(missing.length){ alert('⚔️ 副本挑战前，要先完成今天的 '+missing.join('和')+' 哦，练好基本功才能去闯关！'); return; }
   if(!pet.dungeon2Tried) pet.dungeon2Tried={};
   if(!pet.dungeon2Cleared) pet.dungeon2Cleared={};
+  if(!pet.dungeon2ClearedDate) pet.dungeon2ClearedDate={};
+  if(pet.dungeon2ClearedDate[idx]===todayKey()){ alert('🎉 这一关今天已经通关过啦，明天再来挑战吧～'); return; }
   if(!state.backpack.materials) state.backpack.materials={};
   if(!state.day.dungeon2) state.day.dungeon2={count:0};
   var info=petLevelInfo();
@@ -8015,6 +8266,8 @@ function dungeonEnd2(win){
     state.backpack.materials[mat.id]=(state.backpack.materials[mat.id]||0)+1;
     var dgExp=rewardSt.exp||15;
     gainExp(dgExp);
+    if(!pet.dungeon2ClearedDate) pet.dungeon2ClearedDate={};
+    pet.dungeon2ClearedDate[idx]=todayKey(); // 每一关每天只能成功通关一次，明天才能再挑战这关
     var firstClear=!pet.dungeon2Cleared[idx];
     var newAcc=null;
     if(firstClear){
@@ -8039,12 +8292,23 @@ function dungeonEnd2(win){
     var penaltyText;
     if(dg.firstTry){
       penaltyText='第一次挑战这里失败不会扣任何东西，多攒点经验、多练练勇气探险，再来试试！';
+      dgLog('😢 '+state.pet.name+' 被打倒了……');
+      addLog('🗺️新版副本挑战失败【'+baseSt.name+'】（首次豁免，无惩罚）');
     }else{
-      state.pet.happy=Math.max(0,state.pet.happy-6);
-      penaltyText=baseSt.monster+'有点强，'+pet.name+'有点沮丧（开心-6）';
+      // 2026-09update：非首次挑战失败，改成"受伤"（代替以前的开心-6），跟离线叛逆事件共用同一套
+      // 受伤/买药/倒计时体系；关卡越难，重伤（1小时内必须买高级特效药）概率越高
+      var severeChance=(typeof rewardSt.severeChance==='number')?rewardSt.severeChance:0.2; // 注意不能写成 rewardSt.severeChance||0.2，配置里0是合法值（代表"这关不会重伤"），若用||会被误判成"没配置"而退回0.2
+      var severity=(Math.random()<severeChance)?'severe':'light';
+      pet.injured=true; pet.injuredAt=Date.now(); pet.injurySeverity=severity;
+      renderPetInjuryBadge();
+      if(severity==='severe'){
+        penaltyText=baseSt.monster+'太强了，'+pet.name+'受了重伤！必须在1小时内买【高级特效药】治好，不然会伤心地变回蛋！';
+      }else{
+        penaltyText=baseSt.monster+'有点强，'+pet.name+'受伤了，要在3小时内买【特效药】治好，不然会伤心地变回蛋。';
+      }
+      dgLog('🤕 '+state.pet.name+' 被打倒了，受伤了……');
+      addLog('🗺️新版副本挑战失败【'+baseSt.name+'】：'+pet.name+' 受了'+(severity==='severe'?'重伤':'轻伤')+'，要买药治疗');
     }
-    dgLog('😢 '+state.pet.name+' 被打倒了……');
-    addLog('🗺️新版副本挑战失败【'+baseSt.name+'】'+(dg.firstTry?'（首次豁免，无惩罚）':''));
     box.innerHTML='<div style="font-size:15px;font-weight:700;color:#ef5350">😢 没有打赢……</div>'
       +'<div style="margin:6px 0">'+penaltyText+'</div>'
       +'<button class="btn btn-gray btn-block" onclick="backToDungeon2List()">好的</button>';
@@ -8056,6 +8320,11 @@ function dungeonEnd2(win){
 function backToDungeon2List(){
   document.getElementById('dungeonBattleView').style.display='none';
   hideModal('dungeonModal');
+  // 如果这一把打输受伤了/前置条件不满足了，不用再弹一次alert重复提醒（结算框里已经说明白了），
+  // 直接安静地退回主界面就好；能继续挑战的话，才重新弹出副本列表
+  var pet=state.pet;
+  if(pet&&pet.injured) return;
+  if(dungeon2PrereqMissing().length) return;
   openDungeon2();
 }
 
@@ -9045,17 +9314,25 @@ function renderShop(){
     // 不再灰掉锁死，只是在这里给个显眼的提醒：效果很差、还会惹它生气，引导孩子改用下面的高级餐点
     var aged=isBasicFood&&hatched&&info.level>=PREMIUM_FOOD_UNLOCK_LEVEL;
     var isMedicine=(it.id==='medicine');
+    var isMedicine2=(it.id==='medicine2');
+    var isAnyMedicine=isMedicine||isMedicine2;
     var isInjured=!!(pet&&pet.injured);
-    // 特效药不受等级限制，改成受"宠物是否受伤"限制——没受伤时买不了（也不用买），
-    // 真的受伤了才会解锁，配合下面的红色紧急提示，让家长一眼就知道要不要点进商城
-    var medicineDisabled=isMedicine&&!(hatched&&isInjured);
-    var locked=!hatched||info.level<it.lv||medicineDisabled;
+    var severity=(pet&&pet.injurySeverity)||'light';
+    var isSevere=isInjured&&severity==='severe';
+    var injuryStatusNow=petInjuryStatus();
+    // 特效药不受等级限制，改成受"宠物是否受伤"限制——没受伤时买不了（也不用买）；
+    // 普通特效药对重伤无效（重伤只能买高级特效药），真的能治得好才解锁，配合下面的红色紧急提示，
+    // 让家长一眼就知道该点哪个
+    var medicineDisabled=isMedicine&&!(hatched&&isInjured&&!isSevere);
+    var medicine2Disabled=isMedicine2&&!(hatched&&isInjured);
+    var locked=!hatched||info.level<it.lv||medicineDisabled||medicine2Disabled;
     var owned=(it.id==='house'&&pet&&pet.house>=1);
     var isSupply=PET_SUPPLY_IDS.indexOf(it.id)>=0;
     var isTraining=(it.id==='train'||it.id==='train2');
     var boughtToday=isTraining&&trainBought[it.id];
     var btnLabel;
-    if(isMedicine) btnLabel=(!hatched?'宠物出生后解锁':(isInjured?'购买':'暂时不需要'));
+    if(isMedicine) btnLabel=(!hatched?'宠物出生后解锁':(isSevere?'对重伤无效':(isInjured?'购买':'暂时不需要')));
+    else if(isMedicine2) btnLabel=(!hatched?'宠物出生后解锁':(isInjured?'购买':'暂时不需要'));
     else if(locked) btnLabel=(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁');
     else if(owned) btnLabel='已拥有';
     else if(boughtToday) btnLabel='今日已买';
@@ -9064,10 +9341,13 @@ function renderShop(){
     html+='<div class="shop-item'+(locked?' locked':'')+'">'
       +'<div class="s-emoji">'+it.emoji+'</div>'
       +'<div class="s-name">'+it.name+'</div>'
-      +'<div class="s-desc">'+it.desc+(!isMedicine&&it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
+      +'<div class="s-desc">'+it.desc+(!isAnyMedicine&&it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
       +(aged?'<div class="s-desc" style="color:#e65100;font-weight:700">🎓 宝宝长大啦，这份基础餐点效果很差，吃了还会让它生气捣乱，建议换成下面的高级餐点！</div>':'')
-      +(isMedicine&&hatched&&isInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝受伤啦，赶紧买药救它，不然3小时内会变回蛋！</div>':'')
+      +(isMedicine&&hatched&&isInjured&&isSevere?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝是重伤，普通特效药没用，去买下面的【高级特效药】！</div>':'')
+      +(isMedicine&&hatched&&isInjured&&!isSevere?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝受伤啦，赶紧买药救它，不然'+formatRemainHours(injuryStatusNow?injuryStatusNow.remainHours:0)+'内会变回蛋！</div>':'')
       +(isMedicine&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在很健康，暂时不需要吃药～</div>':'')
+      +(isMedicine2&&hatched&&isInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 '+(isSevere?'重伤紧急！':'')+'赶紧买药救它，不然'+formatRemainHours(injuryStatusNow?injuryStatusNow.remainHours:0)+'内会变回蛋！</div>':'')
+      +(isMedicine2&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在很健康，暂时不需要吃药～</div>':'')
       +(isSupply?'<div class="s-desc" style="color:#4caf50;font-weight:700">🎒 背包库存：'+(supplies[it.id]||0)+' 份（要去宠物页面用哦）</div>':'')
       +(isTraining?'<div class="s-desc" style="color:#e65100">⏱️ 每天限购1次</div>':'')
       +'<div class="s-price">💰 '+it.price+' 金币</div>'
@@ -9284,6 +9564,7 @@ function petMinuteTick(){
   syncPetSprite(); // 状态挂机掉到阈值以下/宠物被养回蛋，不用等切页面，每分钟这一下就能让宠物按新状态该出现/该收起
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
   renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
+  ['readEn','readCn','storyEn','storyCn'].forEach(renderReadingCard); // 阅读3分钟冷却的倒计时文字，同理每分钟刷新一下
   maybeShowIdleNag(); // 上线闲置够久、还没打今天最喜欢那类的卡，宠物就念叨一句提醒小朋友
   save();
 }
