@@ -8,7 +8,7 @@
      像App一样的桌面图标——加了它们之后，从Safari"添加到主屏幕"生成的图标才会：①用我们自己做的
      可爱图标（而不是随手截一张当前页面当图标）；②点开图标是真正的全屏App模式，没有Safari的地址栏/
      工具栏；③桌面上图标下面显示"打卡系统"这个短名字，而不是网页标题那一长串 -->
-<link rel="apple-touch-icon" href="宠物素材/apple_touch_icon.png">
+<link rel="apple-touch-icon" href="apple_touch_icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="打卡系统">
@@ -130,7 +130,7 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 .pet-room{
   width:100%; max-width:300px; aspect-ratio:1100/1009; margin:6px auto 4px;
   border-radius:16px; overflow:hidden; position:relative;
-  background:#111 url('宠物素材/petroom_bg.jpg') center/cover no-repeat;
+  background:#111 url('petroom_bg.jpg') center/cover no-repeat;
   box-shadow:0 4px 16px rgba(0,0,0,.22);
 }
 #petWrap{
@@ -828,6 +828,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <!-- 音量设置弹窗：背景音乐 / 朗读语音各自独立调节大小 -->
+<div class="modal-mask" id="ttsDiagModal">
+  <div class="modal" style="max-width:340px;text-align:left">
+    <button class="modal-close" onclick="hideModal('ttsDiagModal')">✕</button>
+    <h3 style="text-align:center">🔧 朗读诊断结果</h3>
+    <pre id="ttsDiagText" style="white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.7;font-family:inherit;background:#f7f2fa;border-radius:10px;padding:10px;margin:0"></pre>
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="hideModal('ttsDiagModal')">知道了</button>
+  </div>
+</div>
+
 <div class="modal-mask" id="volumeModal">
   <div class="modal" style="max-width:320px;text-align:left">
     <button class="modal-close" onclick="hideModal('volumeModal')">✕</button>
@@ -1501,7 +1510,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
-  <img id="petImg" class="anim-idle" src="宠物素材/petimg_default.webp" alt="小金麟">
+  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
   <div id="petAccessory" class="pet-accessory"></div>
   <div id="petHit" onclick="petTouch()"></div>
   <div id="petHearts"></div>
@@ -1650,66 +1659,66 @@ var PET_LIBRARY = {
     name: '小金麟',
     pickDesc: '威风凛凛的小金龙，活泼好动超黏人，最爱围着你蹦蹦跳跳～',
     img: {
-      happy: '宠物素材/xiaojinlin_happy.webp',
-      run:   '宠物素材/xiaojinlin_run.webp',
-      sad:   '宠物素材/xiaojinlin_sad.webp'
+      happy: 'xiaojinlin_happy.webp',
+      run:   'xiaojinlin_run.webp',
+      sad:   'xiaojinlin_sad.webp'
     },
-    eggVideo: '宠物素材/xiaojinlin_egg.mp4'
+    eggVideo: 'xiaojinlin_egg.mp4'
   },
   naolong: {
     name: '毛绒小奶龙',
     pickDesc: '软软糯糯的毛绒龙宝宝，圆滚滚超喜欢卖萌撒娇～',
     img: {
-      happy: '宠物素材/naolong_happy.webp',
-      run:   '宠物素材/naolong_run.webp',
-      sad:   '宠物素材/naolong_sad.webp'
+      happy: 'naolong_happy.webp',
+      run:   'naolong_run.webp',
+      sad:   'naolong_sad.webp'
     },
     stageImg: {
-      baby:  '宠物素材/naolong_baby.webp',
-      teen:  '宠物素材/naolong_teen.webp',
-      adult: '宠物素材/naolong_adult.webp'
+      baby:  'naolong_baby.webp',
+      teen:  'naolong_teen.webp',
+      adult: 'naolong_adult.webp'
     },
     actionImg: {
-      touch: '宠物素材/naolong_touch.webp',
-      food:  '宠物素材/naolong_food.webp',
-      water: '宠物素材/naolong_water.webp',
-      milk:  '宠物素材/naolong_milk.webp',
-      out:   '宠物素材/naolong_out.webp',
-      train: '宠物素材/naolong_train.webp',
-      train2:'宠物素材/naolong_train2.webp',
-      bath:  '宠物素材/naolong_bath.webp'
+      touch: 'naolong_touch.webp',
+      food:  'naolong_food.webp',
+      water: 'naolong_water.webp',
+      milk:  'naolong_milk.webp',
+      out:   'naolong_out.webp',
+      train: 'naolong_train.webp',
+      train2:'naolong_train2.webp',
+      bath:  'naolong_bath.webp'
     },
-    eggVideo: '宠物素材/naolong_egg.mp4',
-    danceImg: '宠物素材/naolong_dance.webp',
-    danceAudio: '宠物素材/naolong_dance.mp3',
+    eggVideo: 'naolong_egg.mp4',
+    danceImg: 'naolong_dance.webp',
+    danceAudio: 'naolong_dance.mp3',
     danceDurationMs: 10060
   },
   xiaojinlong: {
     name: '小金龙',
     pickDesc: '金光闪闪的小金龙，宝气又爱撒娇，最喜欢黏着你一起玩耍～',
     img: {
-      happy: '宠物素材/xiaojinlong_happy.webp',
-      run:   '宠物素材/xiaojinlong_run.webp',
-      sad:   '宠物素材/xiaojinlong_sad.webp'
+      happy: 'xiaojinlong_happy.webp',
+      run:   'xiaojinlong_run.webp',
+      sad:   'xiaojinlong_sad.webp'
     },
     stageImg: {
-      baby:  '宠物素材/xiaojinlong_baby.webp',
-      teen:  '宠物素材/xiaojinlong_baby.webp',
-      adult: '宠物素材/xiaojinlong_adult.webp'
+      baby:  'xiaojinlong_baby.webp',
+      teen:  'xiaojinlong_baby.webp',
+      adult: 'xiaojinlong_adult.webp'
     },
     actionImg: {
-      touch: '宠物素材/xiaojinlong_touch.webp',
-      food:  '宠物素材/xiaojinlong_food.webp',
-      water: '宠物素材/xiaojinlong_water.webp',
-      milk:  '宠物素材/xiaojinlong_milk.webp',
-      out:   '宠物素材/xiaojinlong_out.webp',
-      train: '宠物素材/xiaojinlong_train.webp',
-      train2:'宠物素材/xiaojinlong_train2.webp',
-      bath:  '宠物素材/xiaojinlong_bath.webp'
+      touch: 'xiaojinlong_touch.webp',
+      food:  'xiaojinlong_food.webp',
+      water: 'xiaojinlong_water.webp',
+      milk:  'xiaojinlong_milk.webp',
+      out:   'xiaojinlong_out.webp',
+      train: 'xiaojinlong_train.webp',
+      train2:'xiaojinlong_train2.webp',
+      bath:  'xiaojinlong_bath.webp'
     },
-    eggImg: '宠物素材/xiaojinlong_eggImg.webp',
-    danceImg: '宠物素材/xiaojinlong_dance.webp',
-    danceAudio: '宠物素材/xiaojinlong_dance.mp3',
+    eggImg: 'xiaojinlong_eggImg.webp',
+    danceImg: 'xiaojinlong_dance.webp',
+    danceAudio: 'xiaojinlong_dance.mp3',
     danceDurationMs: 10060
   }
 };
@@ -2668,9 +2677,9 @@ function petSpinInPlace(){ setPetAnim('spin',{duration:800,after:'idle'}); }
    音乐素材均为 CC0 / MIT 免版权授权，可自由使用，无需署名。
    出于浏览器自动播放限制，音乐要等小朋友第一次点按屏幕之后才会真正响起。 */
 var BGM_TRACKS=[
-  {id:'ukulele', src:'宠物素材/bgm_ukulele.mp3'},
-  {id:'garden', src:'宠物素材/bgm_garden.mp3'},
-  {id:'funshine', src:'宠物素材/bgm_funshine.mp3'}
+  {id:'ukulele', src:'bgm_ukulele.mp3'},
+  {id:'garden', src:'bgm_garden.mp3'},
+  {id:'funshine', src:'bgm_funshine.mp3'}
 ];
 
 var bgmMain=null;
@@ -4438,6 +4447,11 @@ function ttsShowSilentDeviceNotice(diag){
    而且还会现场真的念一句"测试朗读"，用跟studySpeak同样的"1.5秒内有没有触发onstart"的办法判断
    这次朗读到底有没有真的被触发，而不是只列静态信息。 */
 function ttsDiagnose(){
+  /* 之前用alert()弹这段诊断信息，结果在个别定制浏览器（比如有的学习机的"儿童模式"）里，连alert()这种
+     浏览器原生弹窗都会被静默拦掉——按钮点了却什么反应都没有，跟朗读发不出声音是同一类"功能被限制住"的
+     表现。改成用页面自己的弹窗（跟"声音设置"用的是同一套showModal机制，已经确认能正常弹出），
+     不依赖alert/confirm这些容易被定制浏览器拦截的原生对话框，更保险。 */
+  var textEl=document.getElementById('ttsDiagText');
   var lines=[];
   lines.push('==== 朗读诊断信息 ====');
   lines.push('浏览器支持朗读接口(speechSynthesis)：'+(window.speechSynthesis?'支持':'不支持'));
@@ -4455,8 +4469,13 @@ function ttsDiagnose(){
 
   function finish(extraLine){
     if(extraLine) lines.push(extraLine);
-    alert(lines.join('\n'));
+    if(textEl) textEl.textContent=lines.join('\n');
+    showModal('ttsDiagModal');
   }
+
+  // 先立刻弹出弹窗、显示"正在现场测试朗读…"，让点了按钮就一定有反应能看到，不用等1.5秒测试跑完才有画面
+  if(textEl) textEl.textContent=lines.join('\n')+'\n\n（正在现场测试朗读，请稍等1-2秒…）';
+  showModal('ttsDiagModal');
 
   if(!window.speechSynthesis){
     finish();
