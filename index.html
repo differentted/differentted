@@ -8,8 +8,7 @@
      像App一样的桌面图标——加了它们之后，从Safari"添加到主屏幕"生成的图标才会：①用我们自己做的
      可爱图标（而不是随手截一张当前页面当图标）；②点开图标是真正的全屏App模式，没有Safari的地址栏/
      工具栏；③桌面上图标下面显示"打卡系统"这个短名字，而不是网页标题那一长串 -->
-<link rel="icon" type="image/png" href="apple_touch_icon.png">
-<link rel="apple-touch-icon" href="apple_touch_icon.png">
+<link rel="apple-touch-icon" href="宠物素材/apple_touch_icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="打卡系统">
@@ -131,7 +130,7 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 .pet-room{
   width:100%; max-width:300px; aspect-ratio:1100/1009; margin:6px auto 4px;
   border-radius:16px; overflow:hidden; position:relative;
-  background:#111 url('petroom_bg.jpg') center/cover no-repeat;
+  background:#111 url('宠物素材/petroom_bg.jpg') center/cover no-repeat;
   box-shadow:0 4px 16px rgba(0,0,0,.22);
 }
 #petWrap{
@@ -839,6 +838,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <input type="range" id="ttsVolumeSlider" min="0" max="100" value="100" oninput="onTtsVolumeInput(this.value)" style="width:100%">
     <div class="small" style="margin:14px 0 4px">🐢 朗读语速（小朋友英文基础还弱的话，建议先选0.5倍速）</div>
     <div id="ttsRateBtns" style="display:flex;gap:6px"></div>
+    <div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px">
+      <button class="btn btn-gray btn-sm" onclick="ttsDiagnose()" style="width:100%">🔧 朗读听不到声音？点这里诊断</button>
+      <div class="small" style="margin-top:4px;color:#999">会弹出一段详细信息（不会自动消失，方便截图发给家长/客服排查）</div>
+    </div>
   </div>
 </div>
 
@@ -1498,7 +1501,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
-  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
+  <img id="petImg" class="anim-idle" src="宠物素材/petimg_default.webp" alt="小金麟">
   <div id="petAccessory" class="pet-accessory"></div>
   <div id="petHit" onclick="petTouch()"></div>
   <div id="petHearts"></div>
@@ -1647,66 +1650,66 @@ var PET_LIBRARY = {
     name: '小金麟',
     pickDesc: '威风凛凛的小金龙，活泼好动超黏人，最爱围着你蹦蹦跳跳～',
     img: {
-      happy: 'xiaojinlin_happy.webp',
-      run:   'xiaojinlin_run.webp',
-      sad:   'xiaojinlin_sad.webp'
+      happy: '宠物素材/xiaojinlin_happy.webp',
+      run:   '宠物素材/xiaojinlin_run.webp',
+      sad:   '宠物素材/xiaojinlin_sad.webp'
     },
-    eggVideo: 'xiaojinlin_egg.mp4'
+    eggVideo: '宠物素材/xiaojinlin_egg.mp4'
   },
   naolong: {
     name: '毛绒小奶龙',
     pickDesc: '软软糯糯的毛绒龙宝宝，圆滚滚超喜欢卖萌撒娇～',
     img: {
-      happy: 'naolong_happy.webp',
-      run:   'naolong_run.webp',
-      sad:   'naolong_sad.webp'
+      happy: '宠物素材/naolong_happy.webp',
+      run:   '宠物素材/naolong_run.webp',
+      sad:   '宠物素材/naolong_sad.webp'
     },
     stageImg: {
-      baby:  'naolong_baby.webp',
-      teen:  'naolong_teen.webp',
-      adult: 'naolong_adult.webp'
+      baby:  '宠物素材/naolong_baby.webp',
+      teen:  '宠物素材/naolong_teen.webp',
+      adult: '宠物素材/naolong_adult.webp'
     },
     actionImg: {
-      touch: 'naolong_touch.webp',
-      food:  'naolong_food.webp',
-      water: 'naolong_water.webp',
-      milk:  'naolong_milk.webp',
-      out:   'naolong_out.webp',
-      train: 'naolong_train.webp',
-      train2:'naolong_train2.webp',
-      bath:  'naolong_bath.webp'
+      touch: '宠物素材/naolong_touch.webp',
+      food:  '宠物素材/naolong_food.webp',
+      water: '宠物素材/naolong_water.webp',
+      milk:  '宠物素材/naolong_milk.webp',
+      out:   '宠物素材/naolong_out.webp',
+      train: '宠物素材/naolong_train.webp',
+      train2:'宠物素材/naolong_train2.webp',
+      bath:  '宠物素材/naolong_bath.webp'
     },
-    eggVideo: 'naolong_egg.mp4',
-    danceImg: 'naolong_dance.webp',
-    danceAudio: 'naolong_dance.mp3',
+    eggVideo: '宠物素材/naolong_egg.mp4',
+    danceImg: '宠物素材/naolong_dance.webp',
+    danceAudio: '宠物素材/naolong_dance.mp3',
     danceDurationMs: 10060
   },
   xiaojinlong: {
     name: '小金龙',
     pickDesc: '金光闪闪的小金龙，宝气又爱撒娇，最喜欢黏着你一起玩耍～',
     img: {
-      happy: 'xiaojinlong_happy.webp',
-      run:   'xiaojinlong_run.webp',
-      sad:   'xiaojinlong_sad.webp'
+      happy: '宠物素材/xiaojinlong_happy.webp',
+      run:   '宠物素材/xiaojinlong_run.webp',
+      sad:   '宠物素材/xiaojinlong_sad.webp'
     },
     stageImg: {
-      baby:  'xiaojinlong_baby.webp',
-      teen:  'xiaojinlong_baby.webp',
-      adult: 'xiaojinlong_adult.webp'
+      baby:  '宠物素材/xiaojinlong_baby.webp',
+      teen:  '宠物素材/xiaojinlong_baby.webp',
+      adult: '宠物素材/xiaojinlong_adult.webp'
     },
     actionImg: {
-      touch: 'xiaojinlong_touch.webp',
-      food:  'xiaojinlong_food.webp',
-      water: 'xiaojinlong_water.webp',
-      milk:  'xiaojinlong_milk.webp',
-      out:   'xiaojinlong_out.webp',
-      train: 'xiaojinlong_train.webp',
-      train2:'xiaojinlong_train2.webp',
-      bath:  'xiaojinlong_bath.webp'
+      touch: '宠物素材/xiaojinlong_touch.webp',
+      food:  '宠物素材/xiaojinlong_food.webp',
+      water: '宠物素材/xiaojinlong_water.webp',
+      milk:  '宠物素材/xiaojinlong_milk.webp',
+      out:   '宠物素材/xiaojinlong_out.webp',
+      train: '宠物素材/xiaojinlong_train.webp',
+      train2:'宠物素材/xiaojinlong_train2.webp',
+      bath:  '宠物素材/xiaojinlong_bath.webp'
     },
-    eggImg: 'xiaojinlong_eggImg.webp',
-    danceImg: 'xiaojinlong_dance.webp',
-    danceAudio: 'xiaojinlong_dance.mp3',
+    eggImg: '宠物素材/xiaojinlong_eggImg.webp',
+    danceImg: '宠物素材/xiaojinlong_dance.webp',
+    danceAudio: '宠物素材/xiaojinlong_dance.mp3',
     danceDurationMs: 10060
   }
 };
@@ -2665,9 +2668,9 @@ function petSpinInPlace(){ setPetAnim('spin',{duration:800,after:'idle'}); }
    音乐素材均为 CC0 / MIT 免版权授权，可自由使用，无需署名。
    出于浏览器自动播放限制，音乐要等小朋友第一次点按屏幕之后才会真正响起。 */
 var BGM_TRACKS=[
-  {id:'ukulele', src:'bgm_ukulele.mp3'},
-  {id:'garden', src:'bgm_garden.mp3'},
-  {id:'funshine', src:'bgm_funshine.mp3'}
+  {id:'ukulele', src:'宠物素材/bgm_ukulele.mp3'},
+  {id:'garden', src:'宠物素材/bgm_garden.mp3'},
+  {id:'funshine', src:'宠物素材/bgm_funshine.mp3'}
 ];
 
 var bgmMain=null;
@@ -4389,13 +4392,37 @@ function ttsToast(msg,ms){
     setTimeout(function(){ if(el&&el.parentNode) el.remove(); }, ms||6000);
   }catch(e){}
 }
-var TTS_SILENT_NOTICE_KEY='ttsSilentDeviceNoticeShownV1';
-function ttsShowSilentDeviceNotice(){
+// 2026-09fix：微信内置浏览器（X5/XWEB内核）很多版本对 speechSynthesis 这个接口支持很差——
+// 接口本身"看起来"存在，speak()调用也不报错，但从头到尾就是发不出声音，这种情况下让家长去
+// "设置-无障碍-文字转语音"里找根本没用（那个设置就算开着也没用，因为压根不是设备本身缺语音包
+// 的问题，是微信这个网页容器本身的限制）。检测到是在微信里打开时，改成提示"用浏览器打开"，
+// 这是真正对症的办法；不是微信环境时，才继续按"设备可能没装语音包"来提示。
+function isWeixinBrowser(){
+  try{ return /MicroMessenger/i.test(navigator.userAgent||''); }catch(e){ return false; }
+}
+var TTS_SILENT_NOTICE_KEY='ttsSilentDeviceNoticeShownV3'; // V1→V2：区分微信环境；V2→V3：加入"是否检测到语音包"的诊断分支，version号升级让已经见过旧提示的设备能再看到一次新的
+/* diag（可选）：{voiceCount:number|null} —— 触发这次提示那一刻实际查到的 speechSynthesis 语音包数量，
+   null 表示没查到（比如连 getVoices 都调不了）。有这个数字就能分清楚到底是"设备/浏览器压根没有语音引擎"
+   还是"语音包其实是有的，但这个浏览器本身把朗读功能限制住了"（常见于学习机的"儿童模式/青少年模式"浏览器），
+   两种情况家长该去改的地方完全不一样，光说"可能没装语音包"经常指错方向。 */
+function ttsShowSilentDeviceNotice(diag){
   var already=false;
   try{ already=localStorage.getItem(TTS_SILENT_NOTICE_KEY)==='1'; }catch(e){}
   if(already) return;
   try{ localStorage.setItem(TTS_SILENT_NOTICE_KEY,'1'); }catch(e){}
-  var msg='🔇 这台设备好像听不到朗读声音，可能是没装"文字转语音"语音包，可以去设备的"设置-无障碍-文字转语音"里检查一下～（文字还是能看的，不影响做题）';
+  var voiceCount=(diag && typeof diag.voiceCount==='number')?diag.voiceCount:null;
+  var msg;
+  if(isWeixinBrowser()){
+    msg='🔇 微信自带的浏览器很多时候没法朗读（不是设备问题，是微信这个"小窗口"本身的限制）。点右上角"···"，找"在浏览器打开"（或"复制链接"后粘贴到手机自带的浏览器App里打开），朗读大概率就正常了～（文字还是能看的，不影响做题）';
+  }else if(!window.speechSynthesis){
+    msg='🔇 这个浏览器整体不支持"朗读"这个功能（缺少浏览器自带的语音接口），没法靠改设置解决，建议换一个浏览器App打开这个链接试试～（文字还是能看的，不影响做题）';
+  }else if(voiceCount===0){
+    msg='🔇 这台设备目前一个"文字转语音"语音包都没检测到，需要去系统"设置-无障碍-文字转语音"里装一个语音引擎/语音包，装好之后重新打开页面再试～（文字还是能看的，不影响做题）';
+  }else if(voiceCount>0){
+    msg='🔇 这台设备其实已经装了语音包，但这个浏览器本身好像把朗读功能限制住了发不出声音（常见于学习机/平板自带的"儿童模式""青少年模式"浏览器）。可以试试：先退出儿童模式/青少年模式再打开这个链接；或者换一个浏览器App打开试试～（文字还是能看的，不影响做题）';
+  }else{
+    msg='🔇 这台设备好像听不到朗读声音，可能是没装"文字转语音"语音包，可以去设备的"设置-无障碍-文字转语音"里检查一下～（文字还是能看的，不影响做题）';
+  }
   var canShowPet = petSpriteVisible && petSpriteVisible() && typeof sleeping!=='undefined' && !sleeping && typeof busy!=='undefined' && !busy;
   if(canShowPet){
     clearTimeout(petTalkEndTimer);
@@ -4405,6 +4432,55 @@ function ttsShowSilentDeviceNotice(){
   }
   /* 不管宠物气泡有没有显示，都再用这个不依赖宠物状态的浮层提示一次，保证家长/小朋友一定能看到 */
   ttsToast(msg, 6000);
+}
+/* "声音设置"弹窗里的"朗读听不到声音？点这里诊断"按钮：把能查到的信息一次性列清楚，
+   用浏览器自带的 alert() 弹出来（不会像气泡提示那样几秒钟自动消失，家长有足够时间截图/抄下来发给我），
+   而且还会现场真的念一句"测试朗读"，用跟studySpeak同样的"1.5秒内有没有触发onstart"的办法判断
+   这次朗读到底有没有真的被触发，而不是只列静态信息。 */
+function ttsDiagnose(){
+  var lines=[];
+  lines.push('==== 朗读诊断信息 ====');
+  lines.push('浏览器支持朗读接口(speechSynthesis)：'+(window.speechSynthesis?'支持':'不支持'));
+  var voices=[];
+  if(window.speechSynthesis){
+    try{ voices=window.speechSynthesis.getVoices()||[]; }catch(e){}
+    lines.push('已检测到的语音包数量：'+voices.length);
+    if(voices.length){
+      var sample=voices.slice(0,6).map(function(v){ return '  · '+v.name+'（'+v.lang+'）'; }).join('\n');
+      lines.push('部分语音包：\n'+sample);
+    }
+  }
+  lines.push('是否微信内置浏览器：'+(isWeixinBrowser()?'是':'否'));
+  lines.push('浏览器标识：\n'+(navigator.userAgent||'（获取不到）'));
+
+  function finish(extraLine){
+    if(extraLine) lines.push(extraLine);
+    alert(lines.join('\n'));
+  }
+
+  if(!window.speechSynthesis){
+    finish();
+    return;
+  }
+  try{
+    window.speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance('测试朗读');
+    u.lang='zh-CN'; u.volume=1; u.rate=1;
+    var started=false, errMsg=null;
+    u.onstart=function(){ started=true; };
+    u.onboundary=function(){ started=true; };
+    u.onerror=function(e){ errMsg=(e&&e.error)||'未知错误'; };
+    window.speechSynthesis.speak(u);
+    setTimeout(function(){
+      var r;
+      if(started) r='现场测试结果：刚才已经触发"开始朗读"事件——说明这台设备/浏览器确实把朗读请求发出去了，如果还是没听到声音，问题大概率出在设备本身的音量/静音开关/系统层面的朗读音量设置上，不是网页的问题。';
+      else if(errMsg) r='现场测试结果：1.5秒内没有开始朗读，并且报错了："'+errMsg+'"';
+      else r='现场测试结果：1.5秒内没有触发"开始朗读"事件，也没有报错——就是悄悄发不出声音，大概率是这个浏览器本身限制了朗读功能。';
+      finish(r);
+    }, 1500);
+  }catch(e2){
+    finish('现场测试直接抛出异常："'+((e2&&e2.message)||e2)+'"');
+  }
 }
 function studySpeak(text,lang){
   /* 点🔊的时候让宠物"亲口"把这句话讲给小朋友听：冒泡显示这句话 + 一边讲一边做出说话的表情动作，
@@ -4457,7 +4533,12 @@ function studySpeak(text,lang){
         /* 有些设备（如部分安卓学习机自带浏览器）speak()调用完全不报错、也不触发onerror，
            但从头到尾没有任何声音，onstart/onboundary自然也不会触发——用这个超时兜底识别出来，
            给家长一个"这是设备问题、不是没点中"的提示，而不是让人一直以为是网页坏了 */
-        setTimeout(function(){ if(!spoke) ttsShowSilentDeviceNotice(); }, 1300);
+        setTimeout(function(){
+          if(spoke) return;
+          var vc=null;
+          try{ vc=(window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[]).length; }catch(e3){}
+          ttsShowSilentDeviceNotice({voiceCount:vc});
+        }, 1300);
       }
       catch(e2){ if(canShowPet) petStopTalking(); setTimeout(ttsShowSilentDeviceNotice, 100); }
     }catch(e){
@@ -6661,22 +6742,14 @@ var EX_CFG={
 };
 var EX_NAME={plank:'平板支撑',balance:'单腿平衡',burpee:'波比跳',situp:'仰卧起坐'};
 var exTimer=null;
-var exAudioCtx=null;
-function exBeep(freq,dur){
-  try{
-    if(!exAudioCtx) exAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    if(exAudioCtx.state==='suspended') exAudioCtx.resume();
-    var o=exAudioCtx.createOscillator(), g=exAudioCtx.createGain();
-    o.frequency.value=freq||880; o.type='sine';
-    g.gain.value=0.16;
-    o.connect(g); g.connect(exAudioCtx.destination);
-    var now=exAudioCtx.currentTime;
-    g.gain.setValueAtTime(0.16,now);
-    g.gain.exponentialRampToValueAtTime(0.0001, now+(dur||0.12));
-    o.start(now);
-    o.stop(now+(dur||0.12)+0.02);
-  }catch(e){}
-}
+/* 2026-09fix（第二次修正）：运动计时的"滴"声原来用Web Audio API（AudioContext）实现，上一版尝试过
+   "倒计时结束就close()掉这个AudioContext"来解决"科大讯飞等安卓学习机上做完一次运动倒计时后所有朗读
+   都哑掉"的问题，但从实际设备的反馈看，这个办法没用——问题根源是"只要页面创建过一次AudioContext"，
+   这类设备的浏览器就会把系统朗读需要的音频通道抢走，且之后把这个AudioContext关掉也换不回来，
+   跟有没有及时close()无关。既然运动倒计时的"滴"声本身只是锦上添花，朗读功能对这个App要重要得多，
+   这里直接不再创建AudioContext/不再发出滴声——用视觉上的倒计时数字变化代替声音提示，从根上避免
+   触发这个问题，运动打卡时长/规则本身不受影响。 */
+function exBeep(){ /* 不再播放Web Audio音效，避免占用音频通道导致部分安卓学习机朗读失效，见上方说明 */ }
 function startExerciseTimer(cat,key,mode){
   if(exTimer) return; // 已经有一个在进行中了，不重复开
   var cfg=EX_CFG[key];
@@ -6792,21 +6865,10 @@ function exFailReset(){
   ex.phase='failed';
   renderExerciseTimer();
 }
-// 2026-09fix：运动计时的"滴"声用的是Web Audio API（exAudioCtx），这个AudioContext以前全程不关，
-// 挂着不放——部分安卓学习机（比如科大讯飞系列）上，页面里只要有AudioContext一直占着音频通道，
-// 就会导致后面speechSynthesis朗读完全没声音（不报错，就是哑的）。运动打卡一结束/取消就该把这个
-// AudioContext关掉，把音频通道让出来，不然做完一次运动倒计时，后面所有朗读都会失效。
-function exReleaseAudioCtx(){
-  if(exAudioCtx){
-    try{ exAudioCtx.close(); }catch(e){}
-    exAudioCtx=null;
-  }
-}
 function exFinishAll(){
   var ex=exTimer;
   hideModal('exerciseTimerModal');
   exTimer=null;
-  exReleaseAudioCtx();
   if(ex.key==='burpee') completeBurpee(ex.mode);
   else completeTask(ex.cat,ex.key);
 }
@@ -6814,7 +6876,6 @@ function exCancelTimer(){
   exClearTick();
   exTimer=null;
   hideModal('exerciseTimerModal');
-  exReleaseAudioCtx();
 }
 function renderExerciseTimer(){
   if(!exTimer) return;
