@@ -1171,6 +1171,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <button class="btn btn-danger btn-sm" onclick="openAdminEntry()">🛠️ 管理后台（审批新申请 / 修数据）</button>
       <div class="small" style="margin-top:4px;color:#999">只有这个默认家庭空间能看到这个按钮，需要输入PIN码</div>
     </div>
+    <div id="battleDemoEntryWrap" style="display:none;margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
+      <button class="btn btn-warning btn-sm" onclick="openBattleDemo()">⚔️ 对战系统Demo（开发中，假数据试玩）</button>
+      <div class="small" style="margin-top:4px;color:#999">这是核心战斗引擎的简化demo，不连真实的七维数值和串门数据，先试玩手感</div>
+    </div>
   </div>
   <div class="card">
     <h2>⚔️ 副本挑战管理</h2>
@@ -1492,6 +1496,49 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <textarea id="adminFamilyEditText" rows="10" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;margin:6px 0"></textarea>
       <div class="small" style="color:#e65100;margin-bottom:6px">⚠️ 这里改的是原始数据，格式必须还是合法的JSON，改错了这家数据可能打不开，没把握就别乱改</div>
       <button class="btn btn-danger btn-block" id="adminFamilySaveBtn" onclick="adminSaveFamilyData()">💾 保存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- 对战系统 Demo（开发中）：宝可梦风格回合制，用假数据先跑通手感，还没接真实的七维数值/串门PK -->
+<div class="modal-mask" id="battleDemoModal">
+  <div class="modal" style="text-align:left;max-width:420px">
+    <button class="modal-close" onclick="hideModal('battleDemoModal')">✕</button>
+    <h3 style="text-align:center">⚔️ 对战Demo <span style="font-size:12px;color:#e65100;font-weight:normal">（开发中·假数据）</span></h3>
+
+    <div style="background:#333;border-radius:14px;padding:10px;color:#fff">
+      <!-- 对方 -->
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:600" id="battleOppName">对手</div>
+        <div id="battleOppEnergy" style="font-size:13px"></div>
+      </div>
+      <div style="background:#555;border-radius:8px;height:12px;margin:4px 0;overflow:hidden">
+        <div id="battleOppHpBar" style="background:#e53935;height:100%;width:100%"></div>
+      </div>
+      <div class="small" id="battleOppHpText" style="text-align:right;color:#ddd"></div>
+      <div style="text-align:center;font-size:40px;margin:6px 0" id="battleOppEmoji">👹</div>
+
+      <div style="text-align:center;font-size:22px;margin:2px 0">⚔️</div>
+
+      <!-- 我方 -->
+      <div style="text-align:center;font-size:40px;margin:6px 0" id="battlePlayerEmoji">🐉</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:600" id="battlePlayerName">我方</div>
+        <div id="battlePlayerEnergy" style="font-size:13px"></div>
+      </div>
+      <div style="background:#555;border-radius:8px;height:12px;margin:4px 0;overflow:hidden">
+        <div id="battlePlayerHpBar" style="background:#43a047;height:100%;width:100%"></div>
+      </div>
+      <div class="small" id="battlePlayerHpText" style="text-align:right;color:#ddd"></div>
+    </div>
+
+    <div id="battleLogBox" class="small" style="background:#f7f0fb;border-radius:10px;padding:8px;margin:8px 0;height:80px;overflow-y:auto;line-height:1.6"></div>
+
+    <div id="battleSkillBtns" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+
+    <div id="battleResultBox" style="display:none;text-align:center;margin-top:8px">
+      <div id="battleResultText" style="font-size:18px;font-weight:700;margin-bottom:6px"></div>
+      <button class="btn btn-primary btn-block" onclick="startBattleDemo()">🔄 再来一局</button>
     </div>
   </div>
 </div>
@@ -4121,9 +4168,11 @@ function supaUpsertRow(id,data){
 /* 管理后台入口只在"默认家庭空间"（茜茜嫣嫣家/你自己那个号）里显示，其他任何家庭码登录进来的人，
    这个按钮从头到尾都不存在，不是隐藏起来、是压根没渲染出来 */
 function refreshAdminEntryVisibility(){
+  var isDefault=(SUPA_ROW_ID===DEFAULT_FAMILY_ROW_ID);
   var wrap=document.getElementById('adminEntryWrap');
-  if(!wrap) return;
-  wrap.style.display=(SUPA_ROW_ID===DEFAULT_FAMILY_ROW_ID)?'block':'none';
+  if(wrap) wrap.style.display=isDefault?'block':'none';
+  var battleWrap=document.getElementById('battleDemoEntryWrap');
+  if(battleWrap) battleWrap.style.display=isDefault?'block':'none';
 }
 function openAdminEntry(){
   var input=document.getElementById('adminLoginInput');
@@ -4282,6 +4331,188 @@ function adminSaveFamilyData(){
     if(btn){ btn.disabled=false; btn.textContent='💾 保存修改'; }
     ttsToast('❌ 没连上云端，保存失败', 4000);
   });
+}
+
+/* ========== 2026-09新增：仙侠灵宠对战系统——先做"简化核心demo" ==========
+   这是用户给的完整对战系统需求（技能解锁+回合制引擎+串门PK+离线通知+受伤买药）里的第一阶段：
+   只做"回合制战斗引擎"本身，用假数据（两只demo小怪、固定技能配置）先跑通规则和手感，完全不碰
+   真实的七维打卡数值、不碰串门数据、不接商店金币、不产生任何真实的存档改动——纯本地内存里跑一局，
+   关掉/开新的一局就重置，零风险。等这版手感确认没问题，再往上接：①技能随七维数值解锁 ②串门发起PK+
+   离线自动帮好友选招+上线后消息通知 ③战败受伤+买药恢复。
+   技能数据结构先把"7维度×(3通用+1必杀)"这个完整表都列出来（方便以后直接拿去接真实解锁判定），
+   但demo这一局只从里面挑几个凑成两套阵容出战，不是全部都会用上。 */
+var BATTLE_SKILL_LIB={
+  sport_n1:{name:'疾风踢',dim:'sport',kind:'normal',power:16,desc:'普通攻击'},
+  sport_n2:{name:'瞬身冲撞',dim:'sport',kind:'normal',power:12,firstStrike:true,desc:'较弱攻击，但本回合优先出手'},
+  sport_n3:{name:'连续快打',dim:'sport',kind:'normal',power:9,hits:2,desc:'连续打两下，各造成一次伤害'},
+  sport_ult:{name:'腾云蹴',dim:'sport',kind:'ultimate',power:34,stunChance:0.3,desc:'高伤害必杀，有几率击退打断对手'},
+  study_n1:{name:'慧光打击',dim:'study',kind:'normal',power:15,desc:'普通攻击'},
+  study_n2:{name:'凝神破防',dim:'study',kind:'normal',power:6,debuffTakeMore:0.2,debuffTurns:1,desc:'小伤害，并让对方下回合受到的伤害增加20%'},
+  study_n3:{name:'智识屏障',dim:'study',kind:'normal',power:0,shield:0.25,shieldTurns:1,desc:'本回合减免25%伤害'},
+  study_ult:{name:'开智灵符',dim:'study',kind:'ultimate',power:14,sealChance:0.6,desc:'中等伤害，较高概率封印对手下一回合技能'},
+  house_n1:{name:'暖心修复',dim:'house',kind:'normal',power:0,heal:18,desc:'为自己回复生命'},
+  house_n2:{name:'轻甲护体',dim:'house',kind:'normal',power:0,shield:0.3,shieldTurns:1,desc:'本回合减免30%伤害'},
+  house_n3:{name:'洁净减伤',dim:'house',kind:'normal',power:8,heal:6,desc:'小伤害，同时回复自己一点生命'},
+  house_ult:{name:'织暖神盾',dim:'house',kind:'ultimate',power:0,shield:0.5,shieldTurns:2,heal:10,desc:'生成护盾，2回合内减免50%伤害，并小额回血'},
+  disc_n1:{name:'定心固守',dim:'discipline',kind:'normal',power:0,shield:0.35,shieldTurns:1,desc:'本回合减免35%伤害'},
+  disc_n2:{name:'反制格挡',dim:'discipline',kind:'normal',power:10,shield:0.2,shieldTurns:1,desc:'小伤害，同时减免20%下回合伤害'},
+  disc_ult:{name:'守心印',dim:'discipline',kind:'ultimate',power:12,reflect:0.3,desc:'中等伤害，并反弹对方30%的下一次攻击伤害'},
+  talent_n1:{name:'仙音增攻',dim:'talent',kind:'normal',power:13,buffAtk:0.15,buffTurns:2,desc:'小伤害，并给自己接下来2回合增伤15%'},
+  talent_ult:{name:'鸣仙韵',dim:'talent',kind:'ultimate',power:20,buffAtk:0.3,buffTurns:2,desc:'中高伤害，并大幅增加自身接下来的攻击力'},
+  social_n1:{name:'结伴连击',dim:'social',kind:'normal',power:9,hits:2,desc:'连续打两下'},
+  social_ult:{name:'聚友狂击',dim:'social',kind:'ultimate',power:16,hits:2,stunChance:0.25,desc:'二连击，命中后有概率眩晕对方1回合'},
+  rest_n1:{name:'清醒蓄力',dim:'rest',kind:'normal',power:0,cleanse:true,heal:8,desc:'清除自身负面状态，并回复一点生命'},
+  rest_ult:{name:'醒神诀',dim:'rest',kind:'ultimate',power:0,cleanse:true,firstStrike:true,desc:'清除自身所有负面状态，本回合绝对优先出手'}
+};
+var _battle=null; // 当前这一局demo战斗的运行时状态，只存在内存里，关闭/重开就没了
+function newBattleFighter(name,emoji,hp,skillKeys,ultKey){
+  return {
+    name:name, emoji:emoji, maxHp:hp, hp:hp, energy:0,
+    skills:skillKeys.map(function(k){ return BATTLE_SKILL_LIB[k]; }),
+    ult:BATTLE_SKILL_LIB[ultKey],
+    shieldPct:0, shieldTurns:0, sealed:false, stunned:false,
+    buffAtk:0, buffTurns:0, debuffTakeMore:0, debuffTurns:0
+  };
+}
+function openBattleDemo(){
+  showModal('battleDemoModal');
+  document.getElementById('battleResultBox').style.display='none';
+  startBattleDemo();
+}
+function startBattleDemo(){
+  document.getElementById('battleResultBox').style.display='none';
+  var player=newBattleFighter((currentChild()&&currentChild().name)?currentChild().name+'的灵宠':'我方灵宠','🐉',100,
+    ['sport_n1','study_n3','house_n1','disc_n1'],'sport_ult');
+  var opp=newBattleFighter('神秘挑战者','👹',100,
+    ['study_n1','house_n2','talent_n1','social_n1'],'study_ult');
+  _battle={player:player,opp:opp,round:0,over:false};
+  battleLog('⚔️ 对战开始！（这是demo，用的是假数据，不影响你真实的打卡存档）');
+  renderBattle();
+}
+function battleLog(msg){
+  var box=document.getElementById('battleLogBox');
+  if(!box) return;
+  var line=document.createElement('div');
+  line.textContent=msg;
+  box.appendChild(line);
+  box.scrollTop=box.scrollHeight;
+}
+function battleEnergyDots(n){
+  var full='●'.repeat(Math.max(0,Math.min(3,n)));
+  var empty='○'.repeat(3-Math.max(0,Math.min(3,n)));
+  return '⚡'+full+empty;
+}
+function renderBattle(){
+  if(!_battle) return;
+  var p=_battle.player, o=_battle.opp;
+  document.getElementById('battlePlayerName').textContent=p.name;
+  document.getElementById('battleOppName').textContent=o.name;
+  document.getElementById('battlePlayerEmoji').textContent=p.emoji;
+  document.getElementById('battleOppEmoji').textContent=o.emoji;
+  document.getElementById('battlePlayerHpBar').style.width=Math.max(0,p.hp/p.maxHp*100)+'%';
+  document.getElementById('battleOppHpBar').style.width=Math.max(0,o.hp/o.maxHp*100)+'%';
+  document.getElementById('battlePlayerHpText').textContent=Math.max(0,p.hp)+' / '+p.maxHp;
+  document.getElementById('battleOppHpText').textContent=Math.max(0,o.hp)+' / '+o.maxHp;
+  document.getElementById('battlePlayerEnergy').textContent=battleEnergyDots(p.energy);
+  document.getElementById('battleOppEnergy').textContent=battleEnergyDots(o.energy);
+
+  var wrap=document.getElementById('battleSkillBtns');
+  wrap.innerHTML='';
+  if(_battle.over) return;
+  p.skills.forEach(function(sk,idx){
+    var b=document.createElement('button');
+    b.className='btn btn-info btn-sm';
+    b.style.fontSize='12px';
+    b.textContent=sk.name;
+    b.title=sk.desc;
+    b.onclick=function(){ battleDemoTurn(sk); };
+    wrap.appendChild(b);
+  });
+  var ultBtn=document.createElement('button');
+  ultBtn.className='btn '+(p.energy>=3?'btn-danger':'btn-gray');
+  ultBtn.style.fontSize='12px';
+  ultBtn.style.gridColumn='1 / span 2';
+  ultBtn.disabled=p.energy<3;
+  ultBtn.textContent=(p.energy>=3?'💥 ':'🔒 ')+p.ult.name+'（必杀）';
+  ultBtn.title=p.ult.desc;
+  ultBtn.onclick=function(){ battleDemoTurn(p.ult,true); };
+  wrap.appendChild(ultBtn);
+}
+function battlePickAiSkill(fighter){
+  if(fighter.energy>=3 && Math.random()<0.5) return {skill:fighter.ult,isUlt:true};
+  if(fighter.hp/fighter.maxHp<0.35){
+    var healer=fighter.skills.filter(function(s){ return s.heal || s.shield; })[0];
+    if(healer) return {skill:healer,isUlt:false};
+  }
+  var pick=fighter.skills[Math.floor(Math.random()*fighter.skills.length)];
+  return {skill:pick,isUlt:false};
+}
+function battleApplySkill(user,target,skill){
+  if(user.sealed){ battleLog('🔒 '+user.name+' 的技能被封印了，这回合没能出手'); user.sealed=false; return; }
+  if(user.stunned){ battleLog('💫 '+user.name+' 被眩晕了，这回合没能动'); user.stunned=false; return; }
+  if(skill.cleanse){
+    user.shieldPct=0; user.shieldTurns=0; user.debuffTakeMore=0; user.debuffTurns=0;
+    battleLog('✨ '+user.name+' 使用【'+skill.name+'】，清除了自身的负面状态');
+  }
+  var hits=skill.hits||1;
+  var totalDmg=0;
+  for(var i=0;i<hits;i++){
+    if(!skill.power) continue;
+    var atkMul=1+(user.buffAtk||0);
+    var takeMul=1+(target.debuffTakeMore||0);
+    var dmg=skill.power*atkMul*takeMul;
+    if(target.shieldTurns>0) dmg=dmg*(1-target.shieldPct);
+    dmg=Math.max(1,Math.round(dmg));
+    target.hp-=dmg;
+    totalDmg+=dmg;
+  }
+  if(totalDmg>0){
+    battleLog('💢 '+user.name+' 使用【'+skill.name+'】，对 '+target.name+' 造成 '+totalDmg+' 点伤害');
+  }else{
+    battleLog('✨ '+user.name+' 使用了【'+skill.name+'】');
+  }
+  if(skill.heal){ user.hp=Math.min(user.maxHp,user.hp+skill.heal); battleLog('💚 '+user.name+' 回复了 '+skill.heal+' 点生命'); }
+  if(skill.shield){ user.shieldPct=skill.shield; user.shieldTurns=skill.shieldTurns||1; battleLog('🛡️ '+user.name+' 获得了护盾'); }
+  if(skill.buffAtk){ user.buffAtk=skill.buffAtk; user.buffTurns=skill.buffTurns||1; }
+  if(skill.debuffTakeMore && Math.random()<1){ target.debuffTakeMore=skill.debuffTakeMore; target.debuffTurns=skill.debuffTurns||1; }
+  if(skill.sealChance && Math.random()<skill.sealChance){ target.sealed=true; battleLog('🔒 '+target.name+' 下回合的技能被封印了'); }
+  if(skill.stunChance && Math.random()<skill.stunChance){ target.stunned=true; battleLog('💫 '+target.name+' 被击退打断，下回合没法行动'); }
+}
+function battleDecayStatus(f){
+  if(f.shieldTurns>0){ f.shieldTurns--; if(f.shieldTurns<=0) f.shieldPct=0; }
+  if(f.buffTurns>0){ f.buffTurns--; if(f.buffTurns<=0) f.buffAtk=0; }
+  if(f.debuffTurns>0){ f.debuffTurns--; if(f.debuffTurns<=0) f.debuffTakeMore=0; }
+}
+function battleDemoTurn(playerSkill,isUlt){
+  if(!_battle || _battle.over) return;
+  var p=_battle.player, o=_battle.opp;
+  if(isUlt && p.energy<3) return;
+  var aiPick=battlePickAiSkill(o);
+  _battle.round++;
+
+  var order=[{f:p,tgt:o,sk:playerSkill},{f:o,tgt:p,sk:aiPick.skill}];
+  if(aiPick.skill.firstStrike && !playerSkill.firstStrike) order.reverse();
+  order.forEach(function(turn){
+    if(_battle.over) return;
+    if(turn.f.hp<=0) return;
+    battleApplySkill(turn.f,turn.tgt,turn.sk);
+    if(turn.tgt.hp<=0) turn.tgt.hp=0;
+  });
+
+  if(isUlt) p.energy=0; else if(_battle.round%2===0) p.energy=Math.min(3,p.energy+1);
+  if(aiPick.isUlt) o.energy=0; else if(_battle.round%2===0) o.energy=Math.min(3,o.energy+1);
+  battleDecayStatus(p); battleDecayStatus(o);
+
+  if(p.hp<=0 || o.hp<=0){
+    _battle.over=true;
+    var resultBox=document.getElementById('battleResultBox');
+    var resultText=document.getElementById('battleResultText');
+    if(p.hp<=0 && o.hp<=0){ resultText.textContent='🤝 平局！'; }
+    else if(o.hp<=0){ resultText.textContent='🎉 胜利！'; battleLog('🎉 '+o.name+' 被击败了，'+p.name+' 获胜！'); }
+    else{ resultText.textContent='😢 落败了'; battleLog('😢 '+p.name+' 被击败了'); }
+    resultBox.style.display='block';
+  }
+  renderBattle();
 }
 
 /* ========== 2026-09新增："串门"——公开的宠物家目录，不需要任何码 ==========
