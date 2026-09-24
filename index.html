@@ -4025,6 +4025,61 @@ function getFriendRelation(targetKey){
   if(r.giftDay!==tk){ r.giftDay=tk; r.giftsToday=0; }
   return r;
 }
+/* 只读地算出"某只宠物现在长什么样"该用哪张静态图——直接复用现成的 PET_LIBRARY/stageOf/petLevelInfo
+   这些纯数据查找函数，绝不触碰真正驱动待机动画/拖拽/点击互动的那一整套函数，从根上保证这里只是
+   "画一张静止的照片"，不会不小心接上任何能真正操作宠物的逻辑 */
+function petDisplayImgSrc(pet){
+  if(!pet || !pet.chosen || !pet.hatched) return null;
+  var lib=(typeof PET_LIBRARY!=='undefined' && PET_LIBRARY[pet.type])?PET_LIBRARY[pet.type]:null;
+  if(!lib) return null;
+  var info=petLevelInfo(pet);
+  var stage=stageOf(info.level);
+  if(lib.stageImg && lib.stageImg[stage]) return lib.stageImg[stage];
+  return (lib.img && lib.img.happy) || null;
+}
+/* 跟 petAbilityScores() 逻辑完全一样，只是不读全局 state，改成传入任意一份 state 数据——
+   这样我自己的雷达图和好友的雷达图能用同一套算法公平地摆在一起比 */
+function abilityScoresFromState(st){
+  function dimScore(key){
+    var pts=(st && st.abilityDim && st.abilityDim[key] && st.abilityDim[key].pts) || 0;
+    return Math.min(100, Math.round(pts));
+  }
+  var out={};
+  RADAR_AXES.forEach(function(ax){ out[ax.key]=dimScore(ax.key); });
+  return out;
+}
+/* 自己=浅色半透明，对方=深色描边，两层叠在同一张图上，一眼看出哪些维度领先/落后 */
+function buildCompareRadarSvg(myScores,friendScores){
+  var cx=130,cy=138,R=88;
+  var n=RADAR_AXES.length;
+  var angles=RADAR_AXES.map(function(ax,i){ return -90+i*(360/n); });
+  var gridLevels=[33,66,100];
+  var gridSvg=gridLevels.map(function(lv,i){
+    var pts=angles.map(function(a){ return radarPoint(cx,cy,R,a,lv).join(','); }).join(' ');
+    return '<polygon points="'+pts+'" fill="none" stroke="#e1bee7" stroke-width="'+(i===gridLevels.length-1?1.5:1)+'"/>';
+  }).join('');
+  var axisLines=angles.map(function(a){
+    var p=radarPoint(cx,cy,R,a,100);
+    return '<line x1="'+cx+'" y1="'+cy+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="#e1bee7" stroke-width="1"/>';
+  }).join('');
+  var myPts=angles.map(function(a,i){ return radarPoint(cx,cy,R,a,myScores[RADAR_AXES[i].key]).join(','); }).join(' ');
+  var friendPts=angles.map(function(a,i){ return radarPoint(cx,cy,R,a,friendScores[RADAR_AXES[i].key]).join(','); }).join(' ');
+  var labelSvg=angles.map(function(a,i){
+    var lp=radarPoint(cx,cy,R+22,a,100);
+    var cosv=Math.cos(a*Math.PI/180);
+    var anchor = cosv>0.25 ? 'start' : (cosv<-0.25 ? 'end' : 'middle');
+    var dx = anchor==='start' ? 3 : (anchor==='end' ? -3 : 0);
+    return '<text x="'+(lp[0]+dx)+'" y="'+lp[1]+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+RADAR_AXES[i].label+'</text>';
+  }).join('');
+  return '<svg viewBox="-30 0 320 300" width="100%" style="max-width:320px;display:block;margin:0 auto;overflow:visible">'
+    +gridSvg+axisLines
+    +'<polygon points="'+myPts+'" fill="rgba(206,147,216,0.35)" stroke="#ce93d8" stroke-width="2"/>'
+    +'<polygon points="'+friendPts+'" fill="rgba(74,20,140,0.25)" stroke="#4a148c" stroke-width="2.5"/>'
+    +labelSvg
+    +'<circle cx="6" cy="272" r="6" fill="rgba(206,147,216,0.9)" stroke="#ce93d8"/><text x="16" y="276" font-size="11" fill="#6a1b8a">你</text>'
+    +'<circle cx="60" cy="272" r="6" fill="rgba(74,20,140,0.8)" stroke="#4a148c"/><text x="70" y="276" font-size="11" fill="#6a1b8a">对方</text>'
+    +'</svg>';
+}
 function showFriendChildDetail(rowId,cid,friendStore){
   var card=document.getElementById('visitDetailCard');
   var body=document.getElementById('visitDetailBody');
@@ -4033,17 +4088,19 @@ function showFriendChildDetail(rowId,cid,friendStore){
   if(!c) return;
   var st=c.state||{};
   var pet=st.pet;
-  var petHtml;
+  var petLine;
+  var houseInfo=(typeof HOUSES!=='undefined')?(HOUSES[(pet&&pet.house)||0]||{name:'温馨小屋',emoji:'🏠'}):{name:'温馨小屋',emoji:'🏠'};
+  var accInfo=(pet && pet.equippedAccessory && typeof DUNGEON_ACC_BY_ID!=='undefined')?DUNGEON_ACC_BY_ID[pet.equippedAccessory]:null;
   if(!pet || !pet.chosen){
-    petHtml='（还没有宠物伙伴）';
+    petLine='（还没有宠物伙伴）';
   }else if(!pet.hatched){
-    petHtml='🥚 蛋（还没孵化）';
+    petLine='🥚 蛋（还没孵化）';
   }else{
     var lib=(typeof PET_LIBRARY!=='undefined' && PET_LIBRARY[pet.type])?PET_LIBRARY[pet.type]:null;
     var info=petLevelInfo(pet);
     var stage=stageOf(info.level);
     var stageLabel={egg:'蛋',baby:'幼年',teen:'少年',adult:'成年'}[stage]||'';
-    petHtml=(pet.name||(lib&&lib.name)||'宠物')+(lib&&lib.name?'（'+lib.name+'）':'')+' · Lv'+info.level+' · '+stageLabel;
+    petLine=(pet.name||(lib&&lib.name)||'宠物')+(lib&&lib.name?'（'+lib.name+'）':'')+' · Lv'+info.level+' · '+stageLabel;
   }
   var todayEarned=(st.day && typeof st.day.earned==='number')?st.day.earned:0;
   var totalFullDays=(typeof st.totalFullDays==='number')?st.totalFullDays:0;
@@ -4065,11 +4122,39 @@ function showFriendChildDetail(rowId,cid,friendStore){
   h.textContent='👀 '+c.name+'（只能看，不能操作哦）';
   body.appendChild(h);
 
+  // 房间小场景：真实背景图+宠物当前造型图+已装备的装饰，纯静态图片，不接任何互动/动画逻辑
+  var roomDiv=document.createElement('div');
+  roomDiv.style.cssText="position:relative;border-radius:14px;overflow:hidden;background:#111 url('petroom_bg.jpg') center/cover no-repeat;height:190px;margin:8px 0;display:flex;align-items:center;justify-content:center";
+  var petImgSrc=petDisplayImgSrc(pet);
+  if(!pet || !pet.chosen){
+    roomDiv.innerHTML='<div class="small" style="color:#fff;text-shadow:0 1px 4px #000">（还没有宠物伙伴）</div>';
+  }else if(!pet.hatched){
+    roomDiv.innerHTML='<div style="font-size:56px">🥚</div>';
+  }else if(petImgSrc){
+    roomDiv.innerHTML='<img src="'+petImgSrc+'" style="max-height:85%;max-width:65%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))" onerror="this.style.display=\'none\'">'
+      +(accInfo?('<div style="position:absolute;top:8px;right:10px;font-size:26px" title="'+accInfo.name+'">'+accInfo.emoji+'</div>'):'')
+      +'<div style="position:absolute;bottom:6px;left:10px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;border-radius:8px;padding:2px 8px">'+houseInfo.emoji+' '+houseInfo.name+'</div>';
+  }
+  body.appendChild(roomDiv);
+
   var infoBox=document.createElement('div');
   infoBox.className='small';
   infoBox.style.cssText='text-align:left;line-height:2;background:#f7f0fb;border-radius:10px;padding:10px;margin:8px 0';
-  infoBox.innerHTML='🐾 宠物：'+petHtml+'<br>💰 金币余额：'+balance+'<br>📅 今天已获得金币：'+todayEarned+(todayEarned>0?'（今天已经打过卡啦）':'（今天好像还没打卡）')+'<br>🏆 累计完整打卡天数：'+totalFullDays+'<br>💗 你和TA的亲密度：'+(rel.intimacy||0);
+  infoBox.innerHTML='🐾 宠物：'+petLine+'<br>💰 金币余额：'+balance+'<br>📅 今天已获得金币：'+todayEarned+(todayEarned>0?'（今天已经打过卡啦）':'（今天好像还没打卡）')+'<br>🏆 累计完整打卡天数：'+totalFullDays+'<br>💗 你和TA的亲密度：'+(rel.intimacy||0);
   body.appendChild(infoBox);
+
+  // 能力雷达图对比：自己浅色、对方深色，叠在一起看差距
+  var radarWrap=document.createElement('div');
+  radarWrap.style.cssText='background:#fff;border-radius:10px;padding:6px 0;margin:4px 0 8px';
+  var radarTitle=document.createElement('div');
+  radarTitle.className='small';
+  radarTitle.style.cssText='text-align:center;font-weight:600;color:#7b1fa2;margin-bottom:2px';
+  radarTitle.textContent='📊 能力雷达图对比（浅色=你，深色=对方）';
+  radarWrap.appendChild(radarTitle);
+  var radarSvgHost=document.createElement('div');
+  radarSvgHost.innerHTML=buildCompareRadarSvg(petAbilityScores(), abilityScoresFromState(st));
+  radarWrap.appendChild(radarSvgHost);
+  body.appendChild(radarWrap);
 
   var pokeBtn=document.createElement('button');
   pokeBtn.className='btn btn-warning btn-block';
