@@ -3893,6 +3893,18 @@ var SUPA_TABLE='kuluomi_sync';
 var DEFAULT_FAMILY_ROW_ID='6GtaRbPnAT56Qf3e'; // 原来那一家（茜茜/嫣嫣等）专用的同步行ID，不要改动/泄露给无关的人
 var SUPA_ROW_ID=DEFAULT_FAMILY_ROW_ID; // 实际用哪一行，由下面 familyGateAndLoad() 根据这台设备保存的"家庭码"重新算出来，覆盖这个默认值
 var SUPA_LAST_SYNCED_KEY='kuroCloudLastSyncedUpdatedAt';
+/* 2026-09新增：防"设备开太久没用，本地缓存的旧数据被当成'更新的'反过来覆盖云端"——比如家庭拆分、
+   串门送金币/PK 这种由"别的设备/别人"发起、本机完全不知情的变化，本机缓存的还是旧版本，但本机的
+   updatedAt 时间戳不会因为"别人那边发生了什么"而自动变旧，所以单纯比时间戳并不总能防住。
+   这里加一层：记一个"这台设备最后一次真正在用"的时间，超过半小时没用过再重新打开，就不直接信本机
+   缓存，先安安静静去云端拉一次最新的（小朋友不用输入任何东西，无感知），拉到了就用云端这份，
+   拉不到（离线）再退回本机这份，不会卡住不能用。 */
+var LAST_ACTIVE_KEY='kuroLastActiveAtV1';
+var STALE_RELOAD_THRESHOLD_MS=30*60*1000;
+function markActiveNow(){ try{ localStorage.setItem(LAST_ACTIVE_KEY,String(Date.now())); }catch(e){} }
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden') markActiveNow();
+});
 var _cloudPushTimer=null;
 var _cloudSyncReady=false; // 首次云端拉取、比对处理完之前不允许自动推送，避免拿本机的旧数据抢先覆盖了云端更新的数据
 
@@ -5521,12 +5533,21 @@ function load(){
         saveStore();
         try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
         finishLoadRender();
+        markActiveNow();
       }else{
         // 先问一句"要不要导入备份"，而不是直接跳去创建新档案——本机存储是跟这个文件的路径/文件名绑定的，
         // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因
         showModal('freshDataModal');
       }
     });
+    return;
+  }
+  // 超过半小时没真正用过这台设备——本机缓存可能已经跟不上云端（比如别的设备/别人那边发生了变化），
+  // 先安静去云端确认一次最新数据，不直接信本机这份旧缓存，避免旧缓存反过来把云端的新变化覆盖掉
+  var _lastActive=0;
+  try{ _lastActive=parseInt(localStorage.getItem(LAST_ACTIVE_KEY)||'0',10)||0; }catch(e){}
+  if(_lastActive>0 && (Date.now()-_lastActive>STALE_RELOAD_THRESHOLD_MS)){
+    forceFreshLoadFromCloud();
     return;
   }
   if(!store.accounts[store.currentChildId]){
@@ -5541,6 +5562,44 @@ function load(){
   autoBackupOnLoad();
   finishLoadRender();
   cloudSyncOnLoad(); // 后台悄悄对一下云端有没有更新的存档，不阻塞上面已经完成的首屏渲染
+  markActiveNow();
+}
+/* 2026-09新增：配合上面"超过半小时没用，先安静确认云端最新数据"——拉到了就直接用云端这份
+   （不相信本机旧缓存），拉不到（离线/请求失败）就老老实实退回本机这份，不能因为查不到云端就卡住。
+   刻意让 _cloudSyncReady 在 saveStore() 之后才置true：这次的 saveStore() 只是把刚拉到的云端数据
+   原样存本地，不该、也不需要再顺手推一次云端。 */
+function forceFreshLoadFromCloud(){
+  cloudPull().then(function(row){
+    if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
+      store=row.data;
+      resetPetClocksOnAdopt(store);
+      if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
+      bgmEnabled=store.musicOn!==false;
+      state=store.accounts[store.currentChildId].state||defaultState();
+      migrateState(state);
+      applyRealTimeDecay();
+      onNewDay();
+      cleanDiscounts();
+      autoBackupOnLoad();
+      saveStore();
+      _cloudSyncReady=true;
+      try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
+      finishLoadRender();
+    }else{
+      // 离线/云端暂时连不上——退回老流程，直接用本机这份，不能因为这一步失败就打不开App
+      if(!store.accounts[store.currentChildId]){ store.currentChildId=Object.keys(store.accounts)[0]; }
+      bgmEnabled=store.musicOn!==false;
+      state=store.accounts[store.currentChildId].state;
+      migrateState(state);
+      applyRealTimeDecay();
+      onNewDay();
+      cleanDiscounts();
+      autoBackupOnLoad();
+      finishLoadRender();
+      cloudSyncOnLoad();
+    }
+    markActiveNow();
+  });
 }
 function finishLoadRender(){
   showPage('home');
