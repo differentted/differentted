@@ -4883,30 +4883,85 @@ function applyBattleLossInjury(){
   save();
   ttsToast('🤕 '+(state.pet.name||'宠物')+' 在对战中受了轻伤，先去商城买药治疗一下吧', 5000);
 }
-/* PK结算：谁输了谁的宠物受伤——自己这边直接本地处理，好友那边要真的写回对方云端数据，
-   同时顺手在对方的存档里留一条"PK结果通知"，对方下次打开App登录就会看到（消息中心） */
+/* 2026-09fix：PK消息以前直接写进对方"整个家庭存档"那个大JSON里的 state.pkInbox 字段，
+   结果只要对方自己的设备后面正常打卡/保存一次，就会把"还没来得及包含这条新通知"的旧整份数据
+   覆盖式推回云端，把刚写进去的PK通知冲掉——这是茜茜一直收不到通知的真正原因（消息写进去了，
+   但很快又被对方自己那台设备的下一次日常保存覆盖）。
+   现在改成：PK消息单独存成一行（'pkinbox:'+对方行ID+'#'+对方孩子id，跟公开串门目录reg:是
+   同一种"指针行"思路），发起方只碰这一行，完全不碰对方的主存档；对方自己日常打卡/保存永远不会
+   经过这一行，自然不会再被覆盖。"谁输了谁受伤"也不再由发起方直接改对方主存档（那样一样会被
+   覆盖），改成把"这局你输了"记进消息里，对方自己真正打开消息中心读到这条消息时，用自己本机的
+   安全存档流程（applyBattleLossInjury+save）给自己记一次受伤——自己改自己的数据不会跟自己打架。
+   按最新要求：当天所有消息都保留（不再只留最近30条），按本机日期自动分天——这家人设备本来就在
+   澳洲，本机日期一换新的一天，上一天的消息自动不再显示，等于每天半夜自动清零重新开始。 */
+var PK_INBOX_PREFIX='pkinbox:';
+function pkInboxRowId(rowId,cid){ return PK_INBOX_PREFIX+rowId+'#'+cid; }
+var _pkInboxCache=null; // 最近一次从云端拉到的"我的PK消息"，供界面显示用
+function fetchPkInboxRow(rowId,cid){
+  var id=pkInboxRowId(rowId,cid);
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(id)+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var cur=(rows&&rows[0]&&rows[0].data)?rows[0].data:null;
+    var today=todayKey();
+    if(!cur||cur.dayKey!==today) return {dayKey:today,messages:[]}; // 换了新的一天，旧消息自动不再显示
+    return cur;
+  });
+}
+function pushPkMessageToFriend(rowId,cid,msg){
+  return fetchPkInboxRow(rowId,cid).then(function(cur){
+    var messages=(cur&&Array.isArray(cur.messages))?cur.messages.slice():[];
+    messages.unshift(msg); // 当天消息全部保留，不再像以前一样裁剪到30条
+    return supaUpsertRow(pkInboxRowId(rowId,cid),{dayKey:todayKey(),messages:messages});
+  });
+}
+function refreshMyPkInbox(){
+  if(!store.currentChildId) return Promise.resolve({dayKey:todayKey(),messages:[]});
+  return fetchPkInboxRow(SUPA_ROW_ID,store.currentChildId).then(function(inbox){
+    _pkInboxCache=inbox;
+    return inbox;
+  }).catch(function(){
+    return _pkInboxCache||{dayKey:todayKey(),messages:[]};
+  });
+}
+/* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；用 applied 标记
+   防止同一条消息以后重复打开消息中心时被反复扣血 */
+function applyPkInboxSideEffects(inbox){
+  if(!inbox||!Array.isArray(inbox.messages)) return false;
+  var changed=false;
+  inbox.messages.forEach(function(m){
+    if(!m.applied && m.friendWon===true){ applyBattleLossInjury(); m.applied=true; changed=true; }
+    else if(!m.applied){ m.applied=true; changed=true; }
+  });
+  return changed;
+}
+/* 从消息中心直接点"⚔️"图标，找对方最新数据发起一场秒开的复仇PK */
+function quickRematchFromPkMsg(fromRowId,fromChildId){
+  hideModal('pkInboxModal');
+  ttsToast('正在联系对方，准备PK…', 2000);
+  fetchRowData(fromRowId).then(function(row){
+    if(!row||!row.data||!row.data.accounts||!row.data.accounts[fromChildId]){ ttsToast('没能联系到对方，稍后再试试吧', 4000); return; }
+    startFriendPk(fromRowId,fromChildId,row.data);
+  }).catch(function(){
+    ttsToast('没能联系到对方（网络问题），稍后再试试吧', 4000);
+  });
+}
+/* PK结算：胜负结果单独写进对方专属的PK消息行（不碰对方主存档，不会被对方自己的日常保存覆盖）；
+   如果这次是自己输了，直接本地给自己的宠物记一次受伤；如果对方输了，这件事记在消息里，
+   等对方自己打开消息中心读到时，由TA自己的设备本地处理 */
 function settleFriendPk(iWon){
   var t=_battlePkTarget;
   if(!t) return;
   if(!iWon) applyBattleLossInjury();
   var note=document.getElementById('btPkSettleNote');
-  fetchRowData(t.rowId).then(function(row){
-    if(!row||!row.data||!row.data.accounts||!row.data.accounts[t.cid]) throw new Error('no friend row');
-    var friendStoreData=row.data;
-    var friendChildState=friendStoreData.accounts[t.cid].state;
-    if(!friendChildState) throw new Error('no friend state');
-    if(iWon && friendChildState.pet && !friendChildState.pet.injured){
-      friendChildState.pet.injured=true; friendChildState.pet.injuredAt=Date.now(); friendChildState.pet.injurySeverity='light';
-    }
-    if(!friendChildState.pkInbox) friendChildState.pkInbox=[];
-    friendChildState.pkInbox.unshift({
-      fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
-      fromName:(currentChild()&&currentChild().name)||'一位朋友',
-      friendWon:!iWon, time:new Date().toISOString(), read:false
-    });
-    if(friendChildState.pkInbox.length>30) friendChildState.pkInbox.length=30;
-    return supaUpsertRow(t.rowId,friendStoreData);
-  }).then(function(){
+  var msg={
+    fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
+    fromName:(currentChild()&&currentChild().name)||'一位朋友',
+    friendWon:!iWon, time:new Date().toISOString(), read:false, applied:false
+  };
+  pushPkMessageToFriend(t.rowId,t.cid,msg).then(function(){
     if(note) note.textContent='✅ 已经通知对方这场PK的结果，TA下次打开App会看到';
   }).catch(function(){
     if(note) note.textContent='⚠️ 没能把结果发给对方（网络问题），下次再PK试试';
@@ -4951,14 +5006,18 @@ function startFriendPk(rowId,cid,friendStore){
   closeVisitDetail();
   openBattleLoadoutUI();
 }
-/* ========== PK消息中心：对方下次上线时提醒 ========== */
+/* ========== PK消息中心：对方下次上线时提醒 ==========
+   2026-09fix：以前直接读本机 state.pkInbox，现在消息已经搬到独立的 pkinbox: 云端行里，
+   这几个函数都改成先去云端拉一次自己专属的那一行，再基于拉回来的数据渲染/判断未读。 */
 function checkPkInboxOnBoot(){
-  if(!state||!state.pkInbox||!state.pkInbox.length) return;
-  if(!state.pkInbox.some(function(m){ return !m.read; })) return;
-  showPkInboxModal();
+  refreshMyPkInbox().then(function(inbox){
+    var hasUnread=inbox&&inbox.messages&&inbox.messages.some(function(m){ return !m.read; });
+    if(hasUnread) showPkInboxModal();
+  });
 }
-function pkInboxBadgeRefresh(){
-  var unread=(state&&state.pkInbox)?state.pkInbox.filter(function(m){ return !m.read; }).length:0;
+/* 用当前已经拉到手的缓存直接渲染角标，不额外发请求——给"刚拉完数据顺手刷新一下界面"的场景用 */
+function pkInboxBadgeRender(){
+  var unread=(_pkInboxCache&&Array.isArray(_pkInboxCache.messages))?_pkInboxCache.messages.filter(function(m){ return !m.read; }).length:0;
   var btn=document.getElementById('pkInboxEntryBtn');
   if(btn) btn.textContent='📬 PK消息记录'+(unread>0?'（'+unread+'条未读）':'');
   // 2026-09新增：跟微信角标一样，底部导航"串门"这个tab上直接显示未读数红点，
@@ -4969,25 +5028,41 @@ function pkInboxBadgeRefresh(){
     else{ navBadge.style.display='none'; }
   }
 }
+function pkInboxBadgeRefresh(){
+  refreshMyPkInbox().then(pkInboxBadgeRender);
+}
 function showPkInboxModal(){
   var box=document.getElementById('pkInboxList');
   if(!box) return;
-  var list=(state&&state.pkInbox)||[];
-  if(!list.length){
-    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">还没有PK消息</div>';
-  }else{
-    box.innerHTML=list.map(function(m){
-      var when=''; try{ when=new Date(m.time).toLocaleString(); }catch(e){}
-      var resultText=m.friendWon?'🎉 你赢了这场PK！':'😢 你输了这场PK，宠物受了点轻伤';
-      return '<div class="small" style="background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
-        +'⚔️ 和 <b>'+(m.fromName||'一位朋友')+'</b> 的串门PK：'+resultText
-        +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div>';
-    }).join('');
-  }
-  list.forEach(function(m){ m.read=true; });
-  save();
-  pkInboxBadgeRefresh();
+  box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">正在读取PK消息…</div>';
   showModal('pkInboxModal');
+  refreshMyPkInbox().then(function(inbox){
+    var list=(inbox&&inbox.messages)||[];
+    if(!list.length){
+      box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">还没有PK消息</div>';
+    }else{
+      box.innerHTML=list.map(function(m){
+        var when=''; try{ when=new Date(m.time).toLocaleString(); }catch(e){}
+        var resultText=m.friendWon?'🎉 你赢了这场PK！':'😢 你输了这场PK，宠物受了点轻伤';
+        var rematchBtn=(m.fromRowId&&m.fromChildId)
+          ?'<button class="btn btn-gray btn-sm" style="margin-left:6px;padding:2px 8px" onclick="quickRematchFromPkMsg(\''+m.fromRowId+'\',\''+m.fromChildId+'\')" title="再来一局">⚔️</button>'
+          :'';
+        return '<div class="small" style="background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left;display:flex;align-items:center;justify-content:space-between">'
+          +'<div>⚔️ 和 <b>'+(m.fromName||'一位朋友')+'</b> 的串门PK：'+resultText
+          +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div>'+rematchBtn+'</div>';
+      }).join('');
+    }
+    // 谁输了谁受伤这件事，等真正打开消息中心读到时，才在自己本机安全地处理一次（防重复用 applied 标记）
+    var sideEffectsChanged=applyPkInboxSideEffects(inbox);
+    var readChanged=false;
+    list.forEach(function(m){ if(!m.read){ m.read=true; readChanged=true; } });
+    if(sideEffectsChanged||readChanged){
+      supaUpsertRow(pkInboxRowId(SUPA_ROW_ID,store.currentChildId),inbox).catch(function(){});
+    }
+    pkInboxBadgeRender();
+  }).catch(function(){
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">没能读取PK消息，检查一下网络吧</div>';
+  });
 }
 
 /* ========== 2026-09新增："串门"——公开的宠物家目录，不需要任何码 ==========
