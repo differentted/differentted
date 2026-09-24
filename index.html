@@ -4228,14 +4228,34 @@ function loadAdminFamilies(){
       var row=document.createElement('div');
       row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px';
       row.innerHTML='<div>👪 '+byRow[rid].join('、')+'<div style="color:#999;font-size:11px">'+rid+'</div></div>';
+      var btnWrap=document.createElement('div');
+      btnWrap.style.cssText='display:flex;gap:4px;flex-wrap:wrap';
       var btn=document.createElement('button');
       btn.className='btn btn-info btn-sm';
       btn.textContent='🔍 查看/修复';
       btn.onclick=function(){ adminViewFamilyData(rid); };
-      row.appendChild(btn);
+      var codeBtn=document.createElement('button');
+      codeBtn.className='btn btn-warning btn-sm';
+      codeBtn.textContent='🆕 发新码';
+      codeBtn.onclick=function(){ adminIssueNewCode(rid); };
+      btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn);
+      row.appendChild(btnWrap);
       box.appendChild(row);
     });
   }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
+}
+/* 有人的家庭码忘了、设备又换了/存档清掉了，进不去自己原来的数据时用这个：
+   给同一份存档（同一个rowId）再挂一个新的家庭码指针，旧码不受影响、继续有效，
+   新码发给对方后，对方在"更换/加入其他家庭空间"里输入新码，就能找回原来的存档，数据一点不丢 */
+function adminIssueNewCode(rowId){
+  var code=window.prompt('给这份存档发一个新的家庭码（发给忘记码的人用来找回数据，原来的码不受影响，还能继续用）：');
+  code=(code||'').trim();
+  if(!code) return;
+  registerFamilyCodePointer(code,rowId).then(function(){
+    window.prompt('✅ 已经生效，把下面这个新家庭码发给对方，对方在"更换/加入其他家庭空间"里输入即可找回原来的存档：', code);
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，没发成功，检查网络再试一次', 5000);
+  });
 }
 function adminViewFamilyData(rowId){
   fetchRowData(rowId).then(function(row){
