@@ -651,8 +651,13 @@ body.pet-fs-active #page-pet{display:none !important}
 #btUltBtn{animation:dgSpecialGlow 1s ease-in-out infinite}
 .bt-skill-pick{background:#faf4fc;border:2px solid transparent;border-radius:10px;padding:7px 8px;text-align:left;cursor:pointer;font-size:12px}
 .bt-skill-pick.sel{border-color:#ab47bc;background:#f3e5f5}
+.bt-skill-pick.locked{opacity:.5;cursor:not-allowed}
 .bt-skill-pick .bsp-name{font-weight:700;color:#6a1b9a}
 .bt-skill-pick .bsp-desc{color:#888;font-size:10.5px;margin-top:1px}
+.bt-skill-pick .bsp-enh{color:#7b1fa2;font-weight:700}
+.bt-skill-pick .bsp-lock{color:#e65100;font-size:10px;margin-top:2px;font-weight:600}
+.bt-skillname{position:absolute;transform:translate(-50%,-50%);font-size:12.5px;font-weight:800;color:#7b1fa2;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:10px;pointer-events:none;z-index:23;white-space:nowrap;animation:btSkillNameRise .9s ease-out forwards}
+@keyframes btSkillNameRise{0%{opacity:0;transform:translate(-50%,-30%) scale(.7)}15%{opacity:1;transform:translate(-50%,-60%) scale(1.05)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-90%) scale(1)}}
 .acc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .acc-item{background:#faf4fc;border-radius:11px;padding:10px 4px;text-align:center;cursor:pointer;border:2px solid transparent}
 .acc-item.sel{border-color:#ab47bc;background:#f3e5f5}
@@ -1247,7 +1252,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="page" id="page-visit">
   <div class="card">
     <h2>🚪 串门</h2>
-    <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">这里能看到其他已经养了宠物的小朋友——不用输入任何码，直接点进去只读查看，不能帮TA打卡或者动TA的东西。可以摸摸TA的宠物增加亲密度（每人每天限1次），也可以送金币（每人每天限3次）。</div>
+    <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">这里能看到其他已经养了宠物的小朋友——不用输入任何码，直接点进去只读查看，不能帮TA打卡或者动TA的东西。可以摸摸TA的宠物增加亲密度（每人每天限1次），也可以送金币（每人每天限3次），还可以发起一场对战PK（开发中）。</div>
+    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-gray btn-sm" id="pkInboxEntryBtn" onclick="showPkInboxModal()">📬 PK消息记录</button></div>
     <div class="child-list" id="friendListBox"></div>
   </div>
   <div class="card" id="visitDetailCard" style="display:none">
@@ -1527,7 +1533,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="modal" style="max-width:420px">
     <button class="modal-close" onclick="hideModal('battleDemoModal')">✕</button>
     <div id="btLoadoutView">
-      <h3 style="margin-top:0">🎒 选技能出战 <span style="font-size:12px;color:#e65100;font-weight:normal">（开发中·假数据）</span></h3>
+      <h3 id="btLoadoutTitle" style="margin-top:0">🎒 选技能出战 <span style="font-size:12px;color:#e65100;font-weight:normal">（开发中）</span></h3>
       <div class="small" style="text-align:left;margin:-4px 0 8px;line-height:1.6">先选3个通用技能、再选1个必杀技带出战。战斗时通用技能会自动随机使出，不用一个个点；必杀技攒满能量后，什么时候放由你自己判断。</div>
       <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:8px 0 4px">⚔️ 通用技能（选3个）：<span id="btNormalPickCount">0</span>/3</div>
       <div id="btNormalPickBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
@@ -1559,6 +1565,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       </div>
       <div id="btResultBox" style="display:none;margin-top:10px;text-align:center"></div>
     </div>
+  </div>
+</div>
+
+<!-- PK消息中心：对方跟自己串门PK的结果通知，永久留存可查看 -->
+<div class="modal-mask" id="pkInboxModal">
+  <div class="modal" style="max-width:400px">
+    <button class="modal-close" onclick="hideModal('pkInboxModal')">✕</button>
+    <h3 style="text-align:center">📬 PK消息记录</h3>
+    <div id="pkInboxList"></div>
   </div>
 </div>
 
@@ -4376,50 +4391,120 @@ var BATTLE_SKILL_LIB={
   house_n2:{name:'轻甲护体',dim:'house',kind:'normal',power:0,shield:0.3,shieldTurns:1,desc:'本回合减免30%伤害'},
   house_n3:{name:'洁净减伤',dim:'house',kind:'normal',power:8,heal:6,desc:'小伤害，同时回复自己一点生命'},
   house_ult:{name:'织暖神盾',dim:'house',kind:'ultimate',power:0,shield:0.5,shieldTurns:2,heal:10,desc:'生成护盾，2回合内减免50%伤害，并小额回血'},
-  disc_n1:{name:'定心固守',dim:'discipline',kind:'normal',power:0,shield:0.35,shieldTurns:1,desc:'本回合减免35%伤害'},
-  disc_n2:{name:'反制格挡',dim:'discipline',kind:'normal',power:10,shield:0.2,shieldTurns:1,desc:'小伤害，同时减免20%下回合伤害'},
-  disc_ult:{name:'守心印',dim:'discipline',kind:'ultimate',power:12,reflect:0.3,desc:'中等伤害，并反弹对方30%的下一次攻击伤害'},
-  talent_n1:{name:'仙音增攻',dim:'talent',kind:'normal',power:13,buffAtk:0.15,buffTurns:2,desc:'小伤害，给自己接下来2回合增伤15%'},
-  talent_ult:{name:'鸣仙韵',dim:'talent',kind:'ultimate',power:20,buffAtk:0.3,buffTurns:2,desc:'中高伤害，并大幅增加自身接下来的攻击力'},
-  social_n1:{name:'结伴连击',dim:'social',kind:'normal',power:9,hits:2,desc:'连续打两下'},
-  social_ult:{name:'聚友狂击',dim:'social',kind:'ultimate',power:16,hits:2,stunChance:0.25,desc:'二连击，命中后有概率眩晕对方1回合'},
-  rest_n1:{name:'清醒蓄力',dim:'rest',kind:'normal',power:0,cleanse:true,heal:8,desc:'清除自身负面状态，并回复一点生命'},
-  rest_ult:{name:'醒神诀',dim:'rest',kind:'ultimate',power:0,cleanse:true,firstStrike:true,desc:'清除自身所有负面状态，本回合绝对优先出手'}
+  courage_n1:{name:'定心固守',dim:'courage',kind:'normal',power:0,shield:0.35,shieldTurns:1,desc:'本回合减免35%伤害'},
+  courage_n2:{name:'反制格挡',dim:'courage',kind:'normal',power:10,shield:0.2,shieldTurns:1,desc:'小伤害，同时减免20%下回合伤害'},
+  courage_ult:{name:'守心印',dim:'courage',kind:'ultimate',power:12,reflect:0.3,desc:'中等伤害，并反弹对方30%的下一次攻击伤害'},
+  music_n1:{name:'仙音增攻',dim:'music',kind:'normal',power:13,buffAtk:0.15,buffTurns:2,desc:'小伤害，给自己接下来2回合增伤15%'},
+  music_ult:{name:'鸣仙韵',dim:'music',kind:'ultimate',power:20,buffAtk:0.3,buffTurns:2,desc:'中高伤害，并大幅增加自身接下来的攻击力'},
+  empathy_n1:{name:'结伴连击',dim:'empathy',kind:'normal',power:9,hits:2,desc:'连续打两下'},
+  empathy_ult:{name:'聚友狂击',dim:'empathy',kind:'ultimate',power:16,hits:2,stunChance:0.25,desc:'二连击，命中后有概率眩晕对方1回合'},
+  creativity_n1:{name:'清醒蓄力',dim:'creativity',kind:'normal',power:0,cleanse:true,heal:8,desc:'清除自身负面状态，并回复一点生命'},
+  creativity_ult:{name:'醒神诀',dim:'creativity',kind:'ultimate',power:0,cleanse:true,firstStrike:true,desc:'清除自身所有负面状态，本回合绝对优先出手'}
 };
-var BATTLE_DIM_LABELS={sport:'🏃 运动',study:'📖 学习',house:'🧹 家务',discipline:'🗡️ 自律',talent:'🎨 才艺',social:'💞 社交',rest:'😴 作息规律'};
-var _battleLoadout={normal:[],ult:null}; // 玩家在"选技能"界面选的技能书，进战斗前才最终生效
-var _battle=null; // 当前这一局demo战斗的运行时状态，只存在内存里，关闭/重开就没了
+/* 2026-09fix：技能的"维度"直接对齐app里已经在用的那套七维能力（RADAR_AXES：运动/学习/家务/
+   创造力/共情爱心/音律/勇气探险），没有另外发明一套新的七维命名——这样技能解锁能直接读打卡攒出来的
+   真实 abilityDim 数值，雷达图、副本、性格判定这些已有系统也都不用跟着改。
+   解锁规则完全照用户给的设计：某维度分数≥60，这个维度的技能（3通用+1必杀）才能在"选技能"界面选中；
+   ≥100（"专精星级"阶段，这里读不封顶的原始pts，不是雷达图上封顶显示的100）时技能会"强化"，
+   伤害/治疗/护盾/概率等数值再往上加一截，在选技能界面用"✨强化"标出来。 */
 function battleSkillKeysByKind(kind){ return Object.keys(BATTLE_SKILL_LIB).filter(function(k){ return BATTLE_SKILL_LIB[k].kind===kind; }); }
+function battleDimLabel(dim){
+  var ax=RADAR_AXES.filter(function(a){ return a.key===dim; })[0];
+  return ax?ax.label:dim;
+}
+function liveAbilityPtsMap(){
+  var out={};
+  RADAR_AXES.forEach(function(ax){ out[ax.key]=abilityDimPts(ax.key); });
+  return out;
+}
+/* 跟 abilityScoresFromState() 类似（那个是给雷达图对比用的，封顶显示100），这个不封顶，
+   专门用来判断"对方"（串门PK的好友）的技能解锁/强化门槛 */
+function rawAbilityPtsFromState(st){
+  var out={};
+  RADAR_AXES.forEach(function(ax){
+    out[ax.key]=(st && st.abilityDim && st.abilityDim[ax.key] && st.abilityDim[ax.key].pts) || 0;
+  });
+  return out;
+}
+function godModePtsMap(){
+  var out={};
+  RADAR_AXES.forEach(function(ax){ out[ax.key]=999; });
+  return out;
+}
+function battleSkillUnlockInfo(key,ptsMap){
+  var sk=BATTLE_SKILL_LIB[key];
+  var pts=(ptsMap&&ptsMap[sk.dim])||0;
+  return { unlocked: pts>=60, enhanced: pts>=100, pts: pts };
+}
+/* 技能"实例化"：按解锁到的强化程度，现算一份加强过数值的技能拷贝，不改 BATTLE_SKILL_LIB 原始数据 */
+function battleSkillInstance(key,ptsMap){
+  var base=BATTLE_SKILL_LIB[key];
+  var info=battleSkillUnlockInfo(key,ptsMap);
+  var inst={}; for(var k in base) inst[k]=base[k];
+  inst.enhanced=info.enhanced;
+  if(info.enhanced){
+    if(inst.power) inst.power=Math.round(inst.power*1.25);
+    if(inst.heal) inst.heal=Math.round(inst.heal*1.25);
+    if(inst.shield) inst.shield=Math.min(0.7,inst.shield+0.1);
+    if(inst.sealChance) inst.sealChance=Math.min(0.9,inst.sealChance+0.2);
+    if(inst.stunChance) inst.stunChance=Math.min(0.9,inst.stunChance+0.2);
+    if(inst.debuffTakeMore) inst.debuffTakeMore=inst.debuffTakeMore+0.1;
+    if(inst.buffAtk) inst.buffAtk=inst.buffAtk+0.1;
+    if(inst.reflect) inst.reflect=Math.min(0.6,inst.reflect+0.1);
+  }
+  return inst;
+}
+var _battleLoadout={normal:[],ult:null}; // 玩家在"选技能"界面选的技能书，进战斗前才最终生效
+var _battle=null; // 当前这一局战斗的运行时状态，只存在内存里，关闭/重开就没了
+var _battleMode='demo'; // 'demo'=自己练手用的假对手 / 'pk'=串门发起的真实好友PK
+var _battlePkTarget=null; // pk模式下：{rowId,cid,friendName,friendChildState}
 function openBattleDemo(){
+  if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched){ ttsToast('宠物还没孵化，没法进入对战', 4000); return; }
+  if(state.pet.injured){ ttsToast('🤕 宠物还在受伤，先去商城买药治好再来对战吧', 4500); return; }
+  _battleMode='demo';
+  _battlePkTarget=null;
+  openBattleLoadoutUI();
+}
+function openBattleLoadoutUI(){
   _battleLoadout={normal:[],ult:null};
   document.getElementById('btBattleView').style.display='none';
   document.getElementById('btLoadoutView').style.display='block';
+  var titleEl=document.getElementById('btLoadoutTitle');
+  if(titleEl){
+    titleEl.innerHTML=(_battleMode==='pk'&&_battlePkTarget?('⚔️ 挑战 '+_battlePkTarget.friendName):'🎒 选技能出战')+' <span style="font-size:12px;color:#e65100;font-weight:normal">（开发中）</span>';
+  }
   renderBattleLoadoutPicks();
   showModal('battleDemoModal');
 }
 function renderBattleLoadoutPicks(){
+  var ptsMap=liveAbilityPtsMap();
   var normalBox=document.getElementById('btNormalPickBox');
   var ultBox=document.getElementById('btUltPickBox');
   normalBox.innerHTML=''; ultBox.innerHTML='';
   battleSkillKeysByKind('normal').forEach(function(key){
     var sk=BATTLE_SKILL_LIB[key];
+    var info=battleSkillUnlockInfo(key,ptsMap);
     var d=document.createElement('div');
-    d.className='bt-skill-pick'+(_battleLoadout.normal.indexOf(key)>=0?' sel':'');
-    d.innerHTML='<div class="bsp-name">'+(BATTLE_DIM_LABELS[sk.dim]||'')+' '+sk.name+'</div><div class="bsp-desc">'+sk.desc+'</div>';
-    d.onclick=function(){ toggleBattleNormalPick(key); };
+    d.className='bt-skill-pick'+(_battleLoadout.normal.indexOf(key)>=0?' sel':'')+(info.unlocked?'':' locked');
+    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+sk.name+(info.enhanced?' <span class="bsp-enh">✨强化</span>':'')+'</div><div class="bsp-desc">'+sk.desc+'</div>'
+      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+'≥60解锁（现在'+Math.round(info.pts)+'）</div>');
+    if(info.unlocked) d.onclick=function(){ toggleBattleNormalPick(key); };
     normalBox.appendChild(d);
   });
   battleSkillKeysByKind('ultimate').forEach(function(key){
     var sk=BATTLE_SKILL_LIB[key];
+    var info=battleSkillUnlockInfo(key,ptsMap);
     var d=document.createElement('div');
-    d.className='bt-skill-pick'+(_battleLoadout.ult===key?' sel':'');
-    d.innerHTML='<div class="bsp-name">'+(BATTLE_DIM_LABELS[sk.dim]||'')+' '+sk.name+'</div><div class="bsp-desc">'+sk.desc+'</div>';
-    d.onclick=function(){ _battleLoadout.ult=key; renderBattleLoadoutPicks(); };
+    d.className='bt-skill-pick'+(_battleLoadout.ult===key?' sel':'')+(info.unlocked?'':' locked');
+    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+sk.name+(info.enhanced?' <span class="bsp-enh">✨强化</span>':'')+'</div><div class="bsp-desc">'+sk.desc+'</div>'
+      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+'≥60解锁（现在'+Math.round(info.pts)+'）</div>');
+    if(info.unlocked) d.onclick=function(){ _battleLoadout.ult=key; renderBattleLoadoutPicks(); };
     ultBox.appendChild(d);
   });
   document.getElementById('btNormalPickCount').textContent=_battleLoadout.normal.length;
 }
 function toggleBattleNormalPick(key){
+  if(!battleSkillUnlockInfo(key,liveAbilityPtsMap()).unlocked) return;
   var idx=_battleLoadout.normal.indexOf(key);
   if(idx>=0){ _battleLoadout.normal.splice(idx,1); }
   else{
@@ -4429,44 +4514,73 @@ function toggleBattleNormalPick(key){
   renderBattleLoadoutPicks();
 }
 function confirmBattleLoadout(){
+  var ptsMap=liveAbilityPtsMap();
+  var unlockedNormalCount=battleSkillKeysByKind('normal').filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; }).length;
+  if(unlockedNormalCount<3){ ttsToast('解锁的通用技能还不够3个，多打卡涨七维能力就能解锁更多技能啦', 5000); return; }
   if(_battleLoadout.normal.length!==3){ ttsToast('请选够3个通用技能', 3000); return; }
+  var unlockedUltCount=battleSkillKeysByKind('ultimate').filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; }).length;
+  if(unlockedUltCount<1){ ttsToast('还没有解锁任何必杀技，多打卡涨七维能力就能解锁啦', 5000); return; }
   if(!_battleLoadout.ult){ ttsToast('请选1个必杀技', 3000); return; }
   startBattleDemo();
 }
-function newBattleFighter(name,hp,skillKeys,ultKey){
+function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap){
   return {
     name:name, maxHp:hp, hp:hp,
-    skills:skillKeys.map(function(k){ return BATTLE_SKILL_LIB[k]; }),
-    ult:BATTLE_SKILL_LIB[ultKey],
+    skills:skillKeys.map(function(k){ return battleSkillInstance(k,ptsMap); }),
+    ult:battleSkillInstance(ultKey,ptsMap),
     shieldPct:0, shieldTurns:0, sealed:false, stunned:false,
     buffAtk:0, buffTurns:0, debuffTakeMore:0, debuffTurns:0
   };
 }
+/* 好友那边没人在线操作，只能程序自动帮TA挑技能书出战：优先从TA已经解锁的技能里随机选，
+   万一某个槽位TA一个都还没解锁（打卡还太少），就退回全部技能池里随便选，保证PK永远能打起来 */
+function autoPickFriendLoadout(ptsMap){
+  var normalPool=battleSkillKeysByKind('normal');
+  var unlockedNormal=normalPool.filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; });
+  var pool=unlockedNormal.length?unlockedNormal:normalPool;
+  var chosen=[], src=pool.slice();
+  while(chosen.length<3){
+    if(!src.length) src=pool.slice();
+    var idx=Math.floor(Math.random()*src.length);
+    chosen.push(src[idx]); src.splice(idx,1);
+  }
+  var ultPool=battleSkillKeysByKind('ultimate');
+  var unlockedUlt=ultPool.filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; });
+  var ultSrc=unlockedUlt.length?unlockedUlt:ultPool;
+  var ult=ultSrc[Math.floor(Math.random()*ultSrc.length)];
+  return {normal:chosen,ult:ult};
+}
 function startBattleDemo(){
-  var childPet=(typeof state!=='undefined'&&state&&state.pet&&state.pet.chosen&&state.pet.hatched)?state.pet:null;
-  var petArt,petFilter='',petName;
-  if(childPet){
-    petArt=dungeonPetArtSrc(childPet,petLevelInfo(childPet));
-    petFilter=dirtyFilterFor(childPet.clean)||'';
-    petName=childPet.name||'我方灵宠';
-  }else{
-    var fallbackLib=PET_LIBRARY.xiaojinlin;
-    petArt=(fallbackLib.stageImg&&fallbackLib.stageImg.baby)||fallbackLib.img.happy;
-    petName='我方灵宠';
-  }
-  var oppKeys=Object.keys(PET_LIBRARY).filter(function(k){ return !childPet||k!==childPet.type; });
-  var oppKey=oppKeys[Math.floor(Math.random()*oppKeys.length)]||'xiaojinlin';
+  var childPet=state.pet;
+  var petArt=dungeonPetArtSrc(childPet,petLevelInfo(childPet));
+  var petFilter=dirtyFilterFor(childPet.clean)||'';
+  var petName=childPet.name||'我方灵宠';
+  var player=newBattleFighter(petName,100,_battleLoadout.normal,_battleLoadout.ult,liveAbilityPtsMap());
 
-  var player=newBattleFighter(petName,100,_battleLoadout.normal,_battleLoadout.ult);
-  var oppNormalPool=battleSkillKeysByKind('normal');
-  var oppUltPool=battleSkillKeysByKind('ultimate');
-  var oppNormalKeys=[];
-  while(oppNormalKeys.length<3){
-    var k=oppNormalPool[Math.floor(Math.random()*oppNormalPool.length)];
-    if(oppNormalKeys.indexOf(k)<0) oppNormalKeys.push(k);
+  var opp,oppArtSrc,oppName;
+  if(_battleMode==='pk' && _battlePkTarget){
+    var t=_battlePkTarget;
+    var friendPet=t.friendChildState.pet;
+    var friendPtsMap=rawAbilityPtsFromState(t.friendChildState);
+    var friendLoadout=autoPickFriendLoadout(friendPtsMap);
+    oppName=t.friendName+'的灵宠';
+    opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap);
+    oppArtSrc=petDisplayImgSrc(friendPet);
+  }else{
+    var oppKeys=Object.keys(PET_LIBRARY).filter(function(k){ return k!==childPet.type; });
+    var oppKey=oppKeys[Math.floor(Math.random()*oppKeys.length)]||'xiaojinlin';
+    var oppNormalPool=battleSkillKeysByKind('normal');
+    var oppUltPool=battleSkillKeysByKind('ultimate');
+    var oppNormalKeys=[];
+    while(oppNormalKeys.length<3){
+      var k=oppNormalPool[Math.floor(Math.random()*oppNormalPool.length)];
+      if(oppNormalKeys.indexOf(k)<0) oppNormalKeys.push(k);
+    }
+    var oppUltKey=oppUltPool[Math.floor(Math.random()*oppUltPool.length)];
+    oppName='神秘挑战者';
+    opp=newBattleFighter(oppName,100,oppNormalKeys,oppUltKey,godModePtsMap());
+    oppArtSrc=dungeonMonsterArtSrc(oppKey);
   }
-  var oppUltKey=oppUltPool[Math.floor(Math.random()*oppUltPool.length)];
-  var opp=newBattleFighter('神秘挑战者',100,oppNormalKeys,oppUltKey);
 
   _battle={pet:player,mon:opp,round:0,energyPips:0,oppEnergyPips:0,over:false,busy:false};
   document.getElementById('btLoadoutView').style.display='none';
@@ -4475,18 +4589,18 @@ function startBattleDemo(){
   document.getElementById('btBtnRow').style.display='flex';
   document.getElementById('btUltBtn').style.display='none';
   document.getElementById('btAttackBtn').disabled=false;
-  document.getElementById('btBattleTitle').textContent='⚔️ 对战中（开发中·假数据）';
+  document.getElementById('btBattleTitle').textContent=(_battleMode==='pk'?'⚔️ PK中':'⚔️ 对战中')+'（开发中）';
   var petImgEl=document.getElementById('btPetImg');
   petImgEl.src=petArt; petImgEl.style.filter=petFilter;
   document.getElementById('btPetName').textContent=player.name;
   var monImgEl=document.getElementById('btMonsterImg');
-  monImgEl.src=dungeonMonsterArtSrc(oppKey);
+  monImgEl.src=oppArtSrc||''; monImgEl.style.filter='';
   document.getElementById('btMonsterName').textContent=opp.name;
   dgSetBar('btPetHpBar','btPetHpVal',player.hp,player.maxHp,'pink');
   dgSetBar('btMonsterHpBar','btMonsterHpVal',opp.hp,opp.maxHp,'orange');
   document.getElementById('btLog').innerHTML='';
   document.getElementById('btEnergyText').textContent='⚡ 集气：○○○';
-  btLog('⚔️ 对战开始！（这是demo，用的是假数据，不影响真实的打卡存档）');
+  btLog(_battleMode==='pk'?('⚔️ 对战开始！对方不在线，由程序自动帮TA出招～'):'⚔️ 对战开始！（这是demo，假想对手，赢了不加分，输了宠物会像挑战副本失败一样受伤）');
 }
 function btLog(msg){
   var box=document.getElementById('btLog');
@@ -4550,6 +4664,20 @@ function btEnergyDots(n){
   var empty='○'.repeat(3-Math.max(0,Math.min(3,n)));
   return '⚡ 集气：'+full+empty;
 }
+/* 放技能的瞬间，技能名飘在出招那一方的旁边——跟伤害数字是分开两套浮动文字，
+   一个标"谁用了什么招"，一个标"扣了多少血"，两个一起看更清楚 */
+function btSkillNameFloat(elId,name){
+  var field=document.getElementById('btField');
+  if(!field) return;
+  var p=btFieldPoint(elId);
+  var el=document.createElement('div');
+  el.className='bt-skillname';
+  el.textContent=name;
+  el.style.left=p.x+'px';
+  el.style.top=(p.y-46)+'px';
+  field.appendChild(el);
+  setTimeout(function(){ el.remove(); },900);
+}
 function battleDecayStatus(f){
   if(f.shieldTurns>0){ f.shieldTurns--; if(f.shieldTurns<=0) f.shieldPct=0; }
   if(f.buffTurns>0){ f.buffTurns--; if(f.buffTurns<=0) f.buffAtk=0; }
@@ -4558,6 +4686,7 @@ function battleDecayStatus(f){
 function battleResolveSkill(user,target,skill,userImgId,targetImgId){
   if(user.sealed){ btLog('🔒 '+user.name+' 的技能被封印了，这回合没能出手'); user.sealed=false; return; }
   if(user.stunned){ btLog('💫 '+user.name+' 被眩晕了，这回合没能动'); user.stunned=false; return; }
+  btSkillNameFloat(userImgId,skill.name+(skill.enhanced?' ✨':''));
   if(skill.cleanse){
     user.shieldPct=0; user.shieldTurns=0; user.debuffTakeMore=0; user.debuffTurns=0;
     btLog('✨ '+user.name+' 使用【'+skill.name+'】，清除了自身的负面状态');
@@ -4656,6 +4785,46 @@ function battleDemoUlt(){
     setTimeout(battleDemoOppCounter,420);
   },180);
 }
+/* 战败受伤：直接复用已有的"受伤+买药"体系（跟副本挑战失败是同一套 pet.injured/injuredAt/
+   injurySeverity 字段、同一个商城【特效药】），不重新发明一套惩罚机制。统一按"轻伤"处理
+   （呼应设计原则"轻惩罚，激励每日打卡攒资源"），已经在受伤中就不重复触发。
+   胜利目前没有额外奖励（不发金币/经验），避免这套还在开发中的对战系统影响原有的金币平衡。 */
+function applyBattleLossInjury(){
+  if(!state||!state.pet||state.pet.injured) return;
+  state.pet.injured=true; state.pet.injuredAt=Date.now(); state.pet.injurySeverity='light';
+  addLog('⚔️对战失败：'+(state.pet.name||'宠物')+' 受了轻伤，要去商城买【特效药】治疗才能再战');
+  save();
+  ttsToast('🤕 '+(state.pet.name||'宠物')+' 在对战中受了轻伤，先去商城买药治疗一下吧', 5000);
+}
+/* PK结算：谁输了谁的宠物受伤——自己这边直接本地处理，好友那边要真的写回对方云端数据，
+   同时顺手在对方的存档里留一条"PK结果通知"，对方下次打开App登录就会看到（消息中心） */
+function settleFriendPk(iWon){
+  var t=_battlePkTarget;
+  if(!t) return;
+  if(!iWon) applyBattleLossInjury();
+  var note=document.getElementById('btPkSettleNote');
+  fetchRowData(t.rowId).then(function(row){
+    if(!row||!row.data||!row.data.accounts||!row.data.accounts[t.cid]) throw new Error('no friend row');
+    var friendStoreData=row.data;
+    var friendChildState=friendStoreData.accounts[t.cid].state;
+    if(!friendChildState) throw new Error('no friend state');
+    if(iWon && friendChildState.pet && !friendChildState.pet.injured){
+      friendChildState.pet.injured=true; friendChildState.pet.injuredAt=Date.now(); friendChildState.pet.injurySeverity='light';
+    }
+    if(!friendChildState.pkInbox) friendChildState.pkInbox=[];
+    friendChildState.pkInbox.unshift({
+      fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
+      fromName:(currentChild()&&currentChild().name)||'一位朋友',
+      friendWon:!iWon, time:new Date().toISOString(), read:false
+    });
+    if(friendChildState.pkInbox.length>30) friendChildState.pkInbox.length=30;
+    return supaUpsertRow(t.rowId,friendStoreData);
+  }).then(function(){
+    if(note) note.textContent='✅ 已经通知对方这场PK的结果，TA下次打开App会看到';
+  }).catch(function(){
+    if(note) note.textContent='⚠️ 没能把结果发给对方（网络问题），下次再PK试试';
+  });
+}
 function battleDemoEnd(win){
   if(!_battle||_battle.over) return;
   _battle.over=true;
@@ -4668,8 +4837,64 @@ function battleDemoEnd(win){
     btLog('😢 '+_battle.pet.name+' 被击败了');
     box.innerHTML='<div style="font-size:16px;font-weight:700;color:#ef5350">😢 落败了</div>';
   }
-  box.innerHTML+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="openBattleDemo()">🎒 重新选技能再来一局</button>';
   box.style.display='block';
+  if(_battleMode==='pk' && _battlePkTarget){
+    box.innerHTML+='<div class="small" id="btPkSettleNote" style="margin-top:6px;color:#999">结算中，请稍等…</div>'
+      +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="hideModal(\'battleDemoModal\')">✅ 知道了</button>';
+    settleFriendPk(win);
+    _battlePkTarget=null; _battleMode='demo';
+  }else{
+    if(!win) applyBattleLossInjury();
+    box.innerHTML+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="openBattleDemo()">🎒 重新选技能再来一局</button>';
+  }
+}
+/* 从"串门"界面发起PK：自己操作、对方不在线，全程由程序按对方的真实七维数值+已解锁技能自动应战 */
+function startFriendPk(rowId,cid,friendStore){
+  if(!currentChild()) return;
+  var myPet=state.pet;
+  if(!myPet||!myPet.chosen||!myPet.hatched){ ttsToast('你的宠物还没孵化，没法出战哦', 4000); return; }
+  if(myPet.injured){ ttsToast('🤕 你的宠物还在受伤，先去商城买药治好再来挑战吧', 4500); return; }
+  var c=friendStore.accounts[cid];
+  var friendChildState=c&&c.state;
+  var friendPet=friendChildState&&friendChildState.pet;
+  if(!friendPet||!friendPet.chosen||!friendPet.hatched){ ttsToast('对方的宠物还没孵化，没法挑战TA', 4000); return; }
+  if(friendPet.injured){ ttsToast('对方的宠物正在受伤中，没法应战，换个时间再来吧', 4500); return; }
+  _battleMode='pk';
+  _battlePkTarget={rowId:rowId,cid:cid,friendName:c.name,friendChildState:friendChildState};
+  closeVisitDetail();
+  openBattleLoadoutUI();
+}
+/* ========== PK消息中心：对方下次上线时提醒 ========== */
+function checkPkInboxOnBoot(){
+  if(!state||!state.pkInbox||!state.pkInbox.length) return;
+  if(!state.pkInbox.some(function(m){ return !m.read; })) return;
+  showPkInboxModal();
+}
+function pkInboxBadgeRefresh(){
+  var btn=document.getElementById('pkInboxEntryBtn');
+  if(!btn) return;
+  var unread=(state&&state.pkInbox)?state.pkInbox.filter(function(m){ return !m.read; }).length:0;
+  btn.textContent='📬 PK消息记录'+(unread>0?'（'+unread+'条未读）':'');
+}
+function showPkInboxModal(){
+  var box=document.getElementById('pkInboxList');
+  if(!box) return;
+  var list=(state&&state.pkInbox)||[];
+  if(!list.length){
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">还没有PK消息</div>';
+  }else{
+    box.innerHTML=list.map(function(m){
+      var when=''; try{ when=new Date(m.time).toLocaleString(); }catch(e){}
+      var resultText=m.friendWon?'🎉 你赢了这场PK！':'😢 你输了这场PK，宠物受了点轻伤';
+      return '<div class="small" style="background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
+        +'⚔️ 和 <b>'+(m.fromName||'一位朋友')+'</b> 的串门PK：'+resultText
+        +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div>';
+    }).join('');
+  }
+  list.forEach(function(m){ m.read=true; });
+  save();
+  pkInboxBadgeRefresh();
+  showModal('pkInboxModal');
 }
 
 /* ========== 2026-09新增："串门"——公开的宠物家目录，不需要任何码 ==========
@@ -4916,6 +5141,13 @@ function showFriendChildDetail(rowId,cid,friendStore){
   giftBtn.textContent=giftsLeft>0?('🎁 送TA金币（今天还能送'+giftsLeft+'次）'):'🎁 今天的赠送次数用完啦';
   giftBtn.onclick=function(){ openGiftModal(rowId,cid,c.name); };
   body.appendChild(giftBtn);
+
+  var pkBtn=document.createElement('button');
+  pkBtn.className='btn btn-danger btn-block';
+  pkBtn.style.marginTop='6px';
+  pkBtn.textContent='⚔️ 发起PK挑战（开发中）';
+  pkBtn.onclick=function(){ startFriendPk(rowId,cid,friendStore); };
+  body.appendChild(pkBtn);
 
   card.style.display='block';
 }
@@ -5266,6 +5498,8 @@ function finishLoadRender(){
   refreshFamilyCodeDisplay();
   ensurePetHomeRegistry();
   refreshAdminEntryVisibility();
+  pkInboxBadgeRefresh();
+  checkPkInboxOnBoot();
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
