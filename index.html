@@ -1159,6 +1159,14 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <button class="btn btn-gray btn-sm" onclick="cloudDiagnose()">🔍 多设备同步诊断</button>
       <div class="small" style="margin-top:4px;color:#999">怀疑几台设备数据对不齐时点这里，会显示这台设备连云端的详细情况（不会自动消失，方便截图发给我排查）</div>
     </div>
+    <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
+      <div class="small" style="font-weight:600;color:#7b1fa2">🔑 当前家庭空间码：<span id="familyCodeDisplay">—</span></div>
+      <div class="small" style="margin:4px 0 6px">同一个家庭码的设备才会同步到同一批小朋友档案；不同家庭码之间完全看不到彼此的数据</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeRename()">✏️ 给当前家庭码改名</button>
+        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()">🔄 更换/加入其他家庭空间</button>
+      </div>
+    </div>
   </div>
   <div class="card">
     <h2>⚔️ 副本挑战管理</h2>
@@ -1208,6 +1216,20 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<div class="page" id="page-visit">
+  <div class="card">
+    <h2>🚪 串门</h2>
+    <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">去好朋友家看看他们的宠物和打卡进度——只能看，不能帮他们打卡或者动他们的东西。还可以送金币给好朋友，增加亲密度！</div>
+    <div style="text-align:center;margin-bottom:10px">
+      <button class="btn btn-primary btn-sm" onclick="openAddFriendModal()">➕ 添加好朋友</button>
+    </div>
+    <div class="child-list" id="friendListBox"></div>
+  </div>
+  <div class="card" id="visitDetailCard" style="display:none">
+    <div id="visitDetailBody"></div>
+  </div>
+</div>
+
 <div class="small" style="text-align:center;padding:8px 0 4px">💜 仅供家庭私密使用 · 数据保存在本机浏览器</div>
 </div>
 
@@ -1219,6 +1241,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="wheel" onclick="showPage('wheel')"><span class="t-emoji">🎡</span>转盘</button>
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')"><span class="t-emoji">🎒</span>背包</button>
+  <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();"><span class="t-emoji">🚪</span>串门</button>
 </nav>
 
 <!-- 选择宠物弹窗 -->
@@ -1403,6 +1426,43 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div style="margin-top:12px;border-top:1px dashed #e1bee7;padding-top:10px">
       <button class="btn btn-gray btn-block" onclick="dismissFreshDataModalAndCreateFirstChild()">➕ 没有备份，开始创建新档案</button>
     </div>
+  </div>
+</div>
+
+<!-- 家庭空间码：首次使用强制输入 / 之后可在"数据备份"里更换 -->
+<div class="modal-mask" id="familyGateModal">
+  <div class="modal">
+    <button class="modal-close" id="familyGateCloseBtn" onclick="hideModal('familyGateModal')" style="display:none">✕</button>
+    <h3 style="text-align:center" id="familyGateTitle">🔑 输入家庭码</h3>
+    <div class="small" id="familyGateDesc" style="text-align:left;margin-bottom:10px;line-height:1.7">
+      这台设备是第一次打开这个页面，需要先输入"家庭码"才能进入对应的家庭空间——不同家庭码之间的小朋友档案完全看不到彼此。家庭码找给你这个网址链接的人要一下。
+    </div>
+    <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()">✅ 确认进入</button>
+  </div>
+</div>
+
+<!-- 添加好友（串门用） -->
+<div class="modal-mask" id="addFriendModal">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('addFriendModal')">✕</button>
+    <h3 style="text-align:center">➕ 添加好朋友</h3>
+    <div class="small" style="text-align:left;margin-bottom:8px">输入对方的家庭码（找他/她本人要），再给这个好友取个你自己认得出的名字</div>
+    <input type="text" id="addFriendCodeInput" placeholder="对方的家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:8px;font-size:16px" />
+    <input type="text" id="addFriendLabelInput" placeholder="给好友取个名字，比如「小明家」" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" onclick="confirmAddFriend()">✅ 添加</button>
+  </div>
+</div>
+
+<!-- 送金币给好友 -->
+<div class="modal-mask" id="giftModal">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('giftModal')">✕</button>
+    <h3 style="text-align:center">🎁 送金币给 <span id="giftTargetLabel"></span></h3>
+    <div class="small" style="text-align:center;margin-bottom:8px">你现在有 <b id="giftMyBalance">0</b> 金币</div>
+    <input type="number" id="giftAmountInput" min="1" placeholder="要送出的金币数量" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" id="giftConfirmBtn" onclick="confirmGiftCoins()">🎁 确认赠送</button>
+    <div class="small" style="margin-top:6px;color:#999">送出的金币会从你自己的余额里扣掉，对方会实时收到同样数量的金币，双方亲密度也会一起增加</div>
   </div>
 </div>
 
@@ -3658,6 +3718,7 @@ function loadStore(){
   if(typeof store.bgmVolumePct!=='number') store.bgmVolumePct=100; // 默认100%＝改造前写死的音量，老用户升级后音量不会突然变
   if(typeof store.ttsVolumePct!=='number') store.ttsVolumePct=100;
   if(store.checkinTab===undefined) store.checkinTab='sport';
+  if(!store.friends) store.friends=[]; // 串门功能：这一家自己加的好友列表（好友的家庭码+备注名），跟其它数据一样自动同步
   ensureTaskDefs();
 }
 var storageWarned=false;
@@ -3706,10 +3767,410 @@ function saveStoreLocalOnly(){
 var SUPA_URL='https://yngdnajnlilamqsxydnv.supabase.co';
 var SUPA_KEY='sb_publishable_IDyd8JeUSRRZ5FVNk9VK8g_5izNiYdC';
 var SUPA_TABLE='kuluomi_sync';
-var SUPA_ROW_ID='6GtaRbPnAT56Qf3e'; // 这一家专用的同步行ID，相当于共享密钥，不要改动/泄露给无关的人
+var DEFAULT_FAMILY_ROW_ID='6GtaRbPnAT56Qf3e'; // 原来那一家（茜茜/嫣嫣等）专用的同步行ID，不要改动/泄露给无关的人
+var SUPA_ROW_ID=DEFAULT_FAMILY_ROW_ID; // 实际用哪一行，由下面 familyGateAndLoad() 根据这台设备保存的"家庭码"重新算出来，覆盖这个默认值
 var SUPA_LAST_SYNCED_KEY='kuroCloudLastSyncedUpdatedAt';
 var _cloudPushTimer=null;
 var _cloudSyncReady=false; // 首次云端拉取、比对处理完之前不允许自动推送，避免拿本机的旧数据抢先覆盖了云端更新的数据
+
+/* ========== 2026-09新增：多家庭隔离（"家庭码"），+自助改名，+可以互相"串门"只看不改 ==========
+   背景：这个网址是公开的，任何拿到链接的人打开后都会连上同一份云端数据——之前只有"茜茜/嫣嫣"
+   这一家在用没问题，但现在要陆续给其他不相关的人也用这同一个网址，必须让"茜茜嫣嫣家"和"别人家"
+   完全看不到彼此的存档，同时又要留一个口子：允许两家互相"串门"看对方的打卡/宠物情况（只读），
+   以及互相送金币。
+   做法：Supabase那张表（kuluomi_sync）本来就是"id -> {data,updated_at}"这种简单结构，除了拿来存
+   "一整个家庭的存档"（id=一串随机同步行ID），这里额外拿它存一种"指针"记录：id='code:'+家庭码，
+   data={targetRowId:那一家真正的存档行ID}。这样"家庭码"和"存档数据"就分成了两层：
+   ①家庭码 -> 行ID 这层指针，可以随时改、可以有多个家庭码指向同一份数据（改名不丢数据、旧码也不失效）
+   ②行ID -> 实际存档数据 这层完全不受影响。
+   全新的家庭码第一次被使用时，自动注册一条新指针+一个新的空行，不需要我去Supabase后台手动建。
+   "茜茜嫣嫣家"这一家已有的旧数据保持不变：老设备本地已经有存档的，直接沿用原来那个默认行ID，
+   不会被打扰、不会弹窗；同时保留两个写死的默认入口（空字符串 和 "茜茜嫣嫣家"）直接指向这份旧数据，
+   免去联网查指针这一步，开着也能秒开。 */
+var FAMILY_CODE_KEY='kuroFamilyCodeV1';       // 本机保存的"家庭码"
+var FAMILY_ROW_ID_KEY='kuroFamilyRowIdV1';    // 本机缓存的、这个家庭码解析出来的实际存档行ID（避免每次开机都要联网查一次指针）
+var FAMILY_CODE_MAP={'':DEFAULT_FAMILY_ROW_ID, '茜茜嫣嫣家':DEFAULT_FAMILY_ROW_ID};
+var _familyGateMode='initial'; // 'initial'=首次强制输入 / 'change'=更换到另一个家庭（会替换本机数据）/ 'rename'=只改名字，数据不变
+function familyCodeToRowId(code){
+  // 纯算法兜底：查不到指针（离线/指针还没注册成功）时用这个直接算出一个稳定的行ID，保证任何时候都能继续用
+  code=String(code||'').trim();
+  if(FAMILY_CODE_MAP.hasOwnProperty(code)) return FAMILY_CODE_MAP[code];
+  var h1=0x811c9dc5,h2=0x811c9dc5;
+  for(var i=0;i<code.length;i++){
+    var c=code.charCodeAt(i);
+    h1^=c; h1=(h1*0x01000193)>>>0;
+    h2^=c; h2=(h2*0x85ebca6b)>>>0;
+  }
+  return 'fam_'+(h1>>>0).toString(36)+(h2>>>0).toString(36);
+}
+function registerFamilyCodePointer(code,targetRowId){
+  var pointerId='code:'+code;
+  var body=JSON.stringify({id:pointerId,data:{targetRowId:targetRowId},updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000);
+}
+/* 家庭码 -> 实际存档行ID。写死的默认入口不用联网；自定义码去云端查指针，查不到就顺手注册一个新的；
+   全程网络失败也不报错、不卡住，直接退回算法兜底，保证离线也能继续玩 */
+function resolveFamilyCodeRowId(code){
+  code=String(code||'').trim();
+  if(FAMILY_CODE_MAP.hasOwnProperty(code)) return Promise.resolve(FAMILY_CODE_MAP[code]);
+  var pointerId='code:'+code;
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(pointerId)+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    if(rows&&rows[0]&&rows[0].data&&rows[0].data.targetRowId){
+      return rows[0].data.targetRowId;
+    }
+    var seedRowId=familyCodeToRowId(code);
+    return registerFamilyCodePointer(code,seedRowId).then(function(){ return seedRowId; }).catch(function(){ return seedRowId; });
+  }).catch(function(){
+    return familyCodeToRowId(code);
+  });
+}
+function fetchRowData(rowId){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(rowId)+'&select=data,updated_at';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){ return (rows&&rows[0])?rows[0]:null; });
+}
+function setActiveFamily(code,rowId){
+  SUPA_ROW_ID=rowId;
+}
+function refreshFamilyCodeDisplay(){
+  var el=document.getElementById('familyCodeDisplay');
+  if(!el) return;
+  var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
+  el.textContent=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+}
+function openFamilyCodeChange(){
+  _familyGateMode='change';
+  var titleEl=document.getElementById('familyGateTitle');
+  var descEl=document.getElementById('familyGateDesc');
+  var closeBtn=document.getElementById('familyGateCloseBtn');
+  var input=document.getElementById('familyGateInput');
+  var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
+  var curLabel=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+  if(titleEl) titleEl.textContent='🔄 更换家庭空间';
+  if(descEl) descEl.innerHTML='输入新的家庭码后，这台设备会切换到那个家庭码对应的空间（现在这台设备本机存的数据会被替换成新家庭码那边的数据）。如果现在这份数据还没导出备份，建议先点上面「导出备份文本」保存一份，再切换。<br><br>当前家庭码：<b>'+curLabel+'</b>';
+  if(closeBtn) closeBtn.style.display='';
+  if(input) input.value='';
+  showModal('familyGateModal');
+}
+/* 自助改名：不换数据，只是给现在这份数据额外多注册一个新的家庭码指针，旧码继续有效 */
+function openFamilyCodeRename(){
+  _familyGateMode='rename';
+  var titleEl=document.getElementById('familyGateTitle');
+  var descEl=document.getElementById('familyGateDesc');
+  var closeBtn=document.getElementById('familyGateCloseBtn');
+  var input=document.getElementById('familyGateInput');
+  var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
+  var curLabel=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+  if(titleEl) titleEl.textContent='✏️ 给家庭码改名';
+  if(descEl) descEl.innerHTML='这<b>不会</b>换成另一份数据，只是给现在这份家庭数据的"家庭码"换一个新名字，方便你自己记、分享给家里人。旧的家庭码（'+curLabel+'）改名后仍然继续有效，不会失效，两个码都能用。<br><br>请输入新的家庭码：';
+  if(closeBtn) closeBtn.style.display='';
+  if(input) input.value='';
+  showModal('familyGateModal');
+}
+function submitFamilyCode(){
+  var input=document.getElementById('familyGateInput');
+  var code=(input&&input.value||'').trim();
+  if(!code){ ttsToast('请先输入家庭码', 4000); return; }
+  var btn=document.getElementById('familyGateConfirmBtn');
+  if(_familyGateMode==='rename'){
+    if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
+    registerFamilyCodePointer(code,SUPA_ROW_ID).then(function(){
+      try{ localStorage.setItem(FAMILY_CODE_KEY,code); }catch(e){}
+      if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+      hideModal('familyGateModal');
+      refreshFamilyCodeDisplay();
+      ttsToast('✅ 家庭码已改成："'+code+'"，之前的码仍然可以用', 5000);
+    }).catch(function(){
+      if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+      ttsToast('❌ 没连上云端，改名没成功，检查网络再试一次', 5000);
+    });
+    return;
+  }
+  if(btn){ btn.disabled=true; btn.textContent='连接中…'; }
+  resolveFamilyCodeRowId(code).then(function(rowId){
+    try{
+      if(_familyGateMode==='change'){
+        localStorage.removeItem(STORE_KEY);
+        localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
+      }
+      localStorage.setItem(FAMILY_CODE_KEY,code);
+      localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
+    }catch(e){}
+    location.reload();
+  });
+}
+/* 整个页面真正的启动入口：先确定这台设备属于哪个"家庭空间"，再走原来的 load() 流程。
+   ①之前保存过家庭码+缓存过行ID——直接同步用，不联网、不打扰，跟升级前一样快。
+   ②之前保存过家庭码、但还没缓存过行ID（刚从上一版升级上来）——联网解析一次，顺便把行ID缓存好。
+   ③本机本来就有旧存档、但还没保存过家庭码（这次更新之前就在用的老设备）——自动归到默认家庭，静默处理。
+   ④真正全新的设备、又没有保存过家庭码——必须先输入家庭码才能继续，防止陌生人不小心/故意连上别人家的数据。 */
+function familyGateAndLoad(){
+  var savedCode=null,savedRowId=null;
+  try{ savedCode=localStorage.getItem(FAMILY_CODE_KEY); savedRowId=localStorage.getItem(FAMILY_ROW_ID_KEY); }catch(e){}
+  if(savedCode!==null && savedRowId){
+    setActiveFamily(savedCode,savedRowId);
+    load();
+    return;
+  }
+  if(savedCode!==null && !savedRowId){
+    resolveFamilyCodeRowId(savedCode).then(function(rowId){
+      try{ localStorage.setItem(FAMILY_ROW_ID_KEY,rowId); }catch(e){}
+      setActiveFamily(savedCode,rowId);
+      load();
+    });
+    return;
+  }
+  var hasOldLocalData=false;
+  try{ hasOldLocalData=!!localStorage.getItem(STORE_KEY); }catch(e){}
+  if(hasOldLocalData){
+    try{
+      localStorage.setItem(FAMILY_CODE_KEY,'');
+      localStorage.setItem(FAMILY_ROW_ID_KEY,DEFAULT_FAMILY_ROW_ID);
+    }catch(e){}
+    setActiveFamily('',DEFAULT_FAMILY_ROW_ID);
+    load();
+    return;
+  }
+  _familyGateMode='initial';
+  showModal('familyGateModal');
+}
+
+/* ========== 2026-09新增："串门"——去好友家看看（只读），还能送金币 ==========
+   好友关系存在 store.friends 里（本机这份数据的一部分，会跟着这家自己的存档一起同步），
+   每一条只存对方的"家庭码"和一个自己起的备注名，不存对方的任何实际数据（每次串门都是现查现拉）。
+   看好友数据全程只做 GET（fetchRowData），绝不会把拉到的这份数据当成本机 store 用、也绝不会调用
+   saveStore()/cloudPush() 之类的函数去动它，从根上保证"只能看不能改"。
+   唯一的例外是"送金币"：这是我方明确要开的口子——扣自己的金币、直接改好友那一行的云端数据
+   （加金币+加亲密度），这里为了避免"自己的金币先扣了，结果对方那边没写成功、白扣"，特意先把
+   金币加到对方那边、确认成功了，才真正扣自己这边、才写日志、才存本地。 */
+function renderFriendList(){
+  var box=document.getElementById('friendListBox');
+  if(!box) return;
+  var friends=store.friends||[];
+  if(friends.length===0){
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">还没有添加好朋友，点上面"➕ 添加好朋友"试试吧</div>';
+    return;
+  }
+  box.innerHTML='';
+  friends.forEach(function(f,idx){
+    var d=document.createElement('div');
+    d.className='child-row';
+    var nameSpan=document.createElement('span');
+    nameSpan.className='c-name'; nameSpan.textContent=f.label||f.code;
+    d.appendChild(nameSpan);
+    var ops=document.createElement('span');
+    ops.className='c-ops';
+    var goBtn=document.createElement('button');
+    goBtn.className='op-edit'; goBtn.textContent='🚪进去看看';
+    goBtn.onclick=function(e){ e.stopPropagation(); visitFriend(f.code,f.label); };
+    var delBtn=document.createElement('button');
+    delBtn.className='op-del'; delBtn.textContent='🗑️移除';
+    delBtn.onclick=function(e){ e.stopPropagation(); removeFriend(idx); };
+    ops.appendChild(goBtn); ops.appendChild(delBtn);
+    d.appendChild(ops);
+    box.appendChild(d);
+  });
+}
+function openAddFriendModal(){
+  var c=document.getElementById('addFriendCodeInput'); if(c) c.value='';
+  var l=document.getElementById('addFriendLabelInput'); if(l) l.value='';
+  showModal('addFriendModal');
+}
+function confirmAddFriend(){
+  var code=(document.getElementById('addFriendCodeInput').value||'').trim();
+  var label=(document.getElementById('addFriendLabelInput').value||'').trim();
+  if(!code){ ttsToast('请先输入对方的家庭码', 4000); return; }
+  var myCode=null; try{ myCode=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
+  myCode=(myCode&&myCode!=='')?myCode:'茜茜嫣嫣家';
+  if(code===myCode){ ttsToast('这是你自己家的家庭码哦，加别人家的才能串门', 4000); return; }
+  if(!store.friends) store.friends=[];
+  if(store.friends.some(function(f){ return f.code===code; })){
+    ttsToast('这个好友已经加过啦', 4000);
+    hideModal('addFriendModal');
+    return;
+  }
+  store.friends.push({code:code,label:label||code,addedAt:Date.now()});
+  saveStore();
+  hideModal('addFriendModal');
+  renderFriendList();
+  ttsToast('✅ 已添加好友：'+(label||code), 4000);
+}
+function removeFriend(idx){
+  if(!store.friends) return;
+  store.friends.splice(idx,1);
+  saveStore();
+  renderFriendList();
+  closeVisitDetail();
+}
+function closeVisitDetail(){
+  var card=document.getElementById('visitDetailCard');
+  if(card) card.style.display='none';
+}
+function visitFriend(code,label){
+  ttsToast('🔎 正在连接 '+(label||code)+' 家……', 3000);
+  resolveFamilyCodeRowId(code).then(function(rowId){
+    return fetchRowData(rowId).then(function(row){ return {rowId:rowId,row:row}; });
+  }).then(function(res){
+    if(!res.row || !res.row.data || !res.row.data.accounts || Object.keys(res.row.data.accounts).length===0){
+      ttsToast('😕 还看不到 '+(label||code)+' 家的数据，可能对方还没开始用，或者网络不太好，晚点再试试', 5500);
+      return;
+    }
+    showFriendChildList(code,label,res.rowId,res.row.data);
+  }).catch(function(){
+    ttsToast('😕 连不上，检查一下网络再试试', 4000);
+  });
+}
+function showFriendChildList(code,label,rowId,friendStore){
+  var card=document.getElementById('visitDetailCard');
+  var body=document.getElementById('visitDetailBody');
+  if(!card||!body) return;
+  body.innerHTML='';
+  var h=document.createElement('h3');
+  h.style.textAlign='center';
+  h.textContent='🚪 '+(label||code);
+  body.appendChild(h);
+  var hint=document.createElement('div');
+  hint.className='small';
+  hint.style.cssText='text-align:center;margin-bottom:8px';
+  hint.textContent='点一个小朋友，看看TA的进度（只能看，不能操作）';
+  body.appendChild(hint);
+  var list=document.createElement('div');
+  list.className='child-list';
+  Object.keys(friendStore.accounts).forEach(function(cid){
+    var c=friendStore.accounts[cid];
+    if(!c) return;
+    var d=document.createElement('div');
+    d.className='child-row';
+    var avSpan=document.createElement('span'); avSpan.className='c-av'; avSpan.innerHTML=avatarHtml(c.avatar,26);
+    var nameSpan=document.createElement('span'); nameSpan.className='c-name'; nameSpan.textContent=c.name;
+    d.appendChild(avSpan); d.appendChild(nameSpan);
+    d.onclick=function(){ showFriendChildDetail(code,label,rowId,cid,friendStore); };
+    list.appendChild(d);
+  });
+  body.appendChild(list);
+  var closeBtn=document.createElement('button');
+  closeBtn.className='btn btn-gray btn-sm';
+  closeBtn.style.marginTop='8px';
+  closeBtn.textContent='⬅️ 收起';
+  closeBtn.onclick=function(){ closeVisitDetail(); };
+  body.appendChild(closeBtn);
+  card.style.display='block';
+}
+function showFriendChildDetail(code,label,rowId,cid,friendStore){
+  var body=document.getElementById('visitDetailBody');
+  if(!body) return;
+  var c=friendStore.accounts[cid];
+  if(!c) return;
+  var st=c.state||{};
+  var pet=st.pet;
+  var petHtml;
+  if(!pet || !pet.chosen){
+    petHtml='（还没有宠物伙伴）';
+  }else if(!pet.hatched){
+    petHtml='🥚 蛋（还没孵化）';
+  }else{
+    var lib=(typeof PET_LIBRARY!=='undefined' && PET_LIBRARY[pet.type])?PET_LIBRARY[pet.type]:null;
+    var info=petLevelInfo(pet);
+    var stage=stageOf(info.level);
+    var stageLabel={egg:'蛋',baby:'幼年',teen:'少年',adult:'成年'}[stage]||'';
+    petHtml=(pet.name||(lib&&lib.name)||'宠物')+(lib&&lib.name?'（'+lib.name+'）':'')+' · Lv'+info.level+' · '+stageLabel;
+  }
+  var todayEarned=(st.day && typeof st.day.earned==='number')?st.day.earned:0;
+  var totalFullDays=(typeof st.totalFullDays==='number')?st.totalFullDays:0;
+  var balance=(typeof st.moneyBalance==='number')?st.moneyBalance:0;
+
+  body.innerHTML='';
+  var back=document.createElement('button');
+  back.className='btn btn-gray btn-sm';
+  back.textContent='⬅️ 返回 '+(label||code)+' 的小朋友列表';
+  back.onclick=function(){ showFriendChildList(code,label,rowId,friendStore); };
+  body.appendChild(back);
+
+  var h=document.createElement('h3');
+  h.style.textAlign='center';
+  h.textContent='👀 '+c.name+'（只能看，不能操作哦）';
+  body.appendChild(h);
+
+  var infoBox=document.createElement('div');
+  infoBox.className='small';
+  infoBox.style.cssText='text-align:left;line-height:2;background:#f7f0fb;border-radius:10px;padding:10px;margin:8px 0';
+  infoBox.innerHTML='🐾 宠物：'+petHtml+'<br>💰 金币余额：'+balance+'<br>📅 今天已获得金币：'+todayEarned+(todayEarned>0?'（今天已经打过卡啦）':'（今天好像还没打卡）')+'<br>🏆 累计完整打卡天数：'+totalFullDays;
+  body.appendChild(infoBox);
+
+  var giftBtn=document.createElement('button');
+  giftBtn.className='btn btn-primary btn-block';
+  giftBtn.textContent='🎁 送TA金币';
+  giftBtn.onclick=function(){ openGiftModal(code,label,rowId,cid,c.name); };
+  body.appendChild(giftBtn);
+}
+var _giftTarget=null;
+function openGiftModal(code,label,rowId,childId,childName){
+  _giftTarget={code:code,label:label,rowId:rowId,childId:childId,name:childName};
+  var t=document.getElementById('giftTargetLabel'); if(t) t.textContent=childName;
+  var bal=document.getElementById('giftMyBalance'); if(bal) bal.textContent=(state&&typeof state.moneyBalance==='number')?state.moneyBalance:0;
+  var input=document.getElementById('giftAmountInput'); if(input) input.value='';
+  showModal('giftModal');
+}
+function pushGiftToFriendRow(rowId,friendChildId,amt,fromInfo){
+  return fetchRowData(rowId).then(function(row){
+    if(!row || !row.data || !row.data.accounts || !row.data.accounts[friendChildId]) return false;
+    var friendStoreData=row.data;
+    var friendChildState=friendStoreData.accounts[friendChildId].state;
+    if(!friendChildState) return false;
+    friendChildState.moneyBalance=(typeof friendChildState.moneyBalance==='number'?friendChildState.moneyBalance:0)+amt;
+    if(!friendChildState.friendBook) friendChildState.friendBook={};
+    var rk=fromInfo.code+'#'+fromInfo.childId;
+    if(!friendChildState.friendBook[rk]) friendChildState.friendBook[rk]={name:fromInfo.name,intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0};
+    friendChildState.friendBook[rk].name=fromInfo.name;
+    friendChildState.friendBook[rk].intimacy=(friendChildState.friendBook[rk].intimacy||0)+amt;
+    friendChildState.friendBook[rk].coinsReceivedFromThem=(friendChildState.friendBook[rk].coinsReceivedFromThem||0)+amt;
+    friendChildState.friendBook[rk].lastAt=Date.now();
+    var nowIso=new Date().toISOString();
+    var body=JSON.stringify({id:rowId,data:friendStoreData,updated_at:nowIso});
+    var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+    return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000)
+      .then(function(res){ return res.ok; })
+      .catch(function(){ return false; });
+  }).catch(function(){ return false; });
+}
+function confirmGiftCoins(){
+  if(!_giftTarget) return;
+  var input=document.getElementById('giftAmountInput');
+  var amt=parseInt(input&&input.value,10);
+  if(!amt || amt<=0){ ttsToast('请输入要送出的金币数量', 4000); return; }
+  if(!state || typeof state.moneyBalance!=='number' || state.moneyBalance<amt){ ttsToast('金币不够哦，先攒多一点再送吧', 4000); return; }
+  if(!currentChild()) return;
+  var btn=document.getElementById('giftConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='赠送中…'; }
+  var target=_giftTarget;
+  var myCode=null; try{ myCode=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
+  myCode=(myCode&&myCode!=='')?myCode:'茜茜嫣嫣家';
+  var fromInfo={code:myCode,childId:store.currentChildId,name:currentChild().name};
+  pushGiftToFriendRow(target.rowId,target.childId,amt,fromInfo).then(function(ok){
+    if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
+    if(!ok){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
+    state.moneyBalance-=amt;
+    var fk=target.code+'#'+target.childId;
+    if(!state.friendBook) state.friendBook={};
+    if(!state.friendBook[fk]) state.friendBook[fk]={name:target.name,intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0};
+    state.friendBook[fk].name=target.name;
+    state.friendBook[fk].intimacy=(state.friendBook[fk].intimacy||0)+amt;
+    state.friendBook[fk].coinsGiftedToThem=(state.friendBook[fk].coinsGiftedToThem||0)+amt;
+    state.friendBook[fk].lastAt=Date.now();
+    addLog('🎁 送给好友「'+target.name+'」 '+amt+' 金币，亲密度+'+amt);
+    saveStore();
+    render();
+    hideModal('giftModal');
+    ttsToast('🎉 已经送给 '+target.name+' '+amt+' 个金币啦！', 5000);
+  });
+}
 
 function supaHeaders(extra){
   var h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
@@ -3977,6 +4438,7 @@ function finishLoadRender(){
   maybeShowOfflineNotice();
   scheduleAppEntranceGreeting();
   checkBackupReminder();
+  refreshFamilyCodeDisplay();
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
@@ -6515,7 +6977,7 @@ function currentChild(){ return store.accounts[store.currentChildId]; }
 
 /* ========== 页面切换 ========== */
 function showPage(name){
-  ['home','pet','wheel','shop','bag','board'].forEach(function(p){
+  ['home','pet','wheel','shop','bag','board','visit'].forEach(function(p){
     var el=document.getElementById('page-'+p);
     el.classList.toggle('active', p===name);
   });
@@ -10175,7 +10637,7 @@ function checkBackupReminder(){
   }
 }
 
-load();
+familyGateAndLoad();
 
 /* ========== 自动跨天刷新：页面开着过了0点也能自动更新任务/宠物状态 ========== */
 function petMinuteTick(){
