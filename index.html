@@ -1167,6 +1167,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
         <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()">🔄 更换/加入其他家庭空间</button>
       </div>
     </div>
+    <div id="adminEntryWrap" style="display:none;margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
+      <button class="btn btn-danger btn-sm" onclick="openAdminEntry()">🛠️ 管理后台（审批新申请 / 修数据）</button>
+      <div class="small" style="margin-top:4px;color:#999">只有这个默认家庭空间能看到这个按钮，需要输入PIN码</div>
+    </div>
   </div>
   <div class="card">
     <h2>⚔️ 副本挑战管理</h2>
@@ -1436,6 +1440,59 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     </div>
     <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
     <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()">✅ 确认进入</button>
+  </div>
+</div>
+
+<!-- 新用户申请：输入的家庭码还没被批准过，需要留下孩子姓名等待审核 -->
+<div class="modal-mask" id="familyApplyModal">
+  <div class="modal">
+    <h3 style="text-align:center">📝 申请开通</h3>
+    <div class="small" style="text-align:left;margin-bottom:10px;line-height:1.7">
+      你刚才输入的家庭码「<b id="familyApplyCodeLabel"></b>」还没被批准过。<br><br>
+      这个家庭码以后就是你自己的登录密码，<b>请自己记住它</b>；再填一下孩子的姓名，提交后等管理员审核通过就能开始用了。
+    </div>
+    <input type="text" id="familyApplyNameInput" placeholder="孩子的姓名" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" id="familyApplyConfirmBtn" onclick="confirmFamilyApply()">📮 提交申请</button>
+    <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal('familyApplyModal');_familyGateMode='initial';showModal('familyGateModal');">⬅️ 换一个家庭码</button>
+  </div>
+</div>
+
+<!-- 申请提交后的等待/复查界面 -->
+<div class="modal-mask" id="familyPendingModal">
+  <div class="modal">
+    <h3 style="text-align:center">⏳ 申请审核中</h3>
+    <div class="small" id="familyPendingDesc" style="text-align:left;margin-bottom:10px;line-height:1.7"></div>
+    <button class="btn btn-primary btn-block" id="familyPendingRecheckBtn" onclick="recheckFamilyApplication()">🔄 重新检查是否已通过</button>
+    <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="restartFamilyApply()">✏️ 换一个家庭码重新申请</button>
+  </div>
+</div>
+
+<!-- 管理后台的PIN码门槛：只用来防止小朋友自己点进审批/改数据，不是给外人用的隐藏入口 -->
+<div class="modal-mask" id="adminLoginModal">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('adminLoginModal')">✕</button>
+    <h3 style="text-align:center" id="adminLoginTitle">🔒 请输入管理PIN码</h3>
+    <div class="small" id="adminLoginDesc" style="text-align:left;margin-bottom:10px;line-height:1.7">这里只是防止小朋友自己点进来乱改，第一次使用时随便设一个PIN码就行，以后每次进管理后台都要输这个PIN码。</div>
+    <input type="password" id="adminLoginInput" placeholder="管理PIN码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" onclick="submitAdminLogin()">✅ 进入管理后台</button>
+  </div>
+</div>
+
+<!-- 管理后台：审批新申请 + 查看/修复各家宠物数据 -->
+<div class="modal-mask" id="adminPanelModal">
+  <div class="modal" style="text-align:left;max-width:480px">
+    <button class="modal-close" onclick="hideModal('adminPanelModal')">✕</button>
+    <h3 style="text-align:center">🛠️ 管理后台</h3>
+    <h4 style="margin:10px 0 4px">📮 待审核的新申请</h4>
+    <div id="adminApplyList" class="small">加载中…</div>
+    <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复用）</h4>
+    <div id="adminFamilyList" class="small">加载中…</div>
+    <div id="adminFamilyEditBox" style="display:none;margin-top:10px;border-top:1px dashed #e1bee7;padding-top:10px">
+      <div class="small" style="font-weight:600" id="adminFamilyEditLabel"></div>
+      <textarea id="adminFamilyEditText" rows="10" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;margin:6px 0"></textarea>
+      <div class="small" style="color:#e65100;margin-bottom:6px">⚠️ 这里改的是原始数据，格式必须还是合法的JSON，改错了这家数据可能打不开，没把握就别乱改</div>
+      <button class="btn btn-danger btn-block" id="adminFamilySaveBtn" onclick="adminSaveFamilyData()">💾 保存修改</button>
+    </div>
   </div>
 </div>
 
@@ -3877,6 +3934,31 @@ function submitFamilyCode(){
     });
     return;
   }
+  if(_familyGateMode==='initial'){
+    // 全新访客第一次输码：先只查这个码是不是已经被批准过，绝不在这里偷偷自动建号，
+    // 查不到就转去"填孩子姓名+提交申请"，等管理员在后台批准后才能真正进入
+    if(btn){ btn.disabled=true; btn.textContent='查询中…'; }
+    checkFamilyCodeApproved(code).then(function(rowId){
+      if(btn){ btn.disabled=false; btn.textContent='✅ 确认进入'; }
+      if(rowId){
+        try{
+          localStorage.setItem(FAMILY_CODE_KEY,code);
+          localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
+          localStorage.removeItem(PENDING_APPLY_CODE_KEY);
+        }catch(e){}
+        location.reload();
+        return;
+      }
+      hideModal('familyGateModal');
+      _pendingApplyCode=code;
+      var lbl=document.getElementById('familyApplyCodeLabel');
+      if(lbl) lbl.textContent=code;
+      var nameInput=document.getElementById('familyApplyNameInput');
+      if(nameInput) nameInput.value='';
+      showModal('familyApplyModal');
+    });
+    return;
+  }
   if(btn){ btn.disabled=true; btn.textContent='连接中…'; }
   resolveFamilyCodeRowId(code).then(function(rowId){
     try{
@@ -3888,6 +3970,92 @@ function submitFamilyCode(){
       localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
     }catch(e){}
     location.reload();
+  });
+}
+/* 只查"这个家庭码有没有被批准过"，查不到绝不像 resolveFamilyCodeRowId 那样顺手自动注册一个新指针——
+   这是新用户申请流程和老的直接登录流程之间唯一的差别 */
+function checkFamilyCodeApproved(code){
+  code=String(code||'').trim();
+  if(FAMILY_CODE_MAP.hasOwnProperty(code)) return Promise.resolve(FAMILY_CODE_MAP[code]);
+  var pointerId='code:'+code;
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(pointerId)+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    if(rows&&rows[0]&&rows[0].data&&rows[0].data.targetRowId) return rows[0].data.targetRowId;
+    return null;
+  }).catch(function(){ return null; });
+}
+var PENDING_APPLY_CODE_KEY='kuroPendingApplyCodeV1';
+var _pendingApplyCode='';
+function applyRecordId(code){ return 'apply:'+code; }
+function submitFamilyApplication(code,childName){
+  var pointerId=applyRecordId(code);
+  var body=JSON.stringify({id:pointerId,data:{code:code,childName:childName,status:'pending',requestedAt:new Date().toISOString()},updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000);
+}
+function fetchApplicationStatus(code){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(applyRecordId(code))+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){ return (rows&&rows[0]&&rows[0].data)?rows[0].data:null; }).catch(function(){ return null; });
+}
+function confirmFamilyApply(){
+  var code=_pendingApplyCode;
+  var nameInput=document.getElementById('familyApplyNameInput');
+  var name=(nameInput&&nameInput.value||'').trim();
+  if(!code){ hideModal('familyApplyModal'); _familyGateMode='initial'; showModal('familyGateModal'); return; }
+  if(!name){ ttsToast('请填一下孩子的姓名', 4000); return; }
+  var btn=document.getElementById('familyApplyConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='提交中…'; }
+  submitFamilyApplication(code,name).then(function(){
+    try{ localStorage.setItem(PENDING_APPLY_CODE_KEY,code); }catch(e){}
+    if(btn){ btn.disabled=false; btn.textContent='📮 提交申请'; }
+    hideModal('familyApplyModal');
+    showFamilyPendingModal(code,'申请已经提交啦，等管理员审核通过后再打开这个页面、点下面的按钮重新检查一下就能进入了。');
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='📮 提交申请'; }
+    ttsToast('❌ 没连上云端，提交没成功，检查网络再试一次', 5000);
+  });
+}
+function showFamilyPendingModal(code,desc){
+  var descEl=document.getElementById('familyPendingDesc');
+  if(descEl) descEl.innerHTML='家庭码：<b>'+code+'</b><br><br>'+desc;
+  showModal('familyPendingModal');
+}
+function restartFamilyApply(){
+  try{ localStorage.removeItem(PENDING_APPLY_CODE_KEY); }catch(e){}
+  hideModal('familyPendingModal');
+  _familyGateMode='initial';
+  showModal('familyGateModal');
+}
+function recheckFamilyApplication(){
+  var code=null;
+  try{ code=localStorage.getItem(PENDING_APPLY_CODE_KEY); }catch(e){}
+  if(!code){ hideModal('familyPendingModal'); _familyGateMode='initial'; showModal('familyGateModal'); return; }
+  var btn=document.getElementById('familyPendingRecheckBtn');
+  if(btn){ btn.disabled=true; btn.textContent='检查中…'; }
+  checkFamilyCodeApproved(code).then(function(rowId){
+    if(rowId){
+      try{
+        localStorage.setItem(FAMILY_CODE_KEY,code);
+        localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
+        localStorage.removeItem(PENDING_APPLY_CODE_KEY);
+      }catch(e){}
+      location.reload();
+      return;
+    }
+    if(btn){ btn.disabled=false; btn.textContent='🔄 重新检查是否已通过'; }
+    fetchApplicationStatus(code).then(function(data){
+      if(data && data.status==='rejected'){
+        showFamilyPendingModal(code,'很抱歉，这个申请没有通过审核，换一个家庭码重新申请试试吧。');
+      }else{
+        ttsToast('还在审核中，过一会再检查试试～', 4000);
+      }
+    });
   });
 }
 /* 整个页面真正的启动入口：先确定这台设备属于哪个"家庭空间"，再走原来的 load() 流程。
@@ -3922,8 +4090,178 @@ function familyGateAndLoad(){
     load();
     return;
   }
+  var pendingApplyCode=null;
+  try{ pendingApplyCode=localStorage.getItem(PENDING_APPLY_CODE_KEY); }catch(e){}
+  if(pendingApplyCode){
+    showFamilyPendingModal(pendingApplyCode,'之前提交的申请还没审核通过，点下面的按钮重新检查一下。');
+    return;
+  }
   _familyGateMode='initial';
   showModal('familyGateModal');
+}
+
+/* ========== 2026-09新增：隐藏的"管理后台"——只有网址后面加 #admin 才会出现小按钮 ==========
+   两件事：①审批新用户的开通申请（对应上面"apply:"那些记录）②能直接看/改任意一家的原始存档数据，
+   方便别人反馈bug时不用干等我改代码，直接在这里修数据。
+   密码没有存在代码里明文写死，第一次用的时候自己设一个，之后存在云端一条独立记录里（id="admin:pass"），
+   这样换设备登录管理后台也不用来找我改代码。这只是"看起来像密码"的一道门，不是银行级别的加密——
+   毕竟整个网页都是公开源码，真要扒代码是能扒到查询方式的，只是能挡住一般小朋友/路人，挡不住存心搞技术的人。 */
+var ADMIN_PASS_ROW_ID='admin:pass';
+function adminHash(str){
+  str=String(str||'');
+  var h=5381;
+  for(var i=0;i<str.length;i++){ h=((h*33)^str.charCodeAt(i))>>>0; }
+  return h.toString(36);
+}
+function supaUpsertRow(id,data){
+  var body=JSON.stringify({id:id,data:data,updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000);
+}
+/* 管理后台入口只在"默认家庭空间"（茜茜嫣嫣家/你自己那个号）里显示，其他任何家庭码登录进来的人，
+   这个按钮从头到尾都不存在，不是隐藏起来、是压根没渲染出来 */
+function refreshAdminEntryVisibility(){
+  var wrap=document.getElementById('adminEntryWrap');
+  if(!wrap) return;
+  wrap.style.display=(SUPA_ROW_ID===DEFAULT_FAMILY_ROW_ID)?'block':'none';
+}
+function openAdminEntry(){
+  var input=document.getElementById('adminLoginInput');
+  if(input) input.value='';
+  showModal('adminLoginModal');
+}
+function submitAdminLogin(){
+  var input=document.getElementById('adminLoginInput');
+  var pass=(input&&input.value||'').trim();
+  if(!pass){ ttsToast('请输入密码', 3000); return; }
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(ADMIN_PASS_ROW_ID)+'&select=data';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var saved=(rows&&rows[0]&&rows[0].data)?rows[0].data.hash:null;
+    if(!saved){
+      // 第一次用管理后台：这次输入的密码就直接设成以后的管理密码
+      return supaUpsertRow(ADMIN_PASS_ROW_ID,{hash:adminHash(pass)}).then(function(){
+        ttsToast('✅ 已经把这次输入的密码设成管理密码，下次登录要用这个', 5000);
+        return true;
+      });
+    }
+    return saved===adminHash(pass);
+  }).then(function(ok){
+    if(!ok){ ttsToast('❌ 密码不对', 3000); return; }
+    hideModal('adminLoginModal');
+    showModal('adminPanelModal');
+    loadAdminApplications();
+    loadAdminFamilies();
+  }).catch(function(){ ttsToast('❌ 没连上云端，等一下再试', 4000); });
+}
+function loadAdminApplications(){
+  var box=document.getElementById('adminApplyList');
+  if(!box) return;
+  box.textContent='加载中…';
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('apply:*')+'&select=data&limit=300';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var list=(rows||[]).map(function(r){ return r.data; }).filter(function(d){ return d && d.code && d.status==='pending'; });
+    if(!list.length){ box.innerHTML='（暂时没有待审核的申请）'; return; }
+    box.innerHTML='';
+    list.forEach(function(d){
+      var row=document.createElement('div');
+      row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px';
+      var when='';
+      try{ when=new Date(d.requestedAt).toLocaleString(); }catch(e){}
+      row.innerHTML='<div>家庭码：<b>'+d.code+'</b>　孩子姓名：<b>'+(d.childName||'—')+'</b></div><div style="color:#999;font-size:11px">'+when+'</div>';
+      var btnWrap=document.createElement('div');
+      btnWrap.style.cssText='margin-top:6px;display:flex;gap:6px';
+      var okBtn=document.createElement('button');
+      okBtn.className='btn btn-success btn-sm';
+      okBtn.textContent='✅ 批准';
+      okBtn.onclick=function(){ adminDecideApplication(d,'approved'); };
+      var noBtn=document.createElement('button');
+      noBtn.className='btn btn-gray btn-sm';
+      noBtn.textContent='🚫 拒绝';
+      noBtn.onclick=function(){ adminDecideApplication(d,'rejected'); };
+      btnWrap.appendChild(okBtn); btnWrap.appendChild(noBtn);
+      row.appendChild(btnWrap);
+      box.appendChild(row);
+    });
+  }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
+}
+function adminDecideApplication(appData,decision){
+  var newData={code:appData.code,childName:appData.childName,status:decision,requestedAt:appData.requestedAt,decidedAt:new Date().toISOString()};
+  var chain=Promise.resolve();
+  if(decision==='approved'){
+    chain=registerFamilyCodePointer(appData.code, familyCodeToRowId(appData.code));
+  }
+  chain.then(function(){
+    return supaUpsertRow(applyRecordId(appData.code), newData);
+  }).then(function(){
+    ttsToast(decision==='approved'?'✅ 已批准':'🚫 已拒绝', 3000);
+    loadAdminApplications();
+  }).catch(function(){ ttsToast('❌ 没连上云端，操作没成功', 4000); });
+}
+var _adminEditingRowId=null;
+function loadAdminFamilies(){
+  var box=document.getElementById('adminFamilyList');
+  if(!box) return;
+  box.textContent='加载中…';
+  document.getElementById('adminFamilyEditBox').style.display='none';
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data&limit=300';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var byRow={};
+    (rows||[]).forEach(function(r){
+      var d=r.data;
+      if(!d||!d.rowId) return;
+      if(!byRow[d.rowId]) byRow[d.rowId]=[];
+      byRow[d.rowId].push(d.name||'？');
+    });
+    var rowIds=Object.keys(byRow);
+    if(!rowIds.length){ box.innerHTML='（暂时没有已注册宠物家的家庭）'; return; }
+    box.innerHTML='';
+    rowIds.forEach(function(rid){
+      var row=document.createElement('div');
+      row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px';
+      row.innerHTML='<div>👪 '+byRow[rid].join('、')+'<div style="color:#999;font-size:11px">'+rid+'</div></div>';
+      var btn=document.createElement('button');
+      btn.className='btn btn-info btn-sm';
+      btn.textContent='🔍 查看/修复';
+      btn.onclick=function(){ adminViewFamilyData(rid); };
+      row.appendChild(btn);
+      box.appendChild(row);
+    });
+  }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
+}
+function adminViewFamilyData(rowId){
+  fetchRowData(rowId).then(function(row){
+    _adminEditingRowId=rowId;
+    var editBox=document.getElementById('adminFamilyEditBox');
+    var label=document.getElementById('adminFamilyEditLabel');
+    var text=document.getElementById('adminFamilyEditText');
+    if(label) label.textContent='正在编辑：'+rowId;
+    if(text) text.value=JSON.stringify(row?row.data:{},null,2);
+    if(editBox) editBox.style.display='block';
+  }).catch(function(){ ttsToast('❌ 没读到这家的数据', 4000); });
+}
+function adminSaveFamilyData(){
+  var text=document.getElementById('adminFamilyEditText');
+  var parsed;
+  try{ parsed=JSON.parse(text.value); }catch(e){ ttsToast('❌ 这不是合法的JSON，没法保存', 4000); return; }
+  if(!_adminEditingRowId) return;
+  var btn=document.getElementById('adminFamilySaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
+  supaUpsertRow(_adminEditingRowId,parsed).then(function(){
+    if(btn){ btn.disabled=false; btn.textContent='💾 保存修改'; }
+    ttsToast('✅ 已保存', 3000);
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='💾 保存修改'; }
+    ttsToast('❌ 没连上云端，保存失败', 4000);
+  });
 }
 
 /* ========== 2026-09新增："串门"——公开的宠物家目录，不需要任何码 ==========
@@ -4519,6 +4857,7 @@ function finishLoadRender(){
   checkBackupReminder();
   refreshFamilyCodeDisplay();
   ensurePetHomeRegistry();
+  refreshAdminEntryVisibility();
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
