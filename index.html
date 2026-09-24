@@ -1219,10 +1219,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="page" id="page-visit">
   <div class="card">
     <h2>🚪 串门</h2>
-    <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">去好朋友家看看他们的宠物和打卡进度——只能看，不能帮他们打卡或者动他们的东西。还可以送金币给好朋友，增加亲密度！</div>
-    <div style="text-align:center;margin-bottom:10px">
-      <button class="btn btn-primary btn-sm" onclick="openAddFriendModal()">➕ 添加好朋友</button>
-    </div>
+    <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">这里能看到其他已经养了宠物的小朋友——不用输入任何码，直接点进去只读查看，不能帮TA打卡或者动TA的东西。可以摸摸TA的宠物增加亲密度（每人每天限1次），也可以送金币（每人每天限3次）。</div>
     <div class="child-list" id="friendListBox"></div>
   </div>
   <div class="card" id="visitDetailCard" style="display:none">
@@ -1439,18 +1436,6 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     </div>
     <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
     <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()">✅ 确认进入</button>
-  </div>
-</div>
-
-<!-- 添加好友（串门用） -->
-<div class="modal-mask" id="addFriendModal">
-  <div class="modal">
-    <button class="modal-close" onclick="hideModal('addFriendModal')">✕</button>
-    <h3 style="text-align:center">➕ 添加好朋友</h3>
-    <div class="small" style="text-align:left;margin-bottom:8px">输入对方的家庭码（找他/她本人要），再给这个好友取个你自己认得出的名字</div>
-    <input type="text" id="addFriendCodeInput" placeholder="对方的家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:8px;font-size:16px" />
-    <input type="text" id="addFriendLabelInput" placeholder="给好友取个名字，比如「小明家」" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
-    <button class="btn btn-primary btn-block" onclick="confirmAddFriend()">✅ 添加</button>
   </div>
 </div>
 
@@ -3718,7 +3703,6 @@ function loadStore(){
   if(typeof store.bgmVolumePct!=='number') store.bgmVolumePct=100; // 默认100%＝改造前写死的音量，老用户升级后音量不会突然变
   if(typeof store.ttsVolumePct!=='number') store.ttsVolumePct=100;
   if(store.checkinTab===undefined) store.checkinTab='sport';
-  if(!store.friends) store.friends=[]; // 串门功能：这一家自己加的好友列表（好友的家庭码+备注名），跟其它数据一样自动同步
   ensureTaskDefs();
 }
 var storageWarned=false;
@@ -3942,130 +3926,109 @@ function familyGateAndLoad(){
   showModal('familyGateModal');
 }
 
-/* ========== 2026-09新增："串门"——去好友家看看（只读），还能送金币 ==========
-   好友关系存在 store.friends 里（本机这份数据的一部分，会跟着这家自己的存档一起同步），
-   每一条只存对方的"家庭码"和一个自己起的备注名，不存对方的任何实际数据（每次串门都是现查现拉）。
-   看好友数据全程只做 GET（fetchRowData），绝不会把拉到的这份数据当成本机 store 用、也绝不会调用
-   saveStore()/cloudPush() 之类的函数去动它，从根上保证"只能看不能改"。
-   唯一的例外是"送金币"：这是我方明确要开的口子——扣自己的金币、直接改好友那一行的云端数据
-   （加金币+加亲密度），这里为了避免"自己的金币先扣了，结果对方那边没写成功、白扣"，特意先把
-   金币加到对方那边、确认成功了，才真正扣自己这边、才写日志、才存本地。 */
+/* ========== 2026-09新增："串门"——公开的宠物家目录，不需要任何码 ==========
+   2026-09fix第二版：一开始做成了"家庭码加好友"，后来改成"每个小朋友自己的串门码手动添加"，
+   两版都不对——正确需求是：不用任何码，打开"串门"就能直接看到其他所有已经养了宠物的小朋友
+   （不分是哪一家），点进去只读查看，不能打卡/不能帮TA做任何操作；可以摸摸TA的宠物增加亲密度
+   （每人每天限1次），可以送金币（每人每天限3次）。
+   实现思路：Supabase那张表还是同一张（kuluomi_sync），除了"一整个家庭的存档"（id=家庭行ID）
+   这种记录，这里再存一种"登记"记录：id='reg:'+家庭行ID+'#'+小朋友档案id，data里存这个小朋友的
+   名字/头像，方便"串门"列表直接读出来展示，不用整份家庭数据都拉下来。列出所有人用 PostgREST 的
+   like 模糊匹配（id like 'reg:%'）一次性查出所有登记记录，点进某一个才真正去拉那一整个家庭的
+   数据、只挑这一个小朋友出来看——从头到尾这一步都只做GET，不会碰对方的家庭码，也看不到、
+   更改不了对方家里其它小朋友的数据。
+   "摸宠物加亲密度"完全只记在自己这边（不用写对方的云端数据），"送金币"则需要真的去改对方那一行
+   （加金币+加亲密度），为了避免"自己的金币先扣了，结果对方那边没写成功、白扣"，特意先把金币和
+   亲密度记录都写到对方那边、确认云端真的写成功了，才真正扣自己这边、才存本地、才更新界面。
+   每人每天的摸一摸/送金币次数上限记在 state.friendBook[对方rowId#childId] 这条关系记录里，
+   跟"今天"这个日期字符串比对，过了今天就自动清零重新计数。 */
+var POKE_DAILY_LIMIT=1;   // 摸宠物加亲密度：对同一个好友，每天最多几次
+var GIFT_DAILY_LIMIT=3;   // 送金币：对同一个好友，每天最多几次
+function petHomeRegKey(rowId,childId){ return 'reg:'+rowId+'#'+childId; }
+/* 每次首屏渲染完都顺手把"这一家所有已经养了宠物的小朋友"在公开目录里登记/刷新一次——只有真的
+   选了宠物的小朋友才会出现在别人的串门列表里，跟"还没养宠物就先别让人看见"这个直觉一致 */
+function ensurePetHomeRegistry(){
+  if(!store||!store.accounts) return;
+  Object.keys(store.accounts).forEach(function(cid){
+    var c=store.accounts[cid];
+    if(!c || !c.state || !c.state.pet || !c.state.pet.chosen) return;
+    var pointerId=petHomeRegKey(SUPA_ROW_ID,cid);
+    var body=JSON.stringify({id:pointerId,data:{rowId:SUPA_ROW_ID,childId:cid,name:c.name,avatar:c.avatar},updated_at:new Date().toISOString()});
+    var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+    supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000).catch(function(){});
+  });
+}
+function fetchPetHomeDirectory(){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data&limit=300';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    return (rows||[]).map(function(r){ return r.data; }).filter(function(d){
+      return d && d.rowId && d.childId && d.rowId!==SUPA_ROW_ID; // 排除自己家（自己家的小朋友已经能在"选择小朋友"里切换看到）
+    });
+  });
+}
 function renderFriendList(){
   var box=document.getElementById('friendListBox');
   if(!box) return;
-  var friends=store.friends||[];
-  if(friends.length===0){
-    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">还没有添加好朋友，点上面"➕ 添加好朋友"试试吧</div>';
-    return;
-  }
-  box.innerHTML='';
-  friends.forEach(function(f,idx){
-    var d=document.createElement('div');
-    d.className='child-row';
-    var nameSpan=document.createElement('span');
-    nameSpan.className='c-name'; nameSpan.textContent=f.label||f.code;
-    d.appendChild(nameSpan);
-    var ops=document.createElement('span');
-    ops.className='c-ops';
-    var goBtn=document.createElement('button');
-    goBtn.className='op-edit'; goBtn.textContent='🚪进去看看';
-    goBtn.onclick=function(e){ e.stopPropagation(); visitFriend(f.code,f.label); };
-    var delBtn=document.createElement('button');
-    delBtn.className='op-del'; delBtn.textContent='🗑️移除';
-    delBtn.onclick=function(e){ e.stopPropagation(); removeFriend(idx); };
-    ops.appendChild(goBtn); ops.appendChild(delBtn);
-    d.appendChild(ops);
-    box.appendChild(d);
+  box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">正在加载其他小朋友的宠物家……</div>';
+  fetchPetHomeDirectory().then(function(list){
+    if(!list || list.length===0){
+      box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">暂时还没有其他小朋友的宠物家可以串门（可能大家都还没养宠物，晚点再来看看）</div>';
+      return;
+    }
+    box.innerHTML='';
+    list.forEach(function(d){
+      var row=document.createElement('div');
+      row.className='child-row';
+      var avSpan=document.createElement('span'); avSpan.className='c-av'; avSpan.innerHTML=avatarHtml(d.avatar,26);
+      var nameSpan=document.createElement('span'); nameSpan.className='c-name'; nameSpan.textContent=d.name||'一位小朋友';
+      row.appendChild(avSpan); row.appendChild(nameSpan);
+      var ops=document.createElement('span'); ops.className='c-ops';
+      var goBtn=document.createElement('button'); goBtn.className='op-edit'; goBtn.textContent='🚪进去看看';
+      goBtn.onclick=function(e){ e.stopPropagation(); visitPetHome(d.rowId,d.childId); };
+      ops.appendChild(goBtn);
+      row.appendChild(ops);
+      row.onclick=function(){ visitPetHome(d.rowId,d.childId); };
+      box.appendChild(row);
+    });
+  }).catch(function(){
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">连不上云端，晚点再试试</div>';
   });
-}
-function openAddFriendModal(){
-  var c=document.getElementById('addFriendCodeInput'); if(c) c.value='';
-  var l=document.getElementById('addFriendLabelInput'); if(l) l.value='';
-  showModal('addFriendModal');
-}
-function confirmAddFriend(){
-  var code=(document.getElementById('addFriendCodeInput').value||'').trim();
-  var label=(document.getElementById('addFriendLabelInput').value||'').trim();
-  if(!code){ ttsToast('请先输入对方的家庭码', 4000); return; }
-  var myCode=null; try{ myCode=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
-  myCode=(myCode&&myCode!=='')?myCode:'茜茜嫣嫣家';
-  if(code===myCode){ ttsToast('这是你自己家的家庭码哦，加别人家的才能串门', 4000); return; }
-  if(!store.friends) store.friends=[];
-  if(store.friends.some(function(f){ return f.code===code; })){
-    ttsToast('这个好友已经加过啦', 4000);
-    hideModal('addFriendModal');
-    return;
-  }
-  store.friends.push({code:code,label:label||code,addedAt:Date.now()});
-  saveStore();
-  hideModal('addFriendModal');
-  renderFriendList();
-  ttsToast('✅ 已添加好友：'+(label||code), 4000);
-}
-function removeFriend(idx){
-  if(!store.friends) return;
-  store.friends.splice(idx,1);
-  saveStore();
-  renderFriendList();
-  closeVisitDetail();
 }
 function closeVisitDetail(){
   var card=document.getElementById('visitDetailCard');
   if(card) card.style.display='none';
 }
-function visitFriend(code,label){
-  ttsToast('🔎 正在连接 '+(label||code)+' 家……', 3000);
-  resolveFamilyCodeRowId(code).then(function(rowId){
-    return fetchRowData(rowId).then(function(row){ return {rowId:rowId,row:row}; });
-  }).then(function(res){
-    if(!res.row || !res.row.data || !res.row.data.accounts || Object.keys(res.row.data.accounts).length===0){
-      ttsToast('😕 还看不到 '+(label||code)+' 家的数据，可能对方还没开始用，或者网络不太好，晚点再试试', 5500);
+function visitPetHome(rowId,cid){
+  ttsToast('🔎 正在连接……', 2500);
+  fetchRowData(rowId).then(function(row){
+    if(!row || !row.data || !row.data.accounts || !row.data.accounts[cid]){
+      ttsToast('😕 看不到这个小朋友的数据了，可能TA的档案被删除了', 4500);
       return;
     }
-    showFriendChildList(code,label,res.rowId,res.row.data);
+    showFriendChildDetail(rowId,cid,row.data);
   }).catch(function(){
     ttsToast('😕 连不上，检查一下网络再试试', 4000);
   });
 }
-function showFriendChildList(code,label,rowId,friendStore){
+/* 我这边记录"我和某个好友"的关系（亲密度+今天摸过/送过几次），每天自动清零重新计数 */
+function getFriendRelation(targetKey){
+  if(!state.friendBook) state.friendBook={};
+  if(!state.friendBook[targetKey]){
+    state.friendBook[targetKey]={intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0,pokeDay:'',pokesToday:0,giftDay:'',giftsToday:0};
+  }
+  var r=state.friendBook[targetKey];
+  var tk=todayKey();
+  if(r.pokeDay!==tk){ r.pokeDay=tk; r.pokesToday=0; }
+  if(r.giftDay!==tk){ r.giftDay=tk; r.giftsToday=0; }
+  return r;
+}
+function showFriendChildDetail(rowId,cid,friendStore){
   var card=document.getElementById('visitDetailCard');
   var body=document.getElementById('visitDetailBody');
-  if(!card||!body) return;
-  body.innerHTML='';
-  var h=document.createElement('h3');
-  h.style.textAlign='center';
-  h.textContent='🚪 '+(label||code);
-  body.appendChild(h);
-  var hint=document.createElement('div');
-  hint.className='small';
-  hint.style.cssText='text-align:center;margin-bottom:8px';
-  hint.textContent='点一个小朋友，看看TA的进度（只能看，不能操作）';
-  body.appendChild(hint);
-  var list=document.createElement('div');
-  list.className='child-list';
-  Object.keys(friendStore.accounts).forEach(function(cid){
-    var c=friendStore.accounts[cid];
-    if(!c) return;
-    var d=document.createElement('div');
-    d.className='child-row';
-    var avSpan=document.createElement('span'); avSpan.className='c-av'; avSpan.innerHTML=avatarHtml(c.avatar,26);
-    var nameSpan=document.createElement('span'); nameSpan.className='c-name'; nameSpan.textContent=c.name;
-    d.appendChild(avSpan); d.appendChild(nameSpan);
-    d.onclick=function(){ showFriendChildDetail(code,label,rowId,cid,friendStore); };
-    list.appendChild(d);
-  });
-  body.appendChild(list);
-  var closeBtn=document.createElement('button');
-  closeBtn.className='btn btn-gray btn-sm';
-  closeBtn.style.marginTop='8px';
-  closeBtn.textContent='⬅️ 收起';
-  closeBtn.onclick=function(){ closeVisitDetail(); };
-  body.appendChild(closeBtn);
-  card.style.display='block';
-}
-function showFriendChildDetail(code,label,rowId,cid,friendStore){
-  var body=document.getElementById('visitDetailBody');
-  if(!body) return;
+  if(!card||!body||!state) return;
   var c=friendStore.accounts[cid];
   if(!c) return;
   var st=c.state||{};
@@ -4085,12 +4048,16 @@ function showFriendChildDetail(code,label,rowId,cid,friendStore){
   var todayEarned=(st.day && typeof st.day.earned==='number')?st.day.earned:0;
   var totalFullDays=(typeof st.totalFullDays==='number')?st.totalFullDays:0;
   var balance=(typeof st.moneyBalance==='number')?st.moneyBalance:0;
+  var targetKey=rowId+'#'+cid;
+  var rel=getFriendRelation(targetKey);
+  var pokesLeft=Math.max(0,POKE_DAILY_LIMIT-rel.pokesToday);
+  var giftsLeft=Math.max(0,GIFT_DAILY_LIMIT-rel.giftsToday);
 
   body.innerHTML='';
   var back=document.createElement('button');
   back.className='btn btn-gray btn-sm';
-  back.textContent='⬅️ 返回 '+(label||code)+' 的小朋友列表';
-  back.onclick=function(){ showFriendChildList(code,label,rowId,friendStore); };
+  back.textContent='⬅️ 收起';
+  back.onclick=function(){ closeVisitDetail(); };
   body.appendChild(back);
 
   var h=document.createElement('h3');
@@ -4101,18 +4068,43 @@ function showFriendChildDetail(code,label,rowId,cid,friendStore){
   var infoBox=document.createElement('div');
   infoBox.className='small';
   infoBox.style.cssText='text-align:left;line-height:2;background:#f7f0fb;border-radius:10px;padding:10px;margin:8px 0';
-  infoBox.innerHTML='🐾 宠物：'+petHtml+'<br>💰 金币余额：'+balance+'<br>📅 今天已获得金币：'+todayEarned+(todayEarned>0?'（今天已经打过卡啦）':'（今天好像还没打卡）')+'<br>🏆 累计完整打卡天数：'+totalFullDays;
+  infoBox.innerHTML='🐾 宠物：'+petHtml+'<br>💰 金币余额：'+balance+'<br>📅 今天已获得金币：'+todayEarned+(todayEarned>0?'（今天已经打过卡啦）':'（今天好像还没打卡）')+'<br>🏆 累计完整打卡天数：'+totalFullDays+'<br>💗 你和TA的亲密度：'+(rel.intimacy||0);
   body.appendChild(infoBox);
+
+  var pokeBtn=document.createElement('button');
+  pokeBtn.className='btn btn-warning btn-block';
+  pokeBtn.disabled=pokesLeft<=0;
+  pokeBtn.textContent=pokesLeft>0?('🐾 摸摸TA的宠物（+亲密度，今天还能摸'+pokesLeft+'次）'):'🐾 今天已经摸过啦，明天再来';
+  pokeBtn.onclick=function(){ pokeFriendPet(rowId,cid,c.name,friendStore); };
+  body.appendChild(pokeBtn);
 
   var giftBtn=document.createElement('button');
   giftBtn.className='btn btn-primary btn-block';
-  giftBtn.textContent='🎁 送TA金币';
-  giftBtn.onclick=function(){ openGiftModal(code,label,rowId,cid,c.name); };
+  giftBtn.style.marginTop='6px';
+  giftBtn.disabled=giftsLeft<=0;
+  giftBtn.textContent=giftsLeft>0?('🎁 送TA金币（今天还能送'+giftsLeft+'次）'):'🎁 今天的赠送次数用完啦';
+  giftBtn.onclick=function(){ openGiftModal(rowId,cid,c.name); };
   body.appendChild(giftBtn);
+
+  card.style.display='block';
+}
+function pokeFriendPet(rowId,cid,displayName,friendStore){
+  if(!currentChild()) return;
+  var targetKey=rowId+'#'+cid;
+  var rel=getFriendRelation(targetKey);
+  if(rel.pokesToday>=POKE_DAILY_LIMIT){ ttsToast('今天已经摸过TA的宠物啦，明天再来吧', 4000); return; }
+  rel.pokesToday+=1;
+  rel.intimacy=(rel.intimacy||0)+1;
+  rel.name=displayName;
+  rel.lastAt=Date.now();
+  addLog('🐾 摸了摸 '+displayName+' 的宠物，亲密度+1');
+  saveStore();
+  ttsToast('🐾 亲密度+1！和 '+displayName+' 更熟啦', 3500);
+  showFriendChildDetail(rowId,cid,friendStore);
 }
 var _giftTarget=null;
-function openGiftModal(code,label,rowId,childId,childName){
-  _giftTarget={code:code,label:label,rowId:rowId,childId:childId,name:childName};
+function openGiftModal(rowId,childId,childName){
+  _giftTarget={rowId:rowId,childId:childId,name:childName};
   var t=document.getElementById('giftTargetLabel'); if(t) t.textContent=childName;
   var bal=document.getElementById('giftMyBalance'); if(bal) bal.textContent=(state&&typeof state.moneyBalance==='number')?state.moneyBalance:0;
   var input=document.getElementById('giftAmountInput'); if(input) input.value='';
@@ -4120,14 +4112,16 @@ function openGiftModal(code,label,rowId,childId,childName){
 }
 function pushGiftToFriendRow(rowId,friendChildId,amt,fromInfo){
   return fetchRowData(rowId).then(function(row){
-    if(!row || !row.data || !row.data.accounts || !row.data.accounts[friendChildId]) return false;
+    if(!row || !row.data || !row.data.accounts || !row.data.accounts[friendChildId]) return {ok:false};
     var friendStoreData=row.data;
     var friendChildState=friendStoreData.accounts[friendChildId].state;
-    if(!friendChildState) return false;
+    if(!friendChildState) return {ok:false};
     friendChildState.moneyBalance=(typeof friendChildState.moneyBalance==='number'?friendChildState.moneyBalance:0)+amt;
     if(!friendChildState.friendBook) friendChildState.friendBook={};
-    var rk=fromInfo.code+'#'+fromInfo.childId;
-    if(!friendChildState.friendBook[rk]) friendChildState.friendBook[rk]={name:fromInfo.name,intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0};
+    var rk=fromInfo.rowId+'#'+fromInfo.childId;
+    if(!friendChildState.friendBook[rk]){
+      friendChildState.friendBook[rk]={intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0,pokeDay:'',pokesToday:0,giftDay:'',giftsToday:0};
+    }
     friendChildState.friendBook[rk].name=fromInfo.name;
     friendChildState.friendBook[rk].intimacy=(friendChildState.friendBook[rk].intimacy||0)+amt;
     friendChildState.friendBook[rk].coinsReceivedFromThem=(friendChildState.friendBook[rk].coinsReceivedFromThem||0)+amt;
@@ -4136,9 +4130,9 @@ function pushGiftToFriendRow(rowId,friendChildId,amt,fromInfo){
     var body=JSON.stringify({id:rowId,data:friendStoreData,updated_at:nowIso});
     var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
     return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000)
-      .then(function(res){ return res.ok; })
-      .catch(function(){ return false; });
-  }).catch(function(){ return false; });
+      .then(function(res){ return {ok:res.ok,friendStoreData:friendStoreData}; })
+      .catch(function(){ return {ok:false}; });
+  }).catch(function(){ return {ok:false}; });
 }
 function confirmGiftCoins(){
   if(!_giftTarget) return;
@@ -4147,28 +4141,28 @@ function confirmGiftCoins(){
   if(!amt || amt<=0){ ttsToast('请输入要送出的金币数量', 4000); return; }
   if(!state || typeof state.moneyBalance!=='number' || state.moneyBalance<amt){ ttsToast('金币不够哦，先攒多一点再送吧', 4000); return; }
   if(!currentChild()) return;
+  var target=_giftTarget;
+  var targetKey=target.rowId+'#'+target.childId;
+  var rel=getFriendRelation(targetKey);
+  if(rel.giftsToday>=GIFT_DAILY_LIMIT){ ttsToast('今天送给TA的次数已经用完啦（每天最多'+GIFT_DAILY_LIMIT+'次），明天再送吧', 4500); return; }
   var btn=document.getElementById('giftConfirmBtn');
   if(btn){ btn.disabled=true; btn.textContent='赠送中…'; }
-  var target=_giftTarget;
-  var myCode=null; try{ myCode=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
-  myCode=(myCode&&myCode!=='')?myCode:'茜茜嫣嫣家';
-  var fromInfo={code:myCode,childId:store.currentChildId,name:currentChild().name};
-  pushGiftToFriendRow(target.rowId,target.childId,amt,fromInfo).then(function(ok){
+  var fromInfo={rowId:SUPA_ROW_ID,childId:store.currentChildId,name:currentChild().name};
+  pushGiftToFriendRow(target.rowId,target.childId,amt,fromInfo).then(function(res){
     if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
-    if(!ok){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
+    if(!res || !res.ok){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
     state.moneyBalance-=amt;
-    var fk=target.code+'#'+target.childId;
-    if(!state.friendBook) state.friendBook={};
-    if(!state.friendBook[fk]) state.friendBook[fk]={name:target.name,intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0};
-    state.friendBook[fk].name=target.name;
-    state.friendBook[fk].intimacy=(state.friendBook[fk].intimacy||0)+amt;
-    state.friendBook[fk].coinsGiftedToThem=(state.friendBook[fk].coinsGiftedToThem||0)+amt;
-    state.friendBook[fk].lastAt=Date.now();
+    rel.giftsToday+=1;
+    rel.intimacy=(rel.intimacy||0)+amt;
+    rel.coinsGiftedToThem=(rel.coinsGiftedToThem||0)+amt;
+    rel.name=target.name;
+    rel.lastAt=Date.now();
     addLog('🎁 送给好友「'+target.name+'」 '+amt+' 金币，亲密度+'+amt);
     saveStore();
     render();
     hideModal('giftModal');
     ttsToast('🎉 已经送给 '+target.name+' '+amt+' 个金币啦！', 5000);
+    if(res.friendStoreData) showFriendChildDetail(target.rowId,target.childId,res.friendStoreData);
   });
 }
 
@@ -4439,6 +4433,7 @@ function finishLoadRender(){
   scheduleAppEntranceGreeting();
   checkBackupReminder();
   refreshFamilyCodeDisplay();
+  ensurePetHomeRegistry();
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
@@ -8518,6 +8513,7 @@ function confirmName(){
     showReward('🥚 欢迎你！','你的新伙伴 <b>'+lib.name+'</b> 现在还是一颗宠物蛋。<br>完成每日打卡攒满 '+CONFIG.eggHatchExp+' 经验就能破壳啦！');
   }
   save();
+  ensurePetHomeRegistry(); // 一养宠物立刻登记进"串门"公开目录，不用等下次刷新页面别人才能看到
 }
 function petLevelInfo(p){
   // 不传参数时默认查当前"出战/展示"的宠物；传入某一只具体的宠物对象时可以单独查它的等级
