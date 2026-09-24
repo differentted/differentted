@@ -1535,8 +1535,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div id="btLoadoutView">
       <h3 id="btLoadoutTitle" style="margin-top:0">🎒 选技能出战</h3>
       <div id="btLevelGapHint" class="small" style="display:none;text-align:left;margin:-4px 0 8px;padding:6px 8px;border-radius:8px;background:#fff3e0;color:#e65100"></div>
-      <div class="small" style="text-align:left;margin:-4px 0 8px;line-height:1.6">先选3个通用技能、再选1个必杀技带出战。战斗时通用技能会自动随机使出，不用一个个点；必杀技攒满能量后，什么时候放由你自己判断。</div>
-      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:8px 0 4px">⚔️ 通用技能（选3个）：<span id="btNormalPickCount">0</span>/3</div>
+      <div class="small" style="text-align:left;margin:-4px 0 8px;line-height:1.6">最多选3个通用技能、1个必杀技带出战——还没解锁技能也没关系，没选够的位置会自动用"普通攻击"顶上（伤害跟着等级和当前七维能力走）。战斗时通用技能会自动随机使出，不用一个个点；必杀技攒满能量后，什么时候放由你自己判断。</div>
+      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:8px 0 4px">⚔️ 通用技能（最多选3个）：<span id="btNormalPickCount">0</span>/3</div>
       <div id="btNormalPickBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
       <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:10px 0 4px">💥 必杀技（选1个）</div>
       <div id="btUltPickBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
@@ -4573,20 +4573,34 @@ function toggleBattleNormalPick(key){
   renderBattleLoadoutPicks();
 }
 function confirmBattleLoadout(){
-  var ptsMap=liveAbilityPtsMap();
-  var unlockedNormalCount=battleSkillKeysByKind('normal').filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; }).length;
-  if(unlockedNormalCount<3){ ttsToast('解锁的通用技能还不够3个，多打卡涨七维能力就能解锁更多技能啦', 5000); return; }
-  if(_battleLoadout.normal.length!==3){ ttsToast('请选够3个通用技能', 3000); return; }
-  var unlockedUltCount=battleSkillKeysByKind('ultimate').filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; }).length;
-  if(unlockedUltCount<1){ ttsToast('还没有解锁任何必杀技，多打卡涨七维能力就能解锁啦', 5000); return; }
-  if(!_battleLoadout.ult){ ttsToast('请选1个必杀技', 3000); return; }
+  // 2026-09fix：不再要求必须解锁满3个通用技能才能开打——没解锁够的位置，进战斗时会自动用
+  // "普通攻击"顶上（伤害跟着等级和当前七维能力走），必杀技同理，没解锁就先不带，不影响开打
+  if(_battleLoadout.normal.length>3){ ttsToast('通用技能最多选3个，先取消一个再选新的', 3000); return; }
   startBattleDemo();
 }
-function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap){
+/* 2026-09新增：还没解锁够3个通用技能时，不再卡住不让PK/对战——空着的位置自动用"普通攻击"顶上，
+   伤害不是随便给的固定值，而是跟着这只宠物当前的等级和七维能力雷达图（封顶显示的那套0-100分数，
+   跟雷达图上看到的一致）动态算出来，能力越强攻击力越高，公平地体现"虽然还没解锁技能书，但已经
+   攒了不少七维能力"这件事。 */
+function battleBasicAttackPower(pet,st){
+  var level=(pet&&typeof petLevelInfo==='function')?petLevelInfo(pet).level:1;
+  var scores=abilityScoresFromState(st||{});
+  var sum=0,n=0; RADAR_AXES.forEach(function(ax){ sum+=(scores[ax.key]||0); n++; });
+  var avg=n?sum/n:0;
+  return Math.max(6, Math.round(8+level*0.5+avg*0.12));
+}
+function basicAttackInstance(pet,st){
+  return { name:'普通攻击', dim:null, kind:'normal', power: battleBasicAttackPower(pet,st), desc:'保底攻击，没解锁技能的位置会自动用它，威力跟着等级和当前七维能力走' };
+}
+function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap,pet,st){
+  var skills=(skillKeys||[]).map(function(k){
+    return k==='basic_attack' ? basicAttackInstance(pet,st) : battleSkillInstance(k,ptsMap);
+  });
+  if(!skills.length) skills=[basicAttackInstance(pet,st)];
   return {
     name:name, maxHp:hp, hp:hp,
-    skills:skillKeys.map(function(k){ return battleSkillInstance(k,ptsMap); }),
-    ult:battleSkillInstance(ultKey,ptsMap),
+    skills:skills,
+    ult: ultKey ? battleSkillInstance(ultKey,ptsMap) : null,
     shieldPct:0, shieldTurns:0, sealed:false, stunned:false,
     buffAtk:0, buffTurns:0, debuffTakeMore:0, debuffTurns:0
   };
@@ -4596,17 +4610,20 @@ function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap){
 function autoPickFriendLoadout(ptsMap){
   var normalPool=battleSkillKeysByKind('normal');
   var unlockedNormal=normalPool.filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; });
-  var pool=unlockedNormal.length?unlockedNormal:normalPool;
-  var chosen=[], src=pool.slice();
-  while(chosen.length<3){
-    if(!src.length) src=pool.slice();
-    var idx=Math.floor(Math.random()*src.length);
-    chosen.push(src[idx]); src.splice(idx,1);
+  var chosen=[];
+  if(unlockedNormal.length){
+    var src=unlockedNormal.slice();
+    while(chosen.length<3){
+      if(!src.length) src=unlockedNormal.slice();
+      var idx=Math.floor(Math.random()*src.length);
+      chosen.push(src[idx]); src.splice(idx,1);
+    }
+  }else{
+    chosen=['basic_attack','basic_attack','basic_attack'];
   }
   var ultPool=battleSkillKeysByKind('ultimate');
   var unlockedUlt=ultPool.filter(function(k){ return battleSkillUnlockInfo(k,ptsMap).unlocked; });
-  var ultSrc=unlockedUlt.length?unlockedUlt:ultPool;
-  var ult=ultSrc[Math.floor(Math.random()*ultSrc.length)];
+  var ult=unlockedUlt.length?unlockedUlt[Math.floor(Math.random()*unlockedUlt.length)]:null;
   return {normal:chosen,ult:ult};
 }
 function startBattleDemo(){
@@ -4614,7 +4631,10 @@ function startBattleDemo(){
   var petArt=dungeonPetArtSrc(childPet,petLevelInfo(childPet));
   var petFilter=dirtyFilterFor(childPet.clean)||'';
   var petName=childPet.name||'我方灵宠';
-  var player=newBattleFighter(petName,100,_battleLoadout.normal,_battleLoadout.ult,liveAbilityPtsMap());
+  // 没解锁够3个通用技能也能出战——空位自动用"普通攻击"顶上，伤害按等级+当前七维能力算
+  var playerNormalKeys=(_battleLoadout.normal||[]).slice();
+  while(playerNormalKeys.length<3) playerNormalKeys.push('basic_attack');
+  var player=newBattleFighter(petName,100,playerNormalKeys,_battleLoadout.ult,liveAbilityPtsMap(),childPet,state);
 
   var opp,oppArtSrc,oppName;
   if(_battleMode==='pk' && _battlePkTarget){
@@ -4623,7 +4643,7 @@ function startBattleDemo(){
     var friendPtsMap=rawAbilityPtsFromState(t.friendChildState);
     var friendLoadout=autoPickFriendLoadout(friendPtsMap);
     oppName=t.friendName+'的灵宠';
-    opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap);
+    opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap,friendPet,t.friendChildState);
     oppArtSrc=petDisplayImgSrc(friendPet);
     var _myLv=petLevelInfo(childPet).level, _oppLv=petLevelInfo(friendPet).level, _lvGap=_oppLv-_myLv;
     applyBattleLevelGap(opp,_lvGap);
@@ -4783,7 +4803,7 @@ function battleResolveSkill(user,target,skill,userImgId,targetImgId){
   if(skill.stunChance && Math.random()<skill.stunChance){ target.stunned=true; btLog('💫 '+target.name+' 被击退打断，下回合没法行动'); }
 }
 function battlePickAiSkill(fighter,energyPips){
-  if(energyPips>=3 && Math.random()<0.5) return {skill:fighter.ult,isUlt:true};
+  if(energyPips>=3 && fighter.ult && Math.random()<0.5) return {skill:fighter.ult,isUlt:true};
   if(fighter.hp/fighter.maxHp<0.35){
     var healer=fighter.skills.filter(function(s){ return s.heal || s.shield; })[0];
     if(healer) return {skill:healer,isUlt:false};
@@ -4807,7 +4827,7 @@ function battleDemoRoundFinish(){
   if(p.hp<=0 || o.hp<=0){ battleDemoEnd(o.hp<=0); return; }
   _battle.busy=false;
   document.getElementById('btAttackBtn').disabled=false;
-  document.getElementById('btUltBtn').disabled=_battle.energyPips<3;
+  document.getElementById('btUltBtn').disabled=(_battle.energyPips<3)||!_battle.pet.ult;
 }
 function battleDemoOppCounter(){
   if(!_battle||_battle.over) return;
@@ -4830,13 +4850,13 @@ function battleDemoAttack(){
     battleResolveSkill(p,_battle.mon,pick,'btPetImg','btMonsterImg');
     if(_battle.round%2===0){ _battle.energyPips=Math.min(3,_battle.energyPips+1); }
     document.getElementById('btEnergyText').textContent=btEnergyDots(_battle.energyPips);
-    if(_battle.energyPips>=3) document.getElementById('btUltBtn').style.display='inline-block';
+    if(_battle.energyPips>=3 && _battle.pet.ult) document.getElementById('btUltBtn').style.display='inline-block';
     if(_battle.mon.hp<=0){ battleDemoRoundFinish(); return; }
     setTimeout(battleDemoOppCounter,420);
   },160);
 }
 function battleDemoUlt(){
-  if(!_battle||_battle.energyPips<3) return;
+  if(!_battle||_battle.energyPips<3||!_battle.pet.ult) return;
   if(!battleDemoRoundStart()) return;
   var p=_battle.pet;
   _battle.round++;
