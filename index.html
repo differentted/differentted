@@ -837,6 +837,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<div class="modal-mask" id="cloudDiagModal">
+  <div class="modal" style="max-width:340px;text-align:left">
+    <button class="modal-close" onclick="hideModal('cloudDiagModal')">✕</button>
+    <h3 style="text-align:center">🔍 同步诊断结果</h3>
+    <pre id="cloudDiagText" style="white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.7;font-family:inherit;background:#f7f2fa;border-radius:10px;padding:10px;margin:0"></pre>
+    <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="hideModal('cloudDiagModal')">知道了</button>
+  </div>
+</div>
+
 <div class="modal-mask" id="volumeModal">
   <div class="modal" style="max-width:320px;text-align:left">
     <button class="modal-close" onclick="hideModal('volumeModal')">✕</button>
@@ -1146,6 +1155,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <textarea id="importText" rows="3" placeholder="把备份粘贴到这里，用于恢复"></textarea>
     <button class="btn btn-success btn-sm" onclick="importData()">导入恢复数据</button>
     <div class="small" style="margin-top:5px">备份包含所有小朋友的档案数据；下载的文件换设备后「从文件导入」即可恢复</div>
+    <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
+      <button class="btn btn-gray btn-sm" onclick="cloudDiagnose()">🔍 多设备同步诊断</button>
+      <div class="small" style="margin-top:4px;color:#999">怀疑几台设备数据对不齐时点这里，会显示这台设备连云端的详细情况（不会自动消失，方便截图发给我排查）</div>
+    </div>
   </div>
   <div class="card">
     <h2>⚔️ 副本挑战管理</h2>
@@ -3652,15 +3665,252 @@ function saveStore(){
   if(state && store.currentChildId && store.accounts[store.currentChildId]){
     store.accounts[store.currentChildId].state=state;
   }
+  store.updatedAt=Date.now(); // 本机最近一次改动的时间戳，多设备云同步靠它判断"谁的数据更新"
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(store));
   }catch(e){
     if(!storageWarned){
       storageWarned=true;
-      alert('⚠️ 数据无法保存到本机（可能是无痕/隐私模式，或存储空间已满）。请尽快点击「背包」页的「下载备份文件」保存进度，否则刷新页面后打卡记录会丢失！');
+      ttsToast('⚠️ 数据无法保存到本机（可能是无痕/隐私模式，或存储空间已满）。请尽快点击「背包」页的「下载备份文件」保存进度，否则刷新页面后打卡记录会丢失！', 8000);
     }
   }
+  scheduleCloudPush();
 }
+/* 2026-09fix：排查"同一个存档，开两个页面/两台设备，一个宠物已经孵化、另一个还是蛋，刷新好多次也
+   对不齐"这个问题，定位到根子在这里——原来 petMinuteTick()（每分钟挂机自动跑一次，只要页面开着就在跑）
+   每次都调用普通的 save()/saveStore()，而 saveStore() 每次都会把 store.updatedAt 重新盖成"现在"，
+   不管这次到底有没有发生什么值得同步的真变化。也就是说，只要一个页面开着超过1分钟，哪怕孩子什么都没点、
+   宠物数值只是缓慢自然掉了一点点，它的 updatedAt 也会被刷成"最新"——这样一来，"本机数据是不是比云端新"
+   这个判断就完全失真了：明明内容很旧（比如宠物还是蛋）的那个页面，因为挂着没关，updatedAt 反而显得比
+   另一台设备真正打卡获得的新进度还"新"，于是它会理直气壮地把自己这份旧数据推上云端、覆盖掉真正更新的
+   数据，两边就越对越不齐。这里加一个"只存本地、不碰 updatedAt、不触发云端推送"的版本，专门给
+   petMinuteTick 这种"纯挂机、没有真正值得同步的新变化"的场景用；真正有意义的动作（打卡、购买、
+   宠物变回蛋等）该走哪条路完全不变，还是普通 saveStore()，会正常参与同步。 */
+function saveStoreLocalOnly(){
+  if(state && store.currentChildId && store.accounts[store.currentChildId]){
+    store.accounts[store.currentChildId].state=state;
+  }
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch(e){}
+}
+
+/* ========== 2026-09新增：多设备云端同步（Supabase）==========
+   背景：之前"下载备份文件"只能手动导出/导入，孩子平板和家长手机之间要同步存档得手动传文件。
+   这里加一层自动的、不用登录任何账号的云端同步——用Supabase一张表存"整份存档JSON"（跟"下载备份
+   文件"导出的其实是同一份东西），哪个设备打卡/改了数据，改完几秒后自动同步到云端；别的设备下次
+   打开网页时自动去比一下，云端更新就采用云端那份。
+   故意不引入额外的supabase-js库，只用页面本身已经在到处用的fetch()直接调Supabase的REST接口，
+   少一个"外部脚本CDN加载不了"的失败点。
+   最重要的原则：不管是没联网、请求超时、这台设备的网址白名单拦住了supabase.co这个域名，还是
+   Supabase那边出问题——任何一步失败都必须静默降级为"就用本机数据，正常打卡"，绝不能因为云同步
+   失败导致孩子这边打卡功能用不了、也不能弹烦人的报错打扰使用。 */
+var SUPA_URL='https://yngdnajnlilamqsxydnv.supabase.co';
+var SUPA_KEY='sb_publishable_IDyd8JeUSRRZ5FVNk9VK8g_5izNiYdC';
+var SUPA_TABLE='kuluomi_sync';
+var SUPA_ROW_ID='6GtaRbPnAT56Qf3e'; // 这一家专用的同步行ID，相当于共享密钥，不要改动/泄露给无关的人
+var SUPA_LAST_SYNCED_KEY='kuroCloudLastSyncedUpdatedAt';
+var _cloudPushTimer=null;
+var _cloudSyncReady=false; // 首次云端拉取、比对处理完之前不允许自动推送，避免拿本机的旧数据抢先覆盖了云端更新的数据
+
+function supaHeaders(extra){
+  var h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json'};
+  if(extra) for(var k in extra) h[k]=extra[k];
+  return h;
+}
+function supaFetch(url,opts,ms){
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var opts2={}; for(var k in (opts||{})) opts2[k]=opts[k];
+  if(ctrl) opts2.signal=ctrl.signal;
+  var timer=ctrl?setTimeout(function(){ try{ctrl.abort();}catch(e){} }, ms||7000):null;
+  var p=fetch(url,opts2);
+  if(timer) p=p.finally(function(){ clearTimeout(timer); });
+  return p;
+}
+/* 拉取云端存档：成功返回{data,updated_at}；没有云端数据/请求失败/超时/被设备网址白名单拦住，
+   统一返回null——调用方把null当成"暂时没有云端数据可用"处理，不当错误、不提示用户 */
+/* 2026-09fix：从"外部来源"（备份文本/文件导入、云端拉取后决定采用）整份接管一份 store 数据时，
+   都要先走这个函数，再去调用 applyRealTimeDecay()——不然它会直接拿"现在"减去数据里存的
+   lastTickAt/injuredAt 这个"很久以前"（备份/云端那份数据最后一次更新时）的真实时间戳去算，把
+   "这份数据放了多久没被用"也当成"宠物被晾着没人照顾/受伤没吃药"，很容易一接管就直接饿到四项归零、
+   摸到 PET_NEGLECT_REVERT_HOURS（72小时）或 PET_INJURY_REVERT_HOURS（3小时）的门槛，宠物瞬间变回
+   蛋——这是误伤，不是真的疏于照顾（之前排查家长反馈"导入备份后宠物全变蛋了"就是这个原因；云端同步
+   采用旧设备很久没打开时留下的数据、新设备第一次接管云端数据，都是同一类风险，所以这里做成公共函数，
+   import/云端采用两条路都调用它）。把接管到的这份数据里，所有小朋友档案、每一只宠物的 lastTickAt
+   统一重置成"现在"，受伤中的宠物的 injuredAt 也一并重置，让两个计时器都从"接管这一刻"重新起算，
+   不会因为数据放了多久没被打开就被扣血/变蛋。 */
+function resetPetClocksOnAdopt(s){
+  if(!s||!s.accounts) return;
+  Object.keys(s.accounts).forEach(function(id){
+    var st=s.accounts[id]&&s.accounts[id].state;
+    var pets=(st&&st.pets)||[];
+    for(var i=0;i<pets.length;i++){
+      var p=pets[i];
+      if(!p) continue;
+      p.lastTickAt=Date.now();
+      if(p.injured && p.injuredAt) p.injuredAt=Date.now();
+    }
+  });
+}
+function cloudPull(){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(SUPA_ROW_ID)+'&select=data,updated_at';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000)
+    .then(function(res){ if(!res.ok) throw new Error('http '+res.status); return res.json(); })
+    .then(function(rows){ return (rows&&rows[0])?rows[0]:null; })
+    .catch(function(){ return null; });
+}
+/* 推送本机存档到云端（整份JSON覆盖式upsert）。推送失败静默忽略——反正下次数据一变动还会再触发，
+   不会因为这次没推成功就一直重试骚扰网络，也不会弹任何报错打扰孩子正常使用 */
+function cloudPush(){
+  if(!store||!store.accounts) return;
+  var nowIso=new Date().toISOString();
+  var body=JSON.stringify({id:SUPA_ROW_ID,data:store,updated_at:nowIso});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000)
+    .then(function(res){ if(res.ok){ try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,nowIso);}catch(e){} } })
+    .catch(function(){});
+}
+function scheduleCloudPush(){
+  if(!_cloudSyncReady) return;
+  clearTimeout(_cloudPushTimer);
+  // 攒2.5秒内的连续改动只推一次，避免打卡/切页这种高频操作把请求打爆
+  _cloudPushTimer=setTimeout(cloudPush, 2500);
+}
+/* 2026-09新增：排查"几台设备数据对不齐"专用的诊断面板——跟 ttsDiagnose() 用的是同一套思路
+   （不用alert，用页面自己的弹窗，方便截图不用担心自动消失）。跟 cloudPull() 不一样的是，这里不吞掉
+   任何错误信息，把"到底是网络连不上云端、还是连上了但双方时间比对结果如此"如实显示出来，家长截图
+   发过来就能直接定位问题出在哪台设备的哪个环节，不用来回猜。 */
+function cloudDiagnose(){
+  var textEl=document.getElementById('cloudDiagText');
+  var lines=[];
+  var localNow=Date.now();
+  lines.push('==== 同步诊断信息 ====');
+  lines.push('本机现在时间：'+new Date(localNow).toLocaleString());
+  lines.push('本机当前存档最后一次真正改动的时间：'+(store&&store.updatedAt?new Date(store.updatedAt).toLocaleString():'（没有记录）'));
+  var lastSynced=null;
+  try{ lastSynced=localStorage.getItem(SUPA_LAST_SYNCED_KEY); }catch(e){}
+  lines.push('本机最后一次确认同步成功的时间：'+(lastSynced?new Date(lastSynced).toLocaleString():'（还没有成功同步过）'));
+  lines.push('当前小朋友：'+(currentChild()?currentChild().name:'（无）'));
+  if(state&&state.pet){ lines.push('当前宠物状态：'+(state.pet.chosen?(state.pet.hatched?'已孵化（Lv'+(petLevelInfo().level||1)+'）':'蛋'):'（还没选宠物）')); }
+  lines.push('浏览器是否显示联网：'+(navigator.onLine?'是':'否（浏览器认为没有网络）'));
+  if(textEl) textEl.textContent=lines.join('\n')+'\n\n（正在连接云端，请稍等最多7秒…）';
+  showModal('cloudDiagModal');
+
+  var t0=Date.now();
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(SUPA_ROW_ID)+'&select=data,updated_at';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    var ms=Date.now()-t0;
+    if(!res.ok){
+      lines.push('连接云端：失败（HTTP '+res.status+'，耗时'+ms+'毫秒）——这通常是密钥/权限设置问题，不是网络问题');
+      if(textEl) textEl.textContent=lines.join('\n');
+      return;
+    }
+    return res.json().then(function(rows){
+      lines.push('连接云端：成功（耗时'+ms+'毫秒）');
+      var row=(rows&&rows[0])?rows[0]:null;
+      if(!row){
+        lines.push('云端目前还没有这份存档的数据');
+      }else{
+        var cloudTime=new Date(row.updated_at).getTime();
+        lines.push('云端存档最后更新时间：'+new Date(cloudTime).toLocaleString());
+        var localTime=(store&&store.updatedAt)?store.updatedAt:0;
+        var diffMin=((cloudTime-localTime)/60000).toFixed(1);
+        if(cloudTime>localTime+1000){
+          lines.push('比对结果：云端比本机新 '+diffMin+' 分钟——正常情况下，刷新页面后应该会自动采用云端这份更新的数据。如果刷新后还是没变，可能是页面缓存了旧版本，建议强制刷新（比如手机上把这个页面关掉重新从聊天记录点开，电脑上按Ctrl+F5）');
+        }else if(localTime>cloudTime+1000){
+          var diffMin2=((localTime-cloudTime)/60000).toFixed(1);
+          lines.push('比对结果：本机比云端新 '+diffMin2+' 分钟——这台设备的数据是更新的那一份，正常情况下应该是本机把这份数据推送上云端，其它设备刷新后采用这份');
+        }else{
+          lines.push('比对结果：本机和云端时间非常接近，基本是同一份数据');
+        }
+      }
+      if(textEl) textEl.textContent=lines.join('\n');
+    });
+  }).catch(function(err){
+    var ms=Date.now()-t0;
+    lines.push('连接云端：失败（耗时'+ms+'毫秒），错误信息：'+(err&&err.message?err.message:String(err)));
+    lines.push('这通常说明这台设备当前的网络连不上云端服务器，跟这台设备的WiFi/流量网络环境有关，不是数据丢了');
+    if(textEl) textEl.textContent=lines.join('\n');
+  });
+}
+/* 2026-09fix：光靠上面2.5秒防抖有个漏洞——孩子打完卡可能立刻就把页面切到后台/关掉了（比如平板
+   直接按了Home键、或者切去玩别的App），这2.5秒等不到，这次改动就永远推不上云端。这里加一层保险：
+   页面被切到后台/关闭的那一刻，如果正好还有一个"防抖计时器"没触发，就立刻不等了、马上推一次。
+   用visibilitychange而不是beforeunload，是因为手机上切后台/锁屏很多时候根本不会触发beforeunload，
+   但visibilitychange的'hidden'几乎总能捕捉到（切后台、切App、锁屏、关标签页都算）。 */
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='hidden' && _cloudPushTimer){
+    clearTimeout(_cloudPushTimer);
+    _cloudPushTimer=null;
+    cloudPush();
+  }
+});
+/* 页面刚打开时跑一次：如果云端有更新的存档（比如刚才在另一台设备上打过卡），就采用云端那份、
+   覆盖本机这份；否则说明本机数据更新或持平，把本机这份推上去（顺便也是给云端建立第一份存档）。
+   全程不阻塞首屏——本机数据早就已经先正常渲染出来了，这里只是"背后悄悄对一下，对上了才刷新"，
+   不会让孩子打开页面时多等云端请求。 */
+function cloudSyncOnLoad(){
+  cloudPull().then(function(row){
+    var adopted=false;
+    if(row&&row.data&&row.data.accounts&&row.updated_at){
+      var cloudTime=new Date(row.updated_at).getTime();
+      var localTime=(store&&store.updatedAt)?store.updatedAt:0;
+      if(cloudTime>localTime+1000){ // 云端确实更新（留1秒余量防止设备间时钟误差导致误判），才采用云端数据
+        store=row.data;
+        resetPetClocksOnAdopt(store);
+        if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
+        if(store.currentChildId && store.accounts[store.currentChildId]){
+          state=store.accounts[store.currentChildId].state||defaultState();
+          migrateState(state);
+          applyRealTimeDecay();
+          onNewDay();
+          cleanDiscounts();
+          saveStore(); // 此时_cloudSyncReady还是false，这一步只会存本地、不会又推一次云端
+          render();
+        }
+        try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
+        adopted=true;
+      }
+    }
+    _cloudSyncReady=true;
+    // 没采用云端数据的几种情况——本机更新/持平、云端还没有数据、拉取失败/超时——统一把本机这份推上去，
+    // 保证云端尽快有一份跟本机一致的最新数据，供别的设备下次打开时用
+    if(!adopted) cloudPush();
+  });
+}
+/* 2026-09fix：之前只在"页面刚打开的那一刻"（cloudSyncOnLoad）跟云端对一次，之后整个使用过程中
+   就只会把本机改动往云端推，不会再主动去看云端是不是被别的设备更新过。如果两台设备前后脚都开着
+   （比如平板从早上开到晚上一直没关、手机中途单独打了次卡），后面那台设备除了刚打开那一下，
+   剩下时间完全不知道云端已经被更新了，还在按自己本机这份旧数据接着走，两边的宠物等级/状态自然
+   就对不上——不是没同步，是"只在打开的瞬间对过一次，之后再没对过"。这里补两个额外的同步时机：
+   ①页面从后台切回前台时（切去玩别的App、或者锁屏了一会儿又打开，这段时间很可能刚好在另一台设备上
+   打过卡）；②哪怕一直留在前台没切走，也每隔几分钟主动对一次（防止两台设备同时长时间开着、谁都没
+   切换过前后台的极端情况）。跟云端对比的逻辑跟首次打开时完全一样——云端确实更新了才采用，本机更新
+   或持平时什么都不做，不会拿本机旧数据反过来污染云端。 */
+function trySyncFromCloud(){
+  if(!_cloudSyncReady) return; // 首次打开的同步流程还没走完时不重复触发，避免互相打架
+  cloudPull().then(function(row){
+    if(!(row&&row.data&&row.data.accounts&&row.updated_at)) return;
+    var cloudTime=new Date(row.updated_at).getTime();
+    var localTime=(store&&store.updatedAt)?store.updatedAt:0;
+    if(cloudTime<=localTime+1000) return; // 云端没有比本机更新，本机已经是最新，不用做任何事
+    store=row.data;
+    resetPetClocksOnAdopt(store);
+    if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
+    if(store.currentChildId && store.accounts[store.currentChildId]){
+      state=store.accounts[store.currentChildId].state||defaultState();
+      migrateState(state);
+      applyRealTimeDecay();
+      onNewDay();
+      cleanDiscounts();
+      saveStore();
+      render();
+    }
+    try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
+  });
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible'){ trySyncFromCloud(); }
+});
+setInterval(trySyncFromCloud, 120000); // 留在前台不切走时，每2分钟兜底对一次云端
 
 function load(){
   loadStore();
@@ -3679,9 +3929,32 @@ function load(){
     ensureTaskDefs();
     bgmEnabled=store.musicOn!==false;
     saveStore();
-    // 先问一句"要不要导入备份"，而不是直接跳去创建新档案——本机存储是跟这个文件的路径/文件名绑定的，
-    // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因
-    showModal('freshDataModal');
+    /* 2026-09新增：本机是全新/空存储时，先去云端问一下有没有别的设备已经同步过的存档——
+       比如孩子平板本来就在用，这是家长手机第一次打开这个链接，直接就该看到跟平板一样的数据，
+       而不是走"要不要导入备份"这条老路（那是给"没有云同步"的旧场景准备的兜底）。
+       云端没有数据、请求失败/超时（比如这台设备网络也连不上supabase.co），才退回老的"导入备份/
+       新建档案"提示——不会因为这一步卡住不给任何反馈。 */
+    cloudPull().then(function(row){
+      _cloudSyncReady=true;
+      if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
+        store=row.data;
+        resetPetClocksOnAdopt(store);
+        if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
+        state=store.accounts[store.currentChildId].state||defaultState();
+        migrateState(state);
+        applyRealTimeDecay();
+        onNewDay();
+        cleanDiscounts();
+        autoBackupOnLoad();
+        saveStore();
+        try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
+        finishLoadRender();
+      }else{
+        // 先问一句"要不要导入备份"，而不是直接跳去创建新档案——本机存储是跟这个文件的路径/文件名绑定的，
+        // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因
+        showModal('freshDataModal');
+      }
+    });
     return;
   }
   if(!store.accounts[store.currentChildId]){
@@ -3694,6 +3967,10 @@ function load(){
   onNewDay();
   cleanDiscounts();
   autoBackupOnLoad();
+  finishLoadRender();
+  cloudSyncOnLoad(); // 后台悄悄对一下云端有没有更新的存档，不阻塞上面已经完成的首屏渲染
+}
+function finishLoadRender(){
   showPage('home');
   render();
   maybeShowWishResetPrompt();
@@ -4423,8 +4700,10 @@ function ttsShowSilentDeviceNotice(diag){
   var msg;
   if(isWeixinBrowser()){
     msg='🔇 微信自带的浏览器很多时候没法朗读（不是设备问题，是微信这个"小窗口"本身的限制）。点右上角"···"，找"在浏览器打开"（或"复制链接"后粘贴到手机自带的浏览器App里打开），朗读大概率就正常了～（文字还是能看的，不影响做题）';
+  }else if(!window.speechSynthesis && diag && diag.netFallbackFailed){
+    msg='🔇 这个浏览器不支持"朗读"接口，已经自动尝试用网络语音朗读，但也没成功（可能是网络连不上语音服务）。文字还是能看的，不影响做题～如果家长想再确认一下具体原因，可以去"声音设置"里点"朗读诊断"看详细信息。';
   }else if(!window.speechSynthesis){
-    msg='🔇 这个浏览器整体不支持"朗读"这个功能（缺少浏览器自带的语音接口），没法靠改设置解决，建议换一个浏览器App打开这个链接试试～（文字还是能看的，不影响做题）';
+    msg='🔇 这个浏览器整体不支持"朗读"这个功能（缺少浏览器自带的语音接口），已经自动尝试用网络语音朗读了～如果还是没声音，建议检查一下设备网络，或换一个浏览器App打开这个链接试试（文字还是能看的，不影响做题）';
   }else if(voiceCount===0){
     msg='🔇 这台设备目前一个"文字转语音"语音包都没检测到，需要去系统"设置-无障碍-文字转语音"里装一个语音引擎/语音包，装好之后重新打开页面再试～（文字还是能看的，不影响做题）';
   }else if(voiceCount>0){
@@ -4473,34 +4752,194 @@ function ttsDiagnose(){
     showModal('ttsDiagModal');
   }
 
-  // 先立刻弹出弹窗、显示"正在现场测试朗读…"，让点了按钮就一定有反应能看到，不用等1.5秒测试跑完才有画面
+  // 先立刻弹出弹窗、显示"正在现场测试朗读…"，让点了按钮就一定有反应能看到，不用等测试跑完才有画面
   if(textEl) textEl.textContent=lines.join('\n')+'\n\n（正在现场测试朗读，请稍等1-2秒…）';
   showModal('ttsDiagModal');
 
-  if(!window.speechSynthesis){
-    finish();
-    return;
+  /* 2026-09fix：加一段"离线预录发音"的现场测试，独立于下面speechSynthesis/网络语音的测试之外——
+     用一个肯定在930条预录范围内的测试词（lion，属于animals主题），实际调一次playOfflineAudio()，
+     如实记录到底是"这台设备上离线录音也放不出声音"还是"离线录音没问题，问题出在别的地方"，
+     这样万一朗读还是没声音，家长把这段诊断信息发过来，就能直接定位到底卡在哪一步，而不用来回猜。 */
+  function runOfflineAudioTest(next){
+    var testWord='lion';
+    var hasEntry=(typeof AUDIO_TEXT_MAP!=='undefined')&&!!AUDIO_TEXT_MAP[testWord];
+    if(!hasEntry){
+      lines.push('离线预录发音测试：跳过（测试词"lion"不在离线录音范围内，这本身不代表有问题）');
+      next();
+      return;
+    }
+    var t0=Date.now();
+    try{
+      var hit=playOfflineAudio(testWord, function(reallyOk){
+        var secs=((Date.now()-t0)/1000).toFixed(1);
+        if(reallyOk) lines.push('离线预录发音测试：成功，'+secs+'秒后真的播放出声音了（用的是打包发布在页面同一个链接里的录音文件，不需要联网）。');
+        else lines.push('离线预录发音测试：失败（试了'+secs+'秒，音频没能真正播放出来，比如被浏览器拦截了自动播放、或者音频文件加载失败）——这很可能就是当前朗读不出声音的原因。');
+        next();
+      });
+      if(!hit){
+        lines.push('离线预录发音测试：没有正常发起（内部没找到这个测试词，理论上不应该出现，麻烦把这条一起截图发给我）');
+        next();
+      }
+    }catch(e3){
+      lines.push('离线预录发音测试：现场测试直接抛出异常："'+((e3&&e3.message)||e3)+'"');
+      next();
+    }
   }
-  try{
-    window.speechSynthesis.cancel();
-    var u=new SpeechSynthesisUtterance('测试朗读');
-    u.lang='zh-CN'; u.volume=1; u.rate=1;
-    var started=false, errMsg=null;
-    u.onstart=function(){ started=true; };
-    u.onboundary=function(){ started=true; };
-    u.onerror=function(e){ errMsg=(e&&e.error)||'未知错误'; };
-    window.speechSynthesis.speak(u);
-    setTimeout(function(){
-      var r;
-      if(started) r='现场测试结果：刚才已经触发"开始朗读"事件——说明这台设备/浏览器确实把朗读请求发出去了，如果还是没听到声音，问题大概率出在设备本身的音量/静音开关/系统层面的朗读音量设置上，不是网页的问题。';
-      else if(errMsg) r='现场测试结果：1.5秒内没有开始朗读，并且报错了："'+errMsg+'"';
-      else r='现场测试结果：1.5秒内没有触发"开始朗读"事件，也没有报错——就是悄悄发不出声音，大概率是这个浏览器本身限制了朗读功能。';
-      finish(r);
-    }, 1500);
-  }catch(e2){
-    finish('现场测试直接抛出异常："'+((e2&&e2.message)||e2)+'"');
+
+  runOfflineAudioTest(function(){
+    if(textEl) textEl.textContent=lines.join('\n')+'\n\n（正在现场测试朗读，请稍等1-2秒…）';
+
+    if(!window.speechSynthesis){
+      lines.push('（这个浏览器没有朗读接口，正在现场测试"网络语音"兜底方案，请稍等最多7秒…）');
+      if(textEl) textEl.textContent=lines.join('\n');
+      var netStart=Date.now();
+      try{
+        netSpeakFallback('测试朗读', 'zh-CN', function(ok){
+          var secs=((Date.now()-netStart)/1000).toFixed(1);
+          if(ok) finish('现场测试结果：网络语音兜底方案测试成功，'+secs+'秒后已经开始播放音频——如果这次没听到声音，八成是设备本身音量/静音开关的问题，不是网页问题。');
+          else finish('现场测试结果：网络语音兜底方案也失败了（试了'+secs+'秒，两个语音服务都没能正常返回音频）——大概率是这台设备的网络访问不了这两个语音服务（可能被学习机自带的网址白名单/家长控制拦住了），不是语音包的问题。');
+        });
+      }catch(e2){
+        finish('现场测试直接抛出异常："'+((e2&&e2.message)||e2)+'"');
+      }
+      return;
+    }
+    try{
+      window.speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance('测试朗读');
+      u.lang='zh-CN'; u.volume=1; u.rate=1;
+      var started=false, errMsg=null;
+      u.onstart=function(){ started=true; };
+      u.onboundary=function(){ started=true; };
+      u.onerror=function(e){ errMsg=(e&&e.error)||'未知错误'; };
+      window.speechSynthesis.speak(u);
+      setTimeout(function(){
+        var r;
+        if(started) r='现场测试结果：刚才已经触发"开始朗读"事件——说明这台设备/浏览器确实把朗读请求发出去了，如果还是没听到声音，问题大概率出在设备本身的音量/静音开关/系统层面的朗读音量设置上，不是网页的问题。';
+        else if(errMsg) r='现场测试结果：1.5秒内没有开始朗读，并且报错了："'+errMsg+'"';
+        else r='现场测试结果：1.5秒内没有触发"开始朗读"事件，也没有报错——就是悄悄发不出声音，大概率是这个浏览器本身限制了朗读功能。';
+        finish(r);
+      }, 1500);
+    }catch(e2){
+      finish('现场测试直接抛出异常："'+((e2&&e2.message)||e2)+'"');
+    }
+  });
+}
+/* 2026-09fix：科大讯飞Lumi10Pro这类定制平板浏览器，用"朗读诊断"现场查证过——不是语音包没装、
+   也不是被儿童模式限制住了，而是这个浏览器压根就没有window.speechSynthesis这个接口（诊断结果显示
+   "不支持"），UA还伪装成了Windows版Chrome99——这是它自己阉割掉的接口，网页这边不管怎么调用
+   speak()都不可能有声音，没法靠改代码绕过去。
+   但这类设备背景音乐(bgm_xxx.mp3)、倒计时音效都能正常播放——说明<audio>播放本身没问题，
+   只是"浏览器自己合成语音"这一步做不到。所以这里换一条路：没有speechSynthesis时，改成向网络上
+   现成的"文字转语音"接口要一段真人/合成语音的mp3音频文件，下载下来当成普通音频播放，
+   跟放背景音乐是同一种能力，不依赖浏览器自己的语音引擎。
+   选了百度翻译、有道词典这两个免费、不用注册key、国内网络能直接访问的语音接口（不用谷歌那个，
+   国内大概率连不上）；两个都试一遍，都不行才真的告诉家长"这台设备朗读不了"。 */
+function netSpeakFallback(text, lang, onDone){
+  var isZh = /^zh/i.test(lang||'') || /[一-龥]/.test(text||'');
+  var enc = encodeURIComponent(text||'');
+  var candidates = isZh ? [
+    'https://fanyi.baidu.com/gettts?lan=zh&text='+enc+'&spd=4&source=web',
+    'https://dict.youdao.com/dictvoice?audio='+enc
+  ] : [
+    'https://fanyi.baidu.com/gettts?lan=en&text='+enc+'&spd=4&source=web',
+    'https://dict.youdao.com/dictvoice?audio='+enc+'&type=2'
+  ];
+  tryNext(0);
+  function tryNext(i){
+    if(i>=candidates.length){ onDone(false); return; }
+    var settled=false;
+    var au=new Audio();
+    au.oncanplaythrough=function(){
+      if(settled) return; settled=true;
+      au.play().then(function(){ onDone(true); }).catch(function(){ onDone(false); });
+    };
+    au.onerror=function(){ if(settled) return; settled=true; tryNext(i+1); };
+    // 有的设备/网络加载慢但最终能播，给3.5秒超时兜底，不要一直卡着不给结果
+    setTimeout(function(){ if(settled) return; settled=true; tryNext(i+1); }, 3500);
+    try{ au.src=candidates[i]; au.load(); }catch(e){ if(!settled){ settled=true; tryNext(i+1); } }
   }
 }
+/* ===== 离线预录发音（覆盖每日学习打卡的单词/汉字/例句，共30个主题打包成30段小音频）=====
+   背景：孩子的学习机因为网址白名单会拦截百度/有道等在线语音接口的域名，导致联网朗读兜底方案在
+   该设备上也会失败（诊断显示0.0秒瞬间失败），所以这里改用完全离线、内嵌进本页面本身的预录音频，
+   不发起任何网络请求，从而彻底绕开设备端的网址白名单限制。
+   语音由本地离线引擎espeak-ng合成（机械合成音，非真人/AI音色，但吐字清晰），每个主题下的所有
+   单词/汉字/例句被拼接压缩进一个mp3里（音频雪碧图），AUDIO_TEXT_MAP记录每段文字在对应主题
+   音频里的起止时间，播放时定位seek到对应位置播放，播完自动暂停，不会连播到下一段。 */
+var AUDIO_SPRITES={"animals":"audio/animals.mp3","family":"audio/family.mp3","school":"audio/school.mp3","food":"audio/food.mp3","weather":"audio/weather.mp3","colors":"audio/colors.mp3","jobs":"audio/jobs.mp3","transport":"audio/transport.mp3","sports":"audio/sports.mp3","nature":"audio/nature.mp3","body":"audio/body.mp3","shopping":"audio/shopping.mp3","fruits":"audio/fruits.mp3","vegetables":"audio/vegetables.mp3","numbers":"audio/numbers.mp3","time":"audio/time.mp3","toys":"audio/toys.mp3","music":"audio/music.mp3","space":"audio/space.mp3","ocean":"audio/ocean.mp3","insects":"audio/insects.mp3","birds":"audio/birds.mp3","kitchen":"audio/kitchen.mp3","furniture":"audio/furniture.mp3","stationery":"audio/stationery.mp3","emotions":"audio/emotions.mp3","farm":"audio/farm.mp3","dinosaurs":"audio/dinosaurs.mp3","clothes":"audio/clothes.mp3","festivals":"audio/festivals.mp3"};
+var AUDIO_TEXT_MAP={"lion":["animals",0.0,0.959],"elephant":["animals",1.179,1.025],"rabbit":["animals",2.424,0.97],"monkey":["animals",3.614,0.946],"panda":["animals",4.78,0.951],"tiger":["animals",5.951,0.972],"giraffe":["animals",7.143,0.909],"zebra":["animals",8.272,0.901],"bear":["animals",9.393,0.835],"wolf":["animals",10.448,0.885],"fox":["animals",11.554,0.972],"deer":["animals",12.746,0.848],"kangaroo":["animals",13.814,1.101],"koala":["animals",15.136,0.976],"hippo":["animals",16.332,0.879],"狮子":["animals",17.43,1.307],"大象":["animals",18.958,1.676],"兔子":["animals",20.853,1.607],"猴子":["animals",22.681,1.621],"熊猫":["animals",24.522,1.679],"老虎":["animals",26.421,1.522],"长颈鹿":["animals",28.163,1.764],"斑马":["animals",30.147,1.826],"The lion is the king of the jungle.":["animals",32.192,2.268],"An elephant has a long nose.":["animals",34.68,2.217],"The rabbit has two long ears.":["animals",37.117,2.332],"Monkeys like to climb trees.":["animals",39.669,2.467],"The panda eats bamboo every day.":["animals",42.356,2.51],"Tigers have stripes on their body.":["animals",45.086,2.72],"The giraffe has a very long neck.":["animals",48.026,2.309],"Zebras look like striped horses.":["animals",50.555,2.74],"mother":["family",0.0,0.901],"father":["family",1.121,0.97],"brother":["family",2.311,0.877],"sister":["family",3.408,0.963],"grandmother":["family",4.591,1.151],"grandfather":["family",5.962,1.219],"son":["family",7.401,0.866],"daughter":["family",8.487,0.868],"aunt":["family",9.575,0.834],"uncle":["family",10.629,0.881],"cousin":["family",11.73,0.938],"baby":["family",12.888,0.901],"parents":["family",14.009,1.116],"husband":["family",15.345,1.013],"wife":["family",16.577,0.898],"家庭":["family",17.695,1.576],"父母":["family",19.491,1.454],"兄弟":["family",21.164,1.606],"姐妹":["family",22.99,1.476],"团圆":["family",24.687,1.73],"爷爷":["family",26.637,1.669],"奶奶":["family",28.526,1.48],"亲戚":["family",30.226,1.651],"My mother cooks dinner every evening.":["family",32.097,2.534],"My father goes to work by bus.":["family",34.851,2.382],"I have one brother and one sister.":["family",37.453,2.738],"My grandmother tells me stories.":["family",40.412,2.417],"We have dinner together every night.":["family",43.049,2.388],"My grandfather likes to read newspapers.":["family",45.656,2.979],"The baby is sleeping in the room.":["family",48.856,2.273],"I love my whole family very much.":["family",51.348,2.556],"teacher":["school",0.0,0.949],"classroom":["school",1.169,1.105],"book":["school",2.494,0.753],"pencil":["stationery",14.34,0.994],"homework":["school",4.68,1.071],"student":["school",5.972,1.026],"desk":["school",7.217,0.819],"chair":["furniture",16.247,0.895],"bag":["school",9.371,0.87],"ruler":["stationery",16.743,0.866],"eraser":["stationery",15.554,0.969],"blackboard":["school",12.737,1.08],"library":["school",14.037,1.102],"playground":["school",15.359,1.125],"friend":["school",16.704,0.954],"学校":["school",17.878,1.731],"老师":["school",19.828,1.406],"同学":["school",21.455,1.56],"课本":["school",23.235,1.523],"黑板":["school",24.977,1.537],"图书馆":["school",26.734,2.074],"操场":["school",29.028,1.664],"铅笔盒":["school",30.913,2.072],"My teacher is very kind.":["school",33.205,2.076],"I put my books in my school bag.":["school",35.501,2.469],"We do our homework after school.":["school",38.19,2.48],"The classroom is clean and bright.":["school",40.89,2.493],"I like reading books in the library.":["school",43.603,2.55],"I sit next to my best friend.":["school",46.373,2.509],"We play games on the playground.":["school",49.102,2.263],"Please erase the blackboard for me.":["school",51.585,2.423],"apple":["food",0.0,0.845],"bread":["food",1.065,0.829],"milk":["food",2.115,0.919],"rice":["food",3.254,0.895],"noodles":["food",4.369,0.974],"egg":["dinosaurs",19.249,0.78],"fish":["ocean",16.621,0.843],"meat":["food",7.627,0.818],"soup":["food",8.664,0.865],"cake":["food",9.749,0.863],"candy":["food",10.832,0.992],"juice":["food",12.044,0.819],"water":["food",13.083,0.92],"tea":["food",14.223,0.794],"vegetable":["food",15.237,1.163],"苹果":["food",16.62,1.566],"面包":["food",18.406,1.798],"牛奶":["food",20.424,1.486],"米饭":["food",22.13,1.541],"蔬菜":["food",23.891,1.525],"鸡蛋":["food",25.636,1.454],"水果":["food",27.309,1.376],"蛋糕":["food",28.905,1.639],"I eat an apple every day.":["food",30.764,2.01],"She drinks a glass of milk in the morning.":["food",32.994,2.833],"We have rice for lunch.":["food",36.046,1.801],"He likes eating noodles.":["food",38.067,1.884],"Vegetables are good for our health.":["food",40.172,2.51],"I like to eat eggs for breakfast.":["food",42.902,2.529],"The soup smells very delicious.":["food",45.65,2.406],"She baked a cake for my birthday.":["food",48.276,2.489],"sunny":["weather",0.0,0.853],"rainy":["weather",1.073,0.863],"windy":["weather",2.157,0.925],"winter":["weather",3.302,0.943],"summer":["weather",4.464,0.865],"cloudy":["weather",5.55,1.014],"snowy":["weather",6.784,0.916],"spring":["weather",7.92,1.0],"autumn":["weather",9.14,0.883],"hot":["weather",10.243,0.85],"cold":["weather",11.314,0.993],"warm":["weather",12.527,0.944],"cool":["weather",13.691,0.88],"storm":["weather",14.791,0.999],"rainbow":["weather",16.01,1.018],"晴天":["weather",17.248,1.674],"下雨":["weather",19.142,1.429],"刮风":["weather",20.791,1.619],"冬天":["weather",22.63,1.608],"夏天":["weather",24.458,1.754],"春天":["weather",26.431,1.666],"秋天":["weather",28.317,1.651],"下雪":["weather",30.188,1.652],"It is sunny today.":["weather",32.059,1.602],"It often rains in spring.":["weather",33.881,2.034],"The wind is blowing hard.":["weather",36.134,2.016],"It is very cold in winter.":["weather",38.371,2.121],"We can swim in summer.":["weather",40.712,1.729],"It is snowy and cold in winter.":["weather",42.661,2.574],"Autumn leaves turn yellow and red.":["weather",45.454,2.68],"I like the cool weather in autumn.":["weather",48.355,2.349],"red":["colors",0.0,0.876],"blue":["colors",1.096,0.814],"yellow":["colors",2.129,0.899],"green":["colors",3.248,0.852],"purple":["colors",4.32,0.929],"orange":["fruits",1.132,0.923],"pink":["colors",6.612,0.906],"black":["colors",7.738,0.836],"white":["colors",8.793,0.865],"brown":["colors",9.878,0.899],"gray":["colors",10.997,0.783],"gold":["colors",12.0,0.928],"silver":["colors",13.148,1.01],"bright":["colors",14.378,0.84],"dark":["colors",15.438,0.858],"红色":["colors",16.515,1.517],"蓝色":["colors",18.253,1.501],"黄色":["colors",19.974,1.638],"绿色":["colors",21.832,1.444],"彩虹":["colors",23.496,1.64],"橙色":["colors",25.356,1.335],"黑色":["colors",26.91,1.518],"白色":["colors",28.648,1.508],"The sky is blue.":["colors",30.376,1.472],"The apple is red.":["colors",32.069,1.417],"The banana is yellow.":["colors",33.706,1.546],"The grass is green.":["colors",35.472,1.521],"I like the color purple.":["colors",37.213,1.861],"The orange is orange in color.":["colors",39.294,2.061],"My cat is black and white.":["colors",41.575,2.282],"Gold and silver are precious colors.":["colors",44.076,2.673],"doctor":["jobs",0.0,0.968],"nurse":["jobs",1.188,0.863],"farmer":["farm",16.036,0.955],"police officer":["jobs",3.445,1.457],"driver":["jobs",5.122,0.965],"cook":["jobs",6.307,0.797],"singer":["jobs",7.324,0.891],"artist":["jobs",8.436,0.965],"engineer":["jobs",9.62,1.157],"pilot":["jobs",10.997,0.949],"firefighter":["jobs",12.166,1.223],"scientist":["jobs",13.609,1.171],"writer":["jobs",15.0,0.931],"dancer":["jobs",16.151,0.969],"cleaner":["jobs",17.34,0.949],"医生":["jobs",18.509,1.359],"护士":["jobs",20.088,1.35],"农民":["jobs",21.659,1.448],"警察":["jobs",23.327,1.523],"司机":["jobs",25.07,1.41],"消防员":["jobs",26.701,2.277],"厨师":["jobs",29.198,1.353],"科学家":["jobs",30.771,2.112],"The doctor helps sick people.":["jobs",33.102,2.38],"The nurse takes care of patients.":["jobs",35.702,2.524],"The farmer grows vegetables.":["jobs",38.446,2.176],"The police officer keeps us safe.":["jobs",40.842,2.607],"The driver drives the bus carefully.":["jobs",43.669,2.557],"The firefighter puts out the fire bravely.":["jobs",46.446,2.965],"My uncle is a very good cook.":["jobs",49.632,2.141],"The scientist works hard in the lab.":["jobs",51.993,2.641],"car":["transport",0.0,0.914],"bus":["transport",1.134,0.807],"train":["transport",2.161,1.0],"bike":["transport",3.381,0.844],"plane":["transport",4.445,0.984],"ship":["transport",5.649,0.867],"boat":["transport",6.736,0.833],"taxi":["transport",7.788,1.002],"truck":["transport",9.01,0.883],"subway":["transport",10.113,0.985],"motorcycle":["transport",11.319,1.286],"helicopter":["transport",12.825,1.335],"scooter":["transport",14.38,0.948],"ferry":["transport",15.549,0.854],"rocket":["space",16.978,0.995],"汽车":["transport",17.837,1.544],"公交车":["transport",19.602,2.144],"火车":["transport",21.965,1.589],"自行车":["transport",23.774,2.021],"飞机":["transport",26.015,1.465],"地铁":["transport",27.701,1.536],"轮船":["transport",29.457,1.651],"摩托车":["transport",31.327,2.035],"I go to school by bus.":["transport",33.582,1.924],"The train is very fast.":["transport",35.726,1.914],"She rides her bike to the park.":["transport",37.861,2.371],"We took a plane to Beijing.":["transport",40.452,2.176],"My father drives a car to work.":["transport",42.849,2.431],"We take the subway to the city center.":["transport",45.5,2.714],"The ship sails across the ocean.":["transport",48.434,2.446],"He rides a motorcycle to work.":["transport",51.1,2.384],"run":["sports",0.0,0.865],"jump":["sports",1.085,0.891],"swim":["sports",2.196,0.987],"football":["sports",3.403,1.01],"basketball":["sports",4.633,1.269],"volleyball":["sports",6.122,1.1],"tennis":["sports",7.442,0.938],"badminton":["sports",8.6,1.169],"skate":["sports",9.989,0.9],"ski":["sports",11.108,0.847],"climb":["sports",12.176,1.03],"ride":["sports",13.425,0.923],"dance":["sports",14.568,0.912],"exercise":["sports",15.7,1.198],"race":["sports",17.118,0.885],"跑步":["sports",18.224,1.506],"跳绳":["sports",19.95,1.639],"游泳":["sports",21.809,1.374],"足球":["sports",23.403,1.497],"篮球":["sports",25.12,1.529],"排球":["sports",26.869,1.55],"滑冰":["sports",28.639,1.63],"锻炼":["sports",30.489,1.83],"I like to run every morning.":["sports",32.539,2.181],"He can swim very well.":["sports",34.94,2.022],"We play football after school.":["sports",37.182,2.323],"She is good at basketball.":["sports",39.725,2.082],"Jumping rope is good exercise.":["sports",42.027,2.354],"I like playing volleyball with my friends.":["sports",44.601,2.915],"She can skate very fast on the ice.":["sports",47.736,2.708],"We exercise every morning to stay healthy.":["sports",50.664,3.125],"tree":["nature",0.0,0.861],"flower":["nature",1.081,0.932],"river":["nature",2.233,0.902],"mountain":["nature",3.356,1.022],"sky":["nature",4.598,0.903],"sea":["nature",5.722,0.8],"lake":["nature",6.741,0.831],"forest":["nature",7.792,1.0],"grass":["nature",9.012,0.848],"stone":["nature",10.08,0.952],"sun":["space",13.619,0.866],"moon":["space",14.705,0.889],"star":["space",15.814,0.944],"cloud":["nature",14.611,0.997],"wind":["nature",15.828,0.901],"大树":["nature",16.949,1.506],"鲜花":["nature",18.675,1.738],"河流":["nature",20.633,1.449],"高山":["nature",22.302,1.644],"天空":["nature",24.166,1.66],"森林":["nature",26.046,1.478],"大海":["nature",27.744,1.479],"月亮":["space",21.857,1.273],"The tree is very tall.":["nature",30.936,1.821],"The flowers smell so sweet.":["nature",32.977,2.181],"The river flows to the sea.":["nature",35.377,1.985],"The mountain is covered with snow.":["nature",37.582,2.347],"The sky is full of stars at night.":["nature",40.149,2.561],"The forest is full of tall trees.":["nature",42.93,2.602],"The sea is deep and blue.":["nature",45.753,2.074],"The moon shines brightly at night.":["nature",48.047,2.432],"head":["body",0.0,0.855],"hand":["body",1.075,0.936],"foot":["body",2.231,0.801],"eye":["body",3.251,0.768],"ear":["body",4.24,0.814],"nose":["body",5.273,0.954],"mouth":["body",6.448,0.87],"arm":["body",7.538,0.891],"leg":["body",8.649,0.868],"finger":["body",9.737,0.997],"hair":["body",10.954,0.854],"tooth":["body",12.028,0.843],"shoulder":["body",13.091,1.056],"knee":["body",14.367,0.817],"back":["body",15.403,0.81],"头发":["body",16.433,1.559],"眼睛":["body",18.212,1.691],"耳朵":["body",20.123,1.355],"手指":["body",21.699,1.231],"脚趾":["body",23.149,1.573],"鼻子":["body",24.942,1.547],"嘴巴":["body",26.71,1.695],"牙齿":["body",28.625,1.389],"I wash my hands before eating.":["body",30.233,2.376],"She has big beautiful eyes.":["body",32.829,2.153],"We use our ears to listen.":["body",35.203,1.987],"He hurt his foot while playing.":["body",37.409,2.359],"Brush your teeth every morning.":["body",39.988,2.137],"My nose is a little red today.":["body",42.345,2.236],"Open your mouth and say ah.":["body",44.8,2.298],"I brush my teeth twice a day.":["body",47.318,2.259],"money":["shopping",0.0,0.83],"shop":["shopping",1.05,0.922],"buy":["shopping",2.192,0.834],"price":["shopping",3.247,0.95],"basket":["shopping",4.416,1.016],"sell":["shopping",5.652,0.867],"cheap":["shopping",6.739,0.883],"expensive":["shopping",7.842,1.245],"gift":["festivals",18.181,0.808],"coin":["shopping",10.336,0.971],"wallet":["shopping",11.527,0.92],"mall":["shopping",12.666,0.868],"cashier":["shopping",13.754,1.112],"discount":["shopping",15.086,1.017],"receipt":["shopping",16.323,0.924],"商店":["shopping",17.468,1.469],"价格":["shopping",19.157,1.55],"购物":["shopping",20.926,1.328],"顾客":["shopping",22.475,1.473],"收银台":["shopping",24.167,1.648],"礼物":["shopping",26.035,1.228],"钱包":["shopping",27.483,1.788],"折扣":["shopping",29.491,1.512],"We went to the shop to buy some fruit.":["shopping",31.223,2.76],"How much is this toy?":["shopping",34.203,1.772],"She paid for the bread at the counter.":["shopping",36.195,2.499],"The price of the book is ten dollars.":["shopping",38.914,2.59],"He put the apples in his basket.":["shopping",41.724,2.391],"This gift is for my best friend.":["shopping",44.336,2.451],"I keep my coins in my wallet.":["shopping",47.007,2.333],"The shirt is on discount today.":["shopping",49.559,2.476],"banana":["fruits",0.0,0.912],"grape":["fruits",2.275,0.864],"watermelon":["fruits",3.359,1.169],"strawberry":["fruits",4.748,1.12],"pear":["fruits",6.088,0.864],"peach":["fruits",7.172,0.865],"mango":["fruits",8.257,1.015],"pineapple":["fruits",9.492,1.075],"cherry":["fruits",10.787,0.867],"lemon":["fruits",11.874,0.856],"kiwi":["fruits",12.951,0.9],"coconut":["fruits",14.071,1.129],"blueberry":["fruits",15.42,0.967],"papaya":["fruits",16.607,0.975],"香蕉":["fruits",17.802,1.83],"葡萄":["fruits",19.852,1.49],"西瓜":["fruits",21.562,1.516],"草莓":["fruits",23.298,1.584],"桃子":["fruits",25.101,1.633],"芒果":["fruits",26.954,1.544],"菠萝":["fruits",28.718,1.463],"柠檬":["fruits",30.402,1.469],"I eat a banana every morning.":["fruits",32.091,2.136],"Grapes are small and sweet.":["fruits",34.447,2.313],"Watermelon is my favorite summer fruit.":["fruits",36.98,2.739],"Strawberries are red and juicy.":["fruits",39.938,2.377],"This peach smells very sweet.":["fruits",42.535,2.34],"Mangoes are yellow and delicious.":["fruits",45.095,2.458],"The pineapple has a spiky skin.":["fruits",47.773,2.411],"Lemons taste very sour.":["fruits",50.404,2.101],"carrot":["vegetables",0.0,0.899],"potato":["vegetables",1.119,1.07],"tomato":["vegetables",2.409,1.054],"onion":["vegetables",3.683,0.83],"cabbage":["vegetables",4.733,1.058],"cucumber":["vegetables",6.011,1.173],"pumpkin":["vegetables",7.404,1.15],"corn":["vegetables",8.774,0.934],"pea":["vegetables",9.928,0.785],"mushroom":["vegetables",10.933,0.998],"pepper":["vegetables",12.151,0.92],"broccoli":["vegetables",13.291,0.986],"eggplant":["vegetables",14.497,1.051],"spinach":["vegetables",15.768,0.961],"garlic":["vegetables",16.949,0.934],"胡萝卜":["vegetables",18.102,2.095],"土豆":["vegetables",20.418,1.494],"西红柿":["vegetables",22.132,1.784],"洋葱":["vegetables",24.135,1.587],"南瓜":["vegetables",25.943,1.591],"玉米":["vegetables",27.754,1.092],"蘑菇":["vegetables",29.065,1.523],"茄子":["vegetables",30.808,1.658],"Rabbits like to eat carrots.":["vegetables",32.686,2.305],"I had potatoes for dinner.":["vegetables",35.211,2.053],"Tomatoes are red and round.":["vegetables",37.484,2.273],"The soup has onions in it.":["vegetables",39.977,1.898],"We carved a pumpkin for Halloween.":["vegetables",42.095,2.69],"Corn is yellow and sweet.":["vegetables",45.005,2.177],"Mushrooms grow in damp places.":["vegetables",47.402,2.524],"Eggplants are purple and long.":["vegetables",50.145,2.571],"one":["numbers",0.0,0.865],"two":["numbers",1.085,0.805],"three":["numbers",2.11,0.822],"four":["numbers",3.152,0.881],"five":["numbers",4.253,0.948],"six":["numbers",5.421,0.913],"seven":["numbers",6.554,0.959],"eight":["numbers",7.733,0.765],"nine":["numbers",8.718,0.944],"ten":["numbers",9.882,0.896],"eleven":["numbers",10.998,0.978],"twelve":["numbers",12.196,1.027],"twenty":["numbers",13.443,1.032],"hundred":["numbers",14.695,1.032],"zero":["numbers",15.947,0.923],"数字":["numbers",17.089,1.52],"加法":["numbers",18.83,1.548],"减法":["numbers",20.598,1.637],"乘法":["numbers",22.456,1.34],"除法":["numbers",24.016,1.496],"十位":["numbers",25.732,1.107],"百位":["numbers",27.059,1.285],"数一数":["numbers",28.564,1.974],"I have ten fingers on my hands.":["numbers",30.758,2.624],"There are five apples on the table.":["numbers",33.602,2.37],"She counted to twenty.":["numbers",36.192,1.967],"Two plus three equals five.":["numbers",38.379,2.292],"This book has one hundred pages.":["numbers",40.891,2.584],"I am seven years old this year.":["numbers",43.695,2.543],"He has twelve toy cars.":["numbers",46.458,2.222],"Zero means nothing at all.":["numbers",48.9,2.15],"morning":["time",0.0,0.968],"noon":["time",1.188,0.9],"afternoon":["time",2.308,1.21],"evening":["time",3.738,0.947],"night":["time",4.904,0.876],"today":["time",6.0,1.0],"tomorrow":["time",7.22,1.006],"yesterday":["time",8.446,1.171],"week":["time",9.838,0.818],"month":["time",10.876,0.904],"year":["time",12.0,0.9],"hour":["time",13.12,0.795],"minute":["time",14.135,0.866],"second":["time",15.221,0.999],"clock":["time",16.44,0.937],"早晨":["time",17.597,1.779],"中午":["time",19.596,1.382],"晚上":["time",21.197,1.463],"今天":["time",22.881,1.598],"明天":["time",24.699,1.615],"昨天":["time",26.534,1.722],"星期":["time",28.475,1.523],"时钟":["time",30.218,1.272],"I get up early in the morning.":["time",31.71,1.966],"We eat lunch at noon.":["time",33.896,1.827],"She does her homework in the evening.":["time",35.943,2.461],"Today is a sunny day.":["time",38.624,1.771],"I will visit grandma tomorrow.":["time",40.615,2.27],"There are seven days in a week.":["time",43.105,2.151],"The clock on the wall shows three.":["time",45.476,2.394],"An hour has sixty minutes.":["time",48.09,2.127],"doll":["toys",0.0,0.827],"ball":["toys",1.047,0.848],"kite":["toys",2.115,0.888],"puzzle":["toys",3.223,0.897],"blocks":["toys",4.34,0.942],"robot":["toys",5.502,0.992],"balloon":["toys",6.714,0.955],"yoyo":["toys",7.889,0.942],"drum":["toys",9.051,0.853],"spinning top":["toys",10.124,1.319],"teddy bear":["toys",11.664,1.271],"toy car":["toys",13.155,1.227],"marble":["toys",14.602,0.976],"whistle":["toys",15.797,0.877],"jump rope":["toys",16.895,1.234],"玩具":["toys",18.349,1.471],"娃娃":["toys",20.04,1.096],"积木":["toys",21.356,1.387],"风筝":["toys",22.964,1.493],"气球":["toys",24.677,1.562],"机器人":["toys",26.459,1.895],"陀螺":["toys",28.574,1.648],"弹珠":["toys",30.442,1.534],"I like to play with building blocks.":["toys",32.196,2.63],"We fly kites in the park.":["toys",35.047,2.08],"This robot can walk and talk.":["toys",37.346,2.522],"She holds a red balloon.":["toys",40.088,2.042],"He is good at playing with a yoyo.":["toys",42.351,2.393],"My teddy bear sleeps with me every night.":["toys",44.964,2.905],"The spinning top spins very fast.":["toys",48.089,2.69],"We play with marbles after school.":["toys",50.999,2.489],"song":["music",0.0,0.969],"sing":["music",1.189,0.912],"piano":["music",2.321,0.94],"guitar":["music",3.481,1.005],"violin":["music",4.706,1.024],"flute":["music",5.95,0.889],"trumpet":["music",7.059,1.079],"music":["music",8.358,0.954],"note":["music",9.532,0.844],"rhythm":["music",10.596,0.915],"concert":["music",11.731,1.115],"band":["music",13.066,0.906],"voice":["music",14.192,0.959],"melody":["music",15.371,0.965],"instrument":["music",16.555,1.154],"音乐":["music",17.929,1.432],"唱歌":["music",19.581,1.323],"钢琴":["music",21.124,1.531],"吉他":["music",22.875,1.453],"小提琴":["music",24.548,2.157],"音符":["music",26.925,1.456],"节奏":["music",28.601,1.517],"乐队":["music",30.338,1.542],"I love to sing my favorite songs.":["music",32.1,2.712],"She plays the piano every afternoon.":["music",35.032,2.729],"He is learning to play the guitar.":["music",37.981,2.311],"The violin makes a beautiful sound.":["music",40.512,2.488],"We went to a wonderful concert.":["music",43.221,2.377],"The band played music at the party.":["music",45.818,2.655],"Her voice is soft and sweet.":["music",48.693,2.506],"This song has a lovely melody.":["music",51.418,2.275],"planet":["space",0.0,0.982],"earth":["space",1.202,0.761],"astronaut":["space",2.183,1.129],"galaxy":["space",3.532,1.054],"universe":["space",4.806,1.043],"comet":["space",6.069,0.957],"satellite":["space",7.246,1.08],"spaceship":["space",8.546,1.18],"alien":["space",9.945,0.884],"telescope":["space",11.049,1.204],"orbit":["space",12.473,0.926],"太空":["space",18.192,1.633],"地球":["space",20.045,1.592],"星星":["space",23.35,1.571],"宇航员":["space",25.141,1.671],"飞船":["space",27.032,1.674],"行星":["space",28.926,1.572],"宇宙":["space",30.718,1.08],"The earth is our home planet.":["space",32.018,2.13],"Astronauts travel to outer space.":["space",34.368,2.614],"There are eight planets in our solar system.":["space",37.202,2.973],"The spaceship landed on the moon.":["space",40.395,2.431],"Stars twinkle brightly at night.":["space",43.046,2.479],"Scientists use a telescope to see far away.":["space",45.745,3.442],"The universe is very big and mysterious.":["space",49.407,3.074],"The satellite orbits around the earth.":["space",52.701,2.622],"shark":["ocean",0.0,0.943],"whale":["ocean",1.163,0.901],"dolphin":["ocean",2.284,1.021],"octopus":["ocean",3.525,1.119],"crab":["ocean",4.864,0.952],"starfish":["ocean",6.036,1.112],"jellyfish":["ocean",7.368,1.052],"turtle":["ocean",8.64,0.915],"seahorse":["ocean",9.775,1.032],"coral":["ocean",11.027,0.872],"shell":["ocean",12.118,0.89],"wave":["ocean",13.228,0.933],"beach":["ocean",14.381,0.848],"seaweed":["ocean",15.45,0.951],"海洋":["ocean",17.685,1.504],"鲨鱼":["ocean",19.409,1.328],"鲸鱼":["ocean",20.956,1.319],"海豚":["ocean",22.496,1.523],"螃蟹":["ocean",24.239,1.552],"海星":["ocean",26.011,1.567],"珊瑚":["ocean",27.799,1.516],"贝壳":["ocean",29.534,1.498],"The shark swims very fast in the water.":["ocean",31.252,3.008],"The whale is the biggest animal in the ocean.":["ocean",34.481,2.77],"Dolphins are very smart and friendly.":["ocean",37.471,2.887],"The crab walks sideways on the beach.":["ocean",40.578,2.695],"I found a beautiful shell on the beach.":["ocean",43.493,2.663],"The coral reef is full of colors.":["ocean",46.376,2.343],"Big waves crashed onto the shore.":["ocean",48.939,2.563],"The turtle swims slowly in the sea.":["ocean",51.722,2.496],"ant":["insects",0.0,0.834],"bee":["insects",1.054,0.777],"butterfly":["insects",2.05,1.071],"ladybug":["insects",3.342,1.125],"dragonfly":["insects",4.686,1.159],"spider":["insects",6.065,0.987],"grasshopper":["insects",7.272,1.15],"mosquito":["insects",8.642,1.074],"fly":["insects",9.936,0.926],"beetle":["insects",11.082,0.843],"cricket":["insects",12.145,1.026],"caterpillar":["insects",13.392,1.216],"snail":["insects",14.827,0.988],"moth":["insects",16.035,0.858],"firefly":["insects",17.113,1.121],"昆虫":["insects",18.454,1.606],"蚂蚁":["insects",20.28,1.386],"蜜蜂":["insects",21.887,1.565],"蝴蝶":["insects",23.672,1.402],"蜻蜓":["insects",25.294,1.566],"蜘蛛":["insects",27.08,1.24],"毛毛虫":["insects",28.54,2.034],"蜗牛":["insects",30.794,1.204],"Ants work together to carry food.":["insects",32.217,2.582],"Bees make sweet honey.":["insects",35.02,1.832],"The butterfly has colorful wings.":["insects",37.072,2.504],"The spider spins a big web.":["insects",39.795,2.293],"A caterpillar will become a butterfly one day.":["insects",42.308,3.147],"The snail moves very slowly.":["insects",45.675,2.275],"Fireflies glow in the dark night.":["insects",48.17,2.408],"The dragonfly flies over the pond.":["insects",50.798,2.528],"bird":["birds",0.0,0.859],"eagle":["birds",1.079,0.802],"owl":["birds",2.101,0.791],"parrot":["birds",3.112,0.884],"sparrow":["birds",4.216,0.897],"swan":["birds",5.333,1.01],"duck":["farm",15.06,0.756],"chicken":["birds",7.538,0.981],"peacock":["birds",8.739,0.984],"penguin":["birds",9.943,1.099],"pigeon":["birds",11.263,0.901],"crow":["birds",12.384,0.918],"swallow":["birds",13.522,1.008],"woodpecker":["birds",14.75,1.117],"ostrich":["birds",16.087,1.076],"老鹰":["birds",17.383,1.585],"猫头鹰":["birds",19.188,2.029],"鹦鹉":["birds",21.437,1.717],"天鹅":["birds",23.374,1.456],"鸭子":["birds",25.05,1.539],"孔雀":["birds",26.809,1.632],"企鹅":["birds",28.661,1.363],"燕子":["birds",30.244,1.66],"The eagle flies high in the sky.":["birds",32.124,2.31],"The owl sleeps in the daytime.":["birds",34.654,2.16],"This parrot can say a few words.":["birds",37.033,2.493],"Swans are white and graceful.":["birds",39.746,2.411],"The peacock has beautiful tail feathers.":["birds",42.377,2.778],"Penguins live in very cold places.":["birds",45.374,2.951],"Swallows come back in spring.":["birds",48.546,2.417],"The woodpecker pecks holes in trees.":["birds",51.183,2.749],"pot":["kitchen",0.0,0.848],"pan":["kitchen",1.068,0.897],"knife":["kitchen",2.185,0.919],"spoon":["kitchen",3.324,0.924],"fork":["kitchen",4.468,0.89],"plate":["kitchen",5.578,0.912],"bowl":["kitchen",6.71,0.882],"cup":["kitchen",7.813,0.856],"stove":["kitchen",8.888,0.975],"fridge":["kitchen",10.084,0.917],"oven":["kitchen",11.221,0.839],"kettle":["kitchen",12.28,0.899],"chopsticks":["kitchen",13.399,1.292],"napkin":["kitchen",14.911,1.088],"sink":["kitchen",16.219,0.921],"厨房":["kitchen",17.36,1.553],"锅":["kitchen",19.133,1.088],"碗筷":["kitchen",20.441,1.697],"盘子":["kitchen",22.358,1.634],"冰箱":["kitchen",24.212,1.701],"炉灶":["kitchen",26.133,1.551],"水壶":["kitchen",27.905,1.291],"筷子":["kitchen",29.416,1.784],"Mom is cooking in the kitchen.":["kitchen",31.42,2.102],"I use chopsticks to eat noodles.":["kitchen",33.742,2.524],"Please put the plate on the table.":["kitchen",36.486,2.395],"The fridge keeps our food fresh.":["kitchen",39.101,2.478],"Be careful with the sharp knife.":["kitchen",41.799,2.313],"The kettle is boiling water now.":["kitchen",44.332,2.38],"We wash the bowls after dinner.":["kitchen",46.932,2.323],"The oven is baking a cake.":["kitchen",49.475,1.996],"bed":["furniture",0.0,0.837],"sofa":["furniture",1.057,0.931],"table":["furniture",2.208,0.95],"wardrobe":["furniture",3.378,1.06],"shelf":["furniture",4.658,0.976],"mirror":["furniture",5.853,0.851],"lamp":["furniture",6.924,0.948],"curtain":["furniture",8.092,0.978],"carpet":["furniture",9.29,1.046],"cabinet":["furniture",10.556,1.068],"drawer":["furniture",11.844,0.818],"cushion":["furniture",12.882,0.928],"door":["furniture",14.03,0.828],"window":["furniture",15.077,0.949],"家具":["furniture",17.362,1.527],"床":["furniture",19.109,1.094],"沙发":["furniture",20.423,1.52],"桌子":["furniture",22.163,1.364],"衣柜":["furniture",23.747,1.376],"镜子":["furniture",25.343,1.656],"窗帘":["furniture",27.219,1.561],"地毯":["furniture",29.0,1.597],"I sleep in my comfortable bed every night.":["furniture",30.817,2.979],"We watch TV together on the sofa.":["furniture",34.016,2.635],"My books are on the shelf.":["furniture",36.871,1.91],"She looked in the mirror before school.":["furniture",39.002,2.422],"Please close the curtain, it is too bright.":["furniture",41.643,3.182],"The cat is sleeping on the soft carpet.":["furniture",45.045,2.878],"He put his toys in the drawer.":["furniture",48.143,2.143],"Please open the window for fresh air.":["furniture",50.507,2.704],"pen":["stationery",0.0,0.888],"notebook":["stationery",1.108,1.047],"crayon":["stationery",2.374,0.998],"scissors":["stationery",3.593,0.989],"glue":["stationery",4.802,0.813],"marker":["stationery",5.835,1.003],"paper":["stationery",7.058,0.952],"folder":["stationery",8.23,1.036],"stapler":["stationery",9.486,1.042],"tape":["stationery",10.748,0.893],"sharpener":["stationery",11.861,1.11],"paint":["stationery",13.192,0.928],"文具":["stationery",17.829,1.461],"铅笔":["stationery",19.51,1.607],"橡皮":["stationery",21.337,1.65],"尺子":["stationery",23.207,1.345],"剪刀":["stationery",24.773,1.73],"胶水":["stationery",26.723,1.646],"蜡笔":["stationery",28.589,1.435],"笔记本":["stationery",30.244,1.922],"I write with a pencil in class.":["stationery",32.386,2.249],"Please pass me the scissors.":["stationery",34.855,2.015],"She uses crayons to draw a picture.":["stationery",37.09,2.703],"I keep my papers in a folder.":["stationery",40.013,2.347],"We use glue to stick the paper together.":["stationery",42.58,2.823],"My pencil is too short, I need a new one.":["stationery",45.623,3.219],"He sharpens his pencil before class.":["stationery",49.062,2.846],"This notebook is full of my drawings.":["stationery",52.128,2.527],"happy":["emotions",0.0,0.919],"sad":["emotions",1.139,0.89],"angry":["emotions",2.249,0.939],"scared":["emotions",3.408,0.973],"excited":["emotions",4.601,1.156],"tired":["emotions",5.977,0.975],"surprised":["emotions",7.172,1.247],"shy":["emotions",8.639,0.889],"proud":["emotions",9.748,0.953],"worried":["emotions",10.921,0.869],"nervous":["emotions",12.011,0.978],"bored":["emotions",13.209,0.891],"calm":["emotions",14.32,0.934],"brave":["emotions",15.474,0.896],"lonely":["emotions",16.59,0.956],"开心":["emotions",17.767,1.578],"伤心":["emotions",19.564,1.344],"生气":["emotions",21.128,1.317],"害怕":["emotions",22.665,1.532],"兴奋":["emotions",24.417,1.644],"紧张":["emotions",26.281,1.47],"自豪":["emotions",27.971,1.581],"勇敢":["emotions",29.772,1.228],"I feel very happy today.":["emotions",31.22,2.208],"She was sad when her toy broke.":["emotions",33.648,2.33],"He gets angry when he loses a game.":["emotions",36.199,2.781],"The little boy was scared of the dark.":["emotions",39.2,2.569],"We are excited about the trip tomorrow.":["emotions",41.989,2.793],"I feel nervous before the exam.":["emotions",45.001,2.563],"She felt proud of her good grades.":["emotions",47.784,2.566],"Be brave and try your best.":["emotions",50.571,2.337],"farm":["farm",0.0,0.992],"cow":["farm",1.212,0.868],"pig":["farm",2.3,0.818],"sheep":["farm",3.338,0.89],"horse":["farm",4.448,0.909],"goat":["farm",5.577,0.812],"hen":["farm",6.609,0.89],"rooster":["farm",7.719,0.963],"barn":["farm",8.902,0.946],"tractor":["farm",10.069,1.098],"field":["farm",11.387,0.962],"harvest":["farm",12.569,1.085],"crop":["farm",13.875,0.965],"农场":["farm",17.211,1.516],"奶牛":["farm",18.946,1.486],"猪":["farm",20.652,0.985],"绵羊":["farm",21.857,1.645],"马":["farm",23.722,0.962],"山羊":["farm",24.904,1.554],"谷仓":["farm",26.678,1.535],"拖拉机":["farm",28.433,1.964],"The cow gives us fresh milk.":["farm",30.616,2.279],"The pig is sleeping in the mud.":["farm",33.116,2.147],"Sheep have soft white wool.":["farm",35.482,2.251],"The horse runs very fast in the field.":["farm",37.953,2.808],"The farmer drives his tractor every morning.":["farm",40.981,3.222],"Hens lay eggs every day.":["farm",44.423,2.208],"We picked apples during the harvest.":["farm",46.851,2.602],"The barn is full of hay.":["farm",49.673,1.91],"dinosaur":["dinosaurs",0.0,1.03],"tyrannosaurus":["dinosaurs",1.25,1.266],"triceratops":["dinosaurs",2.736,1.473],"stegosaurus":["dinosaurs",4.429,1.272],"brontosaurus":["dinosaurs",5.921,1.264],"pterodactyl":["dinosaurs",7.405,1.295],"velociraptor":["dinosaurs",8.92,1.445],"fossil":["dinosaurs",10.585,0.958],"extinct":["dinosaurs",11.763,1.225],"giant":["dinosaurs",13.208,0.947],"ancient":["dinosaurs",14.375,1.028],"claw":["dinosaurs",15.623,0.968],"tail":["dinosaurs",16.811,0.906],"skeleton":["dinosaurs",17.937,1.092],"恐龙":["dinosaurs",20.249,1.552],"霸王龙":["dinosaurs",22.021,1.806],"三角龙":["dinosaurs",24.047,2.176],"化石":["dinosaurs",26.443,1.503],"灭绝":["dinosaurs",28.166,1.486],"巨大":["dinosaurs",29.872,1.442],"古代":["dinosaurs",31.533,1.449],"骨架":["dinosaurs",33.203,1.553],"Dinosaurs lived on the earth millions of years ago.":["dinosaurs",34.976,3.312],"The tyrannosaurus was a fierce meat-eating dinosaur.":["dinosaurs",38.507,3.203],"Triceratops had three horns on its head.":["dinosaurs",41.931,3.282],"Scientists found dinosaur fossils in the desert.":["dinosaurs",45.432,3.424],"Dinosaurs became extinct a long time ago.":["dinosaurs",49.077,3.376],"This dinosaur skeleton is huge.":["dinosaurs",52.672,2.394],"The pterodactyl could fly in the sky.":["dinosaurs",55.286,2.689],"Some dinosaurs were as tall as buildings.":["dinosaurs",58.195,2.922],"shirt":["clothes",0.0,0.874],"pants":["clothes",1.094,1.035],"dress":["clothes",2.349,0.825],"skirt":["clothes",3.394,0.888],"shoes":["clothes",4.503,0.959],"socks":["clothes",5.681,0.969],"hat":["clothes",6.87,0.84],"coat":["clothes",7.93,0.876],"jacket":["clothes",9.026,0.963],"sweater":["clothes",10.209,0.987],"scarf":["clothes",11.416,0.991],"gloves":["clothes",12.627,0.927],"shorts":["clothes",13.774,1.015],"jeans":["clothes",15.009,0.956],"uniform":["clothes",16.185,1.076],"衣服":["clothes",17.481,1.395],"衬衫":["clothes",19.096,1.711],"裤子":["clothes",21.027,1.615],"裙子":["clothes",22.862,1.697],"鞋子":["clothes",24.778,1.582],"帽子":["clothes",26.58,1.65],"外套":["clothes",28.45,1.234],"围巾":["clothes",29.904,1.198],"I wear a school uniform every day.":["clothes",31.322,2.702],"She is wearing a pretty red dress.":["clothes",34.244,2.322],"Put on your coat, it is cold outside.":["clothes",36.786,3.082],"He wears a scarf in winter.":["clothes",40.089,2.166],"These shoes are very comfortable.":["clothes",42.475,2.298],"My socks are blue and white.":["clothes",44.993,2.321],"She bought a new hat yesterday.":["clothes",47.534,2.331],"He always wears jeans on weekends.":["clothes",50.086,2.721],"festival":["festivals",0.0,1.137],"holiday":["festivals",1.357,1.046],"celebrate":["festivals",2.623,1.109],"lantern":["festivals",3.952,1.003],"fireworks":["festivals",5.175,1.188],"dragon":["festivals",6.583,0.909],"moon cake":["festivals",7.712,1.177],"red envelope":["festivals",9.109,1.442],"new year":["festivals",10.771,1.107],"birthday":["festivals",12.098,0.974],"party":["festivals",13.293,0.948],"candle":["festivals",14.46,0.991],"costume":["festivals",15.672,1.079],"parade":["festivals",16.971,0.99],"节日":["festivals",19.209,1.41],"春节":["festivals",20.84,1.496],"灯笼":["festivals",22.556,1.472],"烟花":["festivals",24.248,1.617],"月饼":["festivals",26.085,1.152],"红包":["festivals",27.457,1.613],"庆祝":["festivals",29.29,1.595],"生日":["festivals",31.104,1.242],"We celebrate Chinese New Year with our family.":["festivals",32.567,3.198],"People hang red lanterns during the festival.":["festivals",35.985,3.294],"We watched the beautiful fireworks at night.":["festivals",39.499,3.023],"Grandma gave me a red envelope for New Year.":["festivals",42.742,3.255],"We eat moon cakes during the Mid-Autumn Festival.":["festivals",46.217,3.462],"Today is my birthday, and I am very happy.":["festivals",49.899,3.166],"We had a fun party with all my friends.":["festivals",53.285,2.865],"The dragon dance is exciting to watch.":["festivals",56.371,2.803]};
+var _audioSpriteCache={};
+/* 2026-09fix：AUDIO_SPRITES最早是把每个主题的mp3整段转成base64直接塞进这段JS里（不联网、
+   跟着页面一起加载），但科大讯飞Lumi10Pro实测下来还是没声音——同一台设备背景音乐bgm_xxx.mp3
+   （用普通的xxx.mp3相对路径加载）反而能正常播放，说明<audio>本身没问题，问题很可能
+   出在"data:开头的base64音频"这种写法上（这类定制浏览器内核对data:音频支持不全/被拦截）。
+   所以改成跟bgm音乐同一种做法：把30个主题的mp3当成普通文件，跟着这次一起发布到
+   audio/主题名.mp3 这个相对路径下（和"xxx.mp3"是同一种发布方式，已经验证这台设备能
+   正常加载这类相对路径的文件），AUDIO_SPRITES这里存的也从"一大段base64"变成"一个短短的相对路径"。
+   另外因为改成了要读取外部文件，不再是内存里现成的数据，所以下面这个函数也从"调用完就默认成功"
+   改成了真正等音频play()这个Promise的结果（配合loadedmetadata/canplay/error事件处理"还没加载好
+   就先调用"的情况），播放到底成没成功、失败在哪一步，都会通过onResult回调如实反馈，不再是"看起来
+   调用了就当成功"——这样万一这次还是不出声，也能从"朗读诊断"里看出具体卡在哪一步，而不是像之前
+   那样毫无线索。 */
+function playOfflineAudio(text,onResult){
+  function fail(){ if(onResult) onResult(false); }
+  function ok(){ if(onResult) onResult(true); }
+  try{
+    var e=(typeof AUDIO_TEXT_MAP!=='undefined')&&AUDIO_TEXT_MAP[text];
+    if(!e){ fail(); return false; }
+    var themeId=e[0],start=e[1],dur=e[2];
+    var audioEl=_audioSpriteCache[themeId];
+    if(!audioEl){
+      var src=AUDIO_SPRITES&&AUDIO_SPRITES[themeId];
+      if(!src){ fail(); return false; }
+      audioEl=new Audio(src);
+      audioEl.preload='auto';
+      _audioSpriteCache[themeId]=audioEl;
+    }
+    var stopAt=start+dur;
+    function doPlay(){
+      try{audioEl.pause();}catch(ePause){}
+      try{audioEl.currentTime=start;}catch(eSeek){}
+      try{audioEl.volume=(typeof ttsVolFrac==='function')?ttsVolFrac():1;}catch(eVol){}
+      function onTime(){
+        if(audioEl.currentTime>=stopAt-0.02||audioEl.currentTime<start-1){
+          try{audioEl.pause();}catch(eP2){}
+          audioEl.removeEventListener('timeupdate',onTime);
+        }
+      }
+      audioEl.addEventListener('timeupdate',onTime);
+      var playPromise=audioEl.play();
+      if(playPromise&&playPromise.then){
+        playPromise.then(ok).catch(fail);
+      }else{
+        // 不支持Promise写法的老浏览器没法知道play()到底成没成功，只能先当成功处理
+        ok();
+      }
+    }
+    if(audioEl.readyState>=1){
+      // readyState>=1（HAVE_METADATA）时才能准确seek到指定时间点，已经就绪就直接播
+      doPlay();
+    }else{
+      var settled=false;
+      function onReady(){
+        if(settled) return; settled=true;
+        audioEl.removeEventListener('loadedmetadata',onReady);
+        audioEl.removeEventListener('canplay',onReady);
+        doPlay();
+      }
+      audioEl.addEventListener('loadedmetadata',onReady);
+      audioEl.addEventListener('canplay',onReady);
+      audioEl.addEventListener('error',function(){ if(settled) return; settled=true; fail(); });
+      // 兜底：万一loadedmetadata/canplay/error这几个事件在个别定制浏览器里都不触发，
+      // 2.5秒后就当加载失败处理，不让调用方一直卡着等不到任何反馈
+      setTimeout(function(){ if(settled) return; settled=true; fail(); }, 2500);
+    }
+    return true; // 找到了这句话对应的离线录音、已经发起加载/播放尝试；播放到底成不成功看onResult回调
+  }catch(err){ fail(); return false; }
+}
+/* ===== 离线预录发音数据结束 ===== */
+
 function studySpeak(text,lang){
   /* 点🔊的时候让宠物"亲口"把这句话讲给小朋友听：冒泡显示这句话 + 一边讲一边做出说话的表情动作，
      而不只是浏览器安安静静地念一遍，更拟人化 */
@@ -4511,8 +4950,32 @@ function studySpeak(text,lang){
     petSay(text, Math.max(2200, Math.min(7000, text.length*220)));
   }
   if(!window.speechSynthesis){
-    if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*180)));
-    setTimeout(ttsShowSilentDeviceNotice, 1300);
+    var hitOffline=playOfflineAudio(text, function(reallyOk){
+      if(reallyOk){
+        // 离线预录音频真的播出声音了（不联网、不会被设备的网址白名单拦截），到这一步就结束，不用再走联网兜底
+        return;
+      }
+      // 找到了这句话对应的离线录音、但实际播放失败了（比如play()被拒绝/加载出错）：退一步试联网兜底
+      netSpeakFallback(text, lang||'en-US', function(ok2){
+        if(!ok2) ttsShowSilentDeviceNotice({voiceCount:null, netFallbackFailed:true});
+      });
+    });
+    if(hitOffline){
+      // 命中了离线录音覆盖范围（不代表已经确认出声，出没出声由上面的回调继续处理），
+      // 先按"多半能出声"给宠物收起说话气泡留够时间
+      if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*220)));
+      return;
+    }
+    // 这句话根本不在离线预录范围内（比如短语/古诗/故事），直接走联网兜底
+    netSpeakFallback(text, lang||'en-US', function(ok){
+      if(ok){
+        // 网络语音已经在播放了：给它一个跟"浏览器自己朗读"差不多长的时间再收起宠物说话气泡
+        if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*220)));
+      }else{
+        if(canShowPet) petTalkEndTimer=setTimeout(petStopTalking, Math.max(1500, Math.min(6000, text.length*180)));
+        ttsShowSilentDeviceNotice({voiceCount:null, netFallbackFailed:true});
+      }
+    });
     return;
   }
   /* 浏览器朗读这几个坑很常见，不处理的话经常"点了但没声音"：
@@ -4554,9 +5017,15 @@ function studySpeak(text,lang){
            给家长一个"这是设备问题、不是没点中"的提示，而不是让人一直以为是网页坏了 */
         setTimeout(function(){
           if(spoke) return;
-          var vc=null;
-          try{ vc=(window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[]).length; }catch(e3){}
-          ttsShowSilentDeviceNotice({voiceCount:vc});
+          // 有些设备虽然存在speechSynthesis对象、但实际上悄悄不出声：这时候也用离线预录音频兜底试一次，
+          // 真的出声了就不用再弹"设备不出声音"的提示了
+          function showSilentNotice(){
+            var vc=null;
+            try{ vc=(window.speechSynthesis.getVoices?window.speechSynthesis.getVoices():[]).length; }catch(e3){}
+            ttsShowSilentDeviceNotice({voiceCount:vc});
+          }
+          if(playOfflineAudio(text, function(reallyOk){ if(!reallyOk) showSilentNotice(); })) return;
+          showSilentNotice();
         }, 1300);
       }
       catch(e2){ if(canShowPet) petStopTalking(); setTimeout(ttsShowSilentDeviceNotice, 100); }
@@ -5756,13 +6225,14 @@ function restoreAutoBackup(idx){
   if(!confirm('确定要恢复到 '+fmtBackupTime(entry.time)+' 这份自动备份吗？当前数据会被覆盖（建议先用"导出备份文本"存一份现在的数据再恢复）')) return;
   try{
     var restored=JSON.parse(entry.data); // 校验一下这份备份数据本身没有损坏
+    resetPetClocksOnAdopt(restored); // 避免"这份自动备份存了一段时间才被恢复"被误判成宠物长期没人照顾而变回蛋
     // 直接写回存档位，不经过 saveStore()（避免内存里还没刷新的 state 把恢复的数据又覆盖回去），
     // 刷新页面后 load() 会重新从存档位读出这份恢复后的数据
     localStorage.setItem(STORE_KEY, JSON.stringify(restored));
     hideModal('backupHistoryModal');
     location.reload();
   }catch(e){
-    alert('恢复失败，这份备份数据可能已损坏');
+    ttsToast('❌ 恢复失败，这份备份数据可能已损坏', 6000);
   }
 }
 
@@ -6523,10 +6993,16 @@ function maybeTriggerCoinWipe(today){
     state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
   }
 }
+/* 2026-09fix：这个函数原来不返回任何东西，调用方（尤其是 petMinuteTick 每分钟挂机自动调用的那次）
+   不知道这一次到底有没有发生"值得跟其它设备同步"的真事件，只能笼统地每次都当成"有变化"去 saveStore()。
+   现在让它老实汇报"这次是不是真的发生了宠物变回蛋这种大事"（返回true/false），配合下面 petMinuteTick
+   里的改动，把"纯粹挂机、数值小幅缓慢下降"和"真的发生了大事"分开处理——具体原因见 petMinuteTick 那边
+   的注释。 */
 function applyRealTimeDecay(){
   // 家里养了不止一只宠物时，每一只都要各自按真实经过的时间掉状态——不是只有当前选中查看的那只才需要照顾，
   // 不然"后台"的宠物就变成摆设了，起不到"要真的用心养"的效果
-  if(!state.pets || !state.pets.length) return;
+  var revertedAny=false;
+  if(!state.pets || !state.pets.length) return revertedAny;
   var now=Date.now();
   for(var i=0;i<state.pets.length;i++){
     var pet=state.pets[i];
@@ -6570,6 +7046,7 @@ function applyRealTimeDecay(){
     }
     if(pet.neglectHours>=PET_NEGLECT_REVERT_HOURS){
       revertPetToEgg(pet, 'neglect');
+      revertedAny=true;
       continue; // 已经变回蛋了，不用再往下判定受伤倒计时
     }
 
@@ -6580,9 +7057,11 @@ function applyRealTimeDecay(){
       var injuredElapsedHours=Math.max(0,(now-pet.injuredAt)/3600000);
       if(injuredElapsedHours>=PET_INJURY_REVERT_HOURS){
         revertPetToEgg(pet, 'injury');
+        revertedAny=true;
       }
     }
   }
+  return revertedAny;
 }
 function cleanDiscounts(){
   var today=todayKey();
@@ -9499,7 +9978,30 @@ function renderBackpack(){
 /* ========== 备份（所有档案） ========== */
 function exportData(){
   saveStore();
-  prompt('复制全部文本做备份（含所有小朋友档案）：', JSON.stringify(store,null,2));
+  var text=JSON.stringify(store,null,2);
+  /* 2026-09fix：这里原来用 prompt() 弹一个原生对话框显示备份文本，让家长自己全选复制。排查发现家长
+     反馈"导入失败/没有数据"，其实是从这个 prompt() 对话框里复制的时候，内容比较长（包含所有小朋友的
+     完整打卡历史），在某些浏览器/设备上全选复制会不完整（复制少了、被截断），导致粘贴去导入的时候
+     JSON 格式是坏的、解析失败——表现出来就是"导入失败，文件或文本格式不对"甚至误以为"没有数据"。
+     而且跟 alert()/confirm() 一样，prompt() 这种原生弹窗在部分受限浏览器/App内置浏览器里也可能被
+     直接拦掉。这里改成把文本直接写进页面上"把备份粘贴到这里"这个文本框里（不用原生弹窗，更不容易被拦），
+     并且自动帮忙全选、尝试直接写入系统剪贴板（写剪贴板这步不一定每个浏览器都支持/允许，所以就算失败
+     也没关系，文本本来就已经显示在框里了，手动长按/双击选中再复制一样能用，比之前的 prompt() 弹窗更
+     不容易复制不全）。 */
+  var box=document.getElementById('importText');
+  if(!box){ return; }
+  box.value=text;
+  box.focus();
+  box.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      ttsToast('✅ 备份文本已生成，并已自动复制到剪贴板，可以直接去新设备粘贴恢复了', 6000);
+    }).catch(function(){
+      ttsToast('✅ 备份文本已生成，就在下面这个框里（已帮你全选），长按/双击后点"复制"即可', 6000);
+    });
+  }else{
+    ttsToast('✅ 备份文本已生成，就在下面这个框里（已帮你全选），长按/双击后点"复制"即可', 6000);
+  }
 }
 function backupFileName(){
   var d=new Date();
@@ -9510,30 +10012,40 @@ async function downloadBackup(){
   saveStore();
   var text=JSON.stringify(store,null,2);
   var fname=backupFileName();
-  // 如果是在托管网页环境下打开（例如通过分享链接），普通下载链接不生效，需走 downloads 能力保存文件
+  /* 2026-09fix：实测发现——这个页面是 Claude"托管网页"（Artifact）功能发布出来的公开分享链接，
+     孩子的设备是匿名访问、没有登录 Claude 账号打开的。不管是 Claude 平台提供的"文件下载"能力，
+     还是普通浏览器的 Blob 下载链接，在这种匿名未登录的情况下都提示"仅限该机构成员使用"/根本不生效，
+     没法真的把文件存到孩子设备上——这条路在孩子的设备上基本走不通。下面还是先都尝试一下（万一在
+     某些已登录的设备上能用，就当是多一次机会），但不管这两种下载方式有没有成功，都一定会把内容
+     直接显示在页面上"导出备份文本"那个文本框里、自动全选、尝试复制到剪贴板——保证不管在哪种设备上，
+     点这个按钮之后手上一定能拿到这份备份内容，不会因为下载没反应就真的拿不到数据。 */
   try{
     if(window.claude&&typeof window.claude.use==='function'){
       var dl=await window.claude.use('downloads');
-      if(dl){
-        await dl.save({filename:fname,data:text});
-        markBackupDone();
-        return;
-      }
+      if(dl){ await dl.save({filename:fname,data:text}); }
     }
-  }catch(e){/* 走下面的兼容方案 */}
-  var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=fname;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function(){
-    document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-  },100);
-  addLog('📥 已下载备份文件（含所有小朋友档案）');
+  }catch(e){/* 下载能力不可用/被拒绝，忽略，继续走下面一定生效的文本框方案 */}
+  try{
+    var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=fname;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); },100);
+  }catch(e){/* 同样忽略，继续走下面一定生效的文本框方案 */}
+  var box=document.getElementById('importText');
+  if(box){ box.value=text; box.focus(); box.select(); }
   markBackupDone();
-  save();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      ttsToast('✅ 备份内容已生成，并已自动复制到剪贴板（如果刚才还弹出了文件保存提示，也可以选择保存文件）。复制的内容可以发给自己（比如微信"文件传输助手"）保存，或直接粘贴到别的设备恢复', 8000);
+    }).catch(function(){
+      ttsToast('✅ 备份内容已经显示在下面的文本框里（已帮你全选），长按/双击后点"复制"，发给自己保存或粘贴到别的设备恢复即可', 8000);
+    });
+  }else{
+    ttsToast('✅ 备份内容已经显示在下面的文本框里（已帮你全选），长按/双击后点"复制"，发给自己保存或粘贴到别的设备恢复即可', 8000);
+  }
 }
 function importFromFile(input){
   var file=input.files&&input.files[0];
@@ -9557,6 +10069,7 @@ function importFromText(t){
       });
       if(!obj.accounts[id].state.day) obj.accounts[id].state.day=freshDay(todayKey());
     });
+    resetPetClocksOnAdopt(obj); // 见函数注释：避免"备份放了很久才导入"被误判成宠物长期没人照顾而变回蛋
     store=obj;
     if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
     state=store.accounts[store.currentChildId].state;
@@ -9569,9 +10082,20 @@ function importFromText(t){
     cleanDiscounts();
     saveStore();
     render();
-    alert('导入成功！所有小朋友档案已恢复');
+    /* 2026-09fix：导入备份是"一次性大动作"，不能只靠saveStore()里那个2.5秒防抖去推云端——
+       实测发现家长点完"导入成功"这个alert确认框之后，很可能立刻就关掉/切走了页面，
+       alert()本身会阻塞这2.5秒的计时器，等alert关掉时间可能已经不够，云端最后没收到这次推送，
+       导致换新设备时云端还是空的、白导入了一次。这里改成导入完立刻额外主动推一次，不等防抖。 */
+    cloudPush();
+    /* 2026-09fix：这里原来用alert()提示"导入成功/导入失败"，但从家长手机截图排查发现——
+       通过"分享链接/在App内打开"这种嵌入式浏览器（比如Claude App自己的内置浏览器、微信内置浏览器
+       这一类）打开页面时，alert()这种浏览器原生弹窗经常被这类容器悄悄拦掉，点了按钮却"什么反应都
+       没有"，跟ttsDiagnose那边之前踩过的坑是同一类问题。这里改用页面自己的ttsToast()提示条
+       （不依赖浏览器原生弹窗，已经验证这类容器里也能正常显示），保证不管在哪种浏览器/App内打开，
+       导入成功还是失败都能看到明确反馈，而不是"点了没反应"。 */
+    ttsToast('✅ 导入成功！所有小朋友档案已恢复', 5000);
     maybeShowOfflineNotice();
-  }catch(e){alert('导入失败，文件或文本格式不对');}
+  }catch(e){ ttsToast('❌ 导入失败，文件或文本格式不对', 6000); }
 }
 function importData(){
   importFromText(document.getElementById('importText').value);
@@ -9591,7 +10115,7 @@ function importFreshDataFromFile(input){
 }
 function importFreshDataFromTextarea(){
   var t=document.getElementById('freshDataImportText').value;
-  if(!t || !t.trim()){ alert('请先粘贴备份文本，或者点上面的按钮从文件导入'); return; }
+  if(!t || !t.trim()){ ttsToast('请先粘贴备份文本，或者点上面的按钮从文件导入', 5000); return; }
   importFromText(t);
   finishFreshDataImportIfSucceeded();
 }
@@ -9663,13 +10187,17 @@ function petMinuteTick(){
     render();
     maybeShowWishResetPrompt();
   }
-  applyRealTimeDecay();
+  var _revertedAny=applyRealTimeDecay();
   syncPetSprite(); // 状态挂机掉到阈值以下/宠物被养回蛋，不用等切页面，每分钟这一下就能让宠物按新状态该出现/该收起
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
   renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
   ['readEn','readCn','storyEn','storyCn'].forEach(renderReadingCard); // 阅读3分钟冷却的倒计时文字，同理每分钟刷新一下
   maybeShowIdleNag(); // 上线闲置够久、还没打今天最喜欢那类的卡，宠物就念叨一句提醒小朋友
-  save();
+  /* 2026-09fix：只有这一分钟真的发生了"宠物变回蛋"这种大事，才走会刷新 updatedAt、触发云端推送的
+     正常 save()；纯粹挂机、数值小幅缓慢下降这种不值得让"本机数据比云端新"这个判断失真的小事，
+     只存本地不碰同步时间戳，避免把一个"开着没关但内容其实很旧"的页面误判成"最新数据"反过来污染云端。
+     详见 saveStoreLocalOnly() 的注释。 */
+  if(_revertedAny){ save(); }else{ saveStoreLocalOnly(); render(); }
 }
 setInterval(petMinuteTick, 60000);
 /* 手机浏览器把这个页面切到后台（锁屏/切到别的App）一段时间后，通常会为了省电把上面这个60秒定时器
