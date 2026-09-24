@@ -1273,7 +1273,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="wheel" onclick="showPage('wheel')"><span class="t-emoji">🎡</span>转盘</button>
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')"><span class="t-emoji">🎒</span>背包</button>
-  <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();"><span class="t-emoji">🚪</span>串门<span class="tab-badge" id="visitTabBadge">0</span></button>
+  <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();markPkInboxRead();"><span class="t-emoji">🚪</span>串门<span class="tab-badge" id="visitTabBadge">0</span></button>
 </nav>
 
 <!-- 选择宠物弹窗 -->
@@ -5006,14 +5006,17 @@ function startFriendPk(rowId,cid,friendStore){
   closeVisitDetail();
   openBattleLoadoutUI();
 }
-/* ========== PK消息中心：对方下次上线时提醒 ==========
+/* ========== PK消息中心：像微信一样，安安静静显示小红点，不再自动弹窗 ==========
    2026-09fix：以前直接读本机 state.pkInbox，现在消息已经搬到独立的 pkinbox: 云端行里，
-   这几个函数都改成先去云端拉一次自己专属的那一行，再基于拉回来的数据渲染/判断未读。 */
+   这几个函数都改成先去云端拉一次自己专属的那一行，再基于拉回来的数据渲染/判断未读。
+   2026-09fix第二版：以前一登录检测到有未读PK消息就立刻自动弹出消息中心大弹窗，弹窗一弹出来
+   马上就把消息标成已读——红点和"被自动清零"几乎同时发生，小朋友根本来不及看到那个小红点，
+   直接看到的是弹窗本身。现在改成跟微信一样：登录只安静地把角标刷新出来（有未读就一直挂着红点），
+   不再自动弹窗打断，小朋友什么时候自己点进"串门"或者点"📬 PK消息记录"，才算真正看过、角标才消失。
+   注意：宠物离线期间自己发生的事情（喂养/生病等）那个提示弹窗是另一套逻辑（maybeShowOfflineNotice），
+   跟这里的PK消息完全无关，不受这次改动影响，还是照常在离线一段时间后弹出来汇报。 */
 function checkPkInboxOnBoot(){
-  refreshMyPkInbox().then(function(inbox){
-    var hasUnread=inbox&&inbox.messages&&inbox.messages.some(function(m){ return !m.read; });
-    if(hasUnread) showPkInboxModal();
-  });
+  pkInboxBadgeRefresh(); // 只静静刷新角标，不再自动弹窗——跟微信一样，小红点留在那里等小朋友自己点进去看
 }
 /* 用当前已经拉到手的缓存直接渲染角标，不额外发请求——给"刚拉完数据顺手刷新一下界面"的场景用 */
 function pkInboxBadgeRender(){
@@ -5031,12 +5034,26 @@ function pkInboxBadgeRender(){
 function pkInboxBadgeRefresh(){
   refreshMyPkInbox().then(pkInboxBadgeRender);
 }
+/* 2026-09fix第二版新增：把"拉取+标记已读+处理受伤副作用+写回云端+刷新角标"这一整套动作抽成
+   独立函数，方便"点进串门tab"和"点开PK消息记录弹窗"这两个入口都能各自触发一次、又不用重复代码 */
+function markPkInboxRead(){
+  return refreshMyPkInbox().then(function(inbox){
+    var sideEffectsChanged=applyPkInboxSideEffects(inbox);
+    var readChanged=false;
+    (inbox.messages||[]).forEach(function(m){ if(!m.read){ m.read=true; readChanged=true; } });
+    if(sideEffectsChanged||readChanged){
+      supaUpsertRow(pkInboxRowId(SUPA_ROW_ID,store.currentChildId),inbox).catch(function(){});
+    }
+    pkInboxBadgeRender();
+    return inbox;
+  });
+}
 function showPkInboxModal(){
   var box=document.getElementById('pkInboxList');
   if(!box) return;
   box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">正在读取PK消息…</div>';
   showModal('pkInboxModal');
-  refreshMyPkInbox().then(function(inbox){
+  markPkInboxRead().then(function(inbox){
     var list=(inbox&&inbox.messages)||[];
     if(!list.length){
       box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">还没有PK消息</div>';
@@ -5052,14 +5069,6 @@ function showPkInboxModal(){
           +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div>'+rematchBtn+'</div>';
       }).join('');
     }
-    // 谁输了谁受伤这件事，等真正打开消息中心读到时，才在自己本机安全地处理一次（防重复用 applied 标记）
-    var sideEffectsChanged=applyPkInboxSideEffects(inbox);
-    var readChanged=false;
-    list.forEach(function(m){ if(!m.read){ m.read=true; readChanged=true; } });
-    if(sideEffectsChanged||readChanged){
-      supaUpsertRow(pkInboxRowId(SUPA_ROW_ID,store.currentChildId),inbox).catch(function(){});
-    }
-    pkInboxBadgeRender();
   }).catch(function(){
     box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">没能读取PK消息，检查一下网络吧</div>';
   });
@@ -5715,8 +5724,7 @@ function finishLoadRender(){
   refreshFamilyCodeDisplay();
   ensurePetHomeRegistry();
   refreshAdminEntryVisibility();
-  pkInboxBadgeRefresh();
-  checkPkInboxOnBoot();
+  pkInboxBadgeRefresh(); // 只静静刷新"串门"tab上的红点，不再自动弹PK消息弹窗（见该函数上方注释）
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
    之前没有看心情：哪怕宠物正饿着/脏着/不开心，一开App还是会立刻开心比心欢迎，跟它当时该有的
