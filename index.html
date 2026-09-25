@@ -235,6 +235,11 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
   position:fixed; right:10px; bottom:158px; z-index:58; font-size:20px;
   background:linear-gradient(135deg,#ffe0b2,#ffcc80);
 }
+/* 装备面板入口：跟副本挑战按钮同一列，紧挨着上方，方便一起点 */
+#equipEntryBtn{
+  position:fixed; right:10px; bottom:212px; z-index:58; font-size:20px;
+  background:linear-gradient(135deg,#d8c6f5,#c3a8ef);
+}
 #petEggWrap{
   position:fixed; left:50%; top:42%; transform:translate(-50%,-50%); z-index:46;
   width:min(72vw,260px); text-align:center; pointer-events:none;
@@ -304,6 +309,26 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 #petInjuryTip.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
 #petInjuryTip .pnt-line1{ font-weight:700; color:#ffb3c1; margin-bottom:4px; }
 #petInjuryTip .pnt-line2{ color:#fff2d6; }
+/* PK对战专属的"轻伤"倒计时徽章：跟上面挑战副本/离线事件那套完全独立（2026-09新增），
+   叠在受伤徽章正下方。48小时内不去疗伤，宠物会掉级（不会变回蛋），逼着小朋友尽快处理 */
+#petPkInjuryBadge{
+  position:fixed; top:120px; right:10px; z-index:53; display:none;
+  background:linear-gradient(135deg,#ffe1e6,#ffd0d8); color:#c2185b;
+  border-radius:20px; padding:6px 12px; font-size:12px; font-weight:700;
+  box-shadow:0 4px 14px rgba(233,30,99,.35); border:1px solid rgba(233,30,99,.5);
+  pointer-events:auto; cursor:pointer; transition:.3s; user-select:none;
+  animation:pnbPulse 1.6s ease-in-out infinite;
+}
+#petPkInjuryTip{
+  position:fixed; top:152px; right:10px; z-index:54; max-width:min(78vw,260px);
+  background:linear-gradient(160deg,rgba(120,25,45,.94),rgba(70,15,30,.94)); color:#fff2d6;
+  border:1px solid rgba(255,150,170,.5); border-radius:16px; padding:11px 13px;
+  font-size:12.5px; line-height:1.6; box-shadow:0 10px 26px rgba(0,0,0,.4);
+  opacity:0; transform:translateY(-6px); pointer-events:none; transition:.2s;
+}
+#petPkInjuryTip.show{ opacity:1; transform:translateY(0); pointer-events:auto; }
+#petPkInjuryTip .pnt-line1{ font-weight:700; color:#ffb3c1; margin-bottom:4px; }
+#petPkInjuryTip .pnt-line2{ color:#fff2d6; }
 /* 能力雷达图以前是宠物页里普通排版的一张卡片，结果被"沉浸式整屏"背景层(#petFsOverlay，z-index:40)整个盖住，
    小朋友根本看不见。现在跟护体灵光/受伤徽章一样改成悬浮按钮 + 点开的浮层面板，z-index 都比40高，
    平时只留一个小圆按钮，点一下从屏幕中间弹出雷达图，点旁边空白处或按钮再收起来 */
@@ -595,6 +620,18 @@ body.pet-fs-active #page-pet{display:none !important}
 .dungeon-card .dc-desc{font-size:11.5px;color:#888;margin-top:1px}
 .dg-tabs{display:flex;gap:6px;margin-bottom:10px}
 .dg-tab-btn{flex:1;border:none;border-radius:10px;padding:8px 6px;font-size:12.5px;font-weight:700;background:#f3e5f5;color:#9c7aa8;cursor:pointer}
+/* 2026-09新增：装备面板样式——3x3槽位网格仿魔兽世界人物栏，配色跟品质走 */
+.eq-summary{background:linear-gradient(135deg,#f3e5f5,#fce4ec);border-radius:10px;padding:8px 10px;text-align:center;font-weight:700;color:#7b1fa2;font-size:13px;margin-bottom:10px}
+.eq-slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.eq-slot{border:2px solid #e0e0e0;border-radius:10px;background:#fafafa;padding:8px 4px;text-align:center;cursor:default;transition:.15s}
+.eq-slot.filled{cursor:pointer}
+.eq-slot.filled:active{transform:scale(.94)}
+.eq-slot-label{font-size:10px;color:#999;font-weight:700}
+.eq-slot-icon{font-size:22px;margin:2px 0}
+.eq-slot-name{font-size:10.5px;font-weight:700;line-height:1.3}
+.eq-bag-item{display:flex;align-items:center;gap:8px;border:1.5px solid #e0e0e0;border-radius:10px;padding:7px 8px;margin-bottom:7px}
+.eq-bag-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.eq-bag-info{flex:1;min-width:0}
 .dg-tab-btn.active{background:#ab47bc;color:#fff}
 .dg-pvp-box{background:#faf4fc;border-radius:11px;padding:9px 10px;margin-bottom:9px}
 .dg-pvp-box input{flex:1;min-width:0;border:1.5px solid #e1bee7;border-radius:8px;padding:7px 9px;font-size:12px;background:#fff;color:#555}
@@ -1575,7 +1612,18 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="modal" style="max-width:400px">
     <button class="modal-close" onclick="hideModal('pkInboxModal')">✕</button>
     <h3 style="text-align:center">📬 PK消息记录</h3>
+    <div id="pkWinCountLine" class="small" style="text-align:center;color:#c2185b;font-weight:700;margin-bottom:6px"></div>
     <div id="pkInboxList"></div>
+  </div>
+</div>
+
+<!-- 2026-09新增：装备面板——仿魔兽世界人物装备栏，中间宠物形象，四周9个槽位，下面是背包 -->
+<div class="modal-mask" id="equipPanelModal">
+  <div class="modal" style="max-width:460px">
+    <button class="modal-close" onclick="hideModal('equipPanelModal')">✕</button>
+    <h3 style="text-align:center">🛡️ 装备面板</h3>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">点背包里的装备一键穿戴；点身上已穿戴的装备可以卸下</div>
+    <div id="equipPanelBody"></div>
   </div>
 </div>
 
@@ -1688,7 +1736,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petNeglectTip"></div>
 <div id="petInjuryBadge" style="display:none" onmouseenter="showPetInjuryTip()" onmouseleave="hidePetInjuryTip()" onclick="petInjuryBadgeTap()">🤕 受伤了</div>
 <div id="petInjuryTip"></div>
+<div id="petPkInjuryBadge" style="display:none" onmouseenter="showPetPkInjuryTip()" onmouseleave="hidePetPkInjuryTip()" onclick="petPkInjuryBadgeTap()">🤕 PK轻伤</div>
+<div id="petPkInjuryTip" onmouseenter="clearTimeout(petPkInjuryTipAutoHideTimer)" onmouseleave="hidePetPkInjuryTip()"></div>
 <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" style="display:none">⚔️</button>
+<button class="hud-act-btn" id="equipEntryBtn" onclick="petQuickAction('openEquipPanel')" title="装备面板" style="display:none">🛡️</button>
 <button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" style="display:none">📊</button>
 <div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
 <!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
@@ -1841,6 +1892,177 @@ const CONFIG = {
     {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.18, severeChance:0.60, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
   ]
 };
+/* ============================================================
+   2026-09新增：灵宠装备库 & 装备装配系统
+   9个穿戴部位 × 3档品质，跟原有 pet.accessories/equippedAccessory（单槽纯装饰、副本首通送）
+   是两套完全独立的系统，互不干扰：装备真正加战斗数值（攻击/防御），走账号级背包+按宠物穿戴。
+   装备不并入七维打卡成长面板，只单独汇总成"装备加成"，在对战（副本/PK）里生效，
+   避免"花钱/靠运气就能绕开打卡"——七维还是得老老实实打卡攒。
+   装备是账号绑定（绑定到孩子本人，不绑定到某一只具体宠物），同一个孩子的多只宠物之间可以自由换穿，
+   但不能不同孩子之间交易转让（本来也没有转让功能，天然做到）。
+   画面呈现：现在宠物是整图切换，没有分部位美术图层，这次先做好数据+面板+穿脱+属性生效，
+   宠物身上暂时用品质光晕特效代替真实换装（见 petEquipGlowFilter），以后有了AI绘图的透明装备图，
+   直接接到这里预留的挂载点上就行，不用重新开发。 */
+var EQUIP_SLOTS=[
+  {key:'head',     label:'头部',  emoji:'🎩'},
+  {key:'shoulder', label:'肩膀',  emoji:'👔'},
+  {key:'body',     label:'身体',  emoji:'👘'},
+  {key:'hand',     label:'手部',  emoji:'🧤'},
+  {key:'leg',      label:'腿部',  emoji:'👖'},
+  {key:'shoe',     label:'鞋子',  emoji:'👟'},
+  {key:'weapon',   label:'武器',  emoji:'🗡️'},
+  {key:'necklace', label:'项链',  emoji:'📿'},
+  {key:'belt',     label:'腰带',  emoji:'🎗️'}
+];
+var EQUIP_QUALITY_INFO={
+  white:{label:'普通', color:'#9e9e9e', bg:'#f2f2f2', glow:'none'},
+  blue:{label:'优质',  color:'#4a90d9', bg:'#eaf3fc', glow:'drop-shadow(0 0 6px rgba(74,144,217,.65))'},
+  purple:{label:'稀有', color:'#9b59d0', bg:'#f5edfb', glow:'drop-shadow(0 0 9px rgba(155,89,208,.75))'}
+};
+/* 27件装备完整数据：id规则 = 部位_品质，属性数值/美术描述与《仙侠灵宠系统规则文档》第二章一一对应，
+   art字段是给以后AI绘图用的美术描述文案，先留着，面板里暂时只用品质配色卡片+emoji展示 */
+var EQUIP_ITEMS={
+  head_white:{id:'head_white',   slot:'head',     quality:'white',  name:'棉布头巾',   lvReq:2,  atk:1,  def:2,  emoji:'🎩', art:'柔和米白色棉布料简易头巾，边缘缀着细碎浅棕缝线，布料轻薄柔软，剪裁简约朴素，适合幼年灵宠佩戴；低饱和度卡通手绘质感，线条干净柔和，不带任何尖锐装饰。'},
+  head_blue: {id:'head_blue',    slot:'head',     quality:'blue',   name:'银纹兜帽',   lvReq:10, atk:4,  def:7,  emoji:'🎩', art:'浅灰蓝色软布兜帽，帽身以纤细银白色丝线绣出流云暗纹，布料表层微微泛着柔光；兜帽边缘缝有一圈轻薄绒毛，触感蓬松，整体精致又不失柔和，带卡通仙侠气质。'},
+  head_purple:{id:'head_purple', slot:'head',     quality:'purple', name:'星羽宝冠',   lvReq:22, atk:9,  def:12, emoji:'🎩', art:'淡紫珠光材质打造的精致宝冠，冠身点缀着细碎星光光点，随视角轻轻闪烁；两侧垂落轻盈的半透明浅蓝羽片，随风飘动，整体呈现梦幻仙侠卡通风格，笼罩一层柔和的发光特效。'},
+  shoulder_white:{id:'shoulder_white', slot:'shoulder', quality:'white',  name:'粗布肩垫', lvReq:3,  atk:1,  def:3,  emoji:'👔', art:'厚实的土褐色粗麻布肩垫，表面是质朴的粗麻编织纹理，用简单绑带固定在肩头，整体朴素踏实，柔和卡通手绘线条。'},
+  shoulder_blue: {id:'shoulder_blue',  slot:'shoulder', quality:'blue',   name:'软鳞肩甲', lvReq:12, atk:5,  def:8,  emoji:'👔', art:'浅蓝色半透明软鳞肩甲，鳞片边缘圆润没有尖角，淡淡的蓝光在鳞片表层缓缓流动，轻巧贴合灵宠肩部曲线，透出仙侠卡通的灵动感。'},
+  shoulder_purple:{id:'shoulder_purple', slot:'shoulder', quality:'purple', name:'流云护肩', lvReq:24, atk:10, def:14, emoji:'👔', art:'烟紫色流云造型护肩，形态如同凝结的云雾，边缘飘出淡淡浅紫雾气，表面微光缓缓流动不息，整体轻盈飘逸，宛如披着一小片会呼吸的云。'},
+  body_white:{id:'body_white',   slot:'body',     quality:'white',  name:'粗布外衣',   lvReq:2,  atk:1,  def:4,  emoji:'👘', art:'浅卡其色粗布短外衣，剪裁宽松舒适，棉麻质地带着自然褶皱，用简单绳带束起，整体朴素简约，低饱和度卡通画风。'},
+  body_blue: {id:'body_blue',    slot:'body',     quality:'blue',   name:'锁子软甲',   lvReq:11, atk:4,  def:10, emoji:'👘', art:'淡蓝色细密锁子软甲，金属环打磨得圆润不锋利，外层衬一层浅蓝软布内衬，泛着淡淡冷光，穿在身上依旧轻巧灵秀，不显笨重。'},
+  body_purple:{id:'body_purple', slot:'body',     quality:'purple', name:'月华灵袍',   lvReq:23, atk:8,  def:16, emoji:'👘', art:'淡紫与月白交织渐变的灵袍，面料仿佛由月光织成，衣摆随风微微浮动飘扬，袍身散落着细碎银白色光点，整体气质柔和仙气，宛如披着一身月光。'},
+  hand_white:{id:'hand_white',   slot:'hand',     quality:'white',  name:'布制护腕',   lvReq:3,  atk:2,  def:1,  emoji:'🧤', art:'米白色棉布护腕，用简单麻绳捆扎固定，布料带着自然的柔软褶皱，整体朴素简约，不带任何金属或尖锐装饰。'},
+  hand_blue: {id:'hand_blue',    slot:'hand',     quality:'blue',   name:'铁皮护腕',   lvReq:13, atk:6,  def:5,  emoji:'🧤', art:'哑光淡蓝色铁皮护腕，边角经过细致打磨变得圆润，表面浅浅刻着回旋纹路，金属光泽柔和内敛，不会显得刺眼锋利。'},
+  hand_purple:{id:'hand_purple', slot:'hand',     quality:'purple', name:'幻灵手甲',   lvReq:25, atk:11, def:9,  emoji:'🧤', art:'半透明幻彩浅紫色手甲，光影会随动作轻微流转变化，周身环绕着细碎的微光粒子，整体轻盈精致，佩戴起来仿佛握着一团会发光的云雾。'},
+  leg_white:{id:'leg_white',     slot:'leg',      quality:'white',  name:'麻布绑腿',   lvReq:4,  atk:1,  def:3,  emoji:'👖', art:'浅棕色麻布绑腿，布条一层层缠绕固定，带着粗麻特有的天然纹理，整体简约朴素，适合日常活动穿着。'},
+  leg_blue: {id:'leg_blue',      slot:'leg',      quality:'blue',   name:'韧皮护腿',   lvReq:12, atk:4,  def:9,  emoji:'👖', art:'青蓝色柔韧兽皮护腿，皮质细腻贴身，边缘用浅色棉线细细缝制，整体贴合腿部自然曲线，行动起来轻便利落。'},
+  leg_purple:{id:'leg_purple',   slot:'leg',      quality:'purple', name:'风纹腿甲',   lvReq:23, atk:9,  def:13, emoji:'👖', art:'灰紫色风纹腿甲，甲面刻着流动的风之纹路，移动时会飘出淡淡的浅青色微粒特效，整体造型飘逸灵动，宛如踩着微风前行。'},
+  shoe_white:{id:'shoe_white',   slot:'shoe',     quality:'white',  name:'平底布鞋',   lvReq:2,  atk:2,  def:1,  emoji:'👟', art:'米白色平底布鞋，鞋面干净整洁，软底舒适防滑，鞋口用简单棉线锁边，造型小巧可爱，适合幼年灵宠。'},
+  shoe_blue: {id:'shoe_blue',    slot:'shoe',     quality:'blue',   name:'疾行皮靴',   lvReq:10, atk:5,  def:4,  emoji:'👟', art:'浅蓝色软皮短靴，靴身轻盈贴脚，靴底带有细密防滑纹路，整体造型干净利落，方便灵宠灵活奔跑跳跃。'},
+  shoe_purple:{id:'shoe_purple', slot:'shoe',     quality:'purple', name:'踏云灵靴',   lvReq:21, atk:10, def:8,  emoji:'👟', art:'淡紫色灵靴，靴底萦绕着淡淡的云朵微光，每迈一步都会留下转瞬即逝的云雾粒子特效，仿佛踏云而行，梦幻又轻盈。'},
+  weapon_white:{id:'weapon_white', slot:'weapon', quality:'white',  name:'小木杖',     lvReq:3,  atk:4,  def:0,  emoji:'🗡️', art:'原木色小木杖，表面打磨得十分光滑，杖头造型圆润没有尖刺，整体质朴自然，握感温和安全，非常适合小小灵宠练手。'},
+  weapon_blue: {id:'weapon_blue',  slot:'weapon', quality:'blue',   name:'青锋短刃',   lvReq:14, atk:10, def:2,  emoji:'🗡️', art:'淡青色短刃，刃身圆润不锋利，表层泛着淡淡青光，手柄缠绕着一圈蓝色布条，整体造型精巧，带着仙侠卡通的灵秀气质。'},
+  weapon_purple:{id:'weapon_purple', slot:'weapon', quality:'purple', name:'流光灵杖', lvReq:26, atk:18, def:5,  emoji:'🗡️', art:'紫晶流光灵杖，杖身由通透的紫色晶体铸成，晶体内部缓缓流动着银白色光河，顶端悬浮着一枚微弱发光的光球，整体梦幻柔和，宛如握着一段流动的星河。'},
+  necklace_white:{id:'necklace_white', slot:'necklace', quality:'white',  name:'简易绳链', lvReq:4,  atk:2,  def:2,  emoji:'📿', art:'米色棉绳手工编织的细绳项链，垂坠一颗圆润的浅色小石头吊坠，造型简约朴素，是很适合入门佩戴的小饰物。'},
+  necklace_blue: {id:'necklace_blue',  slot:'necklace', quality:'blue',   name:'蓝玉吊坠', lvReq:11, atk:5,  def:6,  emoji:'📿', art:'温润的浅蓝玉石吊坠，玉质通透细腻，搭配一条细细的银色项链绳，整体呈现柔和的哑光质感，佩戴起来清雅不张扬。'},
+  necklace_purple:{id:'necklace_purple', slot:'necklace', quality:'purple', name:'星辰灵链', lvReq:22, atk:11, def:10, emoji:'📿', art:'细巧的紫晶项链，坠着一颗微型旋转的星核吊坠，不断向四周散发细碎星光粒子，整体气质空灵梦幻，仿佛随身带着一小片星空。'},
+  belt_white:{id:'belt_white',   slot:'belt',     quality:'white',  name:'麻绳腰带',   lvReq:3,  atk:1,  def:2,  emoji:'🎗️', art:'粗麻绳手工编织的腰带，打着简单朴素的绳结，天然浅棕色泽，质地质朴，整体风格自然亲切。'},
+  belt_blue: {id:'belt_blue',    slot:'belt',     quality:'blue',   name:'鞣皮腰带',   lvReq:13, atk:3,  def:8,  emoji:'🎗️', art:'青棕色鞣制软皮腰带，搭配打磨圆润的金属腰扣，边缘处理得十分光滑，整体质感柔和不生硬。'},
+  belt_purple:{id:'belt_purple', slot:'belt',     quality:'purple', name:'灵纹束带',   lvReq:24, atk:7,  def:15, emoji:'🎗️', art:'深紫色灵纹束带，带面雕刻着会发光的淡紫色符文，符文微光缓慢闪烁明灭，整体造型神秘又不失柔和，是相当有分量的腰间饰物。'}
+};
+/* 副本掉装备：不新开一个入口，跟现有材料副本（dungeon2）结合在一起——挑战同一个副本，
+   赢了除了原来的金币/建材/经验，再按下面这张"难度分档表"额外判定一次要不要掉装备。
+   idx对应CONFIG.dungeon2的下标（0~7），按原来8关的lvReq门槛自然分成三档：
+   0~2关(lv1/5/10)=普通，3~4关(lv20/35)=困难，5~7关(lv55/80/120)=英雄 */
+var EQUIP_DUNGEON_TIER_BY_IDX=['normal','normal','normal','hard','hard','hero','hero','hero'];
+var EQUIP_DROP_TABLE={
+  normal:{rate:0.10, weights:{white:0.85, blue:0.15, purple:0}},
+  hard:  {rate:0.25, weights:{white:0.30, blue:0.60, purple:0.10}},
+  hero:  {rate:0.40, weights:{white:0.10, blue:0.30, purple:0.60}}
+};
+var EQUIP_DAILY_CLEAR_CAP=2;   // 每天最多2次副本通关有资格判定掉装备，防止刷装备无限出
+var EQUIP_PITY_STREAK=10;      // 连续10次"有资格判定"但没掉，第10次必掉（品质随机，最高保底到蓝色）
+function ensureEquipmentBag(st){
+  if(!st) return [];
+  if(!st.equipmentBag) st.equipmentBag=[];
+  return st.equipmentBag;
+}
+function ensurePetEquipment(pet){
+  if(!pet) return {};
+  if(!pet.equipment){
+    pet.equipment={};
+    EQUIP_SLOTS.forEach(function(s){ pet.equipment[s.key]=null; });
+  }
+  return pet.equipment;
+}
+/* 按品质权重随机抽一个部位+品质，拼出装备id；quality可以传入强制指定（保底用，最高只保到blue） */
+function rollEquipDefIdForTier(tierKey, forceQuality){
+  var slot=EQUIP_SLOTS[Math.floor(Math.random()*EQUIP_SLOTS.length)].key;
+  var quality=forceQuality;
+  if(!quality){
+    var weights=EQUIP_DROP_TABLE[tierKey].weights;
+    var r=Math.random(), acc=0, picked='white';
+    var order=['white','blue','purple'];
+    for(var i=0;i<order.length;i++){ acc+=weights[order[i]]||0; if(r<acc){ picked=order[i]; break; } }
+    quality=picked;
+  }
+  return slot+'_'+quality;
+}
+function grantEquipmentItem(st, defId){
+  var bag=ensureEquipmentBag(st);
+  var inst={instanceId:'eq'+Date.now()+Math.floor(Math.random()*1000), defId:defId, obtainedAt:Date.now()};
+  bag.push(inst);
+  return inst;
+}
+/* 装备副本判定：在原有 dungeonEnd2 胜利结算里调用。每天前 EQUIP_DAILY_CLEAR_CAP 次有资格判定副本
+   通关才计入掉落率/保底计数，超过当日次数后照常拿金币建材经验，只是不再判定掉装备，
+   避免无限刷装备；保底计数是账号级、跨天累计的，不会因为过了今天就清零 */
+function tryDropEquipmentOnDungeonClear(idx){
+  if(!state.day.dungeonEquip) state.day.dungeonEquip={clears:0};
+  if(state.day.dungeonEquip.clears>=EQUIP_DAILY_CLEAR_CAP) return null;
+  state.day.dungeonEquip.clears++;
+  var tierKey=EQUIP_DUNGEON_TIER_BY_IDX[idx]||'normal';
+  if(!state.dungeonEquipPity) state.dungeonEquipPity={noDropStreak:0};
+  var dropped=Math.random()<EQUIP_DROP_TABLE[tierKey].rate;
+  var forceQuality=null;
+  if(!dropped && state.dungeonEquipPity.noDropStreak>=EQUIP_PITY_STREAK-1){
+    dropped=true; forceQuality='blue'; // 保底最高只保到蓝色，紫色仍然要靠正常概率
+  }
+  if(!dropped){
+    state.dungeonEquipPity.noDropStreak++;
+    return null;
+  }
+  state.dungeonEquipPity.noDropStreak=0;
+  var defId=rollEquipDefIdForTier(tierKey, forceQuality);
+  return grantEquipmentItem(state, defId);
+}
+/* 装备战斗加成：只汇总攻击/防御两个数值，不碰七维打卡面板；ownerState不传就用当前登录的账号自己，
+   PK时传对方的账号状态（友方战斗单位也要吃到TA自己的装备加成，公平对战） */
+function petEquipBonus(pet, ownerState){
+  var st=ownerState||state;
+  var bag=(st&&st.equipmentBag)||[];
+  var bagById={};
+  bag.forEach(function(it){ bagById[it.instanceId]=it; });
+  var atk=0, def=0;
+  var eq=(pet&&pet.equipment)||{};
+  EQUIP_SLOTS.forEach(function(s){
+    var instId=eq[s.key];
+    if(!instId) return;
+    var inst=bagById[instId];
+    var item=inst&&EQUIP_ITEMS[inst.defId];
+    if(!item) return;
+    atk+=item.atk||0; def+=item.def||0;
+  });
+  return {atk:atk, def:def};
+}
+/* 防御按"越堆边际收益越低"的经典公式换算成减伤比例，防御50点大约减伤55%左右，不会出现"防御拉满0伤害"的极端情况 */
+function equipDefReduceMul(def){
+  def=def||0;
+  return 1-(def/(def+40));
+}
+/* 宠物身上暂时没有分部位换装美术，先用"当前穿戴的最高品质"给宠物图片叠一层品质光晕特效代替，
+   紫色装备穿上后宠物周身会有柔和的紫色微光，蓝色是淡蓝微光，白色几乎看不出来（本来就该低调） */
+function petEquipHighestQuality(pet){
+  var eq=(pet&&pet.equipment)||{};
+  var order={purple:3,blue:2,white:1};
+  var best=null,bestRank=0;
+  EQUIP_SLOTS.forEach(function(s){
+    var instId=eq[s.key];
+    if(!instId) return;
+    var bag=ensureEquipmentBag(state);
+    var inst=bag.filter(function(x){return x.instanceId===instId;})[0];
+    var item=inst&&EQUIP_ITEMS[inst.defId];
+    if(!item) return;
+    var rank=order[item.quality]||0;
+    if(rank>bestRank){ bestRank=rank; best=item.quality; }
+  });
+  return best;
+}
+function petEquipGlowFilter(pet){
+  var q=petEquipHighestQuality(pet);
+  if(!q) return '';
+  return EQUIP_QUALITY_INFO[q].glow==='none' ? '' : EQUIP_QUALITY_INFO[q].glow;
+}
 /* 等级越高，宠物"饭量"越大：每日消耗在基础值上按等级线性增加，封顶为基础值的 decayCapMul 倍 */
 function decayForLevel(stat, level){
   var base=CONFIG.decay[stat]||0, perLv=CONFIG.decayPerLevel[stat]||0;
@@ -2054,6 +2276,7 @@ function syncPetImmersive(){
   // 不放进上面那个"只有孵化了才处理"的分支里，这样宠物刚变回蛋的那一刻，这个徽章也能跟着立刻消失，不会卡在画面上
   renderPetNeglectBadge();
   renderPetInjuryBadge();
+  renderPetPkInjuryBadge();
   if(hideChrome){
     var nb=document.getElementById('petNeglectBadge');
     if(nb) nb.style.display='none';
@@ -2061,11 +2284,16 @@ function syncPetImmersive(){
     var ib=document.getElementById('petInjuryBadge');
     if(ib) ib.style.display='none';
     hidePetInjuryTip();
+    var pib=document.getElementById('petPkInjuryBadge');
+    if(pib) pib.style.display='none';
+    hidePetPkInjuryTip();
     var arT=document.getElementById('abilityRadarToggle');
     if(arT) arT.style.display='none';
     closeAbilityRadarPanel();
     var dgT=document.getElementById('dungeonEntryBtn');
     if(dgT) dgT.style.display='none';
+    var eqT=document.getElementById('equipEntryBtn');
+    if(eqT) eqT.style.display='none';
   }else{
     // 2026-09fix：能力雷达/副本挑战这两个悬浮按钮"有时候出现有时候消失"——上面只处理了"切到打卡/棋盘页时隐藏"，
     // 却没处理"切回宠物页时要重新显示"，全靠下一次完整render()里的renderAbilityRadar()/renderDungeonEntry()
@@ -2108,7 +2336,7 @@ function syncPetImmersive(){
     if(addBtn) addBtn.style.display=unlocked?'block':'none';
     if(lockHint){
       lockHint.style.display=unlocked?'none':'block';
-      if(!unlocked) lockHint.textContent='🔒 所有宠物升到 Lv.'+PET_UNLOCK_LEVEL+' 才能再养一只新宠物';
+      if(!unlocked) lockHint.textContent='🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），'+petSlotUnlockHint();
     }
   }
   renderCompanionPets();
@@ -3389,7 +3617,9 @@ function syncPetSprite(){
     if(desired!==curIdleAnimState){ curIdleAnimState=desired; setPetAnim(desired); }
   }
   var moodNow=petMoodOf(pet); /* 不复用上面 if(!busy) 里的局部变量：busy 时那段可能没执行，滤镜/光晕仍要跟最新心情保持一致 */
-  if(petImg) petImg.style.filter=[moodFilterFor(moodNow), dirtyFilterFor(pet.clean)].filter(Boolean).join(' ');
+  // 2026-09新增：身上穿了装备时，叠一层品质光晕特效（紫色最亮，蓝色淡淡，白色几乎看不出来），
+  // 在真正的分部位换装美术做出来之前，先让小朋友能直观感受到"穿了好装备"
+  if(petImg) petImg.style.filter=[moodFilterFor(moodNow), dirtyFilterFor(pet.clean), petEquipGlowFilter(pet)].filter(Boolean).join(' ');
   if(petWrap) petWrap.classList.toggle('mood-angry', moodNow==='angry');
   if(petAccessoryEl){
     var accId=pet.equippedAccessory, acc=accId?DUNGEON_ACC_BY_ID[accId]:null;
@@ -3614,6 +3844,60 @@ function petInjuryBadgeTap(){
   clearTimeout(petInjuryTipAutoHideTimer);
   petInjuryTipAutoHideTimer=setTimeout(hidePetInjuryTip,4000);
 }
+/* ========== PK对战专属"轻伤"倒计时装置（2026-09新增）：跟上面那套挑战副本/离线事件触发的受伤
+   完全独立，互不影响、互不共用字段(pet.pkInjured/pkInjuredAt，不是pet.injured/injuredAt)。
+   PK输了就会轻伤，48小时内花金币安抚就没事；如果放着不管，时间到了宠物会"伤心地掉级"（掉到当前
+   所在等级阶段的最低一级），但绝不会变回蛋——跟蛋劫是两回事，故意做得比蛋劫温和一些 ========== */
+var PK_INJURY_REVERT_HOURS=48;
+var PK_INJURY_HEAL_COST=15;
+function petPkInjuryStatus(){
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched||!pet.pkInjured||!pet.pkInjuredAt) return null;
+  var elapsed=Math.max(0,(Date.now()-pet.pkInjuredAt)/3600000);
+  var remainHours=Math.max(0,PK_INJURY_REVERT_HOURS-elapsed);
+  return {remainHours:remainHours};
+}
+function renderPetPkInjuryBadge(){
+  var badge=document.getElementById('petPkInjuryBadge');
+  if(!badge) return;
+  var st=petPkInjuryStatus();
+  if(!st){ badge.style.display='none'; hidePetPkInjuryTip(); return; }
+  badge.style.display='block';
+  badge.innerText='🤕 PK轻伤·'+formatRemainHours(st.remainHours);
+}
+var petPkInjuryTipAutoHideTimer=null;
+function showPetPkInjuryTip(){
+  var tip=document.getElementById('petPkInjuryTip');
+  if(!tip) return;
+  var st=petPkInjuryStatus();
+  if(!st) return;
+  var line1='🤕 PK对战输了，受了点轻伤，还剩 '+formatRemainHours(st.remainHours)+'。';
+  var line2='不安抚的话时间到了会伤心地掉一级（不会变回蛋），花 '+PK_INJURY_HEAL_COST+' 金币马上安抚好～';
+  tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+line2+'</div>'
+    +'<div style="margin-top:8px;text-align:right"><button onclick="healPkInjury()" style="border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#ffd6de,#ffb3c1);color:#9a1b3c;cursor:pointer;">💊 安抚（-'+PK_INJURY_HEAL_COST+'金币）</button></div>';
+  tip.classList.add('show');
+}
+function hidePetPkInjuryTip(){
+  clearTimeout(petPkInjuryTipAutoHideTimer);
+  var tip=document.getElementById('petPkInjuryTip');
+  if(tip) tip.classList.remove('show');
+}
+function petPkInjuryBadgeTap(){
+  showPetPkInjuryTip();
+  clearTimeout(petPkInjuryTipAutoHideTimer);
+  petPkInjuryTipAutoHideTimer=setTimeout(hidePetPkInjuryTip,6000);
+}
+function healPkInjury(){
+  var pet=state.pet;
+  if(!pet||!pet.pkInjured){ hidePetPkInjuryTip(); return; }
+  if((state.moneyBalance||0)<PK_INJURY_HEAL_COST){ alert('金币不够啦，攒够'+PK_INJURY_HEAL_COST+'个金币再来安抚吧～'); return; }
+  state.moneyBalance-=PK_INJURY_HEAL_COST;
+  pet.pkInjured=false; pet.pkInjuredAt=null;
+  addLog('💊 花'+PK_INJURY_HEAL_COST+'金币安抚好了PK轻伤');
+  hidePetPkInjuryTip();
+  save();
+  render();
+}
 /* ========== 互动反馈动画：喂食/喝水/喂奶/陪玩/训练/美容 各自弹出不同的漂浮图标 ========== */
 const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],kfc_wing:['🍗','✨'],egg_tart:['🥧','✨'],wagyu:['🥩','✨','⭐'],matcha:['🍵','💧'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨'],medicine:['💊','✨','💚']};
 function spawnPetFx(icons){
@@ -3831,6 +4115,12 @@ function defaultState(){
     abilityDim:null,
     pendingOfflineNotice:null, // 离线期间触发的性格行为事件，下次打开时弹一次通知，展示完就清空
     lastCheckinDayKey:todayKey(), // 最近一次真的有打卡拿到金币是哪一天，连续零打卡满2天会触发金币兜底清空
+    equipmentBag:[], // 2026-09新增：账号级装备背包（未穿戴的装备实例），装备本身账号绑定，同账号多只宠物可以自由换穿
+    petSlotBonus:0,  // 保留字段（早期草稿用过，现在仓位加成改成实时按dungeonClearCounts算，这个字段不再是权威来源，留着只为兼容）
+    dungeonClearCounts:{hard:0,hero:0}, // 2026-09新增：困难/英雄副本累计通关次数，驱动宠物仓位解锁成就
+    dungeonEquipPity:{noDropStreak:0}, // 装备副本保底计数：连续多少次"有资格判定"没掉装备，跨天累计不清零
+    pkRewardToday:{dateKey:null,count:0}, // 当天已经从PK获胜领取过几次奖励，超过每日上限后只记胜场不再发奖励
+    pkWinCount:0, // 2026-09新增：PK累计胜场，只用来展示荣誉徽章，不受每日奖励上限影响、永远累加
     version:4
   };
 }
@@ -4598,12 +4888,16 @@ function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap,pet,st){
     return k==='basic_attack' ? basicAttackInstance(pet,st) : battleSkillInstance(k,ptsMap);
   });
   if(!skills.length) skills=[basicAttackInstance(pet,st)];
+  // 2026-09新增：装备加成——st是这只宠物主人自己的账号状态（PK时是对方的friendChildState），
+  // 从TA自己的装备背包里结算，保证双方各吃各自的装备，公平对战
+  var eb=petEquipBonus(pet, st);
   return {
     name:name, maxHp:hp, hp:hp,
     skills:skills,
     ult: ultKey ? battleSkillInstance(ultKey,ptsMap) : null,
     shieldPct:0, shieldTurns:0, sealed:false, stunned:false,
-    buffAtk:0, buffTurns:0, debuffTakeMore:0, debuffTurns:0
+    buffAtk:0, buffTurns:0, debuffTakeMore:0, debuffTurns:0,
+    equipAtk:eb.atk, equipDef:eb.def
   };
 }
 /* 好友那边没人在线操作，只能程序自动帮TA挑技能书出战：优先从TA已经解锁的技能里随机选，
@@ -4636,6 +4930,14 @@ function startBattleDemo(){
   var playerNormalKeys=(_battleLoadout.normal||[]).slice();
   while(playerNormalKeys.length<3) playerNormalKeys.push('basic_attack');
   var player=newBattleFighter(petName,100,playerNormalKeys,_battleLoadout.ult,liveAbilityPtsMap(),childPet,state);
+  var _pkBuffMsg='';
+  if(_battleMode==='pk' && childPet.pkNextBattleBuff){
+    var _buffAtk=childPet.pkNextBattleBuff.atk||0;
+    player.equipAtk=(player.equipAtk||0)+_buffAtk;
+    _pkBuffMsg='✨ 【对战增益小buff】生效：本场攻击+'+_buffAtk+'（用完即消失）';
+    childPet.pkNextBattleBuff=null;
+    save();
+  }
 
   var opp,oppArtSrc,oppName;
   if(_battleMode==='pk' && _battlePkTarget){
@@ -4688,6 +4990,7 @@ function startBattleDemo(){
   if(_battleMode==='pk'&&_battleLevelGapInfo){
     btLog('📊 你 Lv.'+_battleLevelGapInfo.myLevel+'　对方 Lv.'+_battleLevelGapInfo.oppLevel+'　'+battleLevelGapText(_battleLevelGapInfo.gap));
   }
+  if(_pkBuffMsg) btLog(_pkBuffMsg);
 }
 function btLog(msg){
   var box=document.getElementById('btLog');
@@ -4784,8 +5087,9 @@ function battleResolveSkill(user,target,skill,userImgId,targetImgId){
     if(!skill.power) continue;
     var atkMul=1+(user.buffAtk||0);
     var takeMul=1+(target.debuffTakeMore||0);
-    var dmg=skill.power*atkMul*takeMul;
+    var dmg=(skill.power+(user.equipAtk||0))*atkMul*takeMul; // 2026-09新增：装备攻击加成，直接叠进每一下伤害
     if(target.shieldTurns>0) dmg=dmg*(1-target.shieldPct);
+    dmg=dmg*equipDefReduceMul(target.equipDef); // 2026-09新增：装备防御减伤，边际递减，不会出现"防御拉满0伤害"
     dmg=Math.max(1,Math.round(dmg));
     target.hp=Math.max(0,target.hp-dmg);
     totalDmg+=dmg;
@@ -4883,6 +5187,90 @@ function applyBattleLossInjury(){
   save();
   ttsToast('🤕 '+(state.pet.name||'宠物')+' 在对战中受了轻伤，先去商城买药治疗一下吧', 5000);
 }
+/* ========== PK专属的"轻伤"系统（2026-09新增）：跟上面挑战副本/离线事件那套injured字段
+   彻底分开、互不影响，两种伤可以同时挂在身上。PK输了才会触发这个；48小时内没人安抚（花金币，
+   不走商城特效药）的话，宠物会"伤心地掉一级"（掉到当前所在等级阶段的最低一级），
+   跟蛋劫（变回蛋）是完全不同的、温和一些的惩罚，故意不共用 revertPetToEgg 那一套 ========== */
+function applyPkLossInjury(){
+  if(!state||!state.pet||state.pet.pkInjured) return;
+  state.pet.pkInjured=true; state.pet.pkInjuredAt=Date.now();
+  addLog('⚔️PK落败：'+(state.pet.name||'宠物')+' 受了点轻伤（48小时内没人安抚会掉一级，但绝不会变回蛋）');
+  save();
+  ttsToast('🤕 '+(state.pet.name||'宠物')+' PK输了，受了点轻伤，48小时内记得安抚一下哦', 5000);
+}
+// 跟 petLevelInfo() 的经验值分级公式完全对应的"反向"计算：算出"恰好达到 targetLevel、
+// 该级进度条刚清零"时对应的累计经验值总量，专门给下面"PK轻伤拖太久，把宠物掉级"用的，
+// 平时升级判定还是用 petLevelInfo，这里不改动它，只是新写一个配套的反函数
+function petExpForLevel(targetLevel){
+  if(targetLevel<=1) return CONFIG.eggHatchExp;
+  var exp=CONFIG.eggHatchExp, level=1, need=60;
+  while(level<targetLevel){
+    exp+=need;
+    level++;
+    need=40+level*10;
+  }
+  return exp;
+}
+var PET_STAGE_SIZE=6; // 每6级算一个大阶段（1~6/7~12/13~18……），跟原有形态阶段划分一致
+function petStageFloorLevel(level){
+  if(level<=1) return 1;
+  return Math.floor((level-1)/PET_STAGE_SIZE)*PET_STAGE_SIZE+1;
+}
+// 48小时倒计时真的到点了、还没人来安抚，才会调用这个——把宠物经验值直接压回"当前所在阶段
+// 最低一级"对应的经验值（比如21级掉到19级，30级掉到25级），顺便清掉PK对战小buff、扣点心情，
+// 但绝不触碰 pet.injured/pet.exp归零 那一套，不会变回蛋
+function revertPetLevelForPkInjury(pet){
+  if(!pet) return;
+  var info=petLevelInfo(pet);
+  var floorLv=petStageFloorLevel(info.level);
+  if(floorLv<info.level){
+    pet.exp=petExpForLevel(floorLv);
+  }
+  pet.pkInjured=false; pet.pkInjuredAt=null;
+  pet.pkNextBattleBuff=null;
+  pet.happy=Math.max(0,(pet.happy||0)-15);
+  addLog('💔 '+(pet.name||'宠物')+' PK轻伤拖太久没人安抚，伤心地掉到了 Lv.'+floorLv);
+  if(pet===state.pet){
+    ttsToast('💔 '+(pet.name||'宠物')+' PK轻伤太久没人安抚，伤心地掉到了 Lv.'+floorLv+'（没有变回蛋）', 6000);
+  }
+}
+var PK_DAILY_REWARD_CAP=3;
+function pkRewardCoinsForGap(myLevel,oppLevel){
+  var gap=oppLevel-myLevel;
+  if(gap>=3) return 25; // 挑战比自己高很多的对手，奖励更丰厚
+  if(gap<=-3) return 5; // 对手明显比自己弱很多，奖励意思一下
+  return 15; // 水平差不多
+}
+// PK获胜的奖励：只发金币+二选一小福利（糖果心情/下一场对战小buff），故意不发免做卡/折扣卡，
+// 避免打乱打卡任务体系原本的金币/卡片平衡；每天最多算 PK_DAILY_REWARD_CAP 次奖励，
+// 超过之后照样能一直PK、一直累计荣誉胜场，只是不再发钱
+function grantPkWinReward(oppLevel){
+  var pet=state.pet;
+  var myLevel=petLevelInfo(pet).level;
+  var today=todayKey();
+  if(!state.pkRewardToday||state.pkRewardToday.dateKey!==today) state.pkRewardToday={dateKey:today,count:0};
+  state.pkWinCount=(state.pkWinCount||0)+1;
+  if(state.pkRewardToday.count>=PK_DAILY_REWARD_CAP){
+    addLog('🏆 PK获胜！（今日PK奖励次数已用完，只记战绩，暂时没有奖励啦）');
+    save();
+    return {coins:0,bonusText:'',capped:true};
+  }
+  state.pkRewardToday.count++;
+  var coins=pkRewardCoinsForGap(myLevel,oppLevel);
+  state.moneyBalance=(state.moneyBalance||0)+coins;
+  state.day.earned=(state.day.earned||0)+coins;
+  var bonusText='';
+  if(Math.random()<0.5){
+    pet.happy=Math.min(100,(pet.happy||0)+12);
+    bonusText='🍬 宠物小心情糖果：心情+12';
+  }else{
+    pet.pkNextBattleBuff={atk:6};
+    bonusText='✨ 获得【对战增益小buff】，下一场PK开局攻击+6（仅1次有效）';
+  }
+  addLog('🏆 PK获胜！+'+coins+'金币，'+bonusText);
+  save();
+  return {coins:coins,bonusText:bonusText,capped:false};
+}
 /* 2026-09fix：PK消息以前直接写进对方"整个家庭存档"那个大JSON里的 state.pkInbox 字段，
    结果只要对方自己的设备后面正常打卡/保存一次，就会把"还没来得及包含这条新通知"的旧整份数据
    覆盖式推回云端，把刚写进去的PK通知冲掉——这是茜茜一直收不到通知的真正原因（消息写进去了，
@@ -4932,7 +5320,7 @@ function applyPkInboxSideEffects(inbox){
   if(!inbox||!Array.isArray(inbox.messages)) return false;
   var changed=false;
   inbox.messages.forEach(function(m){
-    if(!m.applied && m.friendWon===true){ applyBattleLossInjury(); m.applied=true; changed=true; }
+    if(!m.applied && m.friendWon===true){ applyPkLossInjury(); m.applied=true; changed=true; }
     else if(!m.applied){ m.applied=true; changed=true; }
   });
   return changed;
@@ -4954,7 +5342,15 @@ function quickRematchFromPkMsg(fromRowId,fromChildId){
 function settleFriendPk(iWon){
   var t=_battlePkTarget;
   if(!t) return;
-  if(!iWon) applyBattleLossInjury();
+  var rewardInfo=null;
+  if(!iWon){
+    applyPkLossInjury();
+  }else{
+    var oppPet=t.friendChildState&&t.friendChildState.pet;
+    var oppLevel=oppPet?petLevelInfo(oppPet).level:petLevelInfo(state.pet).level;
+    rewardInfo=grantPkWinReward(oppLevel);
+  }
+  render();
   var note=document.getElementById('btPkSettleNote');
   var msg={
     fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
@@ -4962,7 +5358,11 @@ function settleFriendPk(iWon){
     friendWon:!iWon, time:new Date().toISOString(), read:false, applied:false
   };
   pushPkMessageToFriend(t.rowId,t.cid,msg).then(function(){
-    if(note) note.textContent='✅ 已经通知对方这场PK的结果，TA下次打开App会看到';
+    var extra='';
+    if(rewardInfo){
+      extra=rewardInfo.capped ? '（今日PK奖励次数已用完，只记战绩没有奖励啦）' : ('，获得 '+rewardInfo.coins+' 金币'+(rewardInfo.bonusText?'，'+rewardInfo.bonusText:''));
+    }
+    if(note) note.textContent='✅ 已经通知对方这场PK的结果，TA下次打开App会看到'+extra;
   }).catch(function(){
     if(note) note.textContent='⚠️ 没能把结果发给对方（网络问题），下次再PK试试';
   });
@@ -4996,11 +5396,13 @@ function startFriendPk(rowId,cid,friendStore){
   var myPet=state.pet;
   if(!myPet||!myPet.chosen||!myPet.hatched){ ttsToast('你的宠物还没孵化，没法出战哦', 4000); return; }
   if(myPet.injured){ ttsToast('🤕 你的宠物还在受伤，先去商城买药治好再来挑战吧', 4500); return; }
+  if(myPet.pkInjured){ ttsToast('🤕 你的宠物还在PK轻伤中，先安抚好了再来挑战吧', 4500); return; }
   var c=friendStore.accounts[cid];
   var friendChildState=c&&c.state;
   var friendPet=friendChildState&&friendChildState.pet;
   if(!friendPet||!friendPet.chosen||!friendPet.hatched){ ttsToast('对方的宠物还没孵化，没法挑战TA', 4000); return; }
   if(friendPet.injured){ ttsToast('对方的宠物正在受伤中，没法应战，换个时间再来吧', 4500); return; }
+  if(friendPet.pkInjured){ ttsToast('对方的宠物正在PK轻伤中，没法应战，换个时间再来吧', 4500); return; }
   _battleMode='pk';
   _battlePkTarget={rowId:rowId,cid:cid,friendName:c.name,friendChildState:friendChildState};
   closeVisitDetail();
@@ -5051,6 +5453,8 @@ function markPkInboxRead(){
 function showPkInboxModal(){
   var box=document.getElementById('pkInboxList');
   if(!box) return;
+  var winLine=document.getElementById('pkWinCountLine');
+  if(winLine) winLine.textContent='🏆 累计PK胜场：'+(state.pkWinCount||0);
   box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">正在读取PK消息…</div>';
   showModal('pkInboxModal');
   markPkInboxRead().then(function(inbox){
@@ -8077,9 +8481,18 @@ function migrateState(s){
     if(typeof _onePet.injurySeverity==='undefined') _onePet.injurySeverity=null; // 'light'|'severe'|null，配合 petInjuryLimitHours() 决定倒计时上限和该买哪种药
     if(typeof _onePet.bathRequestPending==='undefined') _onePet.bathRequestPending=false; // 吃完食物后有没有正开口找主人要求洗澡美容，配合 maybeAskForBath()
     if(typeof _onePet.idleNagDayKey==='undefined') _onePet.idleNagDayKey=null;
+    ensurePetEquipment(_onePet); // 2026-09新增：9部位装备槽位，老存档的宠物统一补齐空槽位
+    if(typeof _onePet.pkInjured==='undefined') _onePet.pkInjured=false; // 2026-09新增：PK战败专用的48小时倒计时，跟原有injured字段（3小时变蛋那套）完全独立
+    if(typeof _onePet.pkInjuredAt==='undefined') _onePet.pkInjuredAt=null;
   }
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
   if(!s.pvpFriends) s.pvpFriends=[];
+  if(!s.equipmentBag) s.equipmentBag=[]; // 2026-09新增：账号级装备背包
+  if(typeof s.petSlotBonus!=='number') s.petSlotBonus=0; // 兼容字段，不再是权威来源
+  if(!s.dungeonClearCounts) s.dungeonClearCounts={hard:0,hero:0}; // 2026-09新增：困难/英雄副本累计通关次数，驱动宠物仓位解锁
+  if(!s.dungeonEquipPity) s.dungeonEquipPity={noDropStreak:0};
+  if(!s.pkRewardToday) s.pkRewardToday={dateKey:null,count:0};
+  if(typeof s.pkWinCount!=='number') s.pkWinCount=0;
   if(typeof s.abilityStr!=='number') s.abilityStr=0;
   if(typeof s.abilityInt!=='number') s.abilityInt=0;
   if(typeof s.abilityLife!=='number') s.abilityLife=0;
@@ -8566,6 +8979,7 @@ function revertPetToEgg(pet, reason){
   pet.food=100; pet.thirst=100; pet.happy=100; pet.clean=100;
   pet.neglectHours=0;
   pet.injured=false; pet.injuredAt=null; pet.injurySeverity=null;
+  pet.pkInjured=false; pet.pkInjuredAt=null; pet.pkNextBattleBuff=null; // 变回蛋是彻底重新养大，PK轻伤/小buff这些也一起清空，不留到下次孵化后
   if(reason==='injury'){
     addLog('💔'+name+' 因为受伤后一直没吃到药，伤心地变回了蛋……需要重新好好养大它啦');
     if(isActive){
@@ -8851,6 +9265,16 @@ function applyRealTimeDecay(){
       var injuredElapsedHours=Math.max(0,(now-pet.injuredAt)/3600000);
       if(injuredElapsedHours>=PET_INJURY_REVERT_HOURS){
         revertPetToEgg(pet, 'injury');
+        revertedAny=true;
+      }
+    }
+
+    /* PK轻伤倒计时：跟上面"受伤变回蛋"的判定完全独立的另一套（48小时），同样不管是不是
+       当前展示的这只都会一直跑；到点了不是变回蛋，是"伤心地掉一级"，温和一些 */
+    if(pet.pkInjured && pet.pkInjuredAt){
+      var pkInjuredElapsedHours=Math.max(0,(now-pet.pkInjuredAt)/3600000);
+      if(pkInjuredElapsedHours>=PK_INJURY_REVERT_HOURS){
+        revertPetLevelForPkInjury(pet);
         revertedAny=true;
       }
     }
@@ -9769,7 +10193,7 @@ function makeUpMiss(){
 var pickedPetType=null;
 function openChoose(){
   if(state.pets && state.pets.length>0 && !canAddAnotherPet()){
-    alert('要手上所有的宠物都升到 Lv.'+PET_UNLOCK_LEVEL+'，才能再养一只新宠物哦，继续加油培养现在的宠物吧！');
+    alert('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'）！'+petSlotUnlockHint());
     return;
   }
   pickedPetType=null;
@@ -9835,7 +10259,8 @@ function confirmName(){
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
   if(!name) name=lib.name;
   var isAdditional=!!(state.pets && state.pets.length>0);
-  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},dungeon2ClearedDate:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,injurySeverity:null,idleNagDayKey:null,bathRequestPending:false};
+  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},dungeon2ClearedDate:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,injurySeverity:null,idleNagDayKey:null,bathRequestPending:false,equipment:{},pkInjured:false,pkInjuredAt:null};
+  ensurePetEquipment(newPet); // 9部位装备槽位统一置空
   if(!state.pets) state.pets=[];
   state.pets.push(newPet);
   state.activePetIdx=state.pets.length-1; // 新宠物自动成为当前"出战/展示"的宠物
@@ -9864,7 +10289,7 @@ function petLevelInfo(p){
   if(level>=maxLv){ level=maxLv; remain=need; } // 满级封顶，进度条直接显示满
   return {level:level,inLv:remain,need:need};
 }
-const PET_UNLOCK_LEVEL=30; // 手上所有宠物都到这个等级，才能再养一只新宠物
+const PET_UNLOCK_LEVEL=30; // 老门槛，保留常量不删（其他地方文案可能还引用到），但已不再是养新宠物的判定依据
 function allOwnedPetsReachedLevel(minLevel){
   if(!state.pets || !state.pets.length) return false;
   for(var i=0;i<state.pets.length;i++){
@@ -9873,8 +10298,30 @@ function allOwnedPetsReachedLevel(minLevel){
   }
   return true;
 }
+/* 2026-09fix：多宠物仓库——原来"手上所有宠物都练到30级才能再养一只"的门槛太苛刻，
+   改成看得见、可成长的"仓位"概念：初始3个仓位，副本打出成就就能扩容，不用死磕升级。 */
+var PET_SLOT_BASE=3;                    // 初始仓位数
+var PET_SLOT_HARD_CLEARS_FOR_BONUS=10;  // 困难副本累计通关10次 -> 解锁第4个仓位
+var PET_SLOT_HERO_CLEARS_TIER1=5;       // 英雄副本累计通关5次 -> 解锁第5个仓位
+var PET_SLOT_HERO_CLEARS_TIER2=20;      // 英雄副本累计通关20次 -> 解锁第6个仓位（当前版本上限）
+function petSlotBonusFromAchievements(){
+  var c=(state&&state.dungeonClearCounts)||{hard:0,hero:0};
+  var bonus=0;
+  if((c.hard||0)>=PET_SLOT_HARD_CLEARS_FOR_BONUS) bonus++;
+  if((c.hero||0)>=PET_SLOT_HERO_CLEARS_TIER1) bonus++;
+  if((c.hero||0)>=PET_SLOT_HERO_CLEARS_TIER2) bonus++;
+  return bonus;
+}
+function petSlotCapacity(){ return PET_SLOT_BASE+petSlotBonusFromAchievements(); }
+function petSlotUnlockHint(){
+  var c=(state&&state.dungeonClearCounts)||{hard:0,hero:0};
+  if((c.hard||0)<PET_SLOT_HARD_CLEARS_FOR_BONUS) return '困难副本再通关 '+(PET_SLOT_HARD_CLEARS_FOR_BONUS-(c.hard||0))+' 次，解锁下一个仓位';
+  if((c.hero||0)<PET_SLOT_HERO_CLEARS_TIER1) return '英雄副本再通关 '+(PET_SLOT_HERO_CLEARS_TIER1-(c.hero||0))+' 次，解锁下一个仓位';
+  if((c.hero||0)<PET_SLOT_HERO_CLEARS_TIER2) return '英雄副本再通关 '+(PET_SLOT_HERO_CLEARS_TIER2-(c.hero||0))+' 次，解锁下一个仓位';
+  return '仓位已经全部解锁啦！';
+}
 function canAddAnotherPet(){
-  return !!(state.pets && state.pets.length>0 && allOwnedPetsReachedLevel(PET_UNLOCK_LEVEL));
+  return !!(state.pets && state.pets.length < petSlotCapacity());
 }
 function stageOf(level){
   if(level===0) return 'egg';
@@ -10162,6 +10609,116 @@ function renderDungeonEntry(){
   var cnt=(state.day&&state.day.dungeon2&&state.day.dungeon2.count)||0;
   btn.innerHTML='⚔️'+(cnt>0?('<span class="care-badge show">'+cnt+'</span>'):'');
   btn.title=cnt>0?('副本挑战（今日已挑战 '+cnt+' 次）'):'副本挑战';
+  renderEquipEntryBtn(); // 2026-09新增：装备面板入口，跟副本按钮同一个显示规则（只在宠物页出现），顺路一起刷新
+}
+/* 2026-09新增：装备面板悬浮入口，跟能力雷达/副本挑战按钮同一排规矩——只在"宠物"页显示 */
+function renderEquipEntryBtn(){
+  var btn=document.getElementById('equipEntryBtn');
+  if(!btn) return;
+  var pet=state.pet;
+  btn.style.display=(pet&&pet.chosen&&pageActive('pet'))?'flex':'none';
+  var hatched=pet&&pet.chosen&&pet.hatched;
+  btn.style.opacity=hatched?1:.45;
+  var eb=hatched?petEquipBonus(pet,state):{atk:0,def:0};
+  btn.title=hatched?('装备面板（当前加成：攻+'+eb.atk+' 防+'+eb.def+'）'):'装备面板';
+}
+/* ========== 2026-09新增：装备面板——仿魔兽世界人物装备栏 ========== */
+function openEquipPanel(){
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched){ ttsToast('宠物还没出生（还是蛋），先孵化出来再来搭配装备吧', 4000); return; }
+  ensurePetEquipment(pet);
+  renderEquipPanel();
+  showModal('equipPanelModal');
+}
+function renderEquipPanel(){
+  var box=document.getElementById('equipPanelBody');
+  if(!box) return;
+  var pet=state.pet;
+  if(!pet||!pet.chosen){ box.innerHTML=''; return; }
+  ensurePetEquipment(pet);
+  ensureEquipmentBag(state);
+  var info=petLevelInfo();
+  var bagById={};
+  state.equipmentBag.forEach(function(it){ bagById[it.instanceId]=it; });
+  var eb=petEquipBonus(pet,state);
+  // 中间宠物形象 + 四周9个槽位
+  var slotsHtml='<div class="eq-slots-grid">';
+  EQUIP_SLOTS.forEach(function(s){
+    var instId=pet.equipment[s.key];
+    var inst=instId?bagById[instId]:null;
+    var item=inst?EQUIP_ITEMS[inst.defId]:null;
+    var q=item?EQUIP_QUALITY_INFO[item.quality]:null;
+    slotsHtml+='<div class="eq-slot'+(item?' filled':'')+'" style="'+(q?('border-color:'+q.color+';background:'+q.bg):'')+'" '
+      +(item?('onclick="unequipSlot(\''+s.key+'\')" title="'+item.name+'（点击卸下）"'):('title="'+s.label+'（空）"'))
+      +'>'
+      +'<div class="eq-slot-label">'+s.label+'</div>'
+      +'<div class="eq-slot-icon">'+(item?item.emoji:s.emoji)+'</div>'
+      +(item?'<div class="eq-slot-name" style="color:'+q.color+'">'+item.name+'</div>':'<div class="eq-slot-name" style="color:#ccc">空</div>')
+      +'</div>';
+  });
+  slotsHtml+='</div>';
+  box.innerHTML=
+    '<div class="eq-summary">⚔️ 装备总加成：攻击 +'+eb.atk+'　🛡️ 防御 +'+eb.def+'</div>'
+    +slotsHtml
+    +'<h4 style="margin:12px 0 6px">🎒 装备背包</h4>'
+    +'<div id="equipBagList"></div>';
+  var bagBox=document.getElementById('equipBagList');
+  var unequipped=state.equipmentBag.filter(function(it){
+    return Object.keys(pet.equipment).every(function(k){ return pet.equipment[k]!==it.instanceId; });
+  });
+  if(!unequipped.length){
+    bagBox.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">背包里还没有装备，去副本挑战试试手气吧～</div>';
+    return;
+  }
+  bagBox.innerHTML=unequipped.map(function(it){
+    var item=EQUIP_ITEMS[it.defId];
+    if(!item) return '';
+    var q=EQUIP_QUALITY_INFO[item.quality];
+    var lvOk=info.level>=item.lvReq;
+    var slotLabel=(EQUIP_SLOTS.filter(function(s){return s.key===item.slot;})[0]||{}).label||item.slot;
+    return '<div class="eq-bag-item" style="border-color:'+q.color+'">'
+      +'<div class="eq-bag-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+      +'<div class="eq-bag-info">'
+        +'<div style="color:'+q.color+';font-weight:700">'+item.name+'　<span class="small" style="color:#999">（'+slotLabel+'·'+q.label+'）</span></div>'
+        +'<div class="small" style="color:#999">攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq+(lvOk?'':'（还差'+(item.lvReq-info.level)+'级）')+'</div>'
+      +'</div>'
+      +(lvOk?'<button class="btn btn-primary btn-sm" onclick="equipItem(\''+it.instanceId+'\')">穿戴</button>'
+            :'<button class="btn btn-gray btn-sm" disabled>等级不够</button>')
+      +'</div>';
+  }).join('');
+}
+function equipItem(instanceId){
+  var pet=state.pet;
+  if(!pet||!pet.chosen) return;
+  ensurePetEquipment(pet);
+  var inst=state.equipmentBag.filter(function(x){return x.instanceId===instanceId;})[0];
+  if(!inst){ ttsToast('这件装备好像不在背包里了', 3000); return; }
+  var item=EQUIP_ITEMS[inst.defId];
+  if(!item) return;
+  var info=petLevelInfo();
+  if(info.level<item.lvReq){ ttsToast('宠物等级还不够，先多攒点经验再来穿这件装备吧', 3500); return; }
+  // 同一部位如果已经穿了别的装备，直接自动换下来（还留在背包里，不会消失）
+  pet.equipment[item.slot]=instanceId;
+  addLog('🛡️ 给'+(pet.name||'宠物')+'穿上了装备【'+item.name+'】');
+  save();
+  renderEquipPanel();
+  renderEquipEntryBtn();
+  ttsToast('✅ 已穿戴【'+item.name+'】', 2500);
+}
+function unequipSlot(slotKey){
+  var pet=state.pet;
+  if(!pet||!pet.chosen) return;
+  ensurePetEquipment(pet);
+  var instId=pet.equipment[slotKey];
+  if(!instId) return;
+  var bag=ensureEquipmentBag(state);
+  var inst=bag.filter(function(x){return x.instanceId===instId;})[0];
+  var item=inst&&EQUIP_ITEMS[inst.defId];
+  pet.equipment[slotKey]=null;
+  addLog('🛡️ 把'+(pet.name||'宠物')+'身上的装备【'+(item?item.name:'')+'】卸下来放回背包了');
+  save();
+  renderEquipPanel();
+  renderEquipEntryBtn();
 }
 /* 第 i 关是否已解锁：等级达标 + 前一关已经打赢过（第0关不需要前置）——
    保证小朋友必须"一路打过去"才能推进，而不是靠等级一步登天 */
@@ -10587,10 +11144,12 @@ function startDungeon2Battle(idx){
   var winProb=dungeon2WinProb(rewardSt, info.level, courageScore);
   var mul=dungeon2DifficultyMul(winProb);
   var stats=dungeonPetBattleStats(info.level);
-  var scaledDmgMin=Math.max(1,Math.round(stats.dmgMin*mul.pet));
-  var scaledDmgMax=Math.max(scaledDmgMin,Math.round(stats.dmgMax*mul.pet));
+  var eb=petEquipBonus(pet, state); // 2026-09新增：装备加成——攻击叠进宠物自己的伤害，防御减免怪物打过来的伤害
+  var scaledDmgMin=Math.max(1,Math.round(stats.dmgMin*mul.pet)+eb.atk);
+  var scaledDmgMax=Math.max(scaledDmgMin,Math.round(stats.dmgMax*mul.pet)+eb.atk);
   var stage2={}; for(var k in baseSt) stage2[k]=baseSt[k]; // 浅拷贝，不改动 CONFIG.dungeon 原始数据
-  stage2.dmg=[Math.max(1,Math.round(baseSt.dmg[0]*mul.monster)), Math.max(1,Math.round(baseSt.dmg[1]*mul.monster))];
+  var defMul=equipDefReduceMul(eb.def);
+  stage2.dmg=[Math.max(1,Math.round(baseSt.dmg[0]*mul.monster*defMul)), Math.max(1,Math.round(baseSt.dmg[1]*mul.monster*defMul))];
   var firstTry=!pet.dungeon2Tried[idx];
   pet.dungeon2Tried[idx]=true;
   state.day.dungeon2.count=(state.day.dungeon2.count||0)+1;
@@ -10657,12 +11216,21 @@ function dungeonEnd2(win){
       }
     }
     gainAbilityPoint('dungeon',{highQuality:firstClear}); // 打通副本累加"勇气探险"维度
+    // 2026-09新增：累计困难/英雄副本通关次数，驱动宠物仓位解锁成就（跟装备掉落判定共用同一套难度分档）
+    if(!state.dungeonClearCounts) state.dungeonClearCounts={hard:0,hero:0};
+    var clearTier=EQUIP_DUNGEON_TIER_BY_IDX[idx];
+    if(clearTier==='hard') state.dungeonClearCounts.hard=(state.dungeonClearCounts.hard||0)+1;
+    else if(clearTier==='hero') state.dungeonClearCounts.hero=(state.dungeonClearCounts.hero||0)+1;
+    // 2026-09新增：装备副本判定——跟原来这套材料副本结合在一起，不额外开新入口，赢了顺手判定一次要不要掉装备
+    var newEquip=tryDropEquipmentOnDungeonClear(idx);
+    var newEquipItem=newEquip?EQUIP_ITEMS[newEquip.defId]:null;
     dgLog('🎉 打败了 '+baseSt.monster+'！');
-    addLog('🗺️新版副本挑战成功【'+baseSt.name+'】：+'+coin+'金币，+'+dgExp+'经验，+'+mat.emoji+mat.name+(newAcc?'，获得装饰【'+newAcc.name+'】':''));
+    addLog('🗺️新版副本挑战成功【'+baseSt.name+'】：+'+coin+'金币，+'+dgExp+'经验，+'+mat.emoji+mat.name+(newAcc?'，获得装饰【'+newAcc.name+'】':'')+(newEquipItem?'，获得装备【'+newEquipItem.name+'】':''));
     box.innerHTML='<div style="font-size:15px;font-weight:700;color:#66bb6a">🎉 挑战成功！</div>'
       +'<div style="margin:6px 0">💰 获得 '+coin+' 金币　'+mat.emoji+' 获得 '+mat.name+' ×1　✨ 获得 '+dgExp+' 经验'
       +(newAcc?'<br>'+newAcc.emoji+' 获得新装饰【'+newAcc.name+'】，可以去衣柜给宠物戴上～':'')
       +(firstClear&&!newAcc?'<br>🎖️ 首次通关【'+baseSt.name+'】！':'')
+      +(newEquipItem?'<br><span style="color:'+EQUIP_QUALITY_INFO[newEquipItem.quality].color+';font-weight:700">'+newEquipItem.emoji+' 掉落装备【'+newEquipItem.name+'】！去装备面板给宠物穿上吧～</span>':'')
       +'</div>'
       +'<button class="btn btn-primary btn-block" onclick="backToDungeon2List()">好的！</button>';
   }else{
@@ -11452,6 +12020,9 @@ function renderPet(){
     var ibNone=document.getElementById('petInjuryBadge');
     if(ibNone){ ibNone.style.display='none'; }
     hidePetInjuryTip();
+    var pibNone=document.getElementById('petPkInjuryBadge');
+    if(pibNone){ pibNone.style.display='none'; }
+    hidePetPkInjuryTip();
     var arTNone=document.getElementById('abilityRadarToggle');
     if(arTNone){ arTNone.style.display='none'; }
     closeAbilityRadarPanel();
@@ -11986,6 +12557,7 @@ function petMinuteTick(){
   syncPetSprite(); // 状态挂机掉到阈值以下/宠物被养回蛋，不用等切页面，每分钟这一下就能让宠物按新状态该出现/该收起
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
   renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
+  renderPetPkInjuryBadge(); // PK轻伤倒计时（48小时）同理，也要能每分钟跟着刷新
   ['readEn','readCn','storyEn','storyCn'].forEach(renderReadingCard); // 阅读3分钟冷却的倒计时文字，同理每分钟刷新一下
   maybeShowIdleNag(); // 上线闲置够久、还没打今天最喜欢那类的卡，宠物就念叨一句提醒小朋友
   /* 2026-09fix：只有这一分钟真的发生了"宠物变回蛋"这种大事，才走会刷新 updatedAt、触发云端推送的
