@@ -664,6 +664,13 @@ body.pet-fs-active #page-pet{display:none !important}
 @keyframes dgDmgRise{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}18%{opacity:1;transform:translate(-50%,-62%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-140%) scale(1)}}
 .dg-burstp{position:absolute;transform:translate(-50%,-50%);font-size:17px;pointer-events:none;z-index:19;animation:dgBurstFly .5s ease-out forwards}
 @keyframes dgBurstFly{0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15)}}
+/* 串门看好友家宠物：以前是"只能看不能操作"的纯静态图，现在点一下会有随机小反应（蹦一下+冒爱心+说句话），
+   纯前端视觉效果，不读也不改对方任何真实数据，好友的宠物状态一点都不会被影响 */
+@keyframes vpPetBounce{0%{transform:scale(1) rotate(0deg)}30%{transform:scale(1.12) rotate(-4deg)}55%{transform:scale(.95) rotate(3deg)}80%{transform:scale(1.05) rotate(-2deg)}100%{transform:scale(1) rotate(0deg)}}
+.vp-pet-img{cursor:pointer;transition:filter .15s;}
+.vp-pet-bounce{animation:vpPetBounce .55s ease-in-out}
+.vp-pet-bubble{position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);color:#7b1fa2;font-size:12px;font-weight:700;border-radius:14px;padding:5px 12px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.25);opacity:0;pointer-events:none;animation:vpBubbleShow 1.8s ease-out forwards}
+@keyframes vpBubbleShow{0%{opacity:0;transform:translateX(-50%) translateY(4px)}12%{opacity:1;transform:translateX(-50%) translateY(0)}82%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-6px)}}
 .dg-flash{position:absolute;inset:0;background:rgba(255,255,255,.5);pointer-events:none;z-index:16;animation:dgFlashOut .32s ease-out forwards}
 .dg-flash.gold{background:rgba(255,213,79,.55)}
 @keyframes dgFlashOut{0%{opacity:1}100%{opacity:0}}
@@ -2336,7 +2343,12 @@ function syncPetImmersive(){
     if(addBtn) addBtn.style.display=unlocked?'block':'none';
     if(lockHint){
       lockHint.style.display=unlocked?'none':'block';
-      if(!unlocked) lockHint.textContent='🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），'+petSlotUnlockHint();
+      if(!unlocked){
+        var lockedByLevel=(state.pets.length<PET_SLOT_BASE);
+        lockHint.textContent=lockedByLevel
+          ? ('🔒 还不能养下一只，'+petSlotUnlockHint())
+          : ('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），'+petSlotUnlockHint());
+      }
     }
   }
   renderCompanionPets();
@@ -5682,11 +5694,13 @@ function showFriendChildDetail(rowId,cid,friendStore){
 
   var h=document.createElement('h3');
   h.style.textAlign='center';
-  h.textContent='👀 '+c.name+'（只能看，不能操作哦）';
+  h.textContent='👀 '+c.name+'（快来和我玩吧～）';
   body.appendChild(h);
 
-  // 房间小场景：真实背景图+宠物当前造型图+已装备的装饰，纯静态图片，不接任何互动/动画逻辑
+  // 房间小场景：真实背景图+宠物当前造型图+已装备的装饰。2026-09新增：点一下宠物会有随机小反应
+  // （蹦一下+冒爱心+说句话），纯前端视觉效果，不读也不改对方任何真实数据
   var roomDiv=document.createElement('div');
+  roomDiv.id='visitPetRoomHost';
   roomDiv.style.cssText="position:relative;border-radius:14px;overflow:hidden;background:#111 url('petroom_bg.jpg') center/cover no-repeat;height:190px;margin:8px 0;display:flex;align-items:center;justify-content:center";
   var petImgSrc=petDisplayImgSrc(pet);
   if(!pet || !pet.chosen){
@@ -5694,7 +5708,7 @@ function showFriendChildDetail(rowId,cid,friendStore){
   }else if(!pet.hatched){
     roomDiv.innerHTML='<div style="font-size:56px">🥚</div>';
   }else if(petImgSrc){
-    roomDiv.innerHTML='<img src="'+petImgSrc+'" style="max-height:85%;max-width:65%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))" onerror="this.style.display=\'none\'">'
+    roomDiv.innerHTML='<img id="visitPetImg" class="vp-pet-img" src="'+petImgSrc+'" style="max-height:85%;max-width:65%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(0,0,0,.45))" onerror="this.style.display=\'none\'" onclick="visitPetReact()" title="点我一下试试～">'
       +(accInfo?('<div style="position:absolute;top:8px;right:10px;font-size:26px" title="'+accInfo.name+'">'+accInfo.emoji+'</div>'):'')
       +'<div style="position:absolute;bottom:6px;left:10px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;border-radius:8px;padding:2px 8px">'+houseInfo.emoji+' '+houseInfo.name+'</div>';
   }
@@ -5742,6 +5756,40 @@ function showFriendChildDetail(rowId,cid,friendStore){
   body.appendChild(pkBtn);
 
   card.style.display='block';
+}
+// 点一下好友家里的宠物图，蹦一下+冒几个爱心+说句话，纯前端小效果，随机挑一句台词，
+// 不读也不写任何云端数据（跟上面"摸摸TA的宠物"那个真正加亲密度、有每日次数限制的按钮是两回事）
+var VISIT_PET_REACT_LINES=['嘿嘿，谢谢你来找我玩！','哇，被戳到啦～','我们做好朋友吧！','嘻嘻，好痒呀～','欢迎常来我家玩哦！','今天心情不错呢～','咦？是谁在戳我呀～'];
+function visitPetReact(){
+  var img=document.getElementById('visitPetImg');
+  var host=document.getElementById('visitPetRoomHost');
+  if(!img||!host) return;
+  img.classList.remove('vp-pet-bounce');
+  void img.offsetWidth; // 强制重排，保证同一个动画能连续多次触发
+  img.classList.add('vp-pet-bounce');
+  var oldBubble=host.querySelector('.vp-pet-bubble');
+  if(oldBubble) oldBubble.remove();
+  var bubble=document.createElement('div');
+  bubble.className='vp-pet-bubble';
+  bubble.textContent=VISIT_PET_REACT_LINES[Math.floor(Math.random()*VISIT_PET_REACT_LINES.length)];
+  host.appendChild(bubble);
+  setTimeout(function(){ bubble.remove(); },1900);
+  var chars=['❤️','✨','⭐','💕'];
+  var n=5;
+  var imgRect=img.getBoundingClientRect(), hostRect=host.getBoundingClientRect();
+  var cx=imgRect.left-hostRect.left+imgRect.width/2, cy=imgRect.top-hostRect.top+imgRect.height/2;
+  for(var i=0;i<n;i++){
+    var s=document.createElement('span');
+    s.className='dg-burstp';
+    s.textContent=chars[Math.floor(Math.random()*chars.length)];
+    var ang=(Math.PI*2/n)*i+Math.random()*0.4;
+    var dist=30+Math.random()*14;
+    s.style.left=cx+'px'; s.style.top=cy+'px';
+    s.style.setProperty('--dx',(Math.cos(ang)*dist)+'px');
+    s.style.setProperty('--dy',(Math.sin(ang)*dist)+'px');
+    host.appendChild(s);
+    (function(el){ setTimeout(function(){ el.remove(); },520); })(s);
+  }
 }
 function pokeFriendPet(rowId,cid,displayName,friendStore){
   if(!currentChild()) return;
@@ -10193,7 +10241,8 @@ function makeUpMiss(){
 var pickedPetType=null;
 function openChoose(){
   if(state.pets && state.pets.length>0 && !canAddAnotherPet()){
-    alert('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'）！'+petSlotUnlockHint());
+    var _lockedByLevel=(state.pets.length<PET_SLOT_BASE);
+    alert(_lockedByLevel ? ('🔒 还不能养下一只！'+petSlotUnlockHint()) : ('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'）！'+petSlotUnlockHint()));
     return;
   }
   pickedPetType=null;
@@ -10314,14 +10363,25 @@ function petSlotBonusFromAchievements(){
 }
 function petSlotCapacity(){ return PET_SLOT_BASE+petSlotBonusFromAchievements(); }
 function petSlotUnlockHint(){
+  // 2026-09fix：基础3个仓位改回"必须现有宠物都满30级才能解锁下一个"（家长明确要求恢复这条老规矩），
+  // 只有超出基础3个之后的额外仓位，才继续用副本成就来解锁——这里要先判断当前到底卡在哪一种门槛上
+  if(state.pets && state.pets.length<PET_SLOT_BASE && !allOwnedPetsReachedLevel(PET_UNLOCK_LEVEL)){
+    return '要先把现在养的宠物都练到 Lv.'+PET_UNLOCK_LEVEL+'，才能再养下一只（基础3个仓位都要按这个规矩来）';
+  }
   var c=(state&&state.dungeonClearCounts)||{hard:0,hero:0};
   if((c.hard||0)<PET_SLOT_HARD_CLEARS_FOR_BONUS) return '困难副本再通关 '+(PET_SLOT_HARD_CLEARS_FOR_BONUS-(c.hard||0))+' 次，解锁下一个仓位';
   if((c.hero||0)<PET_SLOT_HERO_CLEARS_TIER1) return '英雄副本再通关 '+(PET_SLOT_HERO_CLEARS_TIER1-(c.hero||0))+' 次，解锁下一个仓位';
   if((c.hero||0)<PET_SLOT_HERO_CLEARS_TIER2) return '英雄副本再通关 '+(PET_SLOT_HERO_CLEARS_TIER2-(c.hero||0))+' 次，解锁下一个仓位';
   return '仓位已经全部解锁啦！';
 }
+// 2026-09fix：家长要求基础3个仓位也要恢复"现有宠物都满30级才能再养下一只"这条老规矩，
+// 跟副本成就解锁的额外仓位（第4个开始）分开判断，两条规矩互不冲突、叠加生效
 function canAddAnotherPet(){
-  return !!(state.pets && state.pets.length < petSlotCapacity());
+  if(!state.pets || !state.pets.length) return true; // 一只都还没有，随时能养第一只
+  if(state.pets.length<PET_SLOT_BASE){
+    return allOwnedPetsReachedLevel(PET_UNLOCK_LEVEL);
+  }
+  return state.pets.length<petSlotCapacity();
 }
 function stageOf(level){
   if(level===0) return 'egg';
