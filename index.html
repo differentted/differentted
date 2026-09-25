@@ -5107,14 +5107,25 @@ function ensurePetHomeRegistry(){
   });
 }
 function fetchPetHomeDirectory(){
-  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data&limit=300';
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data,updated_at&limit=300';
   return supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
   }).then(function(rows){
-    return (rows||[]).map(function(r){ return r.data; }).filter(function(d){
+    var list=(rows||[]).filter(function(r){
+      var d=r.data;
       return d && d.rowId && d.childId && d.rowId!==SUPA_ROW_ID; // 排除自己家（自己家的小朋友已经能在"选择小朋友"里切换看到）
     });
+    // 2026-09fix：万一系统里已经存在同名的重复登记（比如以前误操作留下的空档案），"串门"列表只展示
+    // 每个名字里最近更新过的那一份，不会把同一个小朋友的名字重复列出好几次，显得很不专业。
+    // 这只是显示层面的兜底，遇到真正的重复账号，最好还是找到根源清理掉——这里只保证不难看。
+    var byName={};
+    list.forEach(function(r){
+      var key=r.data.name||'';
+      var t=r.updated_at?new Date(r.updated_at).getTime():0;
+      if(!byName[key] || t>byName[key].t){ byName[key]={data:r.data,t:t}; }
+    });
+    return Object.keys(byName).map(function(k){ return byName[k].data; });
   });
 }
 function renderFriendList(){
@@ -8188,6 +8199,27 @@ function confirmCreateChild(){
     render();
     return;
   }
+  // 2026-09fix：新建小朋友档案之前，先去云端查一下系统里其他家庭码下是不是已经有同名的小朋友——
+  // 这就是"账号重叠"反复出现的真正根源：家人换了台设备/清了缓存后还停在旧的/默认的家庭码上，
+  // 想看某个孩子（比如嫣嫣）却找不到TA，就顺手点了"添加小朋友"按名字新建，殊不知这会凭空多出
+  // 一份全新的空档案，跟TA专属家庭码下那份真正有数据的档案完全不通、互相不知道对方存在。
+  // 现在查到有同名的，会先提醒一下，不会二话不说就建，从源头防止再长出新的重复账号。
+  var btn=document.getElementById('childCreateBtn');
+  var oldBtnText=btn?btn.innerText:'';
+  if(btn){ btn.disabled=true; btn.innerText='检查中…'; }
+  checkNameCollisionAcrossFamilies(name).then(function(dup){
+    if(btn){ btn.disabled=false; btn.innerText=oldBtnText; }
+    if(dup){
+      var proceed=confirm('⚠️ 系统里已经有一位叫"'+name+'"的小朋友了（登记在另一个家庭码下）。\n\n如果这是同一个孩子，请点"取消"，改用TA专属的家庭码重新登录去找回原来的存档，不要在这里新建——不然会变成两份互不相通的空档案。\n\n如果只是刚好重名（不是同一个孩子），可以点"确定"继续新建。');
+      if(!proceed) return;
+    }
+    doCreateChildAccount(name);
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.innerText=oldBtnText; }
+    doCreateChildAccount(name); // 查不到（离线/网络问题）就不拦，照常放行，不能因为查询失败反而卡住创建
+  });
+}
+function doCreateChildAccount(name){
   var id='c'+Date.now();
   store.accounts[id]={id:id,name:name,avatar:pickedAvatar,state:defaultState()};
   store.accounts[id].state.childGrade=pickedGrade;
@@ -8201,6 +8233,20 @@ function confirmCreateChild(){
   addLog('🎉 欢迎 '+name+'！先选一只宠物伙伴吧');
   showPage('home');
   render();
+}
+/* 系统里（除了自己这一行）有没有已经注册过的同名小朋友——只查公开的reg:登记目录，
+   不涉及任何人的家庭码/存档内容，纯粹用来防止"忘记切换家庭码、误当成新小朋友新建"这种误操作 */
+function checkNameCollisionAcrossFamilies(name){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data&limit=300';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},6000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    return (rows||[]).some(function(r){
+      var d=r.data;
+      return d && d.rowId && d.rowId!==SUPA_ROW_ID && !d.tombstone && d.name===name;
+    });
+  });
 }
 function openChildModal(){
   var list=document.getElementById('childList');
