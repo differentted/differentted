@@ -1822,7 +1822,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petSwitcher" class="pet-switcher" style="display:none"></div>
 <div id="petAddWrap" style="display:none">
   <button class="btn btn-success btn-sm" id="btnAddAnotherPet" onclick="openChoose()">➕ 再养一只新宠物</button>
-  <div class="small" id="addPetLockHint"></div>
+  <div class="small" id="addPetLockHint" onclick="toggleAddPetLockHintExpanded()" style="cursor:pointer"></div>
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
@@ -2327,6 +2327,13 @@ function togglePetStatsCollapsed(){
   // （见下面 syncPetImmersive 里的 addTop），这里手动再触发一次，让它立刻跟着挪，不用等下一次render()
   if(typeof syncPetImmersive==='function') syncPetImmersive();
 }
+// 2026-09fix：跟上面petStats的收起/展开是同一个思路，"还不能再养下一只"这条提示以前默认就是
+// 完整的3~4行长文案，默认改成收起（只留一行短提示），点一下才展开看完整原因
+var addPetLockHintExpanded=false;
+function toggleAddPetLockHintExpanded(){
+  addPetLockHintExpanded=!addPetLockHintExpanded;
+  if(typeof syncPetImmersive==='function') syncPetImmersive();
+}
 /* 之前的规则是"只在棋盘页/打卡页收起悬浮面板，其余页面（转盘/商店/背包）让它自由悬浮"——
    但手机窄屏下转盘/商店/背包这几页内容本来就密，宠物状态卡片飘在左上角照样会挡住奖池卡片、
    转盘、钱包卡片这些东西（用户反馈截图能看到：商店的购买按钮、背包的奖励钱包、转盘本体都被挡了一块），
@@ -2429,11 +2436,16 @@ function syncPetImmersive(){
     if(addBtn) addBtn.style.display=unlocked?'block':'none';
     if(lockHint){
       lockHint.style.display=unlocked?'none':'block';
+      if(unlocked){ addPetLockHintExpanded=false; }
       if(!unlocked){
+        // 2026-09fix：这段说明文字以前一直是完整的3~4行长文案，默认就摊在屏幕上，宠物页整体
+        // 遮挡感很重（跟之前状态卡片是同一类问题）。现在改成默认只显示一行短提示，点一下才展开
+        // 看完整原因，再点一下收起——跟状态卡片的收起/展开是同一个思路
         var lockedByLevel=(state.pets.length<PET_SLOT_BASE);
-        lockHint.textContent=lockedByLevel
+        var fullHint=lockedByLevel
           ? ('🔒 还不能养下一只，'+petSlotUnlockHint())
           : ('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），'+petSlotUnlockHint());
+        lockHint.textContent=addPetLockHintExpanded?(fullHint+'（点击收起）'):'🔒 暂时还不能再养（点击查看原因）';
       }
     }
   }
@@ -4410,14 +4422,25 @@ function submitFamilyCode(){
     });
     return;
   }
-  if(_familyGateMode==='initial'){
-    // 全新访客第一次输码：先只查这个码是不是已经被批准过，绝不在这里偷偷自动建号，
-    // 查不到就转去"填孩子姓名+提交申请"，等管理员在后台批准后才能真正进入
+  if(_familyGateMode==='initial' || _familyGateMode==='change'){
+    // 2026-09fix：以前"第一次进来"和"中途换一个家庭空间"走的是两条不一样的路——第一次进来会先查
+    // 这个码是不是已经被批准过，查不到就转去申请、等管理员审核；但"换一个家庭空间"当时走的是
+    // 更早期的老逻辑，查不到指针就直接顺手当场自己建一个全新的家庭空间，完全不用经过任何审批。
+    // 这就是明明已经把"陌生人申请家庭码"这道关卡做好了，串门列表里还是会莫名其妙冒出一个
+    // 谁都没批准过的新家庭/新小朋友的真正原因——审批这道关卡只挡住了"第一次进来"，"换一个
+    // 家庭空间"这扇后门完全没锁，谁都能在设置里点一下、随便编个码就凭空建出一个新家庭。
+    // 现在统一成同一条路：不管是第一次进来还是中途换家庭，只要这个码之前没被批准过，
+    // 一律转去"填孩子姓名+提交申请"，必须等管理员在后台批准了才能真正进入/切换过去
+    var isChange=(_familyGateMode==='change');
     if(btn){ btn.disabled=true; btn.textContent='查询中…'; }
     checkFamilyCodeApproved(code).then(function(rowId){
       if(btn){ btn.disabled=false; btn.textContent='✅ 确认进入'; }
       if(rowId){
         try{
+          if(isChange){
+            localStorage.removeItem(STORE_KEY);
+            localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
+          }
           localStorage.setItem(FAMILY_CODE_KEY,code);
           localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
           localStorage.removeItem(PENDING_APPLY_CODE_KEY);
@@ -4435,18 +4458,6 @@ function submitFamilyCode(){
     });
     return;
   }
-  if(btn){ btn.disabled=true; btn.textContent='连接中…'; }
-  resolveFamilyCodeRowId(code).then(function(rowId){
-    try{
-      if(_familyGateMode==='change'){
-        localStorage.removeItem(STORE_KEY);
-        localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
-      }
-      localStorage.setItem(FAMILY_CODE_KEY,code);
-      localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
-    }catch(e){}
-    location.reload();
-  });
 }
 /* 只查"这个家庭码有没有被批准过"，查不到绝不像 resolveFamilyCodeRowId 那样顺手自动注册一个新指针——
    这是新用户申请流程和老的直接登录流程之间唯一的差别 */
@@ -4697,7 +4708,7 @@ function loadAdminFamilies(){
     var byRow={};
     (rows||[]).forEach(function(r){
       var d=r.data;
-      if(!d||!d.rowId) return;
+      if(!d||!d.rowId||d.tombstone) return; // tombstone=后台已经移除过的家庭，不再显示
       if(!byRow[d.rowId]) byRow[d.rowId]=[];
       byRow[d.rowId].push(d.name||'？');
     });
@@ -4718,11 +4729,40 @@ function loadAdminFamilies(){
       codeBtn.className='btn btn-warning btn-sm';
       codeBtn.textContent='🆕 发新码';
       codeBtn.onclick=function(){ adminIssueNewCode(rid); };
-      btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn);
+      var delBtn=document.createElement('button');
+      delBtn.className='btn btn-danger btn-sm';
+      delBtn.textContent='🗑️ 移除';
+      delBtn.onclick=function(){ adminRemoveFamily(rid,byRow[rid].join('、')); };
+      btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn); btnWrap.appendChild(delBtn);
       row.appendChild(btnWrap);
       box.appendChild(row);
     });
   }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
+}
+/* 2026-09新增：把某个家庭从"串门"公开目录和这个管理列表里移除（比如：小朋友手滑在"更换家庭
+   空间"里乱输了个码，凭空建出一个没人认领的空家庭）。注意这不是真的把数据从数据库里删掉——
+   这个网页用的是公开的匿名密钥，压根没有删除权限（这其实是故意的：能防止任何访客乱删别人的数据，
+   删除权限只有Supabase后台自己能操作）。这里做的是"软删除"：给这个家庭名下每一条注册记录都打上
+   tombstone标记，公开目录和这个列表都统一跳过打了标记的记录，效果上等于"删掉了"，原始数据留在
+   云端不受影响，万一误删还能找回来 */
+function adminRemoveFamily(rowId,namesLabel){
+  if(!window.confirm('确定要把「'+namesLabel+'」这个家庭从"串门"目录里移除吗？\n\n（数据本身不会被抹掉，只是不会再出现在串门列表和这个管理列表里，如果需要还能找回来）')) return;
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:'+rowId+'#*')+'&select=id,data';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var targets=(rows||[]).filter(function(r){ return r.data && !r.data.tombstone; });
+    if(!targets.length){ ttsToast('这个家庭已经被移除过了', 3000); loadAdminFamilies(); return; }
+    return Promise.all(targets.map(function(r){
+      var newData={}; for(var k in r.data) newData[k]=r.data[k];
+      newData.tombstone=true;
+      return supaUpsertRow(r.id,newData);
+    })).then(function(){
+      ttsToast('✅ 已经移除，不会再出现在串门目录里', 3500);
+      loadAdminFamilies();
+    });
+  }).catch(function(){ ttsToast('❌ 没连上云端，移除没成功，检查网络再试一次', 4500); });
 }
 /* 有人的家庭码忘了、设备又换了/存档清掉了，进不去自己原来的数据时用这个：
    给同一份存档（同一个rowId）再挂一个新的家庭码指针，旧码不受影响、继续有效，
@@ -5643,7 +5683,10 @@ function fetchPetHomeDirectory(){
   }).then(function(rows){
     var list=(rows||[]).filter(function(r){
       var d=r.data;
-      return d && d.rowId && d.childId && d.rowId!==SUPA_ROW_ID; // 排除自己家（自己家的小朋友已经能在"选择小朋友"里切换看到）
+      // 排除自己家（自己家的小朋友已经能在"选择小朋友"里切换看到）；tombstone 是管理员在后台
+      // "移除"过的家庭/小朋友——数据库层面这个key本身删不掉（公开的匿名密钥没有删除权限，
+      // 这其实是件好事，能防止任何人乱删别人的数据），所以用这个标记软删除，串门列表统一跳过它
+      return d && d.rowId && d.childId && d.rowId!==SUPA_ROW_ID && !d.tombstone;
     });
     // 2026-09fix：万一系统里已经存在同名的重复登记（比如以前误操作留下的空档案），"串门"列表只展示
     // 每个名字里最近更新过的那一份，不会把同一个小朋友的名字重复列出好几次，显得很不专业。
