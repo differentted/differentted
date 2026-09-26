@@ -240,6 +240,20 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
   position:fixed; right:10px; bottom:212px; z-index:58; font-size:20px;
   background:linear-gradient(135deg,#d8c6f5,#c3a8ef);
 }
+/* 2026-09新增：拍卖行入口，跟装备面板按钮同一列，紧挨着最上方 */
+#auctionEntryBtn{
+  position:fixed; right:10px; bottom:266px; z-index:58; font-size:20px;
+  background:linear-gradient(135deg,#ffe082,#ffca28);
+}
+/* 拍卖行样式：每件拍卖品一张卡片，倒计时+出价/一口价按钮 */
+.auc-item{border:1.5px solid #e0e0e0;border-radius:10px;padding:8px 9px;margin-bottom:8px;background:#fafafa}
+.auc-item .auc-top{display:flex;align-items:center;gap:8px}
+.auc-item .auc-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.auc-item .auc-info{flex:1;min-width:0}
+.auc-timer{font-size:10.5px;color:#e65100;font-weight:700}
+.auc-timer.soon{color:#d32f2f}
+.auc-bidrow{display:flex;gap:6px;margin-top:6px}
+.auc-bidrow input{flex:1;min-width:0;box-sizing:border-box;padding:6px 8px;border-radius:8px;border:1px solid #e0c3f0;font-size:13px}
 #petEggWrap{
   position:fixed; left:50%; top:42%; transform:translate(-50%,-50%); z-index:46;
   width:min(72vw,260px); text-align:center; pointer-events:none;
@@ -620,15 +634,26 @@ body.pet-fs-active #page-pet{display:none !important}
 .dungeon-card .dc-desc{font-size:11.5px;color:#888;margin-top:1px}
 .dg-tabs{display:flex;gap:6px;margin-bottom:10px}
 .dg-tab-btn{flex:1;border:none;border-radius:10px;padding:8px 6px;font-size:12.5px;font-weight:700;background:#f3e5f5;color:#9c7aa8;cursor:pointer}
-/* 2026-09新增：装备面板样式——3x3槽位网格仿魔兽世界人物栏，配色跟品质走 */
-.eq-summary{background:linear-gradient(135deg,#f3e5f5,#fce4ec);border-radius:10px;padding:8px 10px;text-align:center;font-weight:700;color:#7b1fa2;font-size:13px;margin-bottom:10px}
-.eq-slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.eq-slot{border:2px solid #e0e0e0;border-radius:10px;background:#fafafa;padding:8px 4px;text-align:center;cursor:default;transition:.15s}
+/* 2026-09新增：装备面板样式——改成家长要求的"仿魔兽世界人物栏"布局：
+   宠物形象居中站在深色人物栏背景里，左右各一列槽位夹着它，武器槽放在宠物下方居中，
+   右侧再单独一块"属性面板"显示总加成，最下面才是背包列表（点击穿戴） */
+.eq-panel-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin-bottom:10px}
+.eq-col{display:flex;flex-direction:column;gap:6px;width:64px;flex-shrink:0}
+.eq-center{flex:1;min-width:150px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  background:linear-gradient(160deg,#241a3d,#3a2a5c);border-radius:14px;padding:10px 6px 8px;position:relative;
+  box-shadow:inset 0 0 0 1px rgba(255,215,120,.25),0 4px 14px rgba(0,0,0,.35);}
+.eq-pet-portrait{max-height:150px;max-width:88%;object-fit:contain;filter:drop-shadow(0 6px 12px rgba(0,0,0,.55))}
+.eq-pet-caption{color:#f3e5ff;font-size:12px;font-weight:700;margin-top:2px;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.eq-weapon-row{display:flex;justify-content:center;margin-top:6px}
+.eq-stat-panel{width:100px;flex-shrink:0;background:linear-gradient(135deg,#f3e5f5,#fce4ec);border-radius:10px;
+  padding:8px 7px;font-size:11px;color:#6a1b8a;line-height:1.7}
+.eq-stat-panel .eq-stat-title{font-weight:700;font-size:11.5px;color:#7b1fa2;margin-bottom:3px;text-align:center}
+.eq-slot{border:2px solid #e0e0e0;border-radius:10px;background:#fafafa;padding:5px 2px;text-align:center;cursor:default;transition:.15s}
 .eq-slot.filled{cursor:pointer}
 .eq-slot.filled:active{transform:scale(.94)}
-.eq-slot-label{font-size:10px;color:#999;font-weight:700}
-.eq-slot-icon{font-size:22px;margin:2px 0}
-.eq-slot-name{font-size:10.5px;font-weight:700;line-height:1.3}
+.eq-slot-label{font-size:9.5px;color:#999;font-weight:700}
+.eq-slot-icon{font-size:19px;margin:2px 0}
+.eq-slot-name{font-size:9.5px;font-weight:700;line-height:1.25}
 .eq-bag-item{display:flex;align-items:center;gap:8px;border:1.5px solid #e0e0e0;border-radius:10px;padding:7px 8px;margin-bottom:7px}
 .eq-bag-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .eq-bag-info{flex:1;min-width:0}
@@ -1634,6 +1659,32 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-09新增：拍卖行——自己不想要的装备可以挂出去，跨家庭码都能看到、出价或一口价买下，
+     最长挂24小时，到点自动结算（谁开着拍卖行谁的设备负责触发一次结算检查） -->
+<div class="modal-mask" id="auctionModal">
+  <div class="modal" style="max-width:440px">
+    <button class="modal-close" onclick="hideModal('auctionModal')">✕</button>
+    <h3 style="text-align:center">🏛️ 拍卖行</h3>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">别人挂出来的装备，用金币出价或者直接一口价买下；最长挂拍24小时</div>
+    <div id="auctionMineBox" style="margin-bottom:8px"></div>
+    <div id="auctionListBox">加载中…</div>
+  </div>
+</div>
+
+<!-- 拍卖行：把装备背包里的一件装备挂出去卖 -->
+<div class="modal-mask" id="auctionListModal">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('auctionListModal')">✕</button>
+    <h3 style="text-align:center">🏷️ 挂到拍卖行</h3>
+    <div id="auctionListItemLabel" class="small" style="text-align:center;margin-bottom:8px"></div>
+    <div class="small" style="margin-bottom:4px">起拍价（金币，别人最少要出这么多）</div>
+    <input type="number" id="auctionStartPriceInput" min="1" placeholder="比如 10" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <div class="small" style="margin-bottom:4px">一口价（可选，填了别人能直接买断不用等）</div>
+    <input type="number" id="auctionBuyNowInput" min="1" placeholder="不填就没有一口价" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" id="auctionListConfirmBtn" onclick="confirmListAuction()">🏷️ 确认挂拍（24小时）</button>
+  </div>
+</div>
+
 <!-- 送金币给好友 -->
 <div class="modal-mask" id="giftModal">
   <div class="modal">
@@ -1747,6 +1798,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petPkInjuryTip" onmouseenter="clearTimeout(petPkInjuryTipAutoHideTimer)" onmouseleave="hidePetPkInjuryTip()"></div>
 <button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" style="display:none">⚔️</button>
 <button class="hud-act-btn" id="equipEntryBtn" onclick="petQuickAction('openEquipPanel')" title="装备面板" style="display:none">🛡️</button>
+<button class="hud-act-btn" id="auctionEntryBtn" onclick="petQuickAction('openAuctionHouse')" title="拍卖行" style="display:none">🏛️</button>
 <button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" style="display:none">📊</button>
 <div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
 <!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
@@ -2301,6 +2353,8 @@ function syncPetImmersive(){
     if(dgT) dgT.style.display='none';
     var eqT=document.getElementById('equipEntryBtn');
     if(eqT) eqT.style.display='none';
+    var aucT=document.getElementById('auctionEntryBtn');
+    if(aucT) aucT.style.display='none';
   }else{
     // 2026-09fix：能力雷达/副本挑战这两个悬浮按钮"有时候出现有时候消失"——上面只处理了"切到打卡/棋盘页时隐藏"，
     // 却没处理"切回宠物页时要重新显示"，全靠下一次完整render()里的renderAbilityRadar()/renderDungeonEntry()
@@ -10681,6 +10735,7 @@ function renderEquipEntryBtn(){
   btn.style.opacity=hatched?1:.45;
   var eb=hatched?petEquipBonus(pet,state):{atk:0,def:0};
   btn.title=hatched?('装备面板（当前加成：攻+'+eb.atk+' 防+'+eb.def+'）'):'装备面板';
+  renderAuctionEntryBtn(); // 2026-09新增：拍卖行入口，跟装备/副本按钮同一个显示规则，顺路一起刷新
 }
 /* ========== 2026-09新增：装备面板——仿魔兽世界人物装备栏 ========== */
 function openEquipPanel(){
@@ -10690,6 +10745,25 @@ function openEquipPanel(){
   renderEquipPanel();
   showModal('equipPanelModal');
 }
+// 左右两列各放4个部位，武器单独放宠物脚下居中——布局照着家长给的魔兽世界人物栏截图仿的
+var EQUIP_LEFT_COL=['head','shoulder','body','hand'];
+var EQUIP_RIGHT_COL=['leg','shoe','necklace','belt'];
+var EQUIP_WEAPON_SLOT='weapon';
+function eqSlotHtml(slotKey,pet,bagById){
+  var s=EQUIP_SLOTS.filter(function(x){return x.key===slotKey;})[0];
+  if(!s) return '';
+  var instId=pet.equipment[s.key];
+  var inst=instId?bagById[instId]:null;
+  var item=inst?EQUIP_ITEMS[inst.defId]:null;
+  var q=item?EQUIP_QUALITY_INFO[item.quality]:null;
+  return '<div class="eq-slot'+(item?' filled':'')+'" style="'+(q?('border-color:'+q.color+';background:'+q.bg):'')+'" '
+    +(item?('onclick="unequipSlot(\''+s.key+'\')" title="'+item.name+'（点击卸下）"'):('title="'+s.label+'（空）"'))
+    +'>'
+    +'<div class="eq-slot-label">'+s.label+'</div>'
+    +'<div class="eq-slot-icon">'+(item?item.emoji:s.emoji)+'</div>'
+    +(item?'<div class="eq-slot-name" style="color:'+q.color+'">'+item.name+'</div>':'<div class="eq-slot-name" style="color:#ccc">空</div>')
+    +'</div>';
+}
 function renderEquipPanel(){
   var box=document.getElementById('equipPanelBody');
   if(!box) return;
@@ -10698,28 +10772,41 @@ function renderEquipPanel(){
   ensurePetEquipment(pet);
   ensureEquipmentBag(state);
   var info=petLevelInfo();
+  var stageLabel={egg:'蛋',baby:'幼年',teen:'少年',adult:'成年'}[stageOf(info.level)]||'';
   var bagById={};
   state.equipmentBag.forEach(function(it){ bagById[it.instanceId]=it; });
   var eb=petEquipBonus(pet,state);
-  // 中间宠物形象 + 四周9个槽位
-  var slotsHtml='<div class="eq-slots-grid">';
-  EQUIP_SLOTS.forEach(function(s){
-    var instId=pet.equipment[s.key];
-    var inst=instId?bagById[instId]:null;
-    var item=inst?EQUIP_ITEMS[inst.defId]:null;
-    var q=item?EQUIP_QUALITY_INFO[item.quality]:null;
-    slotsHtml+='<div class="eq-slot'+(item?' filled':'')+'" style="'+(q?('border-color:'+q.color+';background:'+q.bg):'')+'" '
-      +(item?('onclick="unequipSlot(\''+s.key+'\')" title="'+item.name+'（点击卸下）"'):('title="'+s.label+'（空）"'))
-      +'>'
-      +'<div class="eq-slot-label">'+s.label+'</div>'
-      +'<div class="eq-slot-icon">'+(item?item.emoji:s.emoji)+'</div>'
-      +(item?'<div class="eq-slot-name" style="color:'+q.color+'">'+item.name+'</div>':'<div class="eq-slot-name" style="color:#ccc">空</div>')
-      +'</div>';
-  });
-  slotsHtml+='</div>';
-  box.innerHTML=
-    '<div class="eq-summary">⚔️ 装备总加成：攻击 +'+eb.atk+'　🛡️ 防御 +'+eb.def+'</div>'
-    +slotsHtml
+  var petImgSrc=petDisplayImgSrc(pet);
+  var highestQ=petEquipHighestQuality(pet);
+  var qInfo=highestQ?EQUIP_QUALITY_INFO[highestQ]:null;
+
+  var leftHtml=EQUIP_LEFT_COL.map(function(k){ return eqSlotHtml(k,pet,bagById); }).join('');
+  var rightHtml=EQUIP_RIGHT_COL.map(function(k){ return eqSlotHtml(k,pet,bagById); }).join('');
+  var weaponHtml=eqSlotHtml(EQUIP_WEAPON_SLOT,pet,bagById);
+
+  var centerHtml='<div class="eq-center">'
+    +(petImgSrc?('<img class="eq-pet-portrait" src="'+petImgSrc+'" style="filter:'+petEquipGlowFilter(pet)+'">'):'<div style="font-size:56px">🥚</div>')
+    +'<div class="eq-pet-caption">'+(pet.name||'宠物')+'　Lv.'+info.level+'　'+stageLabel+'</div>'
+    +'<div class="eq-weapon-row">'+weaponHtml+'</div>'
+    +'</div>';
+
+  var statHtml='<div class="eq-stat-panel">'
+    +'<div class="eq-stat-title">⚔️ 属性</div>'
+    +'<div>攻击：<b>+'+eb.atk+'</b></div>'
+    +'<div>防御：<b>+'+eb.def+'</b></div>'
+    +'<div style="margin-top:4px;padding-top:4px;border-top:1px dashed rgba(123,31,162,.25)">品质：'
+    +(qInfo?('<b style="color:'+qInfo.color+'">'+qInfo.label+'</b>'):'<span style="color:#bbb">暂无</span>')
+    +'</div>'
+    +'</div>';
+
+  var panelWrap='<div class="eq-panel-wrap">'
+    +'<div class="eq-col">'+leftHtml+'</div>'
+    +centerHtml
+    +'<div class="eq-col">'+rightHtml+'</div>'
+    +statHtml
+    +'</div>';
+
+  box.innerHTML=panelWrap
     +'<h4 style="margin:12px 0 6px">🎒 装备背包</h4>'
     +'<div id="equipBagList"></div>';
   var bagBox=document.getElementById('equipBagList');
@@ -10744,6 +10831,7 @@ function renderEquipPanel(){
       +'</div>'
       +(lvOk?'<button class="btn btn-primary btn-sm" onclick="equipItem(\''+it.instanceId+'\')">穿戴</button>'
             :'<button class="btn btn-gray btn-sm" disabled>等级不够</button>')
+      +'<button class="btn btn-warning btn-sm" style="margin-left:4px" onclick="openAuctionListModal(\''+it.instanceId+'\')">🏷️拍卖</button>'
       +'</div>';
   }).join('');
 }
@@ -10779,6 +10867,326 @@ function unequipSlot(slotKey){
   save();
   renderEquipPanel();
   renderEquipEntryBtn();
+}
+/* ========== 2026-09新增：拍卖行 ==========
+   自己账号背包里不想要的装备，可以挂出去给别的家庭码出价或一口价买下，最长挂拍24小时。
+   这是全新的一套跨家庭数据，单独存成 'auction:'+拍卖单号 这种独立行（跟reg:/pkinbox:同一个思路），
+   完全不碰任何一家的主存档，双方账号的金币/装备变动只在真正"成交"那一刻才各自去改各自的行。
+   因为没有真正的服务器，没法"到点自动结算"，所以改成"谁打开拍卖行，谁的设备顺手帮忙检查一遍、
+   把已经到期的拍卖结算掉"——这套思路跟这个项目里其他"客户端自己发现、自己顺手处理"的功能
+   （比如PK消息、家庭码审核）是一致的。为了避免两个人同时点开、同时抢着结算同一单，
+   结算前先把这一单标成"结算中"占位，超过 AUCTION_SETTLING_STALE_MS 还没结算完（可能是那台设备
+   结算到一半掉线了）才允许被别的设备重新接手，避免真的卡死。 */
+var AUCTION_PREFIX='auction:';
+var AUCTION_DURATION_MS=24*3600000; // 最长挂24小时
+var AUCTION_SETTLING_STALE_MS=2*60000;
+var _auctionCache=[];
+var _auctionListingInstanceId=null;
+function auctionListingId(){ return AUCTION_PREFIX+'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function renderAuctionEntryBtn(){
+  var btn=document.getElementById('auctionEntryBtn');
+  if(!btn) return;
+  var pet=state.pet;
+  btn.style.display=(pet&&pet.chosen&&pageActive('pet'))?'flex':'none';
+}
+function openAuctionListModal(instanceId){
+  var bag=ensureEquipmentBag(state);
+  var inst=bag.filter(function(x){return x.instanceId===instanceId;})[0];
+  var item=inst&&EQUIP_ITEMS[inst.defId];
+  if(!item){ ttsToast('这件装备好像不在背包里了', 3000); return; }
+  _auctionListingInstanceId=instanceId;
+  var lbl=document.getElementById('auctionListItemLabel');
+  var q=EQUIP_QUALITY_INFO[item.quality];
+  if(lbl) lbl.innerHTML=item.emoji+' <b style="color:'+q.color+'">'+item.name+'</b>　攻+'+item.atk+' 防+'+item.def;
+  var s=document.getElementById('auctionStartPriceInput'); if(s) s.value='';
+  var b=document.getElementById('auctionBuyNowInput'); if(b) b.value='';
+  hideModal('equipPanelModal');
+  showModal('auctionListModal');
+}
+function confirmListAuction(){
+  var instanceId=_auctionListingInstanceId;
+  if(!instanceId||!currentChild()) return;
+  var bag=ensureEquipmentBag(state);
+  var idx=-1;
+  for(var i=0;i<bag.length;i++){ if(bag[i].instanceId===instanceId){ idx=i; break; } }
+  if(idx<0){ ttsToast('这件装备好像不在背包里了', 3000); hideModal('auctionListModal'); return; }
+  var inst=bag[idx];
+  var item=EQUIP_ITEMS[inst.defId];
+  if(!item) return;
+  // 正穿在身上的装备理论上不会出现在"未装备背包列表"的拍卖按钮里，这里多一道保险，避免万一穿着的装备被拍走后凭空消失
+  var pet=state.pet;
+  if(pet&&pet.equipment){
+    var wornSlot=Object.keys(pet.equipment).filter(function(k){ return pet.equipment[k]===instanceId; })[0];
+    if(wornSlot){ ttsToast('这件装备正穿在身上，先卸下来再拍卖吧', 3500); return; }
+  }
+  var startPrice=parseInt(document.getElementById('auctionStartPriceInput').value,10);
+  var buyNowRaw=document.getElementById('auctionBuyNowInput').value;
+  var buyNowPrice=buyNowRaw?parseInt(buyNowRaw,10):0;
+  if(!startPrice||startPrice<=0){ ttsToast('请输入起拍价（至少1金币）', 4000); return; }
+  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast('一口价要比起拍价高才有意义', 4000); return; }
+  var btn=document.getElementById('auctionListConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='挂拍中…'; }
+  var listingId=auctionListingId();
+  var now=Date.now();
+  var data={
+    listingId:listingId,
+    sellerRowId:SUPA_ROW_ID, sellerChildId:store.currentChildId, sellerName:(currentChild()&&currentChild().name)||'一位朋友',
+    defId:inst.defId, instanceId:inst.instanceId,
+    startPrice:startPrice, buyNowPrice:buyNowPrice||0,
+    currentBid:0, currentBidderRowId:null, currentBidderChildId:null, currentBidderName:null,
+    createdAt:now, expiresAt:now+AUCTION_DURATION_MS,
+    status:'active'
+  };
+  supaUpsertRow(listingId,data).then(function(){
+    // 云端挂拍成功了才把装备从本地背包移走，避免网络失败却已经"凭空消失"
+    bag.splice(idx,1);
+    save();
+    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    hideModal('auctionListModal');
+    ttsToast('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包', 4500);
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    ttsToast('❌ 没连上云端，挂拍没成功，检查网络再试一次', 5000);
+  });
+}
+function openAuctionHouse(){
+  showModal('auctionModal');
+  var box=document.getElementById('auctionListBox');
+  if(box) box.innerHTML='加载中…';
+  var mineBox=document.getElementById('auctionMineBox');
+  if(mineBox) mineBox.innerHTML='';
+  loadAuctionListings();
+}
+function fetchAllAuctionRows(){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent(AUCTION_PREFIX+'*')+'&select=data&limit=300';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    return (rows||[]).map(function(r){ return r.data; }).filter(Boolean);
+  });
+}
+function loadAuctionListings(){
+  return fetchAllAuctionRows().then(function(list){
+    return sweepExpiredAuctions(list);
+  }).then(function(){
+    return fetchAllAuctionRows(); // 结算完状态可能变了，重新拉一次保证界面显示准确（结算次数很少，多这一次请求可以接受）
+  }).then(function(list){
+    _auctionCache=list;
+    renderAuctionHouse();
+  }).catch(function(){
+    var box=document.getElementById('auctionListBox');
+    if(box) box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">加载失败，检查网络后重新打开拍卖行再试</div>';
+  });
+}
+function sweepExpiredAuctions(list){
+  var now=Date.now();
+  var needSettle=list.filter(function(d){
+    if(d.status==='settling') return (now-(d.settlingAt||0))>AUCTION_SETTLING_STALE_MS;
+    return d.status==='active' && d.expiresAt && now>=d.expiresAt;
+  });
+  if(!needSettle.length) return Promise.resolve();
+  var chain=Promise.resolve();
+  needSettle.forEach(function(d){
+    chain=chain.then(function(){ return settleAuctionListing(d.listingId).catch(function(){}); });
+  });
+  return chain;
+}
+function settleAuctionListing(listingId){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var d=rows&&rows[0]&&rows[0].data;
+    if(!d) return;
+    var now=Date.now();
+    var isStuck=(d.status==='settling' && (now-(d.settlingAt||0))>AUCTION_SETTLING_STALE_MS);
+    var isDueActive=(d.status==='active' && d.expiresAt && now>=d.expiresAt);
+    if(!isStuck && !isDueActive) return; // 还没到期，或者已经有别的设备在处理，这里不插手
+    d.status='settling'; d.settlingAt=now;
+    return supaUpsertRow(listingId,d).then(function(){
+      if(d.currentBidderRowId && d.currentBidderChildId){
+        return settleAuctionToBidder(listingId,d);
+      }else{
+        return settleAuctionUnsold(listingId,d);
+      }
+    });
+  });
+}
+function settleAuctionUnsold(listingId,d){
+  // 没人出价（或者中标人后来余额不够），流拍：装备原样退回卖家背包
+  return fetchRowData(d.sellerRowId).then(function(row){
+    if(row&&row.data&&row.data.accounts&&row.data.accounts[d.sellerChildId]){
+      var sellerState=row.data.accounts[d.sellerChildId].state;
+      if(!sellerState.equipmentBag) sellerState.equipmentBag=[];
+      sellerState.equipmentBag.push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
+      return supaUpsertRow(d.sellerRowId,row.data);
+    }
+  }).then(function(){
+    d.status='expired';
+    return supaUpsertRow(listingId,d);
+  });
+}
+function settleAuctionToBidder(listingId,d){
+  return fetchRowData(d.currentBidderRowId).then(function(row){
+    var ok=row&&row.data&&row.data.accounts&&row.data.accounts[d.currentBidderChildId];
+    var bidderState=ok?row.data.accounts[d.currentBidderChildId].state:null;
+    if(!ok || (bidderState.moneyBalance||0)<d.currentBid){
+      // 中标的那位后来把钱花掉了/账号读不到了，这笔交易作废，装备退回卖家
+      return settleAuctionUnsold(listingId,d);
+    }
+    bidderState.moneyBalance=(bidderState.moneyBalance||0)-d.currentBid;
+    if(!bidderState.equipmentBag) bidderState.equipmentBag=[];
+    bidderState.equipmentBag.push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
+    return supaUpsertRow(d.currentBidderRowId,row.data).then(function(){
+      return fetchRowData(d.sellerRowId);
+    }).then(function(sellerRow){
+      if(sellerRow&&sellerRow.data&&sellerRow.data.accounts&&sellerRow.data.accounts[d.sellerChildId]){
+        var sellerState=sellerRow.data.accounts[d.sellerChildId].state;
+        sellerState.moneyBalance=(sellerState.moneyBalance||0)+d.currentBid;
+        return supaUpsertRow(d.sellerRowId,sellerRow.data);
+      }
+    }).then(function(){
+      d.status='sold';
+      return supaUpsertRow(listingId,d);
+    });
+  });
+}
+function auctionTimeLeftText(expiresAt){
+  var ms=expiresAt-Date.now();
+  if(ms<=0) return '已到期，结算中…';
+  var h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
+  return h>0?('剩'+h+'小时'+m+'分'):('剩'+m+'分钟');
+}
+function auctionItemHtml(d,isMine){
+  var item=EQUIP_ITEMS[d.defId];
+  if(!item) return '';
+  var q=EQUIP_QUALITY_INFO[item.quality];
+  var timeLeft=auctionTimeLeftText(d.expiresAt);
+  var soon=(d.expiresAt-Date.now())<3600000;
+  var bidLine=d.currentBid>0
+    ?('当前最高出价：<b>'+d.currentBid+'</b> 金币（'+(d.currentBidderName||'某位小朋友')+'）')
+    :('起拍价：<b>'+d.startPrice+'</b> 金币，还没人出价');
+  var html='<div class="auc-item"><div class="auc-top">'
+    +'<div class="auc-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+    +'<div class="auc-info">'
+      +'<div style="color:'+q.color+';font-weight:700">'+item.name+'　<span class="small" style="color:#999">（卖家：'+(d.sellerName||'？')+'）</span></div>'
+      +'<div class="small" style="color:#999">攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq+'</div>'
+      +'<div class="small">'+bidLine+(d.buyNowPrice>0?('　｜　一口价：<b>'+d.buyNowPrice+'</b>'):'')+'</div>'
+      +'<div class="auc-timer'+(soon?' soon':'')+'">⏳ '+timeLeft+'</div>'
+    +'</div></div>';
+  if(isMine){
+    html+=(d.currentBid>0
+      ?'<div class="small" style="color:#999;margin-top:6px">已经有人出价了，没法撤销啦</div>'
+      :'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="cancelAuctionListing(\''+d.listingId+'\')">撤销挂拍</button>');
+  }else{
+    html+='<div class="auc-bidrow"><input type="number" min="1" id="bid_'+d.listingId+'" placeholder="出价（金币）">'
+      +'<button class="btn btn-primary btn-sm" onclick="placeBid(\''+d.listingId+'\')">出价</button>'
+      +(d.buyNowPrice>0?'<button class="btn btn-warning btn-sm" onclick="buyNowAuction(\''+d.listingId+'\')">一口价买下</button>':'')
+      +'</div>';
+  }
+  html+='</div>';
+  return html;
+}
+function renderAuctionHouse(){
+  var box=document.getElementById('auctionListBox');
+  var mineBox=document.getElementById('auctionMineBox');
+  if(!box) return;
+  var active=_auctionCache.filter(function(d){ return d.status==='active'; });
+  var mine=active.filter(function(d){ return d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId; });
+  var others=active.filter(function(d){ return !(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId); });
+  if(mineBox){
+    mineBox.innerHTML=mine.length?('<h4 style="margin:4px 0 6px">🏷️ 我上架的</h4>'+mine.map(function(d){ return auctionItemHtml(d,true); }).join('')):'';
+  }
+  if(!others.length){
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">拍卖行里暂时没有别人上架的装备</div>';
+    return;
+  }
+  box.innerHTML='<h4 style="margin:4px 0 6px">🛒 大家上架的</h4>'+others.map(function(d){ return auctionItemHtml(d,false); }).join('');
+}
+function cancelAuctionListing(listingId){
+  var d=_auctionCache.filter(function(x){return x.listingId===listingId;})[0];
+  if(!d) return;
+  if(d.sellerRowId!==SUPA_ROW_ID || d.sellerChildId!==store.currentChildId) return;
+  if(d.currentBid>0){ ttsToast('已经有人出价了，没法撤销啦', 3500); return; }
+  d.status='canceled';
+  supaUpsertRow(listingId,d).then(function(){
+    ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
+    save();
+    ttsToast('已经撤销，装备退回背包啦', 3000);
+    loadAuctionListings();
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，撤销没成功，检查网络再试一次', 4000);
+  });
+}
+function placeBid(listingId){
+  if(!currentChild()) return;
+  var input=document.getElementById('bid_'+listingId);
+  var amt=parseInt(input&&input.value,10);
+  if(!amt||amt<=0){ ttsToast('请输入出价金额', 3500); return; }
+  if(!state||typeof state.moneyBalance!=='number'||state.moneyBalance<amt){ ttsToast('金币不够哦，先攒多一点再来出价吧', 4000); return; }
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var d=rows&&rows[0]&&rows[0].data;
+    if(!d||d.status!=='active'){ ttsToast('这件装备好像已经被别人买走或者下架了', 4000); loadAuctionListings(); return; }
+    if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
+    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能给自己上架的东西出价哦', 3500); return; }
+    var minNeeded=d.currentBid>0?(d.currentBid+1):d.startPrice;
+    if(amt<minNeeded){ ttsToast('出价至少要 '+minNeeded+' 金币才能超过当前价', 4000); loadAuctionListings(); return; }
+    d.currentBid=amt;
+    d.currentBidderRowId=SUPA_ROW_ID;
+    d.currentBidderChildId=store.currentChildId;
+    d.currentBidderName=(currentChild()&&currentChild().name)||'一位朋友';
+    return supaUpsertRow(listingId,d).then(function(){
+      ttsToast('✅ 出价成功！拍卖到期时如果你还是最高价就能拍下', 4000);
+      loadAuctionListings();
+    });
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，出价没成功，检查网络再试一次', 4000);
+  });
+}
+function buyNowAuction(listingId){
+  if(!currentChild()) return;
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
+  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var d=rows&&rows[0]&&rows[0].data;
+    if(!d||d.status!=='active'||!(d.buyNowPrice>0)){ ttsToast('这件装备没法一口价买了（可能已经被买走）', 4000); loadAuctionListings(); return; }
+    if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
+    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能买自己上架的东西哦', 3500); return; }
+    if((state.moneyBalance||0)<d.buyNowPrice){ ttsToast('金币不够哦，先攒多一点再来买吧', 4000); return; }
+    d.status='settling'; d.settlingAt=Date.now();
+    d.currentBid=d.buyNowPrice;
+    d.currentBidderRowId=SUPA_ROW_ID; d.currentBidderChildId=store.currentChildId;
+    d.currentBidderName=(currentChild()&&currentChild().name)||'一位朋友';
+    return supaUpsertRow(listingId,d).then(function(){
+      state.moneyBalance-=d.buyNowPrice;
+      ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
+      addLog('🏛️ 拍卖行一口价买下装备【'+(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'')+'】，花了'+d.buyNowPrice+'金币');
+      save();
+      return fetchRowData(d.sellerRowId);
+    }).then(function(sellerRow){
+      if(sellerRow&&sellerRow.data&&sellerRow.data.accounts&&sellerRow.data.accounts[d.sellerChildId]){
+        var sellerState=sellerRow.data.accounts[d.sellerChildId].state;
+        sellerState.moneyBalance=(sellerState.moneyBalance||0)+d.buyNowPrice;
+        return supaUpsertRow(d.sellerRowId,sellerRow.data);
+      }
+    }).then(function(){
+      d.status='sold';
+      return supaUpsertRow(listingId,d);
+    }).then(function(){
+      ttsToast('🎉 买到啦！装备已经放进你的背包了', 4000);
+      loadAuctionListings();
+    });
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，购买没成功，检查网络再试一次', 4000);
+  });
 }
 /* 第 i 关是否已解锁：等级达标 + 前一关已经打赢过（第0关不需要前置）——
    保证小朋友必须"一路打过去"才能推进，而不是靠等级一步登天 */
@@ -11290,8 +11698,9 @@ function dungeonEnd2(win){
       +'<div style="margin:6px 0">💰 获得 '+coin+' 金币　'+mat.emoji+' 获得 '+mat.name+' ×1　✨ 获得 '+dgExp+' 经验'
       +(newAcc?'<br>'+newAcc.emoji+' 获得新装饰【'+newAcc.name+'】，可以去衣柜给宠物戴上～':'')
       +(firstClear&&!newAcc?'<br>🎖️ 首次通关【'+baseSt.name+'】！':'')
-      +(newEquipItem?'<br><span style="color:'+EQUIP_QUALITY_INFO[newEquipItem.quality].color+';font-weight:700">'+newEquipItem.emoji+' 掉落装备【'+newEquipItem.name+'】！去装备面板给宠物穿上吧～</span>':'')
+      +(newEquipItem?'<br><span style="color:'+EQUIP_QUALITY_INFO[newEquipItem.quality].color+';font-weight:700">'+newEquipItem.emoji+' 掉落装备【'+newEquipItem.name+'】！</span>':'')
       +'</div>'
+      +(newEquipItem?'<button class="btn btn-warning btn-block" style="margin-bottom:6px" onclick="hideModal(\'dungeonModal\');openEquipPanel()">🛡️ 马上去装备面板穿上</button>':'')
       +'<button class="btn btn-primary btn-block" onclick="backToDungeon2List()">好的！</button>';
   }else{
     var penaltyText;
