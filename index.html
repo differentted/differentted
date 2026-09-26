@@ -1328,7 +1328,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="card">
     <h2>🚪 串门</h2>
     <div class="small" style="text-align:left;line-height:1.7;margin-bottom:8px">这里能看到其他已经养了宠物的小朋友——不用输入任何码，直接点进去只读查看，不能帮TA打卡或者动TA的东西。可以摸摸TA的宠物增加亲密度（每人每天限1次），也可以送金币（每人每天限3次），还可以发起一场对战PK。</div>
-    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-gray btn-sm" id="pkInboxEntryBtn" onclick="showPkInboxModal()">📬 PK消息记录</button></div>
+    <div style="text-align:center;margin-bottom:8px"><button class="btn btn-gray btn-sm" id="pkInboxEntryBtn" onclick="showPkInboxModal()">📬 消息中心</button></div>
     <div class="child-list" id="friendListBox"></div>
   </div>
   <div class="card" id="visitDetailCard" style="display:none">
@@ -1648,7 +1648,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="pkInboxModal">
   <div class="modal" style="max-width:400px">
     <button class="modal-close" onclick="hideModal('pkInboxModal')">✕</button>
-    <h3 style="text-align:center">📬 PK消息记录</h3>
+    <h3 style="text-align:center">📬 消息中心</h3>
     <div id="pkWinCountLine" class="small" style="text-align:center;color:#c2185b;font-weight:700;margin-bottom:6px"></div>
     <div id="pkInboxList"></div>
   </div>
@@ -1925,6 +1925,7 @@ const CONFIG = {
     {id:'bath', name:'美容洗护', emoji:'🛁', price:5, lv:1, desc:'香喷喷 +22', fx:function(p){p.clean+=22}},
     {id:'medicine', name:'特效药', emoji:'💊', price:15, lv:1, desc:'立刻治好轻伤，避免变回蛋（对重伤无效）', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
     {id:'medicine2', name:'高级特效药', emoji:'✨💊', price:40, lv:1, desc:'轻伤/重伤都能立刻治好，避免变回蛋', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
+    {id:'hospital', name:'住院治疗', emoji:'🏥', price:15, lv:1, desc:'立刻治好PK轻伤，不用等48小时倒计时，也不会掉级', fx:function(p){p.pkInjured=false;p.pkInjuredAt=null;}},
     {id:'house', name:'新小窝（豪华大房子）', emoji:'🏰', price:20, lv:7, desc:'更换房子外观', fx:function(p){p.house=1}}
   ],
   /* 副本挑战：按宠物等级解锁，每天只能挑战一次；挑战成功获得金币 + 该副本专属装饰（只在首次通关时发放）
@@ -3943,10 +3944,14 @@ function petInjuryBadgeTap(){
 }
 /* ========== PK对战专属"轻伤"倒计时装置（2026-09新增）：跟上面那套挑战副本/离线事件触发的受伤
    完全独立，互不影响、互不共用字段(pet.pkInjured/pkInjuredAt，不是pet.injured/injuredAt)。
-   PK输了就会轻伤，48小时内花金币安抚就没事；如果放着不管，时间到了宠物会"伤心地掉级"（掉到当前
-   所在等级阶段的最低一级），但绝不会变回蛋——跟蛋劫是两回事，故意做得比蛋劫温和一些 ========== */
+   PK输了就会轻伤，48小时内治好就没事；如果放着不管，时间到了宠物会"伤心地掉级"（掉到当前
+   所在等级阶段的最低一级），但绝不会变回蛋——跟蛋劫是两回事，故意做得比蛋劫温和一些
+   2026-09fix第二版：以前"治好"是靠点悬浮提示框里现场弹出来的"安抚"按钮，这个提示框本身
+   还带自动收起的计时器，家长很容易点的时候提示框已经自己关掉了，看起来像是按钮坏了、卡住了。
+   现在改成跟"受伤/特效药"完全同一套思路：这里的提示框只负责显示状态（纯文字，不带按钮），
+   真正的治疗动作统一挪到商店里新增的【住院治疗】道具，跟买药一样一步到位，不会再有"提示框
+   消失导致点不到"这种问题 ========== */
 var PK_INJURY_REVERT_HOURS=48;
-var PK_INJURY_HEAL_COST=15;
 function petPkInjuryStatus(){
   var pet=state.pet;
   if(!pet||!pet.chosen||!pet.hatched||!pet.pkInjured||!pet.pkInjuredAt) return null;
@@ -3969,9 +3974,8 @@ function showPetPkInjuryTip(){
   var st=petPkInjuryStatus();
   if(!st) return;
   var line1='🤕 PK对战输了，受了点轻伤，还剩 '+formatRemainHours(st.remainHours)+'。';
-  var line2='不安抚的话时间到了会伤心地掉一级（不会变回蛋），花 '+PK_INJURY_HEAL_COST+' 金币马上安抚好～';
-  tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+line2+'</div>'
-    +'<div style="margin-top:8px;text-align:right"><button onclick="healPkInjury()" style="border:none;border-radius:14px;padding:6px 14px;font-size:12px;font-weight:700;background:linear-gradient(135deg,#ffd6de,#ffb3c1);color:#9a1b3c;cursor:pointer;">💊 安抚（-'+PK_INJURY_HEAL_COST+'金币）</button></div>';
+  var line2='不治好的话时间到了会伤心地掉一级（不会变回蛋），去商店买【住院治疗】马上治好～';
+  tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+line2+'</div>';
   tip.classList.add('show');
 }
 function hidePetPkInjuryTip(){
@@ -3980,31 +3984,13 @@ function hidePetPkInjuryTip(){
   if(tip) tip.classList.remove('show');
 }
 function petPkInjuryBadgeTap(){
-  // 2026-09fix：这个提示框里带一个真正要点的"安抚"按钮，不是纯文字提示——之前跟其它徽章一样
-  // 6秒自动收起，家长很容易"看完截图/纠结一下"就超过6秒，回来点的时候提示框其实已经自己关掉了，
-  // 点在空白处自然什么反应都没有，被误以为是按钮坏了。现在改成点一下徽章"开/关"切换显示，
-  // 不再自动计时收起，安抚成功、或者再点一次徽章才会关掉，给家长充分时间点到按钮
   clearTimeout(petPkInjuryTipAutoHideTimer);
   var tip=document.getElementById('petPkInjuryTip');
   if(tip && tip.classList.contains('show')) hidePetPkInjuryTip();
   else showPetPkInjuryTip();
 }
-function healPkInjury(){
-  var pet=state.pet;
-  // 2026-09fix：以前这里悄悄返回、什么提示都没有——万一是别的设备已经先安抚过、或者刚好在这一瞬间
-  // 自动掉级/变回蛋导致伤病状态已经不在了，家长点了按钮却"看起来毫无反应"，会被误以为按钮坏了。
-  // 现在至少弹个提示，告诉他到底是怎么回事
-  if(!pet||!pet.pkInjured){ hidePetPkInjuryTip(); if(typeof ttsToast==='function') ttsToast('✅ 这只宠物现在没有PK轻伤啦，不用安抚', 3000); return; }
-  if((state.moneyBalance||0)<PK_INJURY_HEAL_COST){ alert('金币不够啦，攒够'+PK_INJURY_HEAL_COST+'个金币再来安抚吧～'); return; }
-  state.moneyBalance-=PK_INJURY_HEAL_COST;
-  pet.pkInjured=false; pet.pkInjuredAt=null;
-  addLog('💊 花'+PK_INJURY_HEAL_COST+'金币安抚好了PK轻伤');
-  hidePetPkInjuryTip();
-  save();
-  render();
-}
 /* ========== 互动反馈动画：喂食/喝水/喂奶/陪玩/训练/美容 各自弹出不同的漂浮图标 ========== */
-const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],kfc_wing:['🍗','✨'],egg_tart:['🥧','✨'],wagyu:['🥩','✨','⭐'],matcha:['🍵','💧'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨'],medicine:['💊','✨','💚']};
+const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],kfc_wing:['🍗','✨'],egg_tart:['🥧','✨'],wagyu:['🥩','✨','⭐'],matcha:['🍵','💧'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨'],medicine:['💊','✨','💚'],hospital:['🏥','✨','💚']};
 function spawnPetFx(icons){
   var host=document.getElementById('petWrap');
   if(!host||!petSpriteVisible()) return;
@@ -5419,14 +5405,43 @@ function refreshMyPkInbox(){
     return _pkInboxCache||{dayKey:todayKey(),messages:[]};
   });
 }
-/* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；用 applied 标记
-   防止同一条消息以后重复打开消息中心时被反复扣血 */
+/* 2026-09fix：送金币这个功能刚上线时，走的是跟PK消息"以前那版"一模一样的坑——直接改对方
+   整个家庭存档里的 moneyBalance，只要对方自己的设备后面正常打卡/保存一次，就会把这份还没同步过去
+   的旧整份数据覆盖式推回云端，把刚加进去的金币冲掉——这正是"我送金币，对方后台看不到"的真正原因
+   （送的时候确实成功写进去过，但很快又被对方自己那台设备的下一次日常保存覆盖，钱凭空消失，
+   对方也完全不知道发生过这件事，自然也没有任何提示）。
+   现在改成跟PK消息完全一样的思路：送金币这件事只写一条消息进对方专属的 pkinbox: 行，
+   不碰对方主存档；对方自己真正打开"串门"或"消息中心"读到这条消息时，用自己本机安全的
+   save() 流程给自己加钱——自己改自己的数据不会跟自己打架，也顺带有了"消息提醒"。 */
+function applyGiftMessage(m){
+  if(!state) return;
+  var amt=(typeof m.amt==='number' && m.amt>0)?m.amt:0;
+  if(amt<=0) return;
+  state.moneyBalance=(state.moneyBalance||0)+amt;
+  if(!state.friendBook) state.friendBook={};
+  var rk=(m.fromRowId||'')+'#'+(m.fromChildId||'');
+  if(!state.friendBook[rk]){
+    state.friendBook[rk]={intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0,pokeDay:'',pokesToday:0,giftDay:'',giftsToday:0};
+  }
+  state.friendBook[rk].name=m.fromName||state.friendBook[rk].name;
+  state.friendBook[rk].intimacy=(state.friendBook[rk].intimacy||0)+amt;
+  state.friendBook[rk].coinsReceivedFromThem=(state.friendBook[rk].coinsReceivedFromThem||0)+amt;
+  state.friendBook[rk].lastAt=Date.now();
+  addLog('🎁 收到好友「'+(m.fromName||'一位朋友')+'」送的 '+amt+' 金币');
+  save();
+  ttsToast('🎁 '+(m.fromName||'一位朋友')+' 送了你 '+amt+' 个金币！', 4500);
+}
+/* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；某一条送金币消息，
+   第一次被我自己看到时，在自己本机给自己加钱——都用 applied 标记防止同一条消息以后重复打开
+   消息中心时被反复处理（反复扣血/反复加钱） */
 function applyPkInboxSideEffects(inbox){
   if(!inbox||!Array.isArray(inbox.messages)) return false;
   var changed=false;
   inbox.messages.forEach(function(m){
-    if(!m.applied && m.friendWon===true){ applyPkLossInjury(); m.applied=true; changed=true; }
-    else if(!m.applied){ m.applied=true; changed=true; }
+    if(m.applied) return;
+    if(m.type==='gift'){ applyGiftMessage(m); m.applied=true; changed=true; }
+    else if(m.friendWon===true){ applyPkLossInjury(); m.applied=true; changed=true; }
+    else{ m.applied=true; changed=true; }
   });
   return changed;
 }
@@ -5458,7 +5473,7 @@ function settleFriendPk(iWon){
   render();
   var note=document.getElementById('btPkSettleNote');
   var msg={
-    fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
+    type:'pk', fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
     fromName:(currentChild()&&currentChild().name)||'一位朋友',
     friendWon:!iWon, time:new Date().toISOString(), read:false, applied:false
   };
@@ -5529,7 +5544,7 @@ function checkPkInboxOnBoot(){
 function pkInboxBadgeRender(){
   var unread=(_pkInboxCache&&Array.isArray(_pkInboxCache.messages))?_pkInboxCache.messages.filter(function(m){ return !m.read; }).length:0;
   var btn=document.getElementById('pkInboxEntryBtn');
-  if(btn) btn.textContent='📬 PK消息记录'+(unread>0?'（'+unread+'条未读）':'');
+  if(btn) btn.textContent='📬 消息中心'+(unread>0?'（'+unread+'条未读）':'');
   // 2026-09新增：跟微信角标一样，底部导航"串门"这个tab上直接显示未读数红点，
   // 不用点进"串门"页再点"PK消息记录"才发现有新结果
   var navBadge=document.getElementById('visitTabBadge');
@@ -5569,6 +5584,11 @@ function showPkInboxModal(){
     }else{
       box.innerHTML=list.map(function(m){
         var when=''; try{ when=new Date(m.time).toLocaleString(); }catch(e){}
+        if(m.type==='gift'){
+          return '<div class="small" style="background:#fff6e0;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
+            +'<div>🎁 <b>'+(m.fromName||'一位朋友')+'</b> 送了你 '+(m.amt||0)+' 个金币！'
+            +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
+        }
         var resultText=m.friendWon?'🎉 你赢了这场PK！':'😢 你输了这场PK，宠物受了点轻伤';
         var rematchBtn=(m.fromRowId&&m.fromChildId)
           ?'<button class="btn btn-gray btn-sm" style="margin-left:6px;padding:2px 8px" onclick="quickRematchFromPkMsg(\''+m.fromRowId+'\',\''+m.fromChildId+'\')" title="再来一局">⚔️</button>'
@@ -5906,30 +5926,6 @@ function openGiftModal(rowId,childId,childName){
   var input=document.getElementById('giftAmountInput'); if(input) input.value='';
   showModal('giftModal');
 }
-function pushGiftToFriendRow(rowId,friendChildId,amt,fromInfo){
-  return fetchRowData(rowId).then(function(row){
-    if(!row || !row.data || !row.data.accounts || !row.data.accounts[friendChildId]) return {ok:false};
-    var friendStoreData=row.data;
-    var friendChildState=friendStoreData.accounts[friendChildId].state;
-    if(!friendChildState) return {ok:false};
-    friendChildState.moneyBalance=(typeof friendChildState.moneyBalance==='number'?friendChildState.moneyBalance:0)+amt;
-    if(!friendChildState.friendBook) friendChildState.friendBook={};
-    var rk=fromInfo.rowId+'#'+fromInfo.childId;
-    if(!friendChildState.friendBook[rk]){
-      friendChildState.friendBook[rk]={intimacy:0,coinsGiftedToThem:0,coinsReceivedFromThem:0,pokeDay:'',pokesToday:0,giftDay:'',giftsToday:0};
-    }
-    friendChildState.friendBook[rk].name=fromInfo.name;
-    friendChildState.friendBook[rk].intimacy=(friendChildState.friendBook[rk].intimacy||0)+amt;
-    friendChildState.friendBook[rk].coinsReceivedFromThem=(friendChildState.friendBook[rk].coinsReceivedFromThem||0)+amt;
-    friendChildState.friendBook[rk].lastAt=Date.now();
-    var nowIso=new Date().toISOString();
-    var body=JSON.stringify({id:rowId,data:friendStoreData,updated_at:nowIso});
-    var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
-    return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000)
-      .then(function(res){ return {ok:res.ok,friendStoreData:friendStoreData}; })
-      .catch(function(){ return {ok:false}; });
-  }).catch(function(){ return {ok:false}; });
-}
 function confirmGiftCoins(){
   if(!_giftTarget) return;
   var input=document.getElementById('giftAmountInput');
@@ -5943,8 +5939,15 @@ function confirmGiftCoins(){
   if(rel.giftsToday>=GIFT_DAILY_LIMIT){ ttsToast('今天送给TA的次数已经用完啦（每天最多'+GIFT_DAILY_LIMIT+'次），明天再送吧', 4500); return; }
   var btn=document.getElementById('giftConfirmBtn');
   if(btn){ btn.disabled=true; btn.textContent='赠送中…'; }
-  var fromInfo={rowId:SUPA_ROW_ID,childId:store.currentChildId,name:currentChild().name};
-  pushGiftToFriendRow(target.rowId,target.childId,amt,fromInfo).then(function(res){
+  // 2026-09fix：以前这里直接改对方整个家庭存档的 moneyBalance，很容易被对方自己设备的下一次
+  // 日常保存覆盖式冲掉（钱凭空消失，对方也毫无提示）。现在改成只写一条"送金币"消息进对方专属的
+  // pkinbox: 行（不碰对方主存档），对方打开"串门"或"消息中心"时，自己给自己加钱——安全，也顺带
+  //有了提示。message 到账是"确认成功"的标志，所以这一步成功了才真正扣自己这边的金币。
+  var msg={
+    type:'gift', fromRowId:SUPA_ROW_ID, fromChildId:store.currentChildId,
+    fromName:currentChild().name, amt:amt, time:new Date().toISOString(), read:false, applied:false
+  };
+  pushPkMessageToFriend(target.rowId,target.childId,msg).then(function(res){
     if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
     if(!res || !res.ok){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
     state.moneyBalance-=amt;
@@ -5957,8 +5960,10 @@ function confirmGiftCoins(){
     saveStore();
     render();
     hideModal('giftModal');
-    ttsToast('🎉 已经送给 '+target.name+' '+amt+' 个金币啦！', 5000);
-    if(res.friendStoreData) showFriendChildDetail(target.rowId,target.childId,res.friendStoreData);
+    ttsToast('🎉 已经送给 '+target.name+' '+amt+' 个金币啦！TA下次打开App会收到', 5000);
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
+    ttsToast('❌ 没能送成功（网络问题），你的金币没有扣，晚点再试试', 5500);
   });
 }
 
@@ -10533,6 +10538,7 @@ function buyItem(id){
   if(id==='medicine'&&!pet.injured){alert('🩺 '+pet.name+' 现在很健康，还不需要吃特效药哦～');return;}
   if(id==='medicine'&&pet.injured&&pet.injurySeverity==='severe'){alert('🚨 '+pet.name+' 是重伤，普通特效药没用！要买【高级特效药】才能治好，不然1小时内会变回蛋！');return;}
   if(id==='medicine2'&&!pet.injured){alert('🩺 '+pet.name+' 现在很健康，还不需要吃高级特效药哦～');return;}
+  if(id==='hospital'&&!pet.pkInjured){alert('🏥 '+pet.name+' 现在没有PK轻伤，不需要住院治疗哦～');return;}
   var isTraining=(id==='train'||id==='train2');
   if(isTraining&&((pet.food||0)<TRAIN_MIN_STAT||(pet.thirst||0)<TRAIN_MIN_STAT||(pet.clean||0)<TRAIN_MIN_STAT)){
     alert('🥱 宠物现在吃饱饱、水汪汪或香喷喷太低，没力气训练啦！先喂食🍖、喝水💧、洗澡🛁，把这几项都补到'+TRAIN_MIN_STAT+'%以上再来训练吧～');
@@ -10587,6 +10593,8 @@ function buyItem(id){
     showReward('💊 药到病除！','<b>'+pet.name+'</b> 吃下特效药，伤已经好啦！以后要多陪它一起学习哦，别再调皮受伤啦～');
   }else if(id==='medicine2'){
     showReward('✨💊 药到病除！','<b>'+pet.name+'</b> 吃下高级特效药，伤（不管轻伤重伤）都已经好啦！');
+  }else if(id==='hospital'){
+    showReward('🏥 出院啦！','<b>'+pet.name+'</b> 住院治疗，PK落下的轻伤已经好啦，不用再等48小时倒计时啦！');
   }else{
     showPetToast(item.emoji+' '+item.name+' '+item.desc);
   }
@@ -12773,16 +12781,20 @@ function renderShop(){
     var isMedicine=(it.id==='medicine');
     var isMedicine2=(it.id==='medicine2');
     var isAnyMedicine=isMedicine||isMedicine2;
+    var isHospital=(it.id==='hospital');
     var isInjured=!!(pet&&pet.injured);
     var severity=(pet&&pet.injurySeverity)||'light';
     var isSevere=isInjured&&severity==='severe';
     var injuryStatusNow=petInjuryStatus();
+    var isPkInjured=!!(pet&&pet.pkInjured);
+    var pkInjuryStatusNow=petPkInjuryStatus();
     // 特效药不受等级限制，改成受"宠物是否受伤"限制——没受伤时买不了（也不用买）；
     // 普通特效药对重伤无效（重伤只能买高级特效药），真的能治得好才解锁，配合下面的红色紧急提示，
     // 让家长一眼就知道该点哪个
     var medicineDisabled=isMedicine&&!(hatched&&isInjured&&!isSevere);
     var medicine2Disabled=isMedicine2&&!(hatched&&isInjured);
-    var locked=!hatched||info.level<it.lv||medicineDisabled||medicine2Disabled;
+    var hospitalDisabled=isHospital&&!(hatched&&isPkInjured);
+    var locked=!hatched||info.level<it.lv||medicineDisabled||medicine2Disabled||hospitalDisabled;
     var owned=(it.id==='house'&&pet&&pet.house>=1);
     var isSupply=PET_SUPPLY_IDS.indexOf(it.id)>=0;
     var isTraining=(it.id==='train'||it.id==='train2');
@@ -12790,6 +12802,7 @@ function renderShop(){
     var btnLabel;
     if(isMedicine) btnLabel=(!hatched?'宠物出生后解锁':(isSevere?'对重伤无效':(isInjured?'购买':'暂时不需要')));
     else if(isMedicine2) btnLabel=(!hatched?'宠物出生后解锁':(isInjured?'购买':'暂时不需要'));
+    else if(isHospital) btnLabel=(!hatched?'宠物出生后解锁':(isPkInjured?'购买':'暂时不需要'));
     else if(locked) btnLabel=(info.level<it.lv?'Lv'+it.lv+'解锁':'宠物出生后解锁');
     else if(owned) btnLabel='已拥有';
     else if(boughtToday) btnLabel='今日已买';
@@ -12798,13 +12811,15 @@ function renderShop(){
     html+='<div class="shop-item'+(locked?' locked':'')+'">'
       +'<div class="s-emoji">'+it.emoji+'</div>'
       +'<div class="s-name">'+it.name+'</div>'
-      +'<div class="s-desc">'+it.desc+(!isAnyMedicine&&it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
+      +'<div class="s-desc">'+it.desc+(!isAnyMedicine&&!isHospital&&it.lv>1?'（Lv'+it.lv+'解锁）':'')+'</div>'
       +(aged?'<div class="s-desc" style="color:#e65100;font-weight:700">🎓 宝宝长大啦，这份基础餐点效果很差，吃了还会让它生气捣乱，建议换成下面的高级餐点！</div>':'')
       +(isMedicine&&hatched&&isInjured&&isSevere?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝是重伤，普通特效药没用，去买下面的【高级特效药】！</div>':'')
       +(isMedicine&&hatched&&isInjured&&!isSevere?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 宝宝受伤啦，赶紧买药救它，不然'+formatRemainHours(injuryStatusNow?injuryStatusNow.remainHours:0)+'内会变回蛋！</div>':'')
       +(isMedicine&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在很健康，暂时不需要吃药～</div>':'')
       +(isMedicine2&&hatched&&isInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 '+(isSevere?'重伤紧急！':'')+'赶紧买药救它，不然'+formatRemainHours(injuryStatusNow?injuryStatusNow.remainHours:0)+'内会变回蛋！</div>':'')
       +(isMedicine2&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在很健康，暂时不需要吃药～</div>':'')
+      +(isHospital&&hatched&&isPkInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">🚨 PK落败还没治，不然'+formatRemainHours(pkInjuryStatusNow?pkInjuryStatusNow.remainHours:0)+'内会伤心地掉一级！</div>':'')
+      +(isHospital&&hatched&&!isPkInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">💚 宝宝现在没有PK轻伤，暂时不需要住院～</div>':'')
       +(isSupply?'<div class="s-desc" style="color:#4caf50;font-weight:700">🎒 背包库存：'+(supplies[it.id]||0)+' 份（要去宠物页面用哦）</div>':'')
       +(isTraining?'<div class="s-desc" style="color:#e65100">⏱️ 每天限购1次</div>':'')
       +'<div class="s-price">💰 '+it.price+' 金币</div>'
