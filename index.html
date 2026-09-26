@@ -199,6 +199,11 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 #petStats .pet-stage{font-size:11px;margin:3px 0 4px}
 #petStats .exp-line{font-size:10px;margin:3px 0}
 #petStats #eggTip{margin:2px 0 4px}
+/* 2026-09新增：状态卡片收起/展开按钮——手机屏幕小，之前这一整块＋下面的宠物仓位提示常年摊开，
+   把宠物本体挡掉一大半，家长反馈"手机页面遮挡太多了"。默认收起成只剩名字这一行，
+   要看四维状态/经验条再自己点这个箭头展开，状态记在本机，下次打开还是保持上次的收起/展开选择 */
+#petStats .pet-stats-toggle-btn{margin:0;padding:1px 5px;font-size:11px;flex-shrink:0;pointer-events:auto;color:#7b1fa2;background:rgba(123,31,162,.1);border-radius:6px}
+#petStatsDetail.collapsed{display:none}
 #petActions{
   position:fixed; left:10px; top:50%; z-index:49; /* 要比下面的透明背景层(47)和展开面板(48)都高，不然面板打开时背景层会挡住这颗切换按钮，点不到 */
   display:flex; flex-direction:column; gap:10px;
@@ -1743,22 +1748,25 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petFsOverlay" class="pet-fs-overlay"></div>
 <div id="petStats" style="display:none">
   <div class="hud-top-row">
+    <button class="pet-stats-toggle-btn" id="petStatsToggleBtn" onclick="togglePetStatsCollapsed()" title="收起/展开状态">▾</button>
     <span class="hud-pet-name" id="hudPetName">——</span>
     <button class="pet-help-btn" onclick="showModal('petStatsHelpModal')" title="状态说明">❓</button>
     <button class="pet-wardrobe-btn" onclick="openWardrobe()" title="宠物装饰">🎽</button>
     <button class="pet-reskin-btn" onclick="openReskin()" title="更换宠物造型">🔄</button>
   </div>
-  <div class="pet-stage" id="petStage">🥚 宠物蛋 · 攒经验孵化中</div>
-  <div class="small" id="petDungeonTitle" style="display:none;color:#7b1fa2;font-weight:700;margin:-2px 0 2px">🎖️ ——</div>
-  <div class="exp-line" title="经验值：用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升，也可以靠每日打卡获得"><span>📈Lv<span id="petLevel">0</span></span><div class="progress-wrap"><div class="progress-bar yellow" id="expBar"></div></div><span id="expText" class="val">0/50</span></div>
-  <div id="eggTip" class="small">完成每日打卡任务可获得经验，攒满 50 经验破壳！</div>
-  <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
-  <div class="stat-line" title="水汪汪：用💧饮用水（+18）可以提升"><span class="ico">💧</span><div class="progress-wrap"><div class="progress-bar blue" id="thirstBar"></div></div><span class="val" id="thirstVal">100</span></div>
-  <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
-  <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
-  <div class="mood" id="moodText">😊 状态不错！</div>
-  <div class="hud-care" id="hudCareCount" style="display:none">💖 今日照顾 0/5</div>
-  <div id="petHouseLine" class="small" style="margin-top:5px;display:none">🏠 当前小窝：<span id="houseName">温馨小屋</span></div>
+  <div id="petStatsDetail">
+    <div class="pet-stage" id="petStage">🥚 宠物蛋 · 攒经验孵化中</div>
+    <div class="small" id="petDungeonTitle" style="display:none;color:#7b1fa2;font-weight:700;margin:-2px 0 2px">🎖️ ——</div>
+    <div class="exp-line" title="经验值：用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升，也可以靠每日打卡获得"><span>📈Lv<span id="petLevel">0</span></span><div class="progress-wrap"><div class="progress-bar yellow" id="expBar"></div></div><span id="expText" class="val">0/50</span></div>
+    <div id="eggTip" class="small">完成每日打卡任务可获得经验，攒满 50 经验破壳！</div>
+    <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
+    <div class="stat-line" title="水汪汪：用💧饮用水（+18）可以提升"><span class="ico">💧</span><div class="progress-wrap"><div class="progress-bar blue" id="thirstBar"></div></div><span class="val" id="thirstVal">100</span></div>
+    <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
+    <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
+    <div class="mood" id="moodText">😊 状态不错！</div>
+    <div class="hud-care" id="hudCareCount" style="display:none">💖 今日照顾 0/5</div>
+    <div id="petHouseLine" class="small" style="margin-top:5px;display:none">🏠 当前小窝：<span id="houseName">温馨小屋</span></div>
+  </div>
 </div>
 <div id="petActions" style="display:none">
   <button class="hud-act-btn" id="petActionsToggle" onclick="togglePetActionsPanel()" title="宠物互动">
@@ -2294,6 +2302,29 @@ function closePetFullscreen(){
   var overlay=document.getElementById('petFsOverlay');
   if(overlay) overlay.classList.remove('show');
   document.body.classList.remove('pet-fs-active');
+}
+/* 2026-09新增：状态卡片收起/展开——哪怕只在"宠物"页本身显示，四维状态+经验条+提示文字这一长条
+   在手机小屏上还是占地方太大，会把宠物本体挡掉一大截（家长反馈"手机页面遮挡太多了"）。
+   默认收起成只剩名字这一行，点箭头可以随时展开看完整状态；选择存在本机，下次打开还记得 */
+var PET_STATS_COLLAPSED_KEY='kuroPetStatsCollapsedV1';
+var petStatsCollapsed=true; // 默认收起，把屏幕尽量留给宠物本体
+try{ var _psc=localStorage.getItem(PET_STATS_COLLAPSED_KEY); if(_psc!==null) petStatsCollapsed=(_psc==='1'); }catch(e){}
+function applyPetStatsCollapsedUI(){
+  var box=document.getElementById('petStatsDetail');
+  var btn=document.getElementById('petStatsToggleBtn');
+  if(box) box.classList.toggle('collapsed', petStatsCollapsed);
+  if(btn){
+    btn.textContent=petStatsCollapsed?'▸':'▾';
+    btn.title=petStatsCollapsed?'展开完整状态':'收起，只留名字（省地方看宠物）';
+  }
+}
+function togglePetStatsCollapsed(){
+  petStatsCollapsed=!petStatsCollapsed;
+  try{ localStorage.setItem(PET_STATS_COLLAPSED_KEY, petStatsCollapsed?'1':'0'); }catch(e){}
+  applyPetStatsCollapsedUI();
+  // 收起/展开会改变petStats实际渲染出来的高度，"再养一只"按钮和提示文字是跟着这个高度动态定位的
+  // （见下面 syncPetImmersive 里的 addTop），这里手动再触发一次，让它立刻跟着挪，不用等下一次render()
+  if(typeof syncPetImmersive==='function') syncPetImmersive();
 }
 /* 之前的规则是"只在棋盘页/打卡页收起悬浮面板，其余页面（转盘/商店/背包）让它自由悬浮"——
    但手机窄屏下转盘/商店/背包这几页内容本来就密，宠物状态卡片飘在左上角照样会挡住奖池卡片、
@@ -3949,13 +3980,21 @@ function hidePetPkInjuryTip(){
   if(tip) tip.classList.remove('show');
 }
 function petPkInjuryBadgeTap(){
-  showPetPkInjuryTip();
+  // 2026-09fix：这个提示框里带一个真正要点的"安抚"按钮，不是纯文字提示——之前跟其它徽章一样
+  // 6秒自动收起，家长很容易"看完截图/纠结一下"就超过6秒，回来点的时候提示框其实已经自己关掉了，
+  // 点在空白处自然什么反应都没有，被误以为是按钮坏了。现在改成点一下徽章"开/关"切换显示，
+  // 不再自动计时收起，安抚成功、或者再点一次徽章才会关掉，给家长充分时间点到按钮
   clearTimeout(petPkInjuryTipAutoHideTimer);
-  petPkInjuryTipAutoHideTimer=setTimeout(hidePetPkInjuryTip,6000);
+  var tip=document.getElementById('petPkInjuryTip');
+  if(tip && tip.classList.contains('show')) hidePetPkInjuryTip();
+  else showPetPkInjuryTip();
 }
 function healPkInjury(){
   var pet=state.pet;
-  if(!pet||!pet.pkInjured){ hidePetPkInjuryTip(); return; }
+  // 2026-09fix：以前这里悄悄返回、什么提示都没有——万一是别的设备已经先安抚过、或者刚好在这一瞬间
+  // 自动掉级/变回蛋导致伤病状态已经不在了，家长点了按钮却"看起来毫无反应"，会被误以为按钮坏了。
+  // 现在至少弹个提示，告诉他到底是怎么回事
+  if(!pet||!pet.pkInjured){ hidePetPkInjuryTip(); if(typeof ttsToast==='function') ttsToast('✅ 这只宠物现在没有PK轻伤啦，不用安抚', 3000); return; }
   if((state.moneyBalance||0)<PK_INJURY_HEAL_COST){ alert('金币不够啦，攒够'+PK_INJURY_HEAL_COST+'个金币再来安抚吧～'); return; }
   state.moneyBalance-=PK_INJURY_HEAL_COST;
   pet.pkInjured=false; pet.pkInjuredAt=null;
@@ -12549,6 +12588,7 @@ function renderPet(){
     var eggProgressWrap2=document.getElementById('eggProgressWrap');
     if(eggProgressWrap2){ eggProgressWrap2.style.display='none'; }
     document.getElementById('petStats').style.display='block';
+    applyPetStatsCollapsedUI();
     document.getElementById('petActions').style.display='flex';
     document.getElementById('petHouseLine').style.display='block';
     var petMood=petMoodOf(pet);
