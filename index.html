@@ -750,6 +750,8 @@ body.pet-fs-active #backupReminderBar{display:none !important}
 .bag-card .b-emoji{font-size:30px}
 .bag-card .b-count{font-size:22px;font-weight:800;color:#7b1fa2}
 .bag-card .b-note{font-size:10px;color:#999;margin:2px 0}
+.bag-card.mat-empty{opacity:.5}
+.bag-card.mat-empty .b-count{color:#bbb}
 .bag-hint{background:#fff3e0;border:1px dashed #ffb74d;border-radius:10px;padding:7px;font-size:12px;color:#e65100;margin-top:7px;display:none}
 /* 弹窗 */
 .modal-mask{position:fixed;inset:0;background:rgba(60,20,70,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:14px}
@@ -1068,6 +1070,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <span class="tag tag-purple">🎫 免背卡：<span id="freeStudyCard">0</span> 张</span>
       <span class="small">学习连续全勤：<span id="studyStreakText">0</span> 天</span>
     </div>
+    <button class="btn btn-gray" style="width:100%;margin-top:8px" onclick="showPage('weekly')">📊 本周学习统计与复习测验</button>
   </div>
 
   <div class="card checkin-card" data-checkin="math">
@@ -1238,6 +1241,12 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" style="margin-top:6px">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。</div>
   </div>
   <div class="card">
+    <h2>🧱 副本建材</h2>
+    <div id="materialGrid" class="bag-grid"></div>
+    <div class="small" style="margin-top:6px">精铁⚙️/云锦🧵/星辉晶💎可以在"🛡️装备面板"里用来合成、升星装备；灵木🪵/灵石🪨/龙鳞瓦🐉可以用来建"仙宅小屋"～</div>
+    <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="showPage('cottage')">🏡 去建仙宅小屋</button>
+  </div>
+  <div class="card">
     <h2>🎁 奖励钱包</h2>
     <div class="item"><span class="label">🐾 宠物金币</span><b>💰 <span id="moneyBalance2">0</span></b></div>
     <div class="item"><span class="label">🏅 连续全勤</span><b><span id="streakDay">0</span> 天</b></div>
@@ -1273,9 +1282,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="font-weight:600;color:#7b1fa2">🔑 当前家庭空间码：<span id="familyCodeDisplay">—</span></div>
       <div class="small" style="margin:4px 0 6px">同一个家庭码的设备才会同步到同一批小朋友档案；不同家庭码之间完全看不到彼此的数据</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeRename()">✏️ 给当前家庭码改名</button>
+        <button class="btn btn-gray btn-sm" id="familyCodeRenameBtn" style="display:none" onclick="openFamilyCodeRename()">✏️ 给当前家庭码改名</button>
         <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()">🔄 更换/加入其他家庭空间</button>
       </div>
+      <div class="small" id="familyCodeRenameHint" style="margin-top:4px;color:#999">✏️改名功能只有管理员能用（这就是之前误把别人家庭码改成自己的、导致对方账号"消失"的那个功能），需要先在下面解锁"🛠️管理后台"才会出现；平时想换到另一个家庭码，用"🔄更换/加入其他家庭空间"就够了</div>
     </div>
     <div id="adminEntryWrap" style="display:none;margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
       <button class="btn btn-danger btn-sm" onclick="openAdminEntry()">🛠️ 管理后台（审批新申请 / 修数据）</button>
@@ -1343,6 +1353,30 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
   <div class="card" id="visitDetailCard" style="display:none">
     <div id="visitDetailBody"></div>
+  </div>
+</div>
+
+<div class="page" id="page-weekly">
+  <div class="card">
+    <div class="row-between">
+      <h2 style="margin:0">📊 本周学习统计与复习测验</h2>
+      <button class="btn btn-gray btn-sm" onclick="showPage('home');showCheckinCategory('study')">⬅ 返回打卡</button>
+    </div>
+    <div id="weeklyStatsBox" class="small" style="margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <div id="weeklyQuizBox"></div>
+  </div>
+</div>
+
+<!-- 2026-09新增：仙宅小屋——纯观赏收集向，投入灵木/灵石/龙鳞瓦解锁外观阶段 -->
+<div class="page" id="page-cottage">
+  <div class="card">
+    <div class="row-between">
+      <h2 style="margin:0">🏡 仙宅小屋</h2>
+      <button class="btn btn-gray btn-sm" onclick="showPage('bag')">⬅ 返回背包</button>
+    </div>
+    <div id="cottageBody"></div>
   </div>
 </div>
 
@@ -1482,6 +1516,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <button class="modal-close" onclick="closeDungeon2Modal()">✕</button>
     <h3 style="margin-top:0">⚔️ 副本挑战</h3>
     <div id="dungeon2ListBox"></div>
+    <div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px">
+      <div class="small" style="font-weight:700;color:#7b1fa2;margin-bottom:4px">🧱 我的副本建材</div>
+      <div id="dungeon2MaterialsBox" class="bag-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -2068,7 +2106,7 @@ function rollEquipDefIdForTier(tierKey, forceQuality){
 }
 function grantEquipmentItem(st, defId){
   var bag=ensureEquipmentBag(st);
-  var inst={instanceId:'eq'+Date.now()+Math.floor(Math.random()*1000), defId:defId, obtainedAt:Date.now()};
+  var inst={instanceId:'eq'+Date.now()+Math.floor(Math.random()*1000), defId:defId, obtainedAt:Date.now(), star:0}; // star：2026-09新增，装备升星等级，0~EQUIP_STAR_MAX
   bag.push(inst);
   return inst;
 }
@@ -2109,9 +2147,93 @@ function petEquipBonus(pet, ownerState){
     var inst=bagById[instId];
     var item=inst&&EQUIP_ITEMS[inst.defId];
     if(!item) return;
-    atk+=item.atk||0; def+=item.def||0;
+    var mul=equipStarBonusMul(inst&&inst.star); // 2026-09新增：装备升星按具体这一件的星级加成攻防，不影响同款其他件
+    atk+=Math.round((item.atk||0)*mul); def+=Math.round((item.def||0)*mul);
   });
   return {atk:atk, def:def};
+}
+/* ========== 2026-09新增：装备合成 + 升星 ==========
+   合成：以次充好——集齐3件同品质、未穿戴的装备 + 对应材料/金币，合成1件更高一级品质的随机装备（部位随机）。
+   升星：跟着具体某一件装备实例走（不是品质模板），最高EQUIP_STAR_MAX星，每星都要单独花材料+金币，攻防加成
+   按百分比叠加在这件装备自己的基础属性上，换成另一件同款是全新的0星，不会共享星级。
+   两个系统用的材料是精铁⚙️/云锦🧵/星辉晶💎（跟"建仙宅"用的灵木/灵石/龙鳞瓦分开，不会互相挤占）。 */
+var EQUIP_STAR_MAX=5;
+var EQUIP_STAR_COST=[
+  null,
+  {iron:2, silk:1, crystal:0, coin:50},
+  {iron:3, silk:2, crystal:0, coin:100},
+  {iron:4, silk:3, crystal:1, coin:200},
+  {iron:5, silk:4, crystal:2, coin:400},
+  {iron:6, silk:5, crystal:3, coin:800}
+];
+function equipStarBonusMul(star){ return 1+(star||0)*0.08; } // 每升1星，这件装备的攻防各增加8%
+var EQUIP_SYNTH_COST={
+  white:{iron:3, silk:3, crystal:0, coin:150, next:'blue'},
+  blue: {iron:6, silk:6, crystal:2, coin:400, next:'purple'}
+};
+function materialInfo(id){
+  var m=dungeonMaterialCatalog().filter(function(x){ return x.id===id; })[0];
+  return m||{id:id, emoji:'❔', name:id};
+}
+function materialLabel(id){ var m=materialInfo(id); return m.emoji+m.name; }
+function equipWornInstanceIds(){
+  var pet=state.pet, ids={};
+  if(pet&&pet.equipment){ Object.keys(pet.equipment).forEach(function(k){ if(pet.equipment[k]) ids[pet.equipment[k]]=true; }); }
+  return ids;
+}
+function starUpEquip(instanceId){
+  var bag=ensureEquipmentBag(state);
+  var inst=bag.filter(function(x){ return x.instanceId===instanceId; })[0];
+  if(!inst){ ttsToast('这件装备好像不在背包里了', 3000); return; }
+  if(typeof inst.star!=='number') inst.star=0;
+  if(inst.star>=EQUIP_STAR_MAX){ ttsToast('这件装备已经是满星啦，没法再升啦～', 3000); return; }
+  var cost=EQUIP_STAR_COST[inst.star+1];
+  var mats=state.backpack.materials||{};
+  var lack=['iron','silk','crystal'].filter(function(k){ return cost[k]>0 && (mats[k]||0)<cost[k]; });
+  if(lack.length){ ttsToast('材料不够，还差：'+lack.map(materialLabel).join('、'), 3500); return; }
+  if((state.moneyBalance||0)<cost.coin){ ttsToast('金币不够，还差'+(cost.coin-(state.moneyBalance||0))+'金币', 3500); return; }
+  ['iron','silk','crystal'].forEach(function(k){ if(cost[k]>0) mats[k]-=cost[k]; });
+  state.moneyBalance-=cost.coin;
+  inst.star++;
+  var item=EQUIP_ITEMS[inst.defId];
+  addLog('⭐ 【'+(item?item.name:'装备')+'】升到了'+inst.star+'星！');
+  save();
+  renderEquipPanel();
+  ttsToast('✨ 升星成功！现在是'+inst.star+'星', 2500);
+}
+function synthCandidateCount(quality){
+  var worn=equipWornInstanceIds();
+  return state.equipmentBag.filter(function(it){
+    var item=EQUIP_ITEMS[it.defId];
+    return item && item.quality===quality && !worn[it.instanceId];
+  }).length;
+}
+function synthesizeEquip(quality){
+  var cfg=EQUIP_SYNTH_COST[quality];
+  if(!cfg){ ttsToast('这个品质暂时没法合成', 3000); return; }
+  var bag=ensureEquipmentBag(state);
+  var worn=equipWornInstanceIds();
+  var candidates=bag.filter(function(it){
+    var item=EQUIP_ITEMS[it.defId];
+    return item && item.quality===quality && !worn[it.instanceId];
+  });
+  if(candidates.length<3){ ttsToast('至少要凑够3件未穿戴的'+EQUIP_QUALITY_INFO[quality].label+'装备才能合成哦', 3500); return; }
+  var mats=state.backpack.materials||{};
+  var lack=['iron','silk','crystal'].filter(function(k){ return cfg[k]>0 && (mats[k]||0)<cfg[k]; });
+  if(lack.length){ ttsToast('材料不够，还差：'+lack.map(materialLabel).join('、'), 3500); return; }
+  if((state.moneyBalance||0)<cfg.coin){ ttsToast('金币不够，还差'+(cfg.coin-(state.moneyBalance||0))+'金币', 3500); return; }
+  candidates.sort(function(a,b){ return (a.obtainedAt||0)-(b.obtainedAt||0); });
+  var used={}; candidates.slice(0,3).forEach(function(x){ used[x.instanceId]=true; });
+  state.equipmentBag=bag.filter(function(it){ return !used[it.instanceId]; });
+  ['iron','silk','crystal'].forEach(function(k){ if(cfg[k]>0) mats[k]-=cfg[k]; });
+  state.moneyBalance-=cfg.coin;
+  var defId=rollEquipDefIdForTier('normal', cfg.next);
+  grantEquipmentItem(state, defId);
+  var item=EQUIP_ITEMS[defId];
+  addLog('🔨 合成成功！3件'+EQUIP_QUALITY_INFO[quality].label+'装备合成出了【'+item.name+'】');
+  save();
+  renderEquipPanel();
+  ttsToast('🎉 合成成功，获得【'+item.name+'】！', 3000);
 }
 /* 防御按"越堆边际收益越低"的经典公式换算成减伤比例，防御50点大约减伤55%左右，不会出现"防御拉满0伤害"的极端情况 */
 function equipDefReduceMul(def){
@@ -4163,6 +4285,7 @@ function freshDay(key){
     earned:0,
     dailyPick:{sport:null,study:null,house:null},
     quiz:{},
+    typeCopy:{}, // 中文词组打字练习：今天每个词是否已经照着原文打对过（训练打字能力用，跟quiz的"猜意思"判分逻辑分开）
     wheel:{sport:false,house:false,study:false,fun:false,diary:false,custom:false,comm:false},
     wheelUsed:0,
     gotFreeCard:false,
@@ -4191,6 +4314,7 @@ function defaultState(){
     fullDays:[],
     totalFullDays:0,
     sportStudyFullDays:[],
+    studyCompletionLog:[], // 每天跨天时记一笔"当天真的完成了哪些学习打卡"，给"每周复习测验"抽题用，不是"当天展示过什么"
     studyStreak:0,
     freeStudyCard:0,
     restCardMonthKey:getMonthKey(),
@@ -4229,6 +4353,7 @@ function defaultState(){
     pendingOfflineNotice:null, // 离线期间触发的性格行为事件，下次打开时弹一次通知，展示完就清空
     lastCheckinDayKey:todayKey(), // 最近一次真的有打卡拿到金币是哪一天，连续零打卡满2天会触发金币兜底清空
     equipmentBag:[], // 2026-09新增：账号级装备背包（未穿戴的装备实例），装备本身账号绑定，同账号多只宠物可以自由换穿
+    cottage:{invested:{wood:0,stone:0,tile:0}}, // 2026-09新增：仙宅小屋——灵木/灵石/龙鳞瓦累计投入量，纯外观收藏向，不影响任何数值
     petSlotBonus:0,  // 保留字段（早期草稿用过，现在仓位加成改成实时按dungeonClearCounts算，这个字段不再是权威来源，留着只为兼容）
     dungeonClearCounts:{hard:0,hero:0}, // 2026-09新增：困难/英雄副本累计通关次数，驱动宠物仓位解锁成就
     dungeonEquipPity:{noDropStreak:0}, // 装备副本保底计数：连续多少次"有资格判定"没掉装备，跨天累计不清零
@@ -4330,6 +4455,17 @@ var FAMILY_CODE_KEY='kuroFamilyCodeV1';       // 本机保存的"家庭码"
 var FAMILY_ROW_ID_KEY='kuroFamilyRowIdV1';    // 本机缓存的、这个家庭码解析出来的实际存档行ID（避免每次开机都要联网查一次指针）
 var FAMILY_CODE_MAP={'':DEFAULT_FAMILY_ROW_ID, '茜茜嫣嫣家':DEFAULT_FAMILY_ROW_ID};
 var _familyGateMode='initial'; // 'initial'=首次强制输入 / 'change'=更换到另一个家庭（会替换本机数据）/ 'rename'=只改名字，数据不变
+// 2026-09fix：曾经发生过"想切换家庭码结果误点成改名，把嫣嫣的家庭码指向了茜茜的数据"这种事故——
+// 根源是"改名"这个功能对谁都开放，随手一点就能把任意一个家庭码（哪怕是别人家正在用的）指向自己
+// 这份数据。现在改成必须先用管理员密码解锁本次会话（跟"🛠️管理后台"共用同一套密码校验），
+// 普通用户（包括管理员自己没解锁时）只能看到"切换家庭码"，看不到"改名"按钮。
+var _adminSessionUnlocked=false;
+function refreshFamilyCodeRenameVisibility(){
+  var btn=document.getElementById('familyCodeRenameBtn');
+  var hint=document.getElementById('familyCodeRenameHint');
+  if(btn) btn.style.display=_adminSessionUnlocked?'inline-block':'none';
+  if(hint) hint.style.display=_adminSessionUnlocked?'none':'block';
+}
 function familyCodeToRowId(code){
   // 纯算法兜底：查不到指针（离线/指针还没注册成功）时用这个直接算出一个稳定的行ID，保证任何时候都能继续用
   code=String(code||'').trim();
@@ -4398,8 +4534,10 @@ function openFamilyCodeChange(){
   if(input) input.value='';
   showModal('familyGateModal');
 }
-/* 自助改名：不换数据，只是给现在这份数据额外多注册一个新的家庭码指针，旧码继续有效 */
+/* 自助改名：不换数据，只是给现在这份数据额外多注册一个新的家庭码指针，旧码继续有效。
+   2026-09fix：现在仅限管理员本次会话已经解锁后才能打开，防止误点/被非管理员用户误操作 */
 function openFamilyCodeRename(){
+  if(!_adminSessionUnlocked){ ttsToast('这个功能只有管理员能用，请先在下面点"🛠️管理后台"输入密码解锁', 4500); return; }
   _familyGateMode='rename';
   var titleEl=document.getElementById('familyGateTitle');
   var descEl=document.getElementById('familyGateDesc');
@@ -4419,16 +4557,30 @@ function submitFamilyCode(){
   if(!code){ ttsToast('请先输入家庭码', 4000); return; }
   var btn=document.getElementById('familyGateConfirmBtn');
   if(_familyGateMode==='rename'){
-    if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
-    registerFamilyCodePointer(code,SUPA_ROW_ID).then(function(){
-      try{ localStorage.setItem(FAMILY_CODE_KEY,code); }catch(e){}
-      if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
-      hideModal('familyGateModal');
-      refreshFamilyCodeDisplay();
-      ttsToast('✅ 家庭码已改成："'+code+'"，之前的码仍然可以用', 5000);
+    if(!_adminSessionUnlocked){ ttsToast('这个功能只有管理员能用', 4000); hideModal('familyGateModal'); return; }
+    if(btn){ btn.disabled=true; btn.textContent='查询中…'; }
+    // 2026-09fix：改名前先查一下这个码现在是不是已经指向别的家庭数据了——之前"嫣嫣账号消失"
+    // 这个事故，就是因为压根没做这层检查，直接把对方的码覆盖成了指向自己数据，让对方原来的码
+    // 登录不进自己的存档。现在如果发现这个码已经被别的rowId占用，弹窗二次确认，说清楚后果。
+    checkFamilyCodeApproved(code).then(function(existingRowId){
+      if(existingRowId && existingRowId!==SUPA_ROW_ID){
+        var proceed=window.confirm('⚠️ 家庭码「'+code+'」现在已经是另一个家庭正在用的码了！\n\n继续"改名"会让这个码改成指向"当前这份数据"，那个家庭原来用这个码会进不去TA自己的存档（跟之前嫣嫣账号"消失"是同一种事故，需要再去管理后台手动修复才能找回）。\n\n如果你是想切换过去查看/使用那个家庭的数据，请点"取消"，改用"🔄更换/加入其他家庭空间"。\n\n真的确定要把这个已经被占用的码，改成指向当前数据吗？');
+        if(!proceed){ if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; } return; }
+      }
+      if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
+      registerFamilyCodePointer(code,SUPA_ROW_ID).then(function(){
+        try{ localStorage.setItem(FAMILY_CODE_KEY,code); }catch(e){}
+        if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+        hideModal('familyGateModal');
+        refreshFamilyCodeDisplay();
+        ttsToast('✅ 家庭码已改成："'+code+'"，之前的码仍然可以用', 5000);
+      }).catch(function(){
+        if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+        ttsToast('❌ 没连上云端，改名没成功，检查网络再试一次', 5000);
+      });
     }).catch(function(){
       if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
-      ttsToast('❌ 没连上云端，改名没成功，检查网络再试一次', 5000);
+      ttsToast('❌ 没连上云端，查询失败，检查网络再试一次', 5000);
     });
     return;
   }
@@ -4651,6 +4803,8 @@ function submitAdminLogin(){
     return saved===adminHash(pass);
   }).then(function(ok){
     if(!ok){ ttsToast('❌ 密码不对', 3000); return; }
+    _adminSessionUnlocked=true; // 2026-09fix：密码验证通过后，本次会话才解锁"改家庭码"这个高危功能
+    refreshFamilyCodeRenameVisibility();
     hideModal('adminLoginModal');
     showModal('adminPanelModal');
     loadAdminApplications();
@@ -4778,11 +4932,18 @@ function adminRemoveFamily(rowId,namesLabel){
    给同一份存档（同一个rowId）再挂一个新的家庭码指针，旧码不受影响、继续有效，
    新码发给对方后，对方在"更换/加入其他家庭空间"里输入新码，就能找回原来的存档，数据一点不丢 */
 function adminIssueNewCode(rowId){
-  var code=window.prompt('给这份存档发一个新的家庭码（发给忘记码的人用来找回数据，原来的码不受影响，还能继续用）：');
+  var code=window.prompt('给这份存档发一个新的家庭码（发给忘记码的人用来找回数据，原来的码不受影响，还能继续用）。\n\n如果是要修复"某个家庭码被误指向了别人数据"这种事故，在这里重新输入那个原来的家庭码，就能把它改回指向这份存档：');
   code=(code||'').trim();
   if(!code) return;
-  registerFamilyCodePointer(code,rowId).then(function(){
-    window.prompt('✅ 已经生效，把下面这个新家庭码发给对方，对方在"更换/加入其他家庭空间"里输入即可找回原来的存档：', code);
+  // 2026-09fix：发码前先查一下这个码现在指向哪，如果已经指向了"另一份不是当前rowId"的数据，
+  // 弹出来告诉管理员一声，避免在没意识到的情况下又顺手覆盖了别的家庭正在用的码
+  checkFamilyCodeApproved(code).then(function(existingRowId){
+    if(existingRowId && existingRowId!==rowId){
+      if(!window.confirm('这个码「'+code+'」现在指向的存档行是：\n'+existingRowId+'\n\n确定要把它改成指向这份存档：\n'+rowId+'\n吗？（如果这正是你要修复的账号覆盖问题，选"确定"就对了；如果不确定，先点"取消"去核实一下）')) return;
+    }
+    return registerFamilyCodePointer(code,rowId).then(function(){
+      window.prompt('✅ 已经生效，把下面这个家庭码发给对方，对方在"更换/加入其他家庭空间"里输入即可找回存档：', code);
+    });
   }).catch(function(){
     ttsToast('❌ 没连上云端，没发成功，检查网络再试一次', 5000);
   });
@@ -5481,15 +5642,50 @@ function applyGiftMessage(m){
   save();
   ttsToast('🎁 '+(m.fromName||'一位朋友')+' 送了你 '+amt+' 个金币！', 4500);
 }
+/* 2026-09fix：拍卖行原来的结算（settleAuctionUnsold/settleAuctionToBidder/buyNowAuction的卖家那一半）
+   走的也是跟送金币"以前那版"一样的坑——不管是哪台设备"顺手"结算了到期的拍卖，都会直接
+   fetchRowData+改整份存档+supaUpsertRow 写回卖家/中标人的整个家庭数据，一样会被对方自己下一次
+   正常保存覆盖掉（钱/装备凭空消失，自己毫不知情）。现在改成跟送金币/PK消息完全一样的思路：
+   卖出去的钱、拍下的装备、流拍退回的装备，都只写一条消息进当事人自己专属的 pkinbox: 行，
+   不碰对方主存档；对方自己打开"消息中心"读到时，由TA自己的设备本地安全处理。 */
+function applyAuctionSoldMessage(m){
+  if(!state) return;
+  var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
+  if(amt>0) state.moneyBalance=(state.moneyBalance||0)+amt;
+  addLog('🏛️ 拍卖行：你上架的【'+(m.itemName||'装备')+'】卖出了，获得 '+amt+' 金币');
+  save();
+  ttsToast('🏛️ 你上架的【'+(m.itemName||'装备')+'】卖出啦，+'+amt+' 金币', 4500);
+}
+function applyAuctionWonMessage(m){
+  if(!state) return;
+  var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
+  var itemName=(typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备';
+  if(amt>0) state.moneyBalance=(state.moneyBalance||0)-amt; // 拍下时如果不是走"一口价"当场扣过，这里才是真正扣费的地方
+  ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()});
+  addLog('🏛️ 拍卖行：你拍下的【'+itemName+'】到货啦，花了 '+amt+' 金币');
+  save();
+  ttsToast('🎉 你拍下的【'+itemName+'】到货啦！', 4500);
+}
+function applyAuctionReturnedMessage(m){
+  if(!state) return;
+  var itemName=(typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备';
+  ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()});
+  addLog('🏛️ 拍卖行：你上架的【'+itemName+'】没有卖出，已经退回背包');
+  save();
+  ttsToast('🏛️ 【'+itemName+'】流拍了，已经退回你的背包', 4000);
+}
 /* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；某一条送金币消息，
-   第一次被我自己看到时，在自己本机给自己加钱——都用 applied 标记防止同一条消息以后重复打开
-   消息中心时被反复处理（反复扣血/反复加钱） */
+   第一次被我自己看到时，在自己本机给自己加钱；拍卖相关的三种消息同理——都用 applied 标记
+   防止同一条消息以后重复打开消息中心时被反复处理（反复扣血/反复加钱/反复发货） */
 function applyPkInboxSideEffects(inbox){
   if(!inbox||!Array.isArray(inbox.messages)) return false;
   var changed=false;
   inbox.messages.forEach(function(m){
     if(m.applied) return;
     if(m.type==='gift'){ applyGiftMessage(m); m.applied=true; changed=true; }
+    else if(m.type==='auction_sold'){ applyAuctionSoldMessage(m); m.applied=true; changed=true; }
+    else if(m.type==='auction_won'){ applyAuctionWonMessage(m); m.applied=true; changed=true; }
+    else if(m.type==='auction_returned'){ applyAuctionReturnedMessage(m); m.applied=true; changed=true; }
     else if(m.friendWon===true){ applyPkLossInjury(); m.applied=true; changed=true; }
     else{ m.applied=true; changed=true; }
   });
@@ -5637,6 +5833,23 @@ function showPkInboxModal(){
         if(m.type==='gift'){
           return '<div class="small" style="background:#fff6e0;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
             +'<div>🎁 <b>'+(m.fromName||'一位朋友')+'</b> 送了你 '+(m.amt||0)+' 个金币！'
+            +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
+        }
+        if(m.type==='auction_sold'){
+          return '<div class="small" style="background:#e8f5e9;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
+            +'<div>🏛️ 你上架的【'+(m.itemName||'装备')+'】卖出了，+'+(m.price||0)+' 金币'
+            +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
+        }
+        if(m.type==='auction_won'){
+          var wonName=(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
+          return '<div class="small" style="background:#e8f5e9;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
+            +'<div>🎉 你拍下的【'+wonName+'】到货啦，花了'+(m.price||0)+'金币'
+            +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
+        }
+        if(m.type==='auction_returned'){
+          var retName=(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
+          return '<div class="small" style="background:#f3e5f5;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
+            +'<div>🏛️ 你上架的【'+retName+'】流拍了，已经退回背包'
             +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
         }
         var resultText=m.friendWon?'🎉 你赢了这场PK！':'😢 你输了这场PK，宠物受了点轻伤';
@@ -6338,6 +6551,7 @@ function finishLoadRender(){
   refreshFamilyCodeDisplay();
   ensurePetHomeRegistry();
   refreshAdminEntryVisibility();
+  refreshFamilyCodeRenameVisibility();
   pkInboxBadgeRefresh(); // 只静静刷新"串门"tab上的红点，不再自动弹PK消息弹窗（见该函数上方注释）
 }
 /* 每次打开/刷新程序，宠物都会突然跳出来对主人撒娇打招呼——但这是一句无条件的开心欢迎词，
@@ -6591,6 +6805,24 @@ function mathEnTallyStr(n){ // 画出n个"正"字笔画风格太复杂，这里�
   while(remaining>0){ var g=Math.min(5,remaining); parts.push(new Array(g+1).join('|')); remaining-=g; }
   return parts.join(' ');
 }
+/* 英文数学题的中文翻译辅助：题目里出现的名词/图形/位值名称需要一个英文->中文的小词典，
+   翻译时配合题目里已经生成好的具体数字拼成完整的中文句子，孩子看不懂英文原题时可以点开看中文意思。 */
+var MATH_EN_NOUN_CN={
+  lions:'狮子','dinner plates':'餐盘',pencils:'铅笔',apples:'苹果',umbrellas:'雨伞',crayons:'蜡笔',
+  buses:'公交车',bikes:'自行车',footballs:'足球',flowers:'花',fingers:'手指',toys:'玩具',
+  bananas:'香蕉',carrots:'胡萝卜',candies:'糖果',clocks:'时钟',balloons:'气球',drums:'鼓',
+  rockets:'火箭',seashells:'贝壳',butterflies:'蝴蝶',eggs:'鸡蛋',bowls:'碗',cushions:'靠垫',
+  'smiley faces':'笑脸','dinosaur eggs':'恐龙蛋',hats:'帽子',lanterns:'灯笼',
+  birds:'小鸟',chickens:'小鸡',stickers:'贴纸'
+};
+function mathEnNounCn(n){ return MATH_EN_NOUN_CN[n]||'东西'; }
+var MATH_EN_SHAPE_CN={
+  triangle:'三角形',square:'正方形',rectangle:'长方形',pentagon:'五边形',hexagon:'六边形',
+  cube:'正方体','rectangular prism':'长方体','square pyramid':'四棱锥','triangular prism':'三棱柱'
+};
+function mathEnShapeCn(s){ return MATH_EN_SHAPE_CN[s]||s; }
+var MATH_EN_PLACE_CN={thousands:'千',hundreds:'百',tens:'十',ones:'个'};
+var MATH_EN_PART_CN={faces:'面',edges:'棱',vertices:'顶点'};
 /* 数学题围绕澳洲 NAPLAN Numeracy 考试的三大内容板块出题："Number & Algebra"（数与代数）、
    "Measurement & Geometry"（测量与几何）、"Statistics & Probability"（统计与概率）——
    NAPLAN 正式只考3/5/7/9年级，这里1~6年级按 NAPLAN 官方公开的年级能力描述做对应（不是照抄真题，
@@ -6603,126 +6835,126 @@ function mathEnTallyStr(n){ // 画出n个"正"字笔画风格太复杂，这里�
    每个年级都覆盖了三大板块，不再像以前那样几乎全是"数与代数"、缺"测量与几何"和"统计与概率"。 */
 var MATH_EN_TEMPLATES={
   1:[ // Grade 1（NAPLAN 3年级考前铺垫）Number & Algebra
-    function(rand,noun){ var n=noun||'balloons'; var a=mathEnRandInt(rand,3,12), b=mathEnRandInt(rand,2,8);
-      return {en:'There are '+a+' '+n+' and '+b+' more '+n+' join them. How many '+n+' are there in total?', ans:String(a+b)}; },
-    function(rand,noun){ var n=noun||'birds'; var a=mathEnRandInt(rand,10,20), b=mathEnRandInt(rand,1,9);
-      return {en:'There are '+a+' '+n+' in a park. '+b+' '+n+' leave. How many '+n+' are left?', ans:String(a-b)}; },
+    function(rand,noun){ var n=noun||'balloons'; var a=mathEnRandInt(rand,3,12), b=mathEnRandInt(rand,2,8); var nc=mathEnNounCn(n);
+      return {en:'There are '+a+' '+n+' and '+b+' more '+n+' join them. How many '+n+' are there in total?', cn:'有'+a+'个'+nc+'，又来了'+b+'个'+nc+'，一共有多少个'+nc+'？', ans:String(a+b)}; },
+    function(rand,noun){ var n=noun||'birds'; var a=mathEnRandInt(rand,10,20), b=mathEnRandInt(rand,1,9); var nc=mathEnNounCn(n);
+      return {en:'There are '+a+' '+n+' in a park. '+b+' '+n+' leave. How many '+n+' are left?', cn:'公园里有'+a+'个'+nc+'，离开了'+b+'个，还剩多少个'+nc+'？', ans:String(a-b)}; },
     function(rand){ var step=mathEnPick(rand,[2,5,10]), s=mathEnPick(rand,[0,10,20,30]);
-      return {en:'Count on: '+s+', '+(s+step)+', '+(s+2*step)+', ___?', ans:String(s+3*step)}; },
+      return {en:'Count on: '+s+', '+(s+step)+', '+(s+2*step)+', ___?', cn:'按顺序数下去：'+s+'、'+(s+step)+'、'+(s+2*step)+'、___？', ans:String(s+3*step)}; },
     function(rand){ var a=mathEnRandInt(rand,1,19), b=mathEnRandInt(rand,a+1,20);
-      return {en:'Which number is bigger: '+a+' or '+b+'?', ans:String(b)}; },
+      return {en:'Which number is bigger: '+a+' or '+b+'?', cn:a+'和'+b+'，哪个数字更大？', ans:String(b)}; },
     // Measurement & Geometry
     function(rand){ var shapes=[{n:'triangle',sides:3},{n:'square',sides:4},{n:'rectangle',sides:4},{n:'pentagon',sides:5},{n:'hexagon',sides:6}]; var s=mathEnPick(rand,shapes);
-      return {en:'How many sides does a '+s.n+' have?', ans:String(s.sides)}; },
+      return {en:'How many sides does a '+s.n+' have?', cn:'一个'+mathEnShapeCn(s.n)+'有几条边？', ans:String(s.sides)}; },
     function(rand){ var h=mathEnRandInt(rand,1,12);
-      return {en:"The clock shows "+h+" o'clock. What number is the hour hand pointing to?", ans:String(h)}; },
+      return {en:"The clock shows "+h+" o'clock. What number is the hour hand pointing to?", cn:'时钟显示'+h+'点整，时针指向数字几？', ans:String(h)}; },
     // Statistics & Probability
     function(rand){ var n=mathEnRandInt(rand,3,15);
-      return {en:'Count the tally marks: '+mathEnTallyStr(n)+' — how many is that?', ans:String(n)}; }
+      return {en:'Count the tally marks: '+mathEnTallyStr(n)+' — how many is that?', cn:'数一数下面的计数符号：'+mathEnTallyStr(n)+' —— 一共是多少？', ans:String(n)}; }
   ],
   2:[ // Grade 2（NAPLAN 3年级考前铺垫）Number & Algebra
-    function(rand,noun){ var n=noun||'apples'; var a=mathEnRandInt(rand,2,9), b=mathEnRandInt(rand,2,9);
-      return {en:'There are '+a+' rows of '+b+' '+n+'. How many '+n+' in total?', ans:String(a*b)}; },
+    function(rand,noun){ var n=noun||'apples'; var a=mathEnRandInt(rand,2,9), b=mathEnRandInt(rand,2,9); var nc=mathEnNounCn(n);
+      return {en:'There are '+a+' rows of '+b+' '+n+'. How many '+n+' in total?', cn:'有'+a+'排'+nc+'，每排'+b+'个，一共有多少个'+nc+'？', ans:String(a*b)}; },
     function(rand){ var a=mathEnRandInt(rand,1,50);
-      return {en:'What is double '+a+'?', ans:String(a*2)}; },
+      return {en:'What is double '+a+'?', cn:a+'的2倍是多少？', ans:String(a*2)}; },
     function(rand){ var a=mathEnRandInt(rand,1,50)*2;
-      return {en:'What is half of '+a+'?', ans:String(a/2)}; },
+      return {en:'What is half of '+a+'?', cn:a+'的一半是多少？', ans:String(a/2)}; },
     function(rand){ var a=mathEnRandInt(rand,20,99), b=mathEnRandInt(rand,1,19);
-      return {en:'Emma has $'+a+'. She spends $'+b+'. How much money does she have left?', ans:'$'+(a-b)}; },
+      return {en:'Emma has $'+a+'. She spends $'+b+'. How much money does she have left?', cn:'Emma有'+a+'元钱，花掉了'+b+'元，还剩多少元？', ans:'$'+(a-b)}; },
     // Measurement & Geometry
     function(rand){ var shapes=[{n:'triangle',c:3},{n:'square',c:4},{n:'rectangle',c:4},{n:'pentagon',c:5},{n:'hexagon',c:6}]; var s=mathEnPick(rand,shapes);
-      return {en:'How many corners does a '+s.n+' have?', ans:String(s.c)}; },
+      return {en:'How many corners does a '+s.n+' have?', cn:'一个'+mathEnShapeCn(s.n)+'有几个角？', ans:String(s.c)}; },
     function(rand){ var h=mathEnRandInt(rand,1,12);
-      return {en:'It is half past '+h+'. Write the time using numbers (e.g. 3:30).', ans:(h<10?'0'+h:String(h))+':30'}; },
+      return {en:'It is half past '+h+'. Write the time using numbers (e.g. 3:30).', cn:'现在是'+h+'点半，请把这个时间用数字写出来（比如3:30）。', ans:(h<10?'0'+h:String(h))+':30'}; },
     // Statistics & Probability
     function(rand){ var vals=mathEnDistinctN(rand,2,9,2), names=['Tom','Mia'];
       var a=vals[0], b=vals[1], bigger=a>b?0:1;
-      return {en:names[0]+' has '+a+' stickers. '+names[1]+' has '+b+' stickers. How many more does '+names[bigger]+' have than '+names[1-bigger]+'?', ans:String(Math.abs(a-b))}; }
+      return {en:names[0]+' has '+a+' stickers. '+names[1]+' has '+b+' stickers. How many more does '+names[bigger]+' have than '+names[1-bigger]+'?', cn:names[0]+'有'+a+'张贴纸，'+names[1]+'有'+b+'张贴纸，'+names[bigger]+'比'+names[1-bigger]+'多多少张？', ans:String(Math.abs(a-b))}; }
   ],
   3:[ // Grade 3（对应 NAPLAN 3年级）Number & Algebra
     function(rand){ var a=mathEnRandInt(rand,2,12), b=mathEnRandInt(rand,2,12);
-      return {en:a+' × '+b+' = ?', ans:String(a*b)}; },
+      return {en:a+' × '+b+' = ?', cn:a+' × '+b+' =？', ans:String(a*b)}; },
     function(rand){ var b=mathEnRandInt(rand,2,9), q=mathEnRandInt(rand,2,12), a=b*q;
-      return {en:a+' ÷ '+b+' = ?', ans:String(q)}; },
+      return {en:a+' ÷ '+b+' = ?', cn:a+' ÷ '+b+' =？', ans:String(q)}; },
     function(rand){ var k=mathEnRandInt(rand,1,29), r=mathEnRandInt(rand,1,9), a=10*k+r;
-      return {en:'Round '+a+' to the nearest 10.', ans:String(r>=5?10*(k+1):10*k)}; },
+      return {en:'Round '+a+' to the nearest 10.', cn:'把'+a+'四舍五入到最接近的十位数。', ans:String(r>=5?10*(k+1):10*k)}; },
     function(rand){ var th=mathEnRandInt(rand,1,9), h=mathEnRandInt(rand,0,9), t=mathEnRandInt(rand,0,9), o=mathEnRandInt(rand,0,9);
       var num=th*1000+h*100+t*10+o, digits=[th,h,t,o], places=['thousands','hundreds','tens','ones'], idx=mathEnRandInt(rand,0,3);
-      return {en:'In the number '+num+', what digit is in the '+places[idx]+' place?', ans:String(digits[idx])}; },
+      return {en:'In the number '+num+', what digit is in the '+places[idx]+' place?', cn:'在数字'+num+'中，'+MATH_EN_PLACE_CN[places[idx]]+'位上的数字是几？', ans:String(digits[idx])}; },
     // Measurement & Geometry
     function(rand){ var a=mathEnRandInt(rand,4,20), b=mathEnRandInt(rand,2,15);
-      return {en:'A rectangle has length '+a+' cm and width '+b+' cm. What is its perimeter?', ans:(2*(a+b))+' cm'}; },
+      return {en:'A rectangle has length '+a+' cm and width '+b+' cm. What is its perimeter?', cn:'一个长方形长'+a+'厘米，宽'+b+'厘米，周长是多少？', ans:(2*(a+b))+' cm'}; },
     function(rand){ var price=mathEnRandInt(rand,2,8), paid=mathEnRandInt(rand,1,5)+price;
-      return {en:'A toy costs $'+price+'. Lily pays with a $'+paid+' note. How much change does she get?', ans:'$'+(paid-price)}; },
+      return {en:'A toy costs $'+price+'. Lily pays with a $'+paid+' note. How much change does she get?', cn:'一个玩具售价'+price+'元，Lily付了'+paid+'元，应该找零多少元？', ans:'$'+(paid-price)}; },
     function(rand){ var shapes=[{n:'cube',faces:6,edges:12,vertices:8},{n:'rectangular prism',faces:6,edges:12,vertices:8},{n:'square pyramid',faces:5,edges:8,vertices:5},{n:'triangular prism',faces:5,edges:9,vertices:6}];
       var s=mathEnPick(rand,shapes), ask=mathEnPick(rand,['faces','edges','vertices']);
-      return {en:'How many '+ask+' does a '+s.n+' have?', ans:String(s[ask])}; },
+      return {en:'How many '+ask+' does a '+s.n+' have?', cn:mathEnShapeCn(s.n)+'有多少个'+MATH_EN_PART_CN[ask]+'？', ans:String(s[ask])}; },
     // Statistics & Probability
     function(rand){ var vals=mathEnDistinctN(rand,2,10,3), names=['Amy','Ben','Cody'];
       var maxV=Math.max.apply(null,vals), maxIdx=vals.indexOf(maxV);
-      return {en:'A column graph shows: '+names[0]+' read '+vals[0]+' books, '+names[1]+' read '+vals[1]+' books, '+names[2]+' read '+vals[2]+' books this month. Who read the most books?', ans:names[maxIdx]}; }
+      return {en:'A column graph shows: '+names[0]+' read '+vals[0]+' books, '+names[1]+' read '+vals[1]+' books, '+names[2]+' read '+vals[2]+' books this month. Who read the most books?', cn:'柱状图显示：'+names[0]+'这个月读了'+vals[0]+'本书，'+names[1]+'读了'+vals[1]+'本，'+names[2]+'读了'+vals[2]+'本，谁读的书最多？', ans:names[maxIdx]}; }
   ],
   4:[ // Grade 4（NAPLAN 3→5年级过渡）Number & Algebra
     function(rand){ var a=mathEnRandInt(rand,11,99), b=mathEnRandInt(rand,2,9);
-      return {en:a+' × '+b+' = ?', ans:String(a*b)}; },
+      return {en:a+' × '+b+' = ?', cn:a+' × '+b+' =？', ans:String(a*b)}; },
     function(rand){ var b=mathEnRandInt(rand,2,9), q=mathEnRandInt(rand,11,40), a=b*q;
-      return {en:a+' ÷ '+b+' = ?', ans:String(q)}; },
-    function(rand,noun){ var word=noun||'chickens'; var den=mathEnPick(rand,[2,3,4,5]), num=mathEnRandInt(rand,1,den-1), k=mathEnRandInt(rand,2,10), total=den*k;
-      return {en:'There are '+total+' '+word+' in a group. '+num+'/'+den+' of them are marked. How many are marked?', ans:String(num*k)}; },
+      return {en:a+' ÷ '+b+' = ?', cn:a+' ÷ '+b+' =？', ans:String(q)}; },
+    function(rand,noun){ var word=noun||'chickens'; var den=mathEnPick(rand,[2,3,4,5]), num=mathEnRandInt(rand,1,den-1), k=mathEnRandInt(rand,2,10), total=den*k; var wc=mathEnNounCn(word);
+      return {en:'There are '+total+' '+word+' in a group. '+num+'/'+den+' of them are marked. How many are marked?', cn:'一组里有'+total+'个'+wc+'，其中'+num+'/'+den+'被做了标记，有多少个被标记了？', ans:String(num*k)}; },
     // Measurement & Geometry
     function(rand){ var a=mathEnRandInt(rand,5,25), b=mathEnRandInt(rand,3,15);
-      return {en:'A rectangle has length '+a+' cm and width '+b+' cm. What is its area?', ans:(a*b)+' cm²'}; },
+      return {en:'A rectangle has length '+a+' cm and width '+b+' cm. What is its area?', cn:'一个长方形长'+a+'厘米，宽'+b+'厘米，面积是多少？', ans:(a*b)+' cm²'}; },
     function(rand){ var m=mathEnRandInt(rand,1,9), cm=mathEnRandInt(rand,1,99);
-      return {en:'How many centimetres are there in '+m+' m '+cm+' cm?', ans:String(m*100+cm)}; },
+      return {en:'How many centimetres are there in '+m+' m '+cm+' cm?', cn:m+'米'+cm+'厘米，一共是多少厘米？', ans:String(m*100+cm)}; },
     function(rand){ var angles=[{deg:90,type:'right'},{deg:45,type:'acute'},{deg:30,type:'acute'},{deg:60,type:'acute'},{deg:120,type:'obtuse'},{deg:150,type:'obtuse'}];
       var a=mathEnPick(rand,angles);
-      return {en:'An angle measures '+a.deg+'°. Is it acute, right, or obtuse?', ans:a.type}; },
+      return {en:'An angle measures '+a.deg+'°. Is it acute, right, or obtuse?', cn:'一个角是'+a.deg+'°，它是锐角、直角还是钝角？', ans:a.type}; },
     function(rand){ var h1=mathEnRandInt(rand,1,6), m1=mathEnPick(rand,[0,15,30,45]), addMin=mathEnPick(rand,[15,30,45,60]);
-      var totalEnd=h1*60+m1+addMin, h2=Math.floor(totalEnd/60)%12||12, m2=totalEnd%60;
-      return {en:'A movie starts at '+h1+':'+(m1<10?'0'+m1:m1)+' and lasts '+addMin+' minutes. What time does it finish?', ans:h2+':'+(m2<10?'0'+m2:m2)}; },
+      var totalEnd=h1*60+m1+addMin, h2=Math.floor(totalEnd/60)%12||12, m2=totalEnd%60; var m1pad=(m1<10?'0'+m1:m1);
+      return {en:'A movie starts at '+h1+':'+m1pad+' and lasts '+addMin+' minutes. What time does it finish?', cn:'一场电影'+h1+':'+m1pad+'开始，持续'+addMin+'分钟，几点结束？', ans:h2+':'+(m2<10?'0'+m2:m2)}; },
     // Statistics & Probability
     function(rand){ var vals=mathEnDistinctN(rand,3,15,4);
-      return {en:'A survey shows daily rainfall (mm) this week: '+vals.join(', ')+'. What is the total rainfall?', ans:String(vals[0]+vals[1]+vals[2]+vals[3])+' mm'}; }
+      return {en:'A survey shows daily rainfall (mm) this week: '+vals.join(', ')+'. What is the total rainfall?', cn:'一项调查显示本周每天的降雨量（毫米）分别是：'+vals.join('、')+'。总降雨量是多少毫米？', ans:String(vals[0]+vals[1]+vals[2]+vals[3])+' mm'}; }
   ],
   5:[ // Grade 5（对应 NAPLAN 5年级）Number & Algebra
     function(rand){ var p=mathEnPick(rand,[10,20,25,50,75]), n=mathEnRandInt(rand,1,20)*20;
-      return {en:'What is '+p+'% of '+n+'?', ans:String(n*p/100)}; },
+      return {en:'What is '+p+'% of '+n+'?', cn:n+'的'+p+'%是多少？', ans:String(n*p/100)}; },
     function(rand){ var r1=mathEnPick(rand,[2,3,4,5]), r2=mathEnPick(rand,[3,4,5,7].filter(function(x){return x!==r1;})), k=mathEnRandInt(rand,2,10), b=r1*k;
-      return {en:'The ratio of boys to girls is '+r1+':'+r2+'. There are '+b+' boys. How many girls are there?', ans:String(r2*k)}; },
+      return {en:'The ratio of boys to girls is '+r1+':'+r2+'. There are '+b+' boys. How many girls are there?', cn:'男生和女生的比是'+r1+':'+r2+'，男生有'+b+'人，女生有多少人？', ans:String(r2*k)}; },
     function(rand){ var a=mathEnRandInt(rand,1,50), b=mathEnRandInt(rand,2,20), c=mathEnRandInt(rand,2,9);
-      return {en:a+' + '+b+' × '+c+' = ?', ans:String(a+b*c)}; },
+      return {en:a+' + '+b+' × '+c+' = ?', cn:a+' + '+b+' × '+c+' =？', ans:String(a+b*c)}; },
     // Measurement & Geometry
     function(rand){ var a=mathEnRandInt(rand,1,15)*2, b=mathEnRandInt(rand,2,20);
-      return {en:'What is the area of a triangle with base '+a+' cm and height '+b+' cm?', ans:((a*b)/2)+' cm²'}; },
+      return {en:'What is the area of a triangle with base '+a+' cm and height '+b+' cm?', cn:'一个三角形底'+a+'厘米，高'+b+'厘米，面积是多少？', ans:((a*b)/2)+' cm²'}; },
     function(rand){ var l=mathEnRandInt(rand,2,12), w=mathEnRandInt(rand,2,10), h=mathEnRandInt(rand,2,8);
-      return {en:'A rectangular prism has length '+l+' cm, width '+w+' cm and height '+h+' cm. What is its volume?', ans:(l*w*h)+' cm³'}; },
+      return {en:'A rectangular prism has length '+l+' cm, width '+w+' cm and height '+h+' cm. What is its volume?', cn:'一个长方体长'+l+'厘米，宽'+w+'厘米，高'+h+'厘米，体积是多少？', ans:(l*w*h)+' cm³'}; },
     function(rand){ var km=mathEnRandInt(rand,1,9), m=mathEnPick(rand,[100,250,500,750]);
-      return {en:'How many metres are there in '+km+' km '+m+' m?', ans:String(km*1000+m)}; },
+      return {en:'How many metres are there in '+km+' km '+m+' m?', cn:km+'千米'+m+'米，一共是多少米？', ans:String(km*1000+m)}; },
     function(rand){ var x=mathEnRandInt(rand,1,9), y=mathEnRandInt(rand,1,9), dx=mathEnRandInt(rand,1,4);
-      return {en:'A point is at ('+x+', '+y+') on a grid. If it moves '+dx+' units to the right, what are its new coordinates?', ans:'('+(x+dx)+', '+y+')'}; },
+      return {en:'A point is at ('+x+', '+y+') on a grid. If it moves '+dx+' units to the right, what are its new coordinates?', cn:'一个点在网格上的坐标是('+x+', '+y+')，如果向右移动'+dx+'个单位，新的坐标是多少？', ans:'('+(x+dx)+', '+y+')'}; },
     // Statistics & Probability
     function(rand){ var vals=mathEnDistinctN(rand,2,6,2), red=vals[0], blue=vals[1], total=red+blue, g=mathEnGcd(red,total);
-      return {en:'A bag has '+red+' red marbles and '+blue+' blue marbles. What is the probability of picking a red marble, as a fraction (in simplest form)?', ans:(red/g)+'/'+(total/g)}; }
+      return {en:'A bag has '+red+' red marbles and '+blue+' blue marbles. What is the probability of picking a red marble, as a fraction (in simplest form)?', cn:'一个袋子里有'+red+'颗红色弹珠和'+blue+'颗蓝色弹珠，随机摸出一颗是红色弹珠的概率是多少（用最简分数表示）？', ans:(red/g)+'/'+(total/g)}; }
   ],
   6:[ // Grade 6（NAPLAN 5→7年级延伸）Number & Algebra
     function(rand){ var a=mathEnRandInt(rand,1,50), x=mathEnRandInt(rand,1,50), b=a+x;
-      return {en:'If x + '+a+' = '+b+', what is the value of x?', ans:String(x)}; },
-    function(rand){ if(rand()<0.5){ var a=mathEnRandInt(rand,2,25); return {en:'What is '+a+'² (a squared)?', ans:String(a*a)}; }
-      var a2=mathEnRandInt(rand,2,15); return {en:'What is '+a2+'³ (a cubed)?', ans:String(a2*a2*a2)}; },
+      return {en:'If x + '+a+' = '+b+', what is the value of x?', cn:'如果 x + '+a+' = '+b+'，x的值是多少？', ans:String(x)}; },
+    function(rand){ if(rand()<0.5){ var a=mathEnRandInt(rand,2,25); return {en:'What is '+a+'² (a squared)?', cn:a+'的平方（'+a+'²）是多少？', ans:String(a*a)}; }
+      var a2=mathEnRandInt(rand,2,15); return {en:'What is '+a2+'³ (a cubed)?', cn:a2+'的立方（'+a2+'³）是多少？', ans:String(a2*a2*a2)}; },
     function(rand){ var a=mathEnRandInt(rand,2,15), b=mathEnRandInt(rand,2,15);
-      return {en:'What is the LCM of '+a+' and '+b+'?', ans:String(mathEnLcm(a,b))}; },
+      return {en:'What is the LCM of '+a+' and '+b+'?', cn:a+'和'+b+'的最小公倍数是多少？', ans:String(mathEnLcm(a,b))}; },
     // Measurement & Geometry
     function(rand){ var time=mathEnPick(rand,[1,2,4,5]), speed=mathEnRandInt(rand,20,90), dist=speed*time;
-      return {en:'A car travels '+dist+' km in '+time+' hours at a constant speed. What is its speed in km/h?', ans:String(speed)}; },
+      return {en:'A car travels '+dist+' km in '+time+' hours at a constant speed. What is its speed in km/h?', cn:'一辆车用'+time+'小时行驶了'+dist+'千米（速度不变），它的速度是多少千米/小时？', ans:String(speed)}; },
     function(rand){ var start=mathEnRandInt(rand,-5,5), drop=mathEnRandInt(rand,3,12);
-      return {en:'The temperature was '+start+'°C. It dropped by '+drop+'°C. What is the new temperature?', ans:String(start-drop)+'°C'}; },
+      return {en:'The temperature was '+start+'°C. It dropped by '+drop+'°C. What is the new temperature?', cn:'气温原本是'+start+'°C，下降了'+drop+'°C，现在的气温是多少？', ans:String(start-drop)+'°C'}; },
     // Statistics & Probability
     function(rand){ var n=mathEnRandInt(rand,2,10), m=mathEnRandInt(rand,1,50);
-      return {en:'The mean of '+n+' numbers is '+m+'. What is their sum?', ans:String(n*m)}; },
+      return {en:'The mean of '+n+' numbers is '+m+'. What is their sum?', cn:n+'个数的平均数是'+m+'，它们的总和是多少？', ans:String(n*m)}; },
     function(rand){ var vals=mathEnDistinctN(rand,1,30,5); vals.sort(function(a,b){return a-b;});
-      return {en:'Find the median of these 5 numbers: '+vals.join(', ')+'.', ans:String(vals[2])}; },
+      return {en:'Find the median of these 5 numbers: '+vals.join(', ')+'.', cn:'找出这5个数的中位数：'+vals.join('、')+'。', ans:String(vals[2])}; },
     function(rand){ var vals=mathEnDistinctN(rand,1,30,4);
-      return {en:'Find the range of these numbers: '+vals.join(', ')+'.', ans:String(Math.max.apply(null,vals)-Math.min.apply(null,vals))}; }
+      return {en:'Find the range of these numbers: '+vals.join(', ')+'.', cn:'找出这些数的极差（最大值减最小值）：'+vals.join('、')+'。', ans:String(Math.max.apply(null,vals)-Math.min.apply(null,vals))}; }
   ]
 };
 function mathEnDailyLevel(){
@@ -6730,9 +6962,11 @@ function mathEnDailyLevel(){
   // 不再整天用同一个难度了，改成下面 genMathEnMixedQuestions() 里"每天固定一半一半混合"
   return childGradeNum();
 }
-function genMathEnQuestions(level,count,themeNoun){
-  var d=new Date();
-  var seed=(d.getFullYear()*10000+studyDayOfYear(d)*10+level)>>>0;
+function genMathEnQuestions(level,count,themeNoun,doyOverride,yearOverride){
+  // doyOverride/yearOverride：给"每周复习测验"用，按过去某一天的日期重建当天出过的题，不传就是今天
+  var year=(yearOverride!=null)?yearOverride:(new Date()).getFullYear();
+  var doy=(doyOverride!=null)?doyOverride:studyDayOfYear(new Date());
+  var seed=(year*10000+doy*10+level)>>>0;
   var rand=mulberry32(seed);
   var tpls=MATH_EN_TEMPLATES[level]||MATH_EN_TEMPLATES[1];
   var out=[],seen={},guard=0;
@@ -6755,10 +6989,10 @@ function genMathEnMixedQuestions(count, themeNoun){
   var hi=Math.min(6,g+1);
   var hardCount=Math.floor(count/2);
   var normalCount=count-hardCount;
-  var normalQs=genMathEnQuestions(g, normalCount, themeNoun).map(function(q){ return {en:q.en,ans:q.ans,hard:false}; });
+  var normalQs=genMathEnQuestions(g, normalCount, themeNoun).map(function(q){ return {en:q.en,cn:q.cn,ans:q.ans,hard:false}; });
   var hardQs=(hi>g)
-    ? genMathEnQuestions(hi, hardCount, themeNoun).map(function(q){ return {en:q.en,ans:q.ans,hard:true}; })
-    : genMathEnQuestions(g, hardCount, themeNoun).map(function(q){ return {en:q.en,ans:q.ans,hard:false}; });
+    ? genMathEnQuestions(hi, hardCount, themeNoun).map(function(q){ return {en:q.en,cn:q.cn,ans:q.ans,hard:true}; })
+    : genMathEnQuestions(g, hardCount, themeNoun).map(function(q){ return {en:q.en,cn:q.cn,ans:q.ans,hard:false}; });
   // 正常/较难交替排列，不要正常题都堆前面、难题都堆最后
   var out=[], ni=0, hj=0;
   for(var i=0;i<count;i++){
@@ -6952,23 +7186,30 @@ var THEMES=[
     mathNoun:'lanterns',
     reading:{title:'热闹的春节',text:'春节到了，家家户户都挂起了红灯笼，贴上了春联。晚上，小朋友们最期待的就是看烟花和收红包，大家都开开心心的。',question:'春节的晚上，小朋友们最期待什么？',optA:'看烟花和收红包',optB:'早点睡觉',answer:'A'}}
 ];
+/* 按"某一天的日期+模式+年级"重建当天应该显示的主题——抽成独立函数是为了"每周复习测验"能
+   按过去7天各自的日期重建那天实际学习打卡展示过的主题内容，不用只能拿到"今天"这一天 */
+function themeForDoy(doy,mode,manualId,grade){
+  if(mode==='manual' && manualId){
+    var manualTheme=THEMES.filter(function(t){ return t.id===manualId; })[0];
+    if(manualTheme) return manualTheme;
+  }
+  if(mode==='random'){
+    var rnd=mulberry32(doy*97+grade*131)();
+    return THEMES[Math.floor(rnd*THEMES.length)];
+  }
+  return THEMES[(doy+(grade-1)*2)%THEMES.length];
+}
 function dailyTheme(){
   // 主题挑选方式分三种（state.studyThemeMode）：
   // 'manual' —— 小朋友自己在"主题设置"里选定了一个主题，就一直固定显示这个主题，不再跟着天数轮换
   // 'random' —— 每天用"日期+年级"做种子，随机挑一个主题（同一天刷新页面主题不会变，但允许跨天重复）
   // 'auto'（默认）—— 按天数顺序轮换，THEMES 正好有30个，天然实现"30天轮一圈、不重复"
-  if(state && state.studyThemeMode==='manual' && state.studyThemeManualId){
-    var manualTheme=THEMES.filter(function(t){ return t.id===state.studyThemeManualId; })[0];
-    if(manualTheme) return manualTheme;
-  }
-  var doy=studyDayOfYear(new Date());
   // 加上按年级错开的偏移量：不然同一天两个不同年级的账号会看到一模一样的英文句子/阅读短文/汉字词语，
   // 现在每个年级（1~6）在同一天都会落到不同的主题上，各自还是按天顺序轮换，不会一直重复
-  if(state && state.studyThemeMode==='random'){
-    var rnd=mulberry32(doy*97+childGradeNum()*131)();
-    return THEMES[Math.floor(rnd*THEMES.length)];
-  }
-  return THEMES[(doy+(childGradeNum()-1)*2)%THEMES.length];
+  var doy=studyDayOfYear(new Date());
+  var mode=(state&&state.studyThemeMode)||'auto';
+  var manualId=state&&state.studyThemeManualId;
+  return themeForDoy(doy,mode,manualId,childGradeNum());
 }
 
 /* 把所有主题里的句子汇总成一个大句库，这样"换一批"按钮才有足够多不一样的句子可以换，
@@ -7473,6 +7714,15 @@ function answersMatch(input,correct){
 }
 function ensureQuizState(){ if(!state.day.quiz) state.day.quiz={}; return state.day.quiz; }
 function quizState(key){ return ensureQuizState()[key]; }
+/* 每周学习统计用的累计计数器：从有这个功能开始往后滚动累计（没法倒推更早的历史数据），
+   跟"打卡当天必须完成"的日常状态分开存，按getWeekKey()换新的一周自动清零重新计 */
+function ensureWeeklyStudyCounters(){
+  var wk=getWeekKey();
+  if(!state.weeklyStudyCounters || state.weeklyStudyCounters.weekKey!==wk){
+    state.weeklyStudyCounters={weekKey:wk,quizCorrect:0,quizTotal:0,typingCorrect:0};
+  }
+  return state.weeklyStudyCounters;
+}
 function resolveQuiz(key,isCorrect,extra,label,opts){
   var q=ensureQuizState();
   if(q[key]) return q[key]; // 已经结算过，不重复计分
@@ -7480,6 +7730,9 @@ function resolveQuiz(key,isCorrect,extra,label,opts){
   var rec={correct:!!isCorrect};
   if(extra){ for(var k in extra) rec[k]=extra[k]; }
   q[key]=rec;
+  var wsc=ensureWeeklyStudyCounters();
+  wsc.quizTotal++;
+  if(isCorrect) wsc.quizCorrect++;
   if(isCorrect){
     var coinMult=opts.coinMult||1;
     var bonus=specialCoin('quiz')*coinMult;
@@ -7562,6 +7815,68 @@ function quizFillHtml(key,correctAnswer,label,placeholder,opts){
     +'<button class="quiz-fill-btn" onclick="submitQuizFillFromWrap(this.parentElement)">提交</button>'
     +'</div>';
 }
+/* ========== 中文词组打字练习（训练打字能力）==========
+   跟上面quizFillHtml"猜意思、答错就锁定"不一样：这里要求原样打出显示的字/词，目的是练打字，
+   不是考记忆，所以打错不锁定、可以一直重打，直到打对为止；打对当天只奖励一次，避免刷金币。 */
+function ensureTypeCopyState(){ if(!state.day.typeCopy) state.day.typeCopy={}; return state.day.typeCopy; }
+function typeCopyState(key){ return ensureTypeCopyState()[key]; }
+function submitTypeCopyFromWrap(wrap){
+  if(!wrap) return;
+  var key=wrap.getAttribute('data-typekey');
+  if(!key) return;
+  var rec=typeCopyState(key);
+  if(rec && rec.correct) return; // 已经打对过，不用再判
+  var target=wrap.getAttribute('data-target')||'';
+  var input=wrap.querySelector('.quiz-fill-input');
+  var val=input?input.value:'';
+  if(!val||!val.trim()){ alert('先照着上面的字打一遍吧～'); return; }
+  var store=ensureTypeCopyState();
+  if(val.trim()===target.trim()){
+    var already=!!store[key];
+    store[key]={correct:true,input:val};
+    if(!already){
+      var bonus=specialCoin('quiz');
+      earnCoins(bonus,'打字练习');
+      addLog('⌨️打字练习「'+target+'」打对啦，+'+bonus+'金币奖励');
+      petCelebrateSmartAnswer();
+      ensureWeeklyStudyCounters().typingCorrect++;
+    }
+    save();
+    renderStudyAids();
+    renderCategoryList('study','list-study'); // 打完今天全部的词，"完成"按钮才会解锁，这里刷新一下按钮状态
+  }else{
+    store[key]={correct:false,lastWrong:val};
+    save();
+    if(input){ input.value=''; input.placeholder='跟上面不一样，再打一次～'; input.focus(); }
+  }
+}
+function quizTypeCopyHtml(key,targetText){
+  var rec=typeCopyState(key);
+  if(rec && rec.correct){
+    return '<div class="quiz-fill quiz-resolved">'
+      +'<span style="color:#2e7d32;font-weight:700">✅ 你打的：'+escapeAttr(rec.input||'')+'（打对啦！）</span>'
+      +'</div>';
+  }
+  return '<div class="quiz-fill" data-typekey="'+escapeAttr(key)+'" data-target="'+escapeAttr(targetText)+'">'
+    +'<input type="text" class="quiz-fill-input" placeholder="照着上面的字打一遍" onkeydown="if(event.key===\'Enter\'){submitTypeCopyFromWrap(this.parentElement);}" />'
+    +'<button class="quiz-fill-btn" onclick="submitTypeCopyFromWrap(this.parentElement)">提交</button>'
+    +'</div>';
+}
+/* 判断今天主题里的中文词组是不是每一个都已经打对过——打对全部之后，"5个带拼音汉字"这项打卡的
+   "完成"按钮才会解锁，不然点了也没用（用来逼小朋友真的动手打一遍，练打字），
+   免背卡（useStudyFreeCard）走的是完全独立的豁免路径，不受这个限制影响 */
+function hanziTypingAllDone(){
+  var theme=dailyTheme();
+  if(!theme||!theme.hanzi||!theme.hanzi.length) return true;
+  var store=ensureTypeCopyState();
+  // 打卡任务标签写的是"5个带拼音汉字"，虽然每个主题实际备了8个词方便多学多练，
+  // 但打字练习只要求前5个打对就解锁"完成"，跟任务标签的数量对得上，其余几个当加练，打不打随意
+  var required=theme.hanzi.slice(0,5);
+  return required.every(function(h){
+    var key='typecopy:hanzi:'+theme.id+':'+h.zi;
+    return store[key]&&store[key].correct;
+  });
+}
 /* 学习打卡主题设置：'auto'=按天数顺序自动轮换（30个主题正好30天一圈，不重复）/
    'random'=每天随机挑一个主题（同一天不变，但允许跨天重复）/'manual'=小朋友自己固定选一个主题 */
 var STUDY_THEME_MODE_META={
@@ -7643,12 +7958,20 @@ function renderStudyAids(){
   }
   var hanziBox=document.getElementById('studyHanziBox');
   if(hanziBox){
-    hanziBox.innerHTML=theme.hanzi.map(function(h){
-      var qkey='quiz:hanzi:'+theme.id+':'+h.zi;
+    /* 2026-09新增：这里原来是"打出这个词的意思"的猜意思填空题，现在改成"打字练习"——
+       让小朋友照着原样打出这个词本身（练打字能力），意思改成点一下才显示的辅助信息；
+       今天5个词都打对之后，下面"5个带拼音汉字"这项打卡的"完成"按钮才会解锁（见hanziTypingAllDone） */
+    hanziBox.innerHTML=theme.hanzi.map(function(h,idx){
+      var tkey='typecopy:hanzi:'+theme.id+':'+h.zi;
+      var isRequired=idx<5; // 打卡任务只要求前5个打对，后面几个是额外加练，打不打不影响"完成"解锁
       return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
         +'<b>'+h.zi+'</b> <span style="color:#9c7ab0">'+h.py+'</span>'
+        +(isRequired?'':' <span class="small" style="color:#ad7bbf">（加练，非必须）</span>')
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(h.zi)+'\',\'zh-CN\')">🔊</button>'
-        +quizFillHtml(qkey,h.cn,'汉字：'+h.zi,'这个词是什么意思？')
+        +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 不知道？看中文意思</button>'
+        +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+h.cn+'</span>'
+        +'<div class="small" style="color:#9c7ab0;margin-top:2px">⌨️ 打字练习：照着上面的字打一遍</div>'
+        +quizTypeCopyHtml(tkey,h.zi)
         +'</div>';
     }).join('');
   }
@@ -7688,6 +8011,7 @@ function renderStudyAids(){
       return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
         +qText
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(m.en)+'\',\'en-US\')">🔊</button>'
+        +(m.cn?(' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 看不懂？看中文意思</button><span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+m.cn+'</span>'):'')
         +quizFillHtml(qkey,m.ans,'数学题','答案是多少？',{expBonus:QUIZ_MATH_EXP_BONUS*mult,coinMult:mult,celebrate:true})
         +'</div>';
     }).join('');
@@ -7716,6 +8040,199 @@ function renderStudyAids(){
       +(poemHard?'<div class="small" style="color:#7b1fa2;margin-top:2px">🔴红色字体表示今天这首诗难度较高，打卡可得双倍金币和经验哦～</div>':'')
       +'</div>';
   }
+}
+
+/* ========== 每周学习统计 + 复习小测验（独立页面，不是打卡任务） ==========
+   跟上面每天的打卡/小测验完全不同，这里纯粹是给家长/孩子回顾这一周学了什么：
+   - 统计数据从有这个功能起才开始往后滚动累计，没法倒推更早的历史
+   - 测验题目按"最近7天"各自的日期+年级重建当天学习打卡实际展示过的内容（跟当天打卡看到的一致）
+   - 随时可以点开重测、不限次数；但本周只有第一次完整交卷才会给一笔一次性大奖励，避免刷金币 */
+/* 每天跨天前（onNewDay里）记一笔"刚过去这一天"实际完成了哪些学习打卡子项——
+   之前的版本是不管有没有真的打卡完成，只要"当天主题展示过"就会被抽进每周复习测验，
+   小朋友反馈应该改成只测"真的做过的打卡"，所以这里改成按这份完成记录来抽题，而不是按天数硬凑7天内容 */
+function logStudyCompletionForDay(d){
+  if(!d||!d.key) return;
+  if(!state.studyCompletionLog) state.studyCompletionLog=[];
+  if(state.studyCompletionLog.some(function(e){ return e.key===d.key; })) return; // 避免同一天被记两次
+  state.studyCompletionLog.push({
+    key:d.key,
+    doy:studyDayOfYear(parseKey(d.key)),
+    grade:childGradeNum(),
+    mode:(state.studyThemeMode||'auto'),
+    manualId:state.studyThemeManualId||null,
+    study:{
+      word:!!(d.study&&d.study.word),
+      hanzi:!!(d.study&&d.study.hanzi),
+      sentence:!!(d.study&&d.study.sentence),
+      mathen:!!(d.study&&d.study.mathen)
+    }
+  });
+  if(state.studyCompletionLog.length>30) state.studyCompletionLog=state.studyCompletionLog.slice(-30); // 只留最近这些天，避免无限增长
+}
+/* 最近7天的"真实完成情况"：过去最多6天来自跨天时写好的历史记录，
+   再加上"今天"这一条直接读实时的 state.day.study——今天刚打完的卡不用等到明天跨天才会被算进复习测验 */
+function studyCompletionEntries(){
+  var entries=[];
+  var log=state.studyCompletionLog||[];
+  var todayK=todayKey();
+  for(var i=0;i<log.length;i++){
+    var e=log[i];
+    if(e.key===todayK) continue;
+    var diff=daysBetween(e.key,todayK);
+    if(diff>=1 && diff<=6) entries.push(e);
+  }
+  entries.push({
+    key:todayK,
+    doy:studyDayOfYear(new Date()),
+    grade:childGradeNum(),
+    mode:(state.studyThemeMode||'auto'),
+    manualId:state.studyThemeManualId||null,
+    study:{
+      word:!!(state.day.study&&state.day.study.word),
+      hanzi:!!(state.day.study&&state.day.study.hanzi),
+      sentence:!!(state.day.study&&state.day.study.sentence),
+      mathen:!!(state.day.study&&state.day.study.mathen)
+    }
+  });
+  return entries;
+}
+function buildWeeklyReviewPool(){
+  var pool={words:[],hanzi:[],sentences:[],mathQs:[]};
+  studyCompletionEntries().forEach(function(e){
+    var theme=themeForDoy(e.doy,e.mode,e.manualId,e.grade);
+    if(!theme) return;
+    if(e.study.word) pool.words=pool.words.concat(theme.words||[]);
+    if(e.study.hanzi) pool.hanzi=pool.hanzi.concat(theme.hanzi||[]);
+    if(e.study.sentence) pool.sentences=pool.sentences.concat(theme.sentences||[]);
+    if(e.study.mathen) pool.mathQs=pool.mathQs.concat(genMathEnQuestions(e.grade,2,theme.mathNoun,e.doy,parseKey(e.key).getFullYear()));
+  });
+  return pool;
+}
+function weeklyQuizSampleSeed(){
+  var wk=getWeekKey(), seed=0;
+  for(var i=0;i<wk.length;i++) seed=(seed*31+wk.charCodeAt(i))>>>0;
+  return seed;
+}
+function pickWeeklyQuizItems(){
+  var pool=buildWeeklyReviewPool();
+  var rand=mulberry32(weeklyQuizSampleSeed());
+  function sample(arr,n,mapFn){
+    var copy=arr.slice(), out=[];
+    while(out.length<n && copy.length){
+      var idx=Math.floor(rand()*copy.length);
+      out.push(mapFn(copy[idx]));
+      copy.splice(idx,1);
+    }
+    return out;
+  }
+  var items=[];
+  sample(pool.words,6,function(w){ return {type:'word',q:w.en,ans:w.cn,label:'单词：'+w.en}; }).forEach(function(x){ items.push(x); });
+  sample(pool.hanzi,6,function(h){ return {type:'hanzi',q:h.zi+'（'+h.py+'）',ans:h.cn,label:'词语：'+h.zi}; }).forEach(function(x){ items.push(x); });
+  sample(pool.sentences,4,function(s){ return {type:'sentence',q:s.en,ans:s.cn,label:'句子翻译'}; }).forEach(function(x){ items.push(x); });
+  sample(pool.mathQs,4,function(m){ return {type:'mathen',q:m.en,ans:m.ans,label:'数学题'}; }).forEach(function(x){ items.push(x); });
+  for(var i=items.length-1;i>0;i--){ var j=Math.floor(rand()*(i+1)); var tmp=items[i]; items[i]=items[j]; items[j]=tmp; }
+  return items;
+}
+function ensureWeeklyQuizState(){
+  var wk=getWeekKey();
+  if(!state.weeklyQuiz || state.weeklyQuiz.weekKey!==wk){
+    state.weeklyQuiz={weekKey:wk,items:pickWeeklyQuizItems(),answers:{},submitted:false,score:0,total:0,rewardGiven:false};
+    save();
+  }
+  return state.weeklyQuiz;
+}
+function submitWeeklyQuizItem(idx){
+  var wq=ensureWeeklyQuizState();
+  if(wq.answers[idx]) return;
+  var wrap=document.getElementById('wkQuizItem'+idx);
+  if(!wrap) return;
+  var input=wrap.querySelector('.quiz-fill-input');
+  var val=input?input.value:'';
+  if(!val||!val.trim()){ alert('先输入你的答案吧～'); return; }
+  var item=wq.items[idx];
+  wq.answers[idx]={val:val,correct:answersMatch(val,item.ans)};
+  save();
+  renderWeeklyQuizBody();
+  maybeFinishWeeklyQuiz();
+}
+function maybeFinishWeeklyQuiz(){
+  var wq=ensureWeeklyQuizState();
+  var answeredCount=0, correctCount=0;
+  for(var i=0;i<wq.items.length;i++){
+    if(wq.answers[i]){ answeredCount++; if(wq.answers[i].correct) correctCount++; }
+  }
+  if(wq.items.length>0 && answeredCount>=wq.items.length){
+    wq.submitted=true;
+    wq.score=correctCount;
+    wq.total=wq.items.length;
+    if(!wq.rewardGiven){
+      wq.rewardGiven=true;
+      var pct=correctCount/wq.items.length;
+      var bonus=Math.round(10+pct*30); // 一次性大奖励：10~40金币之间，按正确率给，参加就有基础奖励
+      earnCoins(bonus,'每周复习测验');
+      var expBonus=Math.round(pct*20);
+      if(expBonus>0 && state.pet && state.pet.chosen) gainExp(expBonus);
+      addLog('🏆本周复习测验完成！答对'+correctCount+'/'+wq.items.length+'题，获得一次性奖励 +'+bonus+'金币'+(expBonus>0?('，+'+expBonus+'经验'):''));
+      petCelebrateSmartAnswer();
+    }
+    save();
+    renderWeeklyQuizBody();
+  }
+}
+function retakeWeeklyQuiz(){
+  var wq=ensureWeeklyQuizState();
+  wq.answers={};
+  wq.submitted=false;
+  save();
+  renderWeeklyQuizBody();
+}
+function renderWeeklyPage(){
+  ensureWeeklyQuizState();
+  renderWeeklyStatsBox();
+  renderWeeklyQuizBody();
+}
+function renderWeeklyStatsBox(){
+  var box=document.getElementById('weeklyStatsBox');
+  if(!box) return;
+  var wsc=ensureWeeklyStudyCounters();
+  var wq=ensureWeeklyQuizState();
+  var acc=wsc.quizTotal>0?Math.round(wsc.quizCorrect/wsc.quizTotal*100):0;
+  box.innerHTML='<div class="small" style="line-height:1.9">'
+    +'🔥 学习连续打卡：<b>'+(state.studyStreak||0)+'</b> 天<br>'
+    +'✍️ 本周小测验答对：<b>'+wsc.quizCorrect+'</b> / '+wsc.quizTotal+' 题（正确率 '+acc+'%）<br>'
+    +'⌨️ 本周打字练习完成：<b>'+wsc.typingCorrect+'</b> 个词<br>'
+    +'📝 本周复习测验：'+(wq.submitted?('已完成，答对 <b>'+wq.score+'</b> / '+wq.total+' 题'):'还没完整做完，随时可以开始')
+    +'</div>';
+}
+function renderWeeklyQuizBody(){
+  var wq=ensureWeeklyQuizState();
+  var box=document.getElementById('weeklyQuizBox');
+  if(!box) return;
+  if(!wq.items.length){
+    box.innerHTML='<div class="small">这周学习内容还太少，多打几天卡再来测验吧～</div>';
+    return;
+  }
+  var html='<div class="small" style="margin-bottom:6px;color:#7b1fa2">📝 本周复习测验（共'+wq.items.length+'题，根据最近7天<b>真正打卡完成</b>的学习内容出题，大约20分钟，随时可以重新测试）</div>';
+  for(var i=0;i<wq.items.length;i++){
+    var item=wq.items[i], rec=wq.answers[i];
+    html+='<div class="item" style="flex-direction:column;align-items:stretch" id="wkQuizItem'+i+'">'
+      +'<div class="label" style="margin-bottom:3px">'+(i+1)+'. ['+item.label+'] '+item.q+'</div>';
+    if(rec){
+      html+='<div class="quiz-fill quiz-resolved"><span style="color:'+(rec.correct?'#2e7d32':'#c62828')+';font-weight:700">'+(rec.correct?'✅':'❌')+' 你写的：'+escapeAttr(rec.val)+'</span>'
+        +(rec.correct?'':'<span style="color:#7b1fa2"> 正确答案：'+escapeAttr(item.ans)+'</span>')+'</div>';
+    }else{
+      html+='<div class="quiz-fill"><input type="text" class="quiz-fill-input" placeholder="你觉得答案是？" onkeydown="if(event.key===\'Enter\'){submitWeeklyQuizItem('+i+');}" />'
+        +'<button class="quiz-fill-btn" onclick="submitWeeklyQuizItem('+i+')">提交</button></div>';
+    }
+    html+='</div>';
+  }
+  if(wq.submitted){
+    html+='<div class="card" style="background:#e8f5e9;text-align:center;margin-top:8px">'
+      +'<div style="font-weight:700;color:#2e7d32;font-size:15px">🏆 本周测验完成！答对 '+wq.score+' / '+wq.total+' 题</div>'
+      +'<button class="btn btn-primary" style="margin-top:6px" onclick="retakeWeeklyQuiz()">🔁 重新测试一遍</button>'
+      +'</div>';
+  }
+  box.innerHTML=html;
 }
 
 /* ========== 英文阅读 / 中文阅读 打卡（凭兴趣的额外加分项，可反复打卡，每次打卡后换下一篇） ========== */
@@ -8630,6 +9147,8 @@ function migrateState(s){
   if(!s.day.study) s.day.study={};
   if(typeof s.day.study.sentenceRepeatCount!=='number') s.day.study.sentenceRepeatCount=0;
   delete s.day.study.math; // 已删除的重复任务：数学学习半小时（和数学闯关挑战重复）
+  if(!s.day.typeCopy) s.day.typeCopy={}; // 2026-09新增：中文词组打字练习，老存档当天的day对象里还没有这个字段，兜底补上
+  if(!s.studyCompletionLog) s.studyCompletionLog=[]; // 2026-09新增：每天跨天时记一笔"当天真的完成了哪些学习打卡"，给"每周复习测验"用
   if(!s.day.wheel) s.day.wheel={sport:false,house:false,study:false,fun:false,diary:false};
   if(typeof s.day.wheel.fun==='undefined') s.day.wheel.fun=false;
   if(typeof s.day.wheel.diary==='undefined') s.day.wheel.diary=false;
@@ -8687,6 +9206,10 @@ function migrateState(s){
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
   if(!s.pvpFriends) s.pvpFriends=[];
   if(!s.equipmentBag) s.equipmentBag=[]; // 2026-09新增：账号级装备背包
+  s.equipmentBag.forEach(function(it){ if(typeof it.star!=='number') it.star=0; }); // 2026-09新增：装备升星等级，老存档的装备实例统一补0星
+  if(!s.cottage) s.cottage={invested:{wood:0,stone:0,tile:0}}; // 2026-09新增：仙宅小屋累计建材投入
+  if(!s.cottage.invested) s.cottage.invested={wood:0,stone:0,tile:0};
+  ['wood','stone','tile'].forEach(function(_ck){ if(typeof s.cottage.invested[_ck]!=='number') s.cottage.invested[_ck]=0; });
   if(typeof s.petSlotBonus!=='number') s.petSlotBonus=0; // 兼容字段，不再是权威来源
   if(!s.dungeonClearCounts) s.dungeonClearCounts={hard:0,hero:0}; // 2026-09新增：困难/英雄副本累计通关次数，驱动宠物仓位解锁
   if(!s.dungeonEquipPity) s.dungeonEquipPity={noDropStreak:0};
@@ -8921,7 +9444,7 @@ function currentChild(){ return store.accounts[store.currentChildId]; }
 
 /* ========== 页面切换 ========== */
 function showPage(name){
-  ['home','pet','wheel','shop','bag','board','visit'].forEach(function(p){
+  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage'].forEach(function(p){
     var el=document.getElementById('page-'+p);
     el.classList.toggle('active', p===name);
   });
@@ -8932,6 +9455,8 @@ function showPage(name){
   syncPetSprite();
   if(name==='wheel') drawWheel();
   if(name==='board') renderWish();
+  if(name==='weekly') renderWeeklyPage();
+  if(name==='cottage') renderCottagePage();
 }
 
 /* 打卡页：运动/学习/数学闯关/娱乐/日记/沟通/加分项/家务/补卡 这几个卡片一次只显示一个，
@@ -9132,6 +9657,7 @@ function onNewDay(){
   if(state.day.key!==today){
     var wasStudyFull=isStudyFull(state.day);
     if(!wasStudyFull) state.studyStreak=0;
+    logStudyCompletionForDay(state.day); // 跨天前先把"刚过去这一天"实际完成的学习打卡记一笔，供"每周复习测验"抽题用
     checkWishDayRollover(state.day.key);
     applyDecayAcrossDays(state.day.key, today);
     maybeTriggerCoinWipe(today);
@@ -9618,6 +10144,7 @@ function completeTask(cat,key){
     }
   }
   if(state.day[cat][key]||(cat==='sport'&&key==='burpee'&&state.day.sport.burpee>0)){alert('这项今天已经完成啦');return;}
+  if(cat==='study'&&key==='hanzi'&&!hanziTypingAllDone()){alert('先在上面把今天的5个词都照着打一遍吧～');return;}
   markDone(cat,key,false);
   save();
 }
@@ -10906,34 +11433,85 @@ function renderEquipPanel(){
     +statHtml
     +'</div>';
 
-  box.innerHTML=panelWrap
-    +'<h4 style="margin:12px 0 6px">🎒 装备背包</h4>'
-    +'<div id="equipBagList"></div>';
-  var bagBox=document.getElementById('equipBagList');
   var unequipped=state.equipmentBag.filter(function(it){
     return Object.keys(pet.equipment).every(function(k){ return pet.equipment[k]!==it.instanceId; });
   });
-  if(!unequipped.length){
-    bagBox.innerHTML='<div class="small" style="text-align:center;color:#999;padding:10px 0">背包里还没有装备，去副本挑战试试手气吧～</div>';
-    return;
-  }
-  bagBox.innerHTML=unequipped.map(function(it){
-    var item=EQUIP_ITEMS[it.defId];
-    if(!item) return '';
-    var q=EQUIP_QUALITY_INFO[item.quality];
-    var lvOk=info.level>=item.lvReq;
-    var slotLabel=(EQUIP_SLOTS.filter(function(s){return s.key===item.slot;})[0]||{}).label||item.slot;
-    return '<div class="eq-bag-item" style="border-color:'+q.color+'">'
-      +'<div class="eq-bag-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+  var bagHtml=!unequipped.length
+    ? '<div class="small" style="text-align:center;color:#999;padding:10px 0">背包里还没有装备，去副本挑战试试手气吧～</div>'
+    : unequipped.map(function(it){
+        var item=EQUIP_ITEMS[it.defId];
+        if(!item) return '';
+        var q=EQUIP_QUALITY_INFO[item.quality];
+        var lvOk=info.level>=item.lvReq;
+        var slotLabel=(EQUIP_SLOTS.filter(function(s){return s.key===item.slot;})[0]||{}).label||item.slot;
+        return '<div class="eq-bag-item" style="border-color:'+q.color+'">'
+          +'<div class="eq-bag-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+          +'<div class="eq-bag-info">'
+            +'<div style="color:'+q.color+';font-weight:700">'+item.name+'　<span class="small" style="color:#999">（'+slotLabel+'·'+q.label+'）</span>'+(it.star?'　<span style="color:#f5a623">'+'⭐'.repeat(it.star)+'</span>':'')+'</div>'
+            +'<div class="small" style="color:#999">攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq+(lvOk?'':'（还差'+(item.lvReq-info.level)+'级）')+'</div>'
+          +'</div>'
+          +(lvOk?'<button class="btn btn-primary btn-sm" onclick="equipItem(\''+it.instanceId+'\')">穿戴</button>'
+                :'<button class="btn btn-gray btn-sm" disabled>等级不够</button>')
+          +'<button class="btn btn-warning btn-sm" style="margin-left:4px" onclick="openAuctionListModal(\''+it.instanceId+'\')">🏷️拍卖</button>'
+          +'</div>';
+      }).join('');
+
+  // 2026-09新增：装备合成——集齐3件同品质未穿戴装备+材料/金币，合成1件更高一级品质的随机装备
+  var synthHtml=['white','blue'].map(function(q){
+    var cfg=EQUIP_SYNTH_COST[q];
+    var cnt=synthCandidateCount(q);
+    var mats=state.backpack.materials||{};
+    var matsOk=['iron','silk','crystal'].every(function(k){ return !(cfg[k]>0) || (mats[k]||0)>=cfg[k]; });
+    var coinOk=(state.moneyBalance||0)>=cfg.coin;
+    var ok=cnt>=3 && matsOk && coinOk;
+    var costText=['iron','silk','crystal'].filter(function(k){ return cfg[k]>0; }).map(function(k){ return materialLabel(k)+'×'+cfg[k]; }).concat(['💰'+cfg.coin]).join('　');
+    var nextQ=EQUIP_QUALITY_INFO[cfg.next];
+    return '<div class="eq-bag-item" style="border-color:'+nextQ.color+'">'
+      +'<div class="eq-bag-icon" style="background:'+nextQ.bg+'">🔨</div>'
       +'<div class="eq-bag-info">'
-        +'<div style="color:'+q.color+';font-weight:700">'+item.name+'　<span class="small" style="color:#999">（'+slotLabel+'·'+q.label+'）</span></div>'
-        +'<div class="small" style="color:#999">攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq+(lvOk?'':'（还差'+(item.lvReq-info.level)+'级）')+'</div>'
+        +'<div style="font-weight:700">'+EQUIP_QUALITY_INFO[q].label+'装备×3　→　<span style="color:'+nextQ.color+'">'+nextQ.label+'装备×1</span></div>'
+        +'<div class="small" style="color:#999">未穿戴'+EQUIP_QUALITY_INFO[q].label+'装备：'+cnt+'/3　需要　'+costText+'</div>'
       +'</div>'
-      +(lvOk?'<button class="btn btn-primary btn-sm" onclick="equipItem(\''+it.instanceId+'\')">穿戴</button>'
-            :'<button class="btn btn-gray btn-sm" disabled>等级不够</button>')
-      +'<button class="btn btn-warning btn-sm" style="margin-left:4px" onclick="openAuctionListModal(\''+it.instanceId+'\')">🏷️拍卖</button>'
+      +(ok?'<button class="btn btn-primary btn-sm" onclick="synthesizeEquip(\''+q+'\')">合成</button>'
+          :'<button class="btn btn-gray btn-sm" disabled>还不够</button>')
       +'</div>';
   }).join('');
+
+  // 2026-09新增：装备升星——星级跟着具体这一件装备实例走，不管穿没穿在身上都能升
+  var starHtml=!state.equipmentBag.length
+    ? '<div class="small" style="text-align:center;color:#999;padding:10px 0">还没有装备可以升星，先去副本挑战掉几件吧～</div>'
+    : state.equipmentBag.map(function(it){
+        var item=EQUIP_ITEMS[it.defId];
+        if(!item) return '';
+        var q=EQUIP_QUALITY_INFO[item.quality];
+        var star=it.star||0;
+        var maxed=star>=EQUIP_STAR_MAX;
+        var wornSlot=Object.keys(pet.equipment).filter(function(k){ return pet.equipment[k]===it.instanceId; })[0];
+        var costText='';
+        if(!maxed){
+          var cost=EQUIP_STAR_COST[star+1];
+          costText=['iron','silk','crystal'].filter(function(k){ return cost[k]>0; }).map(function(k){ return materialLabel(k)+'×'+cost[k]; }).concat(['💰'+cost.coin]).join('　');
+        }
+        return '<div class="eq-bag-item" style="border-color:'+q.color+'">'
+          +'<div class="eq-bag-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+          +'<div class="eq-bag-info">'
+            +'<div style="color:'+q.color+';font-weight:700">'+item.name+(wornSlot?'　<span class="small" style="color:#4caf50">（穿戴中）</span>':'')+'</div>'
+            +'<div class="small" style="color:#f5a623">'+(star?'⭐'.repeat(star):'（未升星）')+(maxed?'　已经满星啦':'　下一星需要：'+costText)+'</div>'
+          +'</div>'
+          +(maxed?'<button class="btn btn-gray btn-sm" disabled>已满星</button>'
+                 :'<button class="btn btn-warning btn-sm" onclick="starUpEquip(\''+it.instanceId+'\')">⭐升星</button>')
+          +'</div>';
+      }).join('');
+
+  box.innerHTML=panelWrap
+    +'<h4 style="margin:12px 0 6px">🎒 装备背包</h4>'
+    +'<div id="equipBagList">'+bagHtml+'</div>'
+    +'<h4 style="margin:12px 0 6px">🔨 装备合成</h4>'
+    +'<div class="small" style="color:#999;margin-bottom:4px">用精铁⚙️/云锦🧵/星辉晶💎和金币，把用不上的装备合成得更好</div>'
+    +'<div id="equipSynthList">'+synthHtml+'</div>'
+    +'<h4 style="margin:12px 0 6px">⭐ 装备升星</h4>'
+    +'<div class="small" style="color:#999;margin-bottom:4px">给具体某一件装备升星（最高'+EQUIP_STAR_MAX+'星），只对这一件生效</div>'
+    +'<div id="equipStarList">'+starHtml+'</div>';
 }
 function equipItem(instanceId){
   var pet=state.pet;
@@ -11115,14 +11693,10 @@ function settleAuctionListing(listingId){
   });
 }
 function settleAuctionUnsold(listingId,d){
-  // 没人出价（或者中标人后来余额不够），流拍：装备原样退回卖家背包
-  return fetchRowData(d.sellerRowId).then(function(row){
-    if(row&&row.data&&row.data.accounts&&row.data.accounts[d.sellerChildId]){
-      var sellerState=row.data.accounts[d.sellerChildId].state;
-      if(!sellerState.equipmentBag) sellerState.equipmentBag=[];
-      sellerState.equipmentBag.push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
-      return supaUpsertRow(d.sellerRowId,row.data);
-    }
+  // 没人出价（或者中标人后来余额不够），流拍：装备只用"消息"安全退回卖家自己的背包，
+  // 不再直接改卖家整份存档（原因见上面2026-09fix的说明）
+  return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
+    type:'auction_returned', defId:d.defId, instanceId:d.instanceId, time:Date.now(), read:false, applied:false
   }).then(function(){
     d.status='expired';
     return supaUpsertRow(listingId,d);
@@ -11136,17 +11710,14 @@ function settleAuctionToBidder(listingId,d){
       // 中标的那位后来把钱花掉了/账号读不到了，这笔交易作废，装备退回卖家
       return settleAuctionUnsold(listingId,d);
     }
-    bidderState.moneyBalance=(bidderState.moneyBalance||0)-d.currentBid;
-    if(!bidderState.equipmentBag) bidderState.equipmentBag=[];
-    bidderState.equipmentBag.push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
-    return supaUpsertRow(d.currentBidderRowId,row.data).then(function(){
-      return fetchRowData(d.sellerRowId);
-    }).then(function(sellerRow){
-      if(sellerRow&&sellerRow.data&&sellerRow.data.accounts&&sellerRow.data.accounts[d.sellerChildId]){
-        var sellerState=sellerRow.data.accounts[d.sellerChildId].state;
-        sellerState.moneyBalance=(sellerState.moneyBalance||0)+d.currentBid;
-        return supaUpsertRow(d.sellerRowId,sellerRow.data);
-      }
+    // 这里只读不写：只是确认对方现在还付得起。真正的扣钱/发货都改成分别写一条消息给中标人和
+    // 卖家，让TA们各自在自己设备上安全处理，不再直接改对方整份存档
+    return pushPkMessageToFriend(d.currentBidderRowId,d.currentBidderChildId,{
+      type:'auction_won', defId:d.defId, instanceId:d.instanceId, price:d.currentBid, time:Date.now(), read:false, applied:false
+    }).then(function(){
+      return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
+        type:'auction_sold', itemName:(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'), price:d.currentBid, time:Date.now(), read:false, applied:false
+      });
     }).then(function(){
       d.status='sold';
       return supaUpsertRow(listingId,d);
@@ -11266,17 +11837,15 @@ function buyNowAuction(listingId){
     d.currentBidderRowId=SUPA_ROW_ID; d.currentBidderChildId=store.currentChildId;
     d.currentBidderName=(currentChild()&&currentChild().name)||'一位朋友';
     return supaUpsertRow(listingId,d).then(function(){
+      // 买家是当前设备自己，直接改自己本地存档+save()是安全的，不涉及跨设备覆盖问题
       state.moneyBalance-=d.buyNowPrice;
       ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
       addLog('🏛️ 拍卖行一口价买下装备【'+(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'')+'】，花了'+d.buyNowPrice+'金币');
       save();
-      return fetchRowData(d.sellerRowId);
-    }).then(function(sellerRow){
-      if(sellerRow&&sellerRow.data&&sellerRow.data.accounts&&sellerRow.data.accounts[d.sellerChildId]){
-        var sellerState=sellerRow.data.accounts[d.sellerChildId].state;
-        sellerState.moneyBalance=(sellerState.moneyBalance||0)+d.buyNowPrice;
-        return supaUpsertRow(d.sellerRowId,sellerRow.data);
-      }
+      // 卖家是另一台设备，改成写一条消息给卖家自己的消息中心去安全入账，不再直接改卖家整份存档
+      return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
+        type:'auction_sold', itemName:(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'), price:d.buyNowPrice, time:Date.now(), read:false, applied:false
+      });
     }).then(function(){
       d.status='sold';
       return supaUpsertRow(listingId,d);
@@ -11677,6 +12246,7 @@ function renderDungeon2List(){
   }
   html+='</div>';
   box.innerHTML=html;
+  renderMaterialsBox('dungeon2MaterialsBox');
 }
 /* 2026-09：小朋友反馈新副本"看不到打斗动效"，希望跟老版的回合制战斗画面结合起来——
    于是这里改成直接复用老版 #dungeonModal 那一整套战斗UI/动画函数（dungeonAttack/dungeonSpecial/
@@ -12400,6 +12970,15 @@ function renderCategoryList(cat,containerId){
     }else if(cat==='sport'&&EX_CFG[it.id]){
       // 平板支撑/单腿平衡/仰卧起坐这几项运动任务，要真的跟着计时/计数做完才能打卡，不能直接一点就完成
       mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="startExerciseTimer(\''+cat+'\',\''+it.id+'\')">▶️ 开始计时打卡</button>';
+    }else if(cat==='study'&&it.id==='hanzi'){
+      // 中文词组打字练习：今天5个词都打对了才能点"完成"（见hanziTypingAllDone），逼小朋友真的动手打一遍
+      if(done){
+        mainBtn='<button class="btn btn-success" disabled>✔已完成</button>';
+      }else if(hanziTypingAllDone()){
+        mainBtn='<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
+      }else{
+        mainBtn='<button class="btn btn-gray" disabled>⌨️先在上面把5个词都打一遍</button>';
+      }
     }else{
       mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
     }
@@ -12882,6 +13461,104 @@ function renderShop(){
   }
   box.innerHTML=html;
 }
+/* 副本材料查看：材料种类直接从 CONFIG.dungeon 每一关的 materialPool 里去重汇总出来，
+   不再另外手写一份清单——以后哪个副本关卡的掉落材料种类改了，这里自动跟着对，不会出现"漏掉新材料"的问题 */
+function dungeonMaterialCatalog(){
+  var seen={}, list=[];
+  (CONFIG.dungeon2||[]).forEach(function(tier){
+    (tier.materialPool||[]).forEach(function(m){
+      if(!seen[m.id]){ seen[m.id]=true; list.push(m); }
+    });
+  });
+  return list;
+}
+function renderMaterialsBox(containerId){
+  var box=document.getElementById(containerId);
+  if(!box) return;
+  var mats=(state&&state.backpack&&state.backpack.materials)||{};
+  var catalog=dungeonMaterialCatalog();
+  if(!catalog.length){ box.innerHTML=''; return; }
+  box.innerHTML=catalog.map(function(m){
+    var n=mats[m.id]||0;
+    return '<div class="bag-card'+(n<=0?' mat-empty':'')+'"><div class="b-emoji">'+m.emoji+'</div><div class="b-count">'+n+'</div><div class="b-note">'+m.name+'</div></div>';
+  }).join('');
+}
+/* ========== 2026-09新增：仙宅小屋 ==========
+   纯观赏收集向，不给宠物任何数值加成。用灵木🪵/灵石🪨/龙鳞瓦🐉三种建材（跟装备合成/升星用的精铁/云锦/
+   星辉晶完全分开）累计投入，投入是"存钱罐"式的只进不出、跨天累计，攒够下一阶段的门槛就自动升级外观。
+   阶段列表定在 COTTAGE_STAGES 里，以后想加阶段/调门槛，改这一个数组就行，不用碰渲染逻辑。 */
+var COTTAGE_STAGES=[
+  {stage:0, name:'空地',   emoji:'🌱', need:{wood:0,  stone:0,  tile:0}},
+  {stage:1, name:'茅草屋', emoji:'🛖', need:{wood:10, stone:5,  tile:0}},
+  {stage:2, name:'木屋',   emoji:'🏠', need:{wood:30, stone:20, tile:10}},
+  {stage:3, name:'仙宅',   emoji:'🏯', need:{wood:60, stone:50, tile:30}}
+];
+function ensureCottageState(){
+  if(!state.cottage) state.cottage={invested:{wood:0,stone:0,tile:0}};
+  if(!state.cottage.invested) state.cottage.invested={wood:0,stone:0,tile:0};
+  ['wood','stone','tile'].forEach(function(k){ if(typeof state.cottage.invested[k]!=='number') state.cottage.invested[k]=0; });
+  return state.cottage;
+}
+function cottageCurrentStageIdx(){
+  var inv=ensureCottageState().invested;
+  var idx=0;
+  for(var i=0;i<COTTAGE_STAGES.length;i++){
+    var need=COTTAGE_STAGES[i].need;
+    if(inv.wood>=need.wood && inv.stone>=need.stone && inv.tile>=need.tile) idx=i;
+  }
+  return idx;
+}
+function cottageDepositMaterial(matId){
+  if(['wood','stone','tile'].indexOf(matId)===-1) return;
+  var mats=state.backpack.materials||{};
+  var n=mats[matId]||0;
+  if(n<=0){ ttsToast('这种建材还没有存货，去挑战副本多攒一点吧～', 3000); return; }
+  mats[matId]=0;
+  var inv=ensureCottageState().invested;
+  inv[matId]=(inv[matId]||0)+n;
+  addLog('🏡 仙宅小屋投入了'+n+'个'+materialLabel(matId));
+  save();
+  renderCottagePage();
+  ttsToast('✅ 存入'+n+'个'+materialLabel(matId), 2500);
+}
+function renderCottagePage(){
+  var box=document.getElementById('cottageBody');
+  if(!box) return;
+  ensureCottageState();
+  var idx=cottageCurrentStageIdx();
+  var cur=COTTAGE_STAGES[idx];
+  var next=COTTAGE_STAGES[idx+1];
+  var inv=state.cottage.invested;
+  var mats=state.backpack.materials||{};
+  var html='<div style="text-align:center;margin-bottom:10px">'
+    +'<div style="font-size:64px">'+cur.emoji+'</div>'
+    +'<div style="font-size:18px;font-weight:700">'+cur.name+'</div>'
+    +'</div>';
+  if(next){
+    html+='<div class="small" style="text-align:center;color:#999;margin-bottom:8px">再攒够下面的建材，就能升级成「'+next.name+'」啦</div>';
+    html+=['wood','stone','tile'].map(function(k){
+      var need=next.need[k];
+      if(need<=0) return '';
+      var have=Math.min(inv[k]||0, need);
+      var pct=Math.min(100, Math.round(have/need*100));
+      return '<div style="margin-bottom:8px">'
+        +'<div class="small">'+materialLabel(k)+'　'+have+' / '+need+'</div>'
+        +'<div style="background:#eee;border-radius:6px;height:8px;overflow:hidden"><div style="background:#7b1fa2;height:100%;width:'+pct+'%"></div></div>'
+        +'</div>';
+    }).join('');
+  }else{
+    html+='<div class="small" style="text-align:center;color:#7b1fa2;font-weight:700">🎉 仙宅小屋已经建到最高级啦！</div>';
+  }
+  html+='<h4 style="margin:14px 0 6px">📦 存入建材（点一下就把手上的都存进去）</h4>';
+  html+='<div class="bag-grid">'+['wood','stone','tile'].map(function(k){
+    var n=mats[k]||0;
+    var m=materialInfo(k);
+    return '<div class="bag-card'+(n<=0?' mat-empty':'')+'" style="cursor:pointer" onclick="cottageDepositMaterial(\''+k+'\')">'
+      +'<div class="b-emoji">'+m.emoji+'</div><div class="b-count">'+n+'</div><div class="b-note">'+m.name+(n>0?'（存入）':'')+'</div>'
+      +'</div>';
+  }).join('')+'</div>';
+  box.innerHTML=html;
+}
 function renderBackpack(){
   var box=document.getElementById('bagGrid');
   var today=todayKey();
@@ -12916,6 +13593,7 @@ function renderBackpack(){
     +'<button class="btn '+(restN>0?'btn-success':'btn-gray')+'" '+(restN>0?'':'disabled')+' onclick="useRestCard()">使用一张</button></div>';
   box.innerHTML=html;
   document.getElementById('freeSelectHint').style.display=selectedFree?'block':'none';
+  renderMaterialsBox('materialGrid');
 }
 
 /* ========== 备份（所有档案） ========== */
