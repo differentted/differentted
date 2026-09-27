@@ -400,6 +400,16 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 body.pet-fs-active{overflow:hidden}
 body.pet-fs-active #petRoom{display:none !important}
 body.pet-fs-active #page-pet{display:none !important}
+/* 2026-09fix：顶部那条"头像/金币/今日赚/音乐"的常驻topbar（还有微信提示条/备份提醒条）本来就是
+   普通文档流里的内容，不是fixed定位——沉浸式整屏模式下之前只隐藏了#petRoom/#page-pet，topbar
+   本身其实完全没被隐藏过，只是"大多数时候"页面没往下滚，topbar恰好被同样是fixed定位、叠在最上面
+   的宠物状态卡片/整屏背景盖住了一部分，看起来像是"隐藏了"。一旦页面滚动到顶（比如刚好这时候弹出了
+   备份提醒条，把布局往下推了一截，滚动位置又还在0），topbar就会重新露出来，跟同样锚定在屏幕顶部的
+   宠物状态卡片小图标挤在同一行、乱糟糟叠在一起——这才是"顶上内容显示不完整/看不清"的真正原因。
+   现在整屏沉浸模式下把这几条都明确隐藏掉，不再靠"背景恰好盖住"这种偶然情况 */
+body.pet-fs-active .topbar{display:none !important}
+body.pet-fs-active #wechatWarnBar{display:none !important}
+body.pet-fs-active #backupReminderBar{display:none !important}
 #petBubble{
   position:absolute; left:50%; bottom:100%; transform:translateX(-50%) scale(.85);
   background:#fff; color:#4a3423; padding:5px 11px; border-radius:13px;
