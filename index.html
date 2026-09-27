@@ -1555,7 +1555,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <button class="modal-close" onclick="hideModal('childModal')">✕</button>
     <h3>👨‍👩‍👧 选择小朋友</h3>
     <div class="child-list" id="childList"></div>
-    <button class="btn btn-primary btn-block" onclick="hideModal('childModal');openChildCreate(false)">➕ 添加小朋友</button>
+    <button class="btn btn-primary btn-block" id="addChildBtn" onclick="hideModal('childModal');openChildCreate(false)">➕ 添加小朋友</button>
+    <div id="addChildCapHint" style="display:none;font-size:12px;color:#999;text-align:center;margin-top:6px;line-height:1.5;">
+      一个家庭码现在只能对应一个小朋友档案哦～<br>要给另一个小朋友建档案，请去"🛠️管理后台"发一个新的家庭码给TA
+    </div>
   </div>
 </div>
 
@@ -4563,9 +4566,14 @@ function submitFamilyCode(){
     // 这个事故，就是因为压根没做这层检查，直接把对方的码覆盖成了指向自己数据，让对方原来的码
     // 登录不进自己的存档。现在如果发现这个码已经被别的rowId占用，弹窗二次确认，说清楚后果。
     checkFamilyCodeApproved(code).then(function(existingRowId){
+      // 2026-09fix第二版：不再是"警告后可以选择继续"，改成直接拒绝、没有绕过的余地——
+      // 这个功能本来就只是"给自己这份数据换个新名字"，没有任何正当理由需要去顶掉别人正在用的码。
+      // 真的需要把某个码改指向另一份数据（比如修复账号覆盖事故），只能去管理后台"👪各家数据"里
+      // 用专门的"🆕发新码"工具来做，那里才允许在确认后覆盖，这里不允许。
       if(existingRowId && existingRowId!==SUPA_ROW_ID){
-        var proceed=window.confirm('⚠️ 家庭码「'+code+'」现在已经是另一个家庭正在用的码了！\n\n继续"改名"会让这个码改成指向"当前这份数据"，那个家庭原来用这个码会进不去TA自己的存档（跟之前嫣嫣账号"消失"是同一种事故，需要再去管理后台手动修复才能找回）。\n\n如果你是想切换过去查看/使用那个家庭的数据，请点"取消"，改用"🔄更换/加入其他家庭空间"。\n\n真的确定要把这个已经被占用的码，改成指向当前数据吗？');
-        if(!proceed){ if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; } return; }
+        if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+        ttsToast('❌ 家庭码「'+code+'」已经被占用了，换一个吧（如果是想切换过去用那份数据，请用"🔄更换/加入其他家庭空间"）', 6000);
+        return;
       }
       if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
       registerFamilyCodePointer(code,SUPA_ROW_ID).then(function(){
@@ -6375,7 +6383,17 @@ function cloudSyncOnLoad(){
     if(row&&row.data&&row.data.accounts&&row.updated_at){
       var cloudTime=new Date(row.updated_at).getTime();
       var localTime=(store&&store.updatedAt)?store.updatedAt:0;
-      if(cloudTime>localTime+1000){ // 云端确实更新（留1秒余量防止设备间时钟误差导致误判），才采用云端数据
+      // 2026-09fix【关键安全修复】：嫣嫣的账号数据就是被这里的漏洞覆盖掉的——之前只比较"本机/云端谁的
+      // 时间戳更新"，完全没检查本机这份数据到底"是不是同一个家庭"的。如果本机缓存刚好残留着别的家庭码
+      // 那份store（比如刚切换过家庭码、或者旧标签页没关），它的updatedAt可能碰巧显示"更新"，于是就会在
+      // 下面的cloudPush()里把这份根本不属于这一行的数据，原样覆盖到云端真正的数据上——这就是事故的真正
+      // 原因。现在先看云端这一行里的小朋友档案ID，跟本机这份store里的小朋友档案ID有没有任何一个能对上：
+      // 一个都对不上，说明本机这份数据大概率是别的家庭码残留下来的缓存，根本不是这一行的数据，绝对不能
+      // 拿去推送覆盖；这种情况下改成直接采用云端这份真正的数据，不再比较时间新旧。
+      var cloudIds=Object.keys(row.data.accounts);
+      var localIds=Object.keys((store&&store.accounts)||{});
+      var sameFamily=(cloudIds.length===0)||localIds.some(function(id){ return cloudIds.indexOf(id)!==-1; });
+      if(!sameFamily || cloudTime>localTime+1000){ // 认不出是同一份家庭数据，或云端确实更新（留1秒余量防止设备间时钟误差导致误判），才采用云端数据
         store=row.data;
         resetPetClocksOnAdopt(store);
         if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
@@ -9334,6 +9352,12 @@ function confirmCreateChild(){
     render();
     return;
   }
+  // 2026-09fix第二版：一个家庭码只能对应一个小朋友档案，这里直接硬性挡住（不是提醒，是真的不让建），
+  // 从根上避免"一个家庭码底下混进好几个小朋友"这种历史问题再次出现。
+  if(Object.keys(store.accounts).length>=1){
+    alert('一个家庭码现在只能对应一个小朋友档案哦～\n\n要给另一个小朋友建档案，请去"🛠️管理后台"发一个新的家庭码给TA，让TA用专属的家庭码登录、建自己的档案。');
+    return;
+  }
   // 2026-09fix：新建小朋友档案之前，先去云端查一下系统里其他家庭码下是不是已经有同名的小朋友——
   // 这就是"账号重叠"反复出现的真正根源：家人换了台设备/清了缓存后还停在旧的/默认的家庭码上，
   // 想看某个孩子（比如嫣嫣）却找不到TA，就顺手点了"添加小朋友"按名字新建，殊不知这会凭空多出
@@ -9387,6 +9411,13 @@ function openChildModal(){
   var list=document.getElementById('childList');
   list.innerHTML='';
   var ids=Object.keys(store.accounts);
+  // 2026-09fix：一个家庭码只对应一个小朋友档案，达到上限（1个）以后就把"➕添加小朋友"按钮换成说明文字，
+  // 从入口上防止再手滑建出第二份档案（历史遗留下、本来就有多个档案的家庭码不受影响，只挡"新增"）
+  var addBtn=document.getElementById('addChildBtn');
+  var capHint=document.getElementById('addChildCapHint');
+  var atCap=ids.length>=1;
+  if(addBtn) addBtn.style.display=atCap?'none':'block';
+  if(capHint) capHint.style.display=atCap?'block':'none';
   ids.forEach(function(id){
     var c=store.accounts[id];
     var d=document.createElement('div');
