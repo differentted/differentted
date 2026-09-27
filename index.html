@@ -1954,7 +1954,11 @@ const CONFIG = {
   coins: { burpee:5, plank:4, balance:4, situp:5, word:3, hanzi:3, sentence:5, math:5, sing:4, dance:4, diary:5, custom:2, house:1, grandpa:4, inlaw:4, hello:1, readEn:3, readCn:3, storyEn:3, storyCn:3, quiz:1 },
   taskExp: 2,
   eggHatchExp: 50,
-  maxLevel: 999,
+  // 2026-09fix：家长明确要求把宠物等级真正封顶在30级（不再是"理论上能一直练到999级"）——
+  // 配合下面 dungeon2 副本"组队机制"：单只宠物到顶30级后就不能再靠"继续练级"硬吃更难的副本，
+  // 后面几关的高胜率只能靠"多养几只宠物"（凑够推荐同行数量）来换，呼应"boss越来越难，
+  // 需要更多宠物一起才能打赢"这个设计意图。
+  maxLevel: 30,
   dungeonEnabled: false, // 老版副本挑战功能开关（回合制打怪：攻击/必杀技/血条）：2026-09起永久隐藏，
   // 换成下面 dungeon2 这套新版"投入+概率结算"的副本，不再跟这套老的战斗玩法有关系，这个开关不用再打开了
   dungeon2Enabled: true, // 新版副本挑战开关：做完直接开放给小朋友玩
@@ -1999,16 +2003,25 @@ const CONFIG = {
      胜率还会被 courage(勇气探险) 维度加成，呼应设定文档"副本和勇气探险维度联动"。
      2026-09update：应家长要求整体调低胜率（8关均值约30%，越难的关卡越低，配合等级/勇气探险仍能往上修正），
      并新增 severeChance——每一关失败时"重伤"（需要更贵的高级特效药、只有1小时抢救时间）的概率，
-     关卡越难 severeChance 越高，呼应"越到后面越凶险"的设定 */
+     关卡越难 severeChance 越高，呼应"越到后面越凶险"的设定
+     2026-09update第二版【组队机制】：配合上面 CONFIG.maxLevel 改成真封顶30级，原来lvReq最高到120
+     （靠"一直练级"就能碾压后面几关）这条路走不通了，于是把8关的lvReq统一压缩进1~30级的区间内
+     （数值越靠后越接近30级封顶），并新增 petsReq——这一关"推荐同行"的宠物数量。真正影响胜率的
+     不再是"这只宠物练到多少级"一项，而是再叠加一条"仓库里养了几只已破壳的宠物"（见下面
+     dungeon2TeamBonus()）：凑够推荐数量，最多能再加20%胜率，凑不够只能拿到按比例打折的加成——
+     这样即使宠物等级封顶了，boss越到后面越难，也能靠"多养几只宠物"继续换到更高胜率，呼应
+     "boss难度增加，需要更多宠物才能打赢"这个设计目标；petsReq上限设到6，正好对应宠物仓库
+     "困难/英雄副本成就"最多能解锁到的第6个仓位（见 petSlotCapacity()），最终boss就是要求
+     养满整个仓库。 */
   dungeon2: [
-    {name:'蘑菇林',   lvReq:1,   monster:'野生奶龙宝宝',   title:'新手勇士',   intro:'新手村传来消息——蘑菇林里的野生奶龙宝宝总是调皮捣蛋，去会一会它吧！',           listIcon:'🍄', petKey:'naolong',    tint:'sepia(.45) hue-rotate(-8deg) saturate(1.5) brightness(.98)',  winBase:0.40, severeChance:0.08, coinMin:6,  coinMax:12, exp:15, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'}],                                                    accessory:{id:'acc_cap',        emoji:'🧢',  name:'酷跑棒球帽'}},
-    {name:'萤火沼泽', lvReq:5,   monster:'沼泽小金麟',     title:'沼泽猎人',   intro:'沼泽深处萤光闪烁，沼泽小金麟正守着这片神秘的萤火沼泽。',                       listIcon:'🐸', petKey:'xiaojinlin', tint:'hue-rotate(85deg) saturate(1.5) brightness(.95)',             winBase:0.36, severeChance:0.14, coinMin:8,  coinMax:16, exp:20, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_bow',        emoji:'🎀',  name:'俏皮蝴蝶结'}},
-    {name:'风车草原', lvReq:10,  monster:'草原小金龙',     title:'草原骑士',   intro:'风车草原上，草原小金龙乘风追逐旅人，勇士们对它又爱又怕。',                     listIcon:'🐑', petKey:'xiaojinlong', tint:'hue-rotate(65deg) saturate(1.3)',                             winBase:0.33, severeChance:0.20, coinMin:10, coinMax:20, exp:25, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_scarf',      emoji:'🧣',  name:'温暖小围巾'}},
-    {name:'水晶洞穴', lvReq:20,  monster:'水晶奶龙',       title:'洞穴探险家', intro:'水晶洞穴幽深空旷，水晶奶龙的鳞片会随光线闪烁七彩光芒。',                       listIcon:'🦀', petKey:'naolong',    tint:'hue-rotate(175deg) saturate(1.6) brightness(1.05)',           winBase:0.30, severeChance:0.28, coinMin:14, coinMax:26, exp:30, materialPool:[{id:'stone', emoji:'🪨', name:'灵石'},{id:'iron',  emoji:'⚙️', name:'精铁'}],               accessory:{id:'acc_sunglasses', emoji:'🕶️', name:'炫酷墨镜'}},
-    {name:'云端阶梯', lvReq:35,  monster:'云端小金麟',     title:'云端行者',   intro:'踏上云端阶梯，云端小金麟在云雾之间若隐若现，行踪飘忽不定。',                   listIcon:'🦙', petKey:'xiaojinlin', tint:'grayscale(.3) brightness(1.25) saturate(1.1)',                winBase:0.28, severeChance:0.36, coinMin:18, coinMax:32, exp:40, materialPool:[{id:'iron',  emoji:'⚙️', name:'精铁'},{id:'silk',  emoji:'🧵', name:'云锦'}],               accessory:{id:'acc_wings',      emoji:'🦋',  name:'梦幻翅膀'}},
-    {name:'星光沙漠', lvReq:55,  monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          winBase:0.25, severeChance:0.45, coinMin:24, coinMax:40, exp:50, materialPool:[{id:'silk',  emoji:'🧵', name:'云锦'},{id:'crystal',emoji:'💎', name:'星辉晶'}],              accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
-    {name:'珊瑚海底', lvReq:80,  monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            winBase:0.22, severeChance:0.52, coinMin:30, coinMax:50, exp:65, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'iron', emoji:'⚙️', name:'精铁'}],              accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
-    {name:'黄金神殿', lvReq:120, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.18, severeChance:0.60, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
+    {name:'蘑菇林',   lvReq:1,   petsReq:1, monster:'野生奶龙宝宝',   title:'新手勇士',   intro:'新手村传来消息——蘑菇林里的野生奶龙宝宝总是调皮捣蛋，去会一会它吧！',           listIcon:'🍄', petKey:'naolong',    tint:'sepia(.45) hue-rotate(-8deg) saturate(1.5) brightness(.98)',  winBase:0.40, severeChance:0.08, coinMin:6,  coinMax:12, exp:15, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'}],                                                    accessory:{id:'acc_cap',        emoji:'🧢',  name:'酷跑棒球帽'}},
+    {name:'萤火沼泽', lvReq:3,   petsReq:1, monster:'沼泽小金麟',     title:'沼泽猎人',   intro:'沼泽深处萤光闪烁，沼泽小金麟正守着这片神秘的萤火沼泽。',                       listIcon:'🐸', petKey:'xiaojinlin', tint:'hue-rotate(85deg) saturate(1.5) brightness(.95)',             winBase:0.36, severeChance:0.14, coinMin:8,  coinMax:16, exp:20, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_bow',        emoji:'🎀',  name:'俏皮蝴蝶结'}},
+    {name:'风车草原', lvReq:6,   petsReq:1, monster:'草原小金龙',     title:'草原骑士',   intro:'风车草原上，草原小金龙乘风追逐旅人，勇士们对它又爱又怕。',                     listIcon:'🐑', petKey:'xiaojinlong', tint:'hue-rotate(65deg) saturate(1.3)',                             winBase:0.33, severeChance:0.20, coinMin:10, coinMax:20, exp:25, materialPool:[{id:'wood',  emoji:'🪵', name:'灵木'},{id:'stone', emoji:'🪨', name:'灵石'}],               accessory:{id:'acc_scarf',      emoji:'🧣',  name:'温暖小围巾'}},
+    {name:'水晶洞穴', lvReq:10,  petsReq:2, monster:'水晶奶龙',       title:'洞穴探险家', intro:'水晶洞穴幽深空旷，水晶奶龙的鳞片会随光线闪烁七彩光芒。',                       listIcon:'🦀', petKey:'naolong',    tint:'hue-rotate(175deg) saturate(1.6) brightness(1.05)',           winBase:0.30, severeChance:0.28, coinMin:14, coinMax:26, exp:30, materialPool:[{id:'stone', emoji:'🪨', name:'灵石'},{id:'iron',  emoji:'⚙️', name:'精铁'}],               accessory:{id:'acc_sunglasses', emoji:'🕶️', name:'炫酷墨镜'}},
+    {name:'云端阶梯', lvReq:14,  petsReq:2, monster:'云端小金麟',     title:'云端行者',   intro:'踏上云端阶梯，云端小金麟在云雾之间若隐若现，行踪飘忽不定。',                   listIcon:'🦙', petKey:'xiaojinlin', tint:'grayscale(.3) brightness(1.25) saturate(1.1)',                winBase:0.28, severeChance:0.36, coinMin:18, coinMax:32, exp:40, materialPool:[{id:'iron',  emoji:'⚙️', name:'精铁'},{id:'silk',  emoji:'🧵', name:'云锦'}],               accessory:{id:'acc_wings',      emoji:'🦋',  name:'梦幻翅膀'}},
+    {name:'星光沙漠', lvReq:18,  petsReq:3, monster:'沙漠小金龙',     title:'沙漠斗士',   intro:'星光洒满沙漠，沙漠小金龙在夜色中现身，是这片沙漠孤独的王者。',                 listIcon:'🦂', petKey:'xiaojinlong', tint:'hue-rotate(-35deg) saturate(1.5) brightness(1.05)',          winBase:0.25, severeChance:0.45, coinMin:24, coinMax:40, exp:50, materialPool:[{id:'silk',  emoji:'🧵', name:'云锦'},{id:'crystal',emoji:'💎', name:'星辉晶'}],              accessory:{id:'acc_star',       emoji:'🌟',  name:'闪耀星环'}},
+    {name:'珊瑚海底', lvReq:24,  petsReq:4, monster:'深海奶龙',       title:'深海征服者', intro:'潜入珊瑚海底，深海奶龙正守护着传说中的深海宝藏。',                             listIcon:'🐙', petKey:'naolong',    tint:'hue-rotate(215deg) saturate(1.7)',                            winBase:0.22, severeChance:0.52, coinMin:30, coinMax:50, exp:65, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'iron', emoji:'⚙️', name:'精铁'}],              accessory:{id:'acc_flower',     emoji:'🌸',  name:'樱花头饰'}},
+    {name:'黄金神殿', lvReq:30,  petsReq:6, monster:'神殿守护金龙王', title:'传说守护者', intro:'黄金神殿的大门缓缓开启……传说中的神殿守护金龙王，正等待着最终的挑战者！', boss:true, listIcon:'🐲', petKey:'xiaojinlong', tint:'hue-rotate(25deg) saturate(1.8) brightness(1.12)',           winBase:0.18, severeChance:0.60, coinMin:40, coinMax:65, exp:85, materialPool:[{id:'crystal',emoji:'💎', name:'星辉晶'},{id:'tile', emoji:'🐉', name:'龙鳞瓦'}],              accessory:{id:'acc_crown',      emoji:'👑',  name:'黄金小皇冠'}}
   ]
 };
 /* ============================================================
@@ -2180,8 +2193,14 @@ function materialInfo(id){
 }
 function materialLabel(id){ var m=materialInfo(id); return m.emoji+m.name; }
 function equipWornInstanceIds(){
-  var pet=state.pet, ids={};
-  if(pet&&pet.equipment){ Object.keys(pet.equipment).forEach(function(k){ if(pet.equipment[k]) ids[pet.equipment[k]]=true; }); }
+  // 2026-09fix：以前只看state.pet（当前出战的那一只），导致穿在"别的"宠物身上的装备会被误判成"未穿戴"，
+  // 从而能被升星合成功能当成材料直接消耗掉——那只宠物身上却还留着一个已经不存在的装备实例引用。
+  // 这里改成遍历仓库里的所有宠物，只要正穿在任意一只身上，就都算"已穿戴"。
+  var ids={};
+  var pets=(state&&state.pets)?state.pets:[];
+  pets.forEach(function(p){
+    if(p&&p.equipment){ Object.keys(p.equipment).forEach(function(k){ if(p.equipment[k]) ids[p.equipment[k]]=true; }); }
+  });
   return ids;
 }
 function starUpEquip(instanceId){
@@ -4254,7 +4273,11 @@ const AVATARS = [petPreviewImg('xiaojinlin'), petPreviewImg('naolong'), petPrevi
 function isImgAvatar(av){ return typeof av==='string' && av.indexOf('data:image')===0; }
 function avatarHtml(av,px){
   if(isImgAvatar(av)) return '<img src="'+av+'" alt="" style="width:'+px+'px;height:'+px+'px;object-fit:cover;border-radius:50%;vertical-align:middle;display:inline-block">';
-  return av==null?'':av;
+  // 2026-09fix：不是图片头像时，av通常是个emoji，但它最终来源可能是"串门"目录里别的设备/别人写进云端的数据，
+  // 不能保证一定是安全的emoji——不转义就直接当HTML塞进innerHTML的话，别人可以在这里塞入<img onerror=...>之类
+  // 的脚本，趁孩子或家长打开"串门"列表时执行（存储型XSS）。这里统一做HTML转义，emoji本身不含特殊符号，转义后
+  // 显示效果不变，只有恶意的标签会被转成无害的纯文本。
+  return av==null?'':escapeAttr(av);
 }
 
 /* ========== 日期工具 ========== */
@@ -4487,6 +4510,43 @@ function registerFamilyCodePointer(code,targetRowId){
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
   return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000);
 }
+// 2026-09fix：改名/发新码这两处，以前都是"先查一下这个码有没有被占用，没有就直接写入"，
+// 中间隔着一次网络来回，两个人（或者管理员的两次操作）几乎同时抢注同一个还没人用过的码时，
+// 后写入的一次会用registerFamilyCodePointer(无条件覆盖)静默盖掉先写入的一次——先操作的人
+// 看到的却是"✅成功"提示，其实自己刚抢到的码马上又被顶掉了，自己毫无感知。
+// 这里改成真正的"insert-only抢注"：数据库层面的ignore-duplicates保证同一个id只有第一次插入
+// 会生效，后面的都会被直接忽略、不会覆盖已存在的行——插入完再读一次校验最终写进去的到底是不是
+// 我们自己这次提交的值，如实告诉调用方"抢到了没有"，而不是想当然地以为自己成功了。
+// 注意：这个函数只适合"码目前还没被任何人注册过"的场景（比如改名、给全新的码建立指针）；
+// 如果是要故意把一个已经存在的码，从rowId A改指向rowId B（比如adminIssueNewCode的"确认覆盖"
+// 分支），ignore-duplicates永远会被忽略，那种场景要用下面的 casUpsertRow 做条件覆盖。
+function claimFamilyCodePointer(code, rowId){
+  var pointerId='code:'+code;
+  var body=JSON.stringify({id:pointerId,data:{targetRowId:rowId},updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=ignore-duplicates,return=representation'}),body:body},9000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    if(rows && rows.length) return {ok:true, rowId:rowId}; // 真的是我们这次插入成功的
+    // 被别人抢先注册了，读一次现在实际指向谁，如实告知调用方
+    return fetchRowData(pointerId).then(function(row){
+      var actual=(row&&row.data&&row.data.targetRowId)||null;
+      return {ok:(actual===rowId), rowId:actual};
+    });
+  });
+}
+// 通用的"条件覆盖"：只有这一行的updated_at仍然等于expectedUpdatedAt（调用方之前读到的那个快照）时
+// 才会真的写入新数据，返回true表示写入成功；返回false表示这段时间被别的操作抢先改动过，没有写进去，
+// 调用方应该提示用户重新核实最新状态再决定要不要重试，而不是假装自己已经改成功了
+function casUpsertRow(id, expectedUpdatedAt, newData){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(id)+'&updated_at=eq.'+encodeURIComponent(expectedUpdatedAt);
+  var body=JSON.stringify({data:newData,updated_at:new Date().toISOString()});
+  return supaFetch(url,{method:'PATCH',headers:supaHeaders({'Prefer':'return=representation'}),body:body},9000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){ return rows && rows.length>0; });
+}
 /* 家庭码 -> 实际存档行ID。写死的默认入口不用联网；自定义码去云端查指针，查不到就顺手注册一个新的；
    全程网络失败也不报错、不卡住，直接退回算法兜底，保证离线也能继续玩 */
 function resolveFamilyCodeRowId(code){
@@ -4576,7 +4636,15 @@ function submitFamilyCode(){
         return;
       }
       if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
-      registerFamilyCodePointer(code,SUPA_ROW_ID).then(function(){
+      // 2026-09fix：上面这次"查一下有没有被占用"和接下来"真正写入"之间隔着一次网络来回，如果
+      // 这段时间里另一个人恰好抢先用同一个码注册成功了，以前这里会直接覆盖对方、且自己毫无感知
+      // 还看到"成功"提示。现在改用insert-only真正去"抢注"，抢不到就如实告诉用户重新换一个。
+      claimFamilyCodePointer(code,SUPA_ROW_ID).then(function(result){
+        if(!result.ok){
+          if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
+          ttsToast('❌ 你查询的一瞬间，这个码刚好被别人抢先用掉了，换一个再试试', 6000);
+          return;
+        }
         try{ localStorage.setItem(FAMILY_CODE_KEY,code); }catch(e){}
         if(btn){ btn.disabled=false; btn.textContent='✅ 确认'; }
         hideModal('familyGateModal');
@@ -4646,15 +4714,23 @@ function checkFamilyCodeApproved(code){
 }
 var PENDING_APPLY_CODE_KEY='kuroPendingApplyCodeV1';
 var _pendingApplyCode='';
-function applyRecordId(code){ return 'apply:'+code; }
+var PENDING_APPLY_ID_KEY='kuroPendingApplyIdV1'; // 2026-09fix：配合下面"同一个码允许多条并发申请"的改动，记住自己这次提交的是哪一条具体记录
+function applyRecordId(code){ return 'apply:'+code; } // 旧版固定id，仅给按前缀匹配的地方（loadAdminApplications）和老数据兼容用
+// 2026-09fix：以前所有人申请同一个家庭码文本，用的都是同一个固定id(apply:+code)，谁后提交就会用
+// merge-duplicates把谁先提交的申请记录整个覆盖掉（childName等字段丢失，先提交那份无声消失）。
+// 如果两个互不相识的家庭凑巧编了同一串码去申请，管理员在后台只会看到最后一条、完全不知道背后
+// 有冲突，批准之后两个家庭会稀里糊涂共享同一份数据。这里给每次提交的申请单独生成一个带随机后缀的
+// id，允许同一个码同时存在好几条待审申请、都完整保留，管理员能一眼看出"这个码有人抢着申请"，
+// 从而可以拒绝掉不该通过的那一条，而不是稀里糊涂全部混在一起。
+function newApplyRecordId(code){ return 'apply:'+code+'#'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function submitFamilyApplication(code,childName){
-  var pointerId=applyRecordId(code);
+  var pointerId=newApplyRecordId(code);
   var body=JSON.stringify({id:pointerId,data:{code:code,childName:childName,status:'pending',requestedAt:new Date().toISOString()},updated_at:new Date().toISOString()});
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
-  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000);
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000).then(function(){ return pointerId; });
 }
-function fetchApplicationStatus(code){
-  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(applyRecordId(code))+'&select=data';
+function fetchApplicationStatus(pointerId){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(pointerId)+'&select=data';
   return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
@@ -4668,8 +4744,11 @@ function confirmFamilyApply(){
   if(!name){ ttsToast('请填一下孩子的姓名', 4000); return; }
   var btn=document.getElementById('familyApplyConfirmBtn');
   if(btn){ btn.disabled=true; btn.textContent='提交中…'; }
-  submitFamilyApplication(code,name).then(function(){
-    try{ localStorage.setItem(PENDING_APPLY_CODE_KEY,code); }catch(e){}
+  submitFamilyApplication(code,name).then(function(pointerId){
+    try{
+      localStorage.setItem(PENDING_APPLY_CODE_KEY,code);
+      localStorage.setItem(PENDING_APPLY_ID_KEY,pointerId);
+    }catch(e){}
     if(btn){ btn.disabled=false; btn.textContent='📮 提交申请'; }
     hideModal('familyApplyModal');
     showFamilyPendingModal(code,'申请已经提交啦，等管理员审核通过后再打开这个页面、点下面的按钮重新检查一下就能进入了。');
@@ -4690,8 +4769,8 @@ function restartFamilyApply(){
   showModal('familyGateModal');
 }
 function recheckFamilyApplication(){
-  var code=null;
-  try{ code=localStorage.getItem(PENDING_APPLY_CODE_KEY); }catch(e){}
+  var code=null, pointerId=null;
+  try{ code=localStorage.getItem(PENDING_APPLY_CODE_KEY); pointerId=localStorage.getItem(PENDING_APPLY_ID_KEY); }catch(e){}
   if(!code){ hideModal('familyPendingModal'); _familyGateMode='initial'; showModal('familyGateModal'); return; }
   var btn=document.getElementById('familyPendingRecheckBtn');
   if(btn){ btn.disabled=true; btn.textContent='检查中…'; }
@@ -4701,12 +4780,16 @@ function recheckFamilyApplication(){
         localStorage.setItem(FAMILY_CODE_KEY,code);
         localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
         localStorage.removeItem(PENDING_APPLY_CODE_KEY);
+        localStorage.removeItem(PENDING_APPLY_ID_KEY);
       }catch(e){}
       location.reload();
       return;
     }
     if(btn){ btn.disabled=false; btn.textContent='🔄 重新检查是否已通过'; }
-    fetchApplicationStatus(code).then(function(data){
+    // 2026-09fix：申请记录改成带随机后缀的独立id之后，要按自己当初提交时记下的那个具体id去查，
+    // 而不是查一个所有人共用的固定id——兼容升级前就已经在等待审核、本地还没存过这个id的情况，
+    // 那种老情况下就退回旧的固定id规则去查（老数据当时也是用这个固定id写的，能查到）
+    fetchApplicationStatus(pointerId||applyRecordId(code)).then(function(data){
       if(data && data.status==='rejected'){
         showFamilyPendingModal(code,'很抱歉，这个申请没有通过审核，换一个家庭码重新申请试试吧。');
       }else{
@@ -4823,12 +4906,15 @@ function loadAdminApplications(){
   var box=document.getElementById('adminApplyList');
   if(!box) return;
   box.textContent='加载中…';
-  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('apply:*')+'&select=data&limit=300';
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('apply:*')+'&select=id,data&limit=300';
   supaFetch(url,{method:'GET',headers:supaHeaders()},8000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
   }).then(function(rows){
-    var list=(rows||[]).map(function(r){ return r.data; }).filter(function(d){ return d && d.code && d.status==='pending'; });
+    // 2026-09fix：现在同一个码可能同时有好几条独立的申请记录（见newApplyRecordId的说明），
+    // 批准/拒绝的时候要精确写回"管理员刚才点的是哪一条"，所以这里把每条记录自己的id也带上，
+    // 不再只留data——_recId只在这个管理面板的内存对象上用，不会被当成真实存档字段存回云端
+    var list=(rows||[]).map(function(r){ var d=r.data; if(d) d._recId=r.id; return d; }).filter(function(d){ return d && d.code && d.status==='pending'; });
     if(!list.length){ box.innerHTML='（暂时没有待审核的申请）'; return; }
     box.innerHTML='';
     list.forEach(function(d){
@@ -4836,7 +4922,9 @@ function loadAdminApplications(){
       row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px';
       var when='';
       try{ when=new Date(d.requestedAt).toLocaleString(); }catch(e){}
-      row.innerHTML='<div>家庭码：<b>'+d.code+'</b>　孩子姓名：<b>'+(d.childName||'—')+'</b></div><div style="color:#999;font-size:11px">'+when+'</div>';
+      // 2026-09fix：d.code/d.childName是申请人自己提交的原始文本，任何人拿公开的anon key都能直接POST伪造，
+      // 不能不转义就塞进innerHTML，否则会在管理员自己的浏览器里执行别人塞进来的脚本（存储型XSS，且管理员权限更高，风险更大）
+      row.innerHTML='<div>家庭码：<b>'+escapeAttr(d.code)+'</b>　孩子姓名：<b>'+escapeAttr(d.childName||'—')+'</b></div><div style="color:#999;font-size:11px">'+escapeAttr(when)+'</div>';
       var btnWrap=document.createElement('div');
       btnWrap.style.cssText='margin-top:6px;display:flex;gap:6px';
       var okBtn=document.createElement('button');
@@ -4855,12 +4943,17 @@ function loadAdminApplications(){
 }
 function adminDecideApplication(appData,decision){
   var newData={code:appData.code,childName:appData.childName,status:decision,requestedAt:appData.requestedAt,decidedAt:new Date().toISOString()};
+  // 2026-09fix：精确写回管理员点的这一条具体记录（appData._recId），而不是所有同码申请共用的
+  // 那个固定id——不然批准/拒绝其中一条，会把同一个码下其它独立的申请记录也一起覆盖掉。
+  // appData._recId在理论上不会缺失（loadAdminApplications已经统一带上了），这里兜底一下万一缺失
+  // 时退回旧的固定id，避免直接报错卡住。
+  var recId=appData._recId||applyRecordId(appData.code);
   var chain=Promise.resolve();
   if(decision==='approved'){
     chain=registerFamilyCodePointer(appData.code, familyCodeToRowId(appData.code));
   }
   chain.then(function(){
-    return supaUpsertRow(applyRecordId(appData.code), newData);
+    return supaUpsertRow(recId, newData);
   }).then(function(){
     ttsToast(decision==='approved'?'✅ 已批准':'🚫 已拒绝', 3000);
     loadAdminApplications();
@@ -4890,7 +4983,8 @@ function loadAdminFamilies(){
     rowIds.forEach(function(rid){
       var row=document.createElement('div');
       row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px';
-      row.innerHTML='<div>👪 '+byRow[rid].join('、')+'<div style="color:#999;font-size:11px">'+rid+'</div></div>';
+      // 2026-09fix：孩子姓名(byRow[rid]里的内容)和rid同样来自任何人都能直接写入的云端reg:记录，同上做转义
+      row.innerHTML='<div>👪 '+byRow[rid].map(escapeAttr).join('、')+'<div style="color:#999;font-size:11px">'+escapeAttr(rid)+'</div></div>';
       var btnWrap=document.createElement('div');
       btnWrap.style.cssText='display:flex;gap:4px;flex-wrap:wrap';
       var btn=document.createElement('button');
@@ -4944,12 +5038,26 @@ function adminIssueNewCode(rowId){
   code=(code||'').trim();
   if(!code) return;
   // 2026-09fix：发码前先查一下这个码现在指向哪，如果已经指向了"另一份不是当前rowId"的数据，
-  // 弹出来告诉管理员一声，避免在没意识到的情况下又顺手覆盖了别的家庭正在用的码
-  checkFamilyCodeApproved(code).then(function(existingRowId){
+  // 弹出来告诉管理员一声，避免在没意识到的情况下又顺手覆盖了别的家庭正在用的码。
+  // 2026-09fix第二版：以前查完之后不管有没有走确认弹窗，最后都用registerFamilyCodePointer无条件
+  // 覆盖写入——如果确认弹窗停留的这段时间里（管理员看弹窗、犹豫要不要点确定，可能好几秒甚至更久），
+  // 这个码的实际指向被别的操作悄悄改动过，管理员其实是基于一份已经过时的信息在做决定，写入时
+  // 却完全没再核实一遍。现在分两种情况处理：这个码以前从没被注册过，就用insert-only真正"抢注"；
+  // 已经存在的码，则用条件覆盖（casUpsertRow），只有它的updated_at仍然等于我们刚才读到、
+  // 展示给管理员看的那个快照时才真的写入，被抢先改动过就明确告诉管理员重新打开一次再操作。
+  fetchRowData('code:'+code).then(function(row){
+    var existingRowId=(row&&row.data&&row.data.targetRowId)||null;
     if(existingRowId && existingRowId!==rowId){
       if(!window.confirm('这个码「'+code+'」现在指向的存档行是：\n'+existingRowId+'\n\n确定要把它改成指向这份存档：\n'+rowId+'\n吗？（如果这正是你要修复的账号覆盖问题，选"确定"就对了；如果不确定，先点"取消"去核实一下）')) return;
     }
-    return registerFamilyCodePointer(code,rowId).then(function(){
+    if(!row){
+      return claimFamilyCodePointer(code,rowId).then(function(result){
+        if(!result.ok){ ttsToast('❌ 你确认的这一瞬间，这个码被别人抢先注册了，换一个再试试', 6000); return; }
+        window.prompt('✅ 已经生效，把下面这个家庭码发给对方，对方在"更换/加入其他家庭空间"里输入即可找回存档：', code);
+      });
+    }
+    return casUpsertRow('code:'+code, row.updated_at, {targetRowId:rowId}).then(function(success){
+      if(!success){ ttsToast('❌ 刚才确认的时候，这个码的指向被别的操作改动过了，请重新打开一次核实最新状态再操作', 6000); return; }
       window.prompt('✅ 已经生效，把下面这个家庭码发给对方，对方在"更换/加入其他家庭空间"里输入即可找回存档：', code);
     });
   }).catch(function(){
@@ -4967,10 +5075,28 @@ function adminViewFamilyData(rowId){
     if(editBox) editBox.style.display='block';
   }).catch(function(){ ttsToast('❌ 没读到这家的数据', 4000); });
 }
+// 2026-09fix：以前这里只校验"是不是合法JSON"，结构对不对完全不管——管理员手滑把accounts删空、
+// 打错成数组、或者currentChildId指向一个accounts里根本不存在的id，都会被原样整行覆盖保存到云端，
+// 结果这家的存档在所有设备上直接打不开（cloudSyncOnLoad要求row.data.accounts是真值才会采纳），
+// 而且这条路径也完全绕开了"一个家庭码只能建1个孩子档案"的限制。这里补一层最基本的结构校验。
+function adminValidateFamilyData(parsed){
+  if(!parsed || typeof parsed!=='object' || Array.isArray(parsed)) return '最外层必须是一个对象（{...}），不能是数组或者其它类型';
+  if(!parsed.accounts || typeof parsed.accounts!=='object' || Array.isArray(parsed.accounts)) return '缺少 accounts 字段，或者 accounts 不是一个对象——这个字段必须是 {孩子id: 档案} 这样的结构';
+  var ids=Object.keys(parsed.accounts);
+  if(ids.length>1) return '一个家庭码现在只能对应1个孩子档案，但这份数据里 accounts 有 '+ids.length+' 个孩子（'+ids.join('、')+'），请先删掉多余的再保存';
+  if(ids.length===1){
+    var only=parsed.accounts[ids[0]];
+    if(!only || typeof only!=='object') return '孩子 '+ids[0]+' 的档案内容不是一个合法对象';
+    if(parsed.currentChildId!==ids[0]) return 'currentChildId（当前值：'+JSON.stringify(parsed.currentChildId)+'）必须正好等于 accounts 里这个孩子的id「'+ids[0]+'」';
+  }
+  return null; // 校验通过
+}
 function adminSaveFamilyData(){
   var text=document.getElementById('adminFamilyEditText');
   var parsed;
   try{ parsed=JSON.parse(text.value); }catch(e){ ttsToast('❌ 这不是合法的JSON，没法保存', 4000); return; }
+  var problem=adminValidateFamilyData(parsed);
+  if(problem){ ttsToast('❌ 数据结构不对，没有保存：'+problem, 6000); return; }
   if(!_adminEditingRowId) return;
   var btn=document.getElementById('adminFamilySaveBtn');
   if(btn){ btn.disabled=true; btn.textContent='保存中…'; }
@@ -5608,12 +5734,55 @@ function fetchPkInboxRow(rowId,cid){
     return cur;
   });
 }
+// 2026-09fix：以前是纯"整份覆盖式"写入——GET拿到旧的messages数组，本地内存里unshift一条，
+// 再把整个数组POST回去覆盖整行。如果两个好友（或同一个好友的两台设备）几乎同时给同一个人送金币/
+// 发PK结果通知，两次都是从同一份"旧messages"起步，后写入的一次会把先写入的一次追加的消息完全冲掉——
+// 发送双方都看到"发送成功"提示，但先到的那条消息无声消失，接收方永远收不到，谁都不知道出了问题。
+// 这里改用基于updated_at的乐观锁（compare-and-swap）：PATCH时把"我读到的这个旧updated_at"也
+// 写进过滤条件，数据库只有在这一行的updated_at仍然等于我读到的值时（说明这段时间没人抢先写过）
+// 才会真的执行这次写入；一旦被别人抢先（PATCH影响0行），就重新读一次最新数据、把我这条消息
+// 重新追加上去再试一次，最多重试3次——基本能保证两条消息都不会丢，多次都抢不到才退化成兜底的整行覆盖。
 function pushPkMessageToFriend(rowId,cid,msg){
-  return fetchPkInboxRow(rowId,cid).then(function(cur){
-    var messages=(cur&&Array.isArray(cur.messages))?cur.messages.slice():[];
-    messages.unshift(msg); // 当天消息全部保留，不再像以前一样裁剪到30条
-    return supaUpsertRow(pkInboxRowId(rowId,cid),{dayKey:todayKey(),messages:messages});
-  });
+  var pointerId=pkInboxRowId(rowId,cid);
+  var today=todayKey();
+  function currentMessages(row){
+    var d=row&&row.data;
+    if(!d||d.dayKey!==today) return []; // 换了新的一天，旧消息自动不再显示
+    return Array.isArray(d.messages)?d.messages.slice():[];
+  }
+  function attempt(retriesLeft){
+    return fetchRowData(pointerId).then(function(row){
+      var messages=currentMessages(row);
+      messages.unshift(msg);
+      var newData={dayKey:today,messages:messages};
+      if(row && row.updated_at){
+        var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(pointerId)+'&updated_at=eq.'+encodeURIComponent(row.updated_at);
+        var body=JSON.stringify({data:newData,updated_at:new Date().toISOString()});
+        return supaFetch(url,{method:'PATCH',headers:supaHeaders({'Prefer':'return=representation'}),body:body},9000).then(function(res){
+          if(!res.ok) throw new Error('http '+res.status);
+          return res.json();
+        }).then(function(rows){
+          if(rows && rows.length) return true; // 抢到了，写入成功
+          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData); // 保底：多次都抢不到，至少保证我这条不丢
+          return attempt(retriesLeft-1); // 被别人抢先了，重新读最新数据再追加一次
+        });
+      }else{
+        // 这一行还不存在：用insert-only（忽略冲突）建立。如果两边同时"首次创建"，只有一个能成功，
+        // 另一个会因为主键冲突被数据库忽略（返回空结果），这时候重新读一次最新数据，走上面的条件PATCH流程
+        var insertUrl=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+        var insertBody=JSON.stringify({id:pointerId,data:newData,updated_at:new Date().toISOString()});
+        return supaFetch(insertUrl,{method:'POST',headers:supaHeaders({'Prefer':'resolution=ignore-duplicates,return=representation'}),body:insertBody},9000).then(function(res){
+          if(!res.ok) throw new Error('http '+res.status);
+          return res.json();
+        }).then(function(rows){
+          if(rows && rows.length) return true; // 真的是我第一个创建成功
+          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData);
+          return attempt(retriesLeft-1); // 已经有别人先创建了，重新读一次走正常的条件PATCH流程
+        });
+      }
+    });
+  }
+  return attempt(3);
 }
 function refreshMyPkInbox(){
   if(!store.currentChildId) return Promise.resolve({dayKey:todayKey(),messages:[]});
@@ -5893,6 +6062,17 @@ function showPkInboxModal(){
 var POKE_DAILY_LIMIT=1;   // 摸宠物加亲密度：对同一个好友，每天最多几次
 var GIFT_DAILY_LIMIT=3;   // 送金币：对同一个好友，每天最多几次
 function petHomeRegKey(rowId,childId){ return 'reg:'+rowId+'#'+childId; }
+// 2026-09fix：删除孩子档案时，公开的登记目录(reg:该家庭#该孩子)以前从来没有被清理过，会一直留着
+// 一条"僵尸"记录——管理后台"各家数据"列表会永久显示这个已删除孩子的名字，"串门"列表里也会一直
+// 挂着这条点进去只会看到"看不到这个小朋友的数据了"的死链接。跟ensurePetHomeRegistry()一样用
+// tombstone软删除（公开匿名密钥没有真正删除记录的权限，这是本项目一贯的处理方式），网络不通就
+// 静默失败，不阻塞删除本身（调用方不等这个Promise）。
+function tombstonePetHomeReg(rowId,childId){
+  var pointerId=petHomeRegKey(rowId,childId);
+  var body=JSON.stringify({id:pointerId,data:{rowId:null,childId:null,name:null,avatar:null,tombstone:true,cleanedUpAt:new Date().toISOString()},updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  return supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000).catch(function(){});
+}
 /* 每次首屏渲染完都顺手把"这一家所有已经养了宠物的小朋友"在公开目录里登记/刷新一次——只有真的
    选了宠物的小朋友才会出现在别人的串门列表里，跟"还没养宠物就先别让人看见"这个直觉一致 */
 function ensurePetHomeRegistry(){
@@ -7523,12 +7703,20 @@ function playOfflineAudio(text,onResult){
       try{audioEl.pause();}catch(ePause){}
       try{audioEl.currentTime=start;}catch(eSeek){}
       try{audioEl.volume=(typeof ttsVolFrac==='function')?ttsVolFrac():1;}catch(eVol){}
+      // 2026-09fix：同一个主题的<audio>实例是缓存复用的（_audioSpriteCache），以前每次doPlay()都会
+      // 新增一个timeupdate监听器，从不清理上一次调用遗留的旧监听器。孩子点读点得快一点，上一个词还
+      // 没播完就点了下一个词时，旧监听器还在盯着"播放位置是不是到了上一个词的结束点"，一旦新词的
+      // 起始位置超过了上一个词的结束点，旧监听器会立刻把刚开始播的新音频误判成"该停了"而暂停掉——
+      // 听感上就是"点了但声音被提前掐断"。这里先清掉上一次遗留在这个audio元素上的旧监听器再挂新的。
+      if(audioEl._kuluomiOnTime){ audioEl.removeEventListener('timeupdate',audioEl._kuluomiOnTime); audioEl._kuluomiOnTime=null; }
       function onTime(){
         if(audioEl.currentTime>=stopAt-0.02||audioEl.currentTime<start-1){
           try{audioEl.pause();}catch(eP2){}
           audioEl.removeEventListener('timeupdate',onTime);
+          if(audioEl._kuluomiOnTime===onTime) audioEl._kuluomiOnTime=null;
         }
       }
+      audioEl._kuluomiOnTime=onTime;
       audioEl.addEventListener('timeupdate',onTime);
       var playPromise=audioEl.play();
       if(playPromise&&playPromise.then){
@@ -9031,6 +9219,12 @@ function handleMathLevelCleared(level){
   level=parseInt(level,10);
   if(!level||level<1) return;
   if(!state.mathLevelsEverCleared) state.mathLevelsEverCleared=[];
+  // 2026-09fix：真的通关只会按1、2、3……顺序一关关往上推进（游戏内部state.level每次只+1），
+  // 所以合法的关卡号要么是"以前已经通关过的关卡"（重新挑战一遍），要么正好是"历史最高通关+1"。
+  // 之前这里没做任何上限校验，只要能在页面里执行一行 postMessage 就能一次性伪造巨大的关卡号，
+  // 瞬间刷出等同该关卡数值好几倍的金币和经验。现在把不符合"顺序推进"规律的关卡号直接当异常消息丢弃。
+  var highestCleared=state.mathLevelsEverCleared.length?Math.max.apply(null,state.mathLevelsEverCleared):0;
+  if(state.mathLevelsEverCleared.indexOf(level)===-1 && level>highestCleared+1) return;
   var isFirstEver=state.mathLevelsEverCleared.indexOf(level)===-1;
   var isFirstToday=state.day.math.rewardedLevels.indexOf(level)===-1; // 今天是不是第一次通关这一关
   var mathExp = isFirstToday ? level*3 : level; // 每天首次通关经验最多，是当天重复挑战的3倍
@@ -9049,6 +9243,12 @@ function handleMathLevelCleared(level){
   }
 }
 window.addEventListener('message', function(ev){
+  // 2026-09fix：以前这里完全不检查消息是谁发来的，任何人只要在这个页面的控制台执行一行
+  // window.postMessage({type:'mathLevelCleared',level:99999},'*')
+  // 就能冒充"守卫家园"小游戏、伪造巨大的通关关卡号骗到大量金币经验。这里改成只信任真正来自
+  // 这个iframe自己（frame.contentWindow）的消息，来源不对的一律忽略。
+  var frame=document.getElementById('mathChallengeFrame');
+  if(!frame || ev.source!==frame.contentWindow) return;
   var d=ev&&ev.data;
   if(d&&d.type==='mathLevelCleared'){ handleMathLevelCleared(d.level); }
 });
@@ -9173,6 +9373,11 @@ function migrateState(s){
   if(typeof s.day.wheel.custom==='undefined') s.day.wheel.custom=false;
   if(typeof s.day.wheel.comm==='undefined') s.day.wheel.comm=false;
   if(typeof s.day.spStudyFullCounted==='undefined') s.day.spStudyFullCounted=false;
+  // 2026-09fix：老存档在这个字段加进来之前生成的 s.day，如果当天还没跨天（freshDay()不会被调用重建），
+  // s.day.wheelUsed 就会一直是 undefined。remainingWheel() 算的是 grantedWheel()-state.day.wheelUsed，
+  // undefined 参与减法得到 NaN，"NaN<=0"恒为false，会让"今日抽奖次数用完"的限制在这个窗口期内完全失效，
+  // 可以无限转动幸运转盘。这里统一补上默认值0，跟其它 day.* 字段一样兜底。
+  if(typeof s.day.wheelUsed!=='number') s.day.wheelUsed=0;
   if(!s.day.trainBought) s.day.trainBought={train:false,train2:false};
   if(!s.sportStudyFullDays) s.sportStudyFullDays=[];
   if(!s.restCardMonthKey) s.restCardMonthKey=getMonthKey();
@@ -9348,6 +9553,10 @@ function confirmCreateChild(){
     editingChildId=null;
     hideModal('childCreateModal');
     saveStore();
+    // 2026-09fix：改名之后，"串门"公开目录和管理后台"各家数据"列表里显示的名字，以前要等下一次
+    // 整页刷新（finishLoadRender()）才会跟着更新——改完名字如果没重新刷新过页面，管理员/其他人
+    // 看到的会一直是旧名字。这里改完名字立刻顺手同步一次登记信息，不用等下次刷新。
+    ensurePetHomeRegistry();
     openChildModal();
     render();
     return;
@@ -9460,6 +9669,7 @@ function deleteChild(id){
     return;
   }
   delete store.accounts[id];
+  tombstonePetHomeReg(SUPA_ROW_ID, id); // 2026-09fix：顺手清理公开登记目录里的这条记录，避免留下僵尸档案
   if(store.currentChildId===id){
     store.currentChildId=Object.keys(store.accounts)[0];
     state=store.accounts[store.currentChildId].state;
@@ -10019,7 +10229,11 @@ function applyRealTimeDecay(){
        家长能第一时间知道要去买药 */
     if(pet.injured && pet.injuredAt){
       var injuredElapsedHours=Math.max(0,(now-pet.injuredAt)/3600000);
-      if(injuredElapsedHours>=PET_INJURY_REVERT_HOURS){
+      // 2026-09fix：这里以前无条件用了 PET_INJURY_REVERT_HOURS（3小时）这一个常量，没有区分轻伤/重伤。
+      // 但UI提示（商城文案、petInjuryStatus徽标）用的是 petInjuryLimitHours(pet)：重伤明确告诉家长"1小时内
+      // 必须买高级特效药，不然会变回蛋"。两边不一致会导致重伤宠物过了1小时后徽标一直显示"0小时0分钟"、
+      // 反复报警，但实际要等满3小时才真的变蛋——这里改成跟UI提示用同一个函数，说1小时就真的按1小时执行。
+      if(injuredElapsedHours>=petInjuryLimitHours(pet)){
         revertPetToEgg(pet, 'injury');
         revertedAny=true;
       }
@@ -11012,6 +11226,15 @@ function confirmChoose(){
   showModal('nameModal');
 }
 function confirmName(){
+  // 2026-09fix：同一个家庭码在两台设备上同时用是被允许的场景。选造型/起名弹窗打开期间
+  // （这中间有段时间等孩子填名字），如果这段时间里另一台设备已经把仓位养满了、又刚好触发过
+  // 一次云同步把这台设备的state整个替换掉，这里点"确定"之前仓位可能已经不知不觉满了，以前
+  // 从不在真正push进去之前再复核一次，会导致仓位被静默突破。这里真正入库之前重新校验一遍。
+  if(!canAddAnotherPet()){
+    hideModal('nameModal');
+    alert('宠物仓位好像刚好满了（可能是另一台设备同时养了新宠物），这只还没能养成，晚一点再试试看吧～');
+    return;
+  }
   var name=document.getElementById('petNameInput').value.trim();
   var type=pickedPetType||'xiaojinlin';
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
@@ -11554,6 +11777,15 @@ function equipItem(instanceId){
   if(!item) return;
   var info=petLevelInfo();
   if(info.level<item.lvReq){ ttsToast('宠物等级还不够，先多攒点经验再来穿这件装备吧', 3500); return; }
+  // 2026-09fix：切换到别的宠物身上时，装备面板的"未穿戴"筛选以前不检查这只宠物是不是已经在别的宠物身上穿着，
+  // 导致同一件装备实例能被同时穿在仓库里好几只宠物身上，攻防加成会对每只宠物都全额生效、无限叠加。
+  // 这里穿戴前先把这件装备实例从其它所有宠物身上卸下来，确保任何时候一件装备最多只穿在一只宠物身上。
+  (state.pets||[]).forEach(function(p){
+    if(p===pet || !p || !p.equipment) return;
+    Object.keys(p.equipment).forEach(function(k){
+      if(p.equipment[k]===instanceId) p.equipment[k]=null;
+    });
+  });
   // 同一部位如果已经穿了别的装备，直接自动换下来（还留在背包里，不会消失）
   pet.equipment[item.slot]=instanceId;
   addLog('🛡️ 给'+(pet.name||'宠物')+'穿上了装备【'+item.name+'】');
@@ -12211,8 +12443,30 @@ function backToDungeonList(){
    不需要一下一下攻击；等级越高、勇气探险维度越强，胜率越高，但从不会是
    0%或100%；所有关卡随时都能挑战，没有"必须先打赢上一关"的顺序锁。
    ======================================================================== */
+/* 2026-09fix【组队机制】：宠物等级封顶30级之后，"继续练级"这条路到高难度关卡就走到头了——
+   这里让"仓库里养了几只已经破壳的宠物"也变成一项加成：凑够这一关"推荐同行"的宠物数量(petsReq)，
+   就能拿满 +20% 胜率；宠物数量不够就按比例打折（比如推荐4只、只有2只，就只能拿到一半 +10%）。
+   只看"养了几只"，不需要真的换上场战斗——出战动画依然只用当前这一只宠物，凑数量代表的是
+   "家底厚不厚"，不是要重做多宠物同屏作战的战斗画面。 */
+function dungeon2TeamBonus(petsReq){
+  var reqd=petsReq||1;
+  var owned=0;
+  if(state && state.pets){
+    for(var i=0;i<state.pets.length;i++){
+      var p=state.pets[i];
+      if(p && p.chosen && p.hatched) owned++;
+    }
+  }
+  var ratio=Math.min(1, owned/reqd);
+  return { bonus: ratio*0.20, owned: owned, reqd: reqd };
+}
 function dungeon2WinProb(tier, level, courageScore){
-  var p = (tier.winBase||0.5) + (level - tier.lvReq)*0.03 + ((courageScore||0)/100)*0.15;
+  var team=dungeon2TeamBonus(tier.petsReq);
+  // 2026-09fix：跟下面severeChance那处的写法统一，不能写成 tier.winBase||0.5——目前8关的winBase
+  // 都是正数所以还没出过问题，但配置里理论上允许把某一关设成winBase:0（"基础胜率就是0%，全靠等级/
+  // 勇气/组队去堆"），||写法会把合法的0误判成"没配置"而悄悄换成0.5，胜率会凭空虚高。改成typeof判断。
+  var winBase=(typeof tier.winBase==='number')?tier.winBase:0.5;
+  var p = winBase + (level - tier.lvReq)*0.03 + ((courageScore||0)/100)*0.15 + team.bonus;
   return Math.max(0.08, Math.min(0.92, p));
 }
 function dungeon2RandInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; } // 注意：不能直接叫 randInt——那是"数学挑战小游戏"内嵌iframe源码里自己的同名函数，跟外层页面是两个独立作用域，外层这里拿不到
@@ -12249,11 +12503,19 @@ function renderDungeon2List(){
   var info=petLevelInfo();
   var courageScore=abilityDimScore('courage');
   var today=todayKey();
-  var html='<div class="dg-village">🗺️ 仙侠秘境<div class="small" style="margin-top:2px">每个副本随时都能挑战，不用按顺序解锁；等级越高、勇气探险维度越强，胜率越高。第一次挑战某个副本失败不会扣任何东西，放心试！每一关每天只能成功通关一次，通关后要等明天才能再挑战这关。</div></div>';
+  var html='<div class="dg-village">🗺️ 仙侠秘境<div class="small" style="margin-top:2px">每个副本随时都能挑战，不用按顺序解锁；宠物等级最高封顶30级，等级越高、勇气探险维度越强，胜率越高。宠物等级到顶之后，多养几只已破壳的宠物（凑够每一关"推荐同行"的数量）还能继续换更高胜率——越难的关卡需要凑齐的宠物越多。第一次挑战某个副本失败不会扣任何东西，放心试！每一关每天只能成功通关一次，通关后要等明天才能再挑战这关。</div></div>';
   html+='<div class="dg-trail">';
   for(var i=0;i<CONFIG.dungeon2.length;i++){
     var tier=CONFIG.dungeon2[i];
     var pct=Math.round(dungeon2WinProb(tier, info.level, courageScore)*100);
+    var team=dungeon2TeamBonus(tier.petsReq);
+    var teamOk=team.owned>=team.reqd;
+    // 2026-09fix：以前不管仓位够不够，永远只提示"还差N只才能拿满加成"，容易误导——如果当前仓位上限
+    // （petSlotCapacity()，需要先刷够困难/英雄副本次数才能解锁更多）本身就小于这一关推荐的宠物数，
+    // 孩子/家长看提示会以为直接去孵蛋/领养就行，结果一点"领养"就被canAddAnotherPet()拦下，
+    // 体验上前后矛盾。这里判断一下，仓位不够时改成提示"先解锁仓位"，而不是"还差几只"。
+    var slotCap=petSlotCapacity();
+    var slotLimited=!teamOk && slotCap<team.reqd;
     var cleared=!!pet.dungeon2Cleared[i];
     var firstTry=!pet.dungeon2Tried[i];
     var clearedToday=pet.dungeon2ClearedDate[i]===today;
@@ -12267,6 +12529,7 @@ function renderDungeon2List(){
       +'<div class="dc-info">'
         +'<div class="dc-name">'+(cleared?'✅ ':'')+tier.name+'（'+tier.monster+'）</div>'
         +'<div class="dc-desc">预计胜率 '+pct+'%'+(info.level<tier.lvReq?'　·　推荐Lv'+tier.lvReq+'以上再来，等级不够会更容易失败':'')+(firstTry?'　·　首次挑战失败不扣东西':'')
+          +'<br>🐾推荐同行 '+team.reqd+' 只宠物（当前已养 '+team.owned+' 只，'+(teamOk?'胜率加成已满':(slotLimited?'仓位目前最多养'+slotCap+'只，'+petSlotUnlockHint():'还差 '+(team.reqd-team.owned)+' 只才能拿满胜率加成'))+'）'
           +'<br>胜利：'+tier.coinMin+'~'+tier.coinMax+'金币 + '+matNames+(cleared?'（装饰「'+tier.accessory.name+'」已获得）':'　首通额外送 '+tier.accessory.emoji+tier.accessory.name)+'</div>'
         +(clearedToday?'<div class="dc-desc" style="color:#66bb6a;font-weight:700">🎉 今日已通关，明天再来挑战～</div>':'')
       +'</div>'
@@ -12319,11 +12582,12 @@ function startDungeon2Battle(idx){
   var stage2={}; for(var k in baseSt) stage2[k]=baseSt[k]; // 浅拷贝，不改动 CONFIG.dungeon 原始数据
   var defMul=equipDefReduceMul(eb.def);
   stage2.dmg=[Math.max(1,Math.round(baseSt.dmg[0]*mul.monster*defMul)), Math.max(1,Math.round(baseSt.dmg[1]*mul.monster*defMul))];
+  // 2026-09fix：以前一进战斗界面这一刻就把"今天挑战次数+1"和"是否已挑战过"标记为true并立即save()，
+  // 如果孩子只是点开看了一眼、还没真的打就点右上角✕关闭（closeDungeonModal()不会结算胜负），这次"围观"
+  // 也会被当成一次真实挑战算数——下次真的打输了反而被误判成"非首次"，被扣掉本该有的"首次挑战失败不罚"保护。
+  // 现在只在这里算出"这次算不算首次挑战"（用来决定这一场万一打输了要不要豁免），真正把"已挑战过+
+  // 今日挑战次数+1"落盘，挪到 dungeonEnd2() 里——确认战斗真的分出胜负那一刻才算数。
   var firstTry=!pet.dungeon2Tried[idx];
-  pet.dungeon2Tried[idx]=true;
-  state.day.dungeon2.count=(state.day.dungeon2.count||0)+1;
-  save();
-  renderDungeonEntry();
   dg={ idx:idx, stage:stage2, petHp:stats.hpMax, petHpMax:stats.hpMax, dmgMin:scaledDmgMin, dmgMax:scaledDmgMax,
        monsterHp:baseSt.hp, monsterHpMax:baseSt.hp, combo:0, busy:false, ended:false, mode:'dungeon2', onEnd:dungeonEnd2, firstTry:firstTry };
   closeDungeon2Modal();
@@ -12361,6 +12625,12 @@ function dungeonEnd2(win){
   dg.ended=true;
   document.getElementById('dgBtnRow').style.display='none';
   var pet=state.pet, idx=dg.idx;
+  // 2026-09fix：真正确认这一场分出胜负了，才把"这一关已经挑战过"和"今日挑战次数"落盘（以前在进入
+  // 战斗界面那一刻就提前标记了，见 startDungeon2Battle 里的说明）
+  if(!pet.dungeon2Tried) pet.dungeon2Tried={};
+  pet.dungeon2Tried[idx]=true;
+  state.day.dungeon2.count=(state.day.dungeon2.count||0)+1;
+  renderDungeonEntry();
   var baseSt=CONFIG.dungeon[idx], rewardSt=CONFIG.dungeon2[idx];
   var box=document.getElementById('dgResultBox');
   if(win){
@@ -12417,9 +12687,11 @@ function dungeonEnd2(win){
       pet.injured=true; pet.injuredAt=Date.now(); pet.injurySeverity=severity;
       renderPetInjuryBadge();
       if(severity==='severe'){
-        penaltyText=baseSt.monster+'太强了，'+pet.name+'受了重伤！必须在1小时内买【高级特效药】治好，不然会伤心地变回蛋！';
+        // 2026-09fix：pet.name是孩子自己起的名字，只受<input maxlength="8">这种纯前端限制，用存档编辑/控制台
+        // 之类的方式仍能塞进任意字符串；这里最终会原样拼进box.innerHTML，不转义的话名字里藏的<script>等标签会被执行
+        penaltyText=baseSt.monster+'太强了，'+escapeAttr(pet.name)+'受了重伤！必须在1小时内买【高级特效药】治好，不然会伤心地变回蛋！';
       }else{
-        penaltyText=baseSt.monster+'有点强，'+pet.name+'受伤了，要在3小时内买【特效药】治好，不然会伤心地变回蛋。';
+        penaltyText=baseSt.monster+'有点强，'+escapeAttr(pet.name)+'受伤了，要在3小时内买【特效药】治好，不然会伤心地变回蛋。';
       }
       dgLog('🤕 '+state.pet.name+' 被打倒了，受伤了……');
       addLog('🗺️新版副本挑战失败【'+baseSt.name+'】：'+pet.name+' 受了'+(severity==='severe'?'重伤':'轻伤')+'，要买药治疗');
