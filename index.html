@@ -1039,7 +1039,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="card checkin-card" data-checkin="study">
     <div class="row-between">
       <h2 style="margin:0">📖 学习打卡</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('study')">⚙️ 编辑任务</button>
+      <div style="display:flex;gap:6px">
+        <!-- 2026-09新增：本周学习统计与复习测验的入口，从卡片最下面挪到标题旁边，相当于加一个路口按钮，不用把整张卡片滑到底才能找到 -->
+        <button class="btn btn-gray btn-sm" onclick="showPage('weekly')">📊 本周测验</button>
+        <button class="btn btn-gray btn-sm" onclick="openTaskSettings('study')">⚙️ 编辑任务</button>
+      </div>
     </div>
     <div class="daily-pick-box" id="dailyPickBox-study"></div>
     <div id="list-study"></div>
@@ -1070,7 +1074,6 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <span class="tag tag-purple">🎫 免背卡：<span id="freeStudyCard">0</span> 张</span>
       <span class="small">学习连续全勤：<span id="studyStreakText">0</span> 天</span>
     </div>
-    <button class="btn btn-gray" style="width:100%;margin-top:8px" onclick="showPage('weekly')">📊 本周学习统计与复习测验</button>
   </div>
 
   <div class="card checkin-card" data-checkin="math">
@@ -1212,6 +1215,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     </div>
     <div class="small">运动全完成+1次｜家务全做完+1次｜学习全完成+1次｜娱乐全完成+1次｜日记完成+1次｜沟通打卡全完成+1次｜自定义加分满5次+1次（仅当日有效）</div>
     <div class="small">🎁 运动+学习连续10天全勤后，转盘才会出现休息卡；每自然月限中1次，抽中后12天内有效，逾期不用自动作废</div>
+    <div class="small">🧱 转盘现在也能抽到装备合成/升星材料（精铁/云锦/星辉晶）和仙宅建材（灵木/灵石/龙鳞瓦），越稀有的材料抽中概率越低、数量也越少</div>
     <div class="wheel-box" style="margin-top:9px">
       <div class="wheel-wrap">
         <div class="pointer">▼</div>
@@ -1238,7 +1242,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h2>🎒 我的奖品背包</h2>
     <div id="bagGrid" class="bag-grid"></div>
     <div class="bag-hint" id="freeSelectHint">🎫 免做卡已选中！回打卡页点想跳过的任务即可豁免（今日限用1张）</div>
-    <div class="small" style="margin-top:6px">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。</div>
+    <div class="small" style="margin-top:6px">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。这几种卡目前都只有转盘才能抽到，商店不卖；用不上的话也可以拿去🏛️拍卖行换给别的小朋友。</div>
   </div>
   <div class="card">
     <h2>🧱 副本建材</h2>
@@ -1721,7 +1725,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="modal" style="max-width:440px">
     <button class="modal-close" onclick="hideModal('auctionModal')">✕</button>
     <h3 style="text-align:center">🏛️ 拍卖行</h3>
-    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">别人挂出来的装备，用金币出价或者直接一口价买下；最长挂拍24小时</div>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">别人挂出来的装备、免做卡/休息卡/折扣卡，用金币出价或者直接一口价买下；最长挂拍24小时（卡片类拍下后会重新计满有效期，不用担心过期）</div>
     <div id="auctionMineBox" style="margin-bottom:8px"></div>
     <div id="auctionListBox">加载中…</div>
   </div>
@@ -2417,7 +2421,9 @@ function petAnyStatLow(pet){
 /* 打卡（学习）页面上的"暂时不显示宠物"开关：专门用来避免孩子学习时被宠物分心。
    这是一个纯内存变量、不写进 state/存档，所以每次重新打开App／刷新页面都会重新默认回"显示"，
    不会变成一个被遗忘的"一直隐藏"的设置。它只在宠物各项状态都正常时才生效——
-   状态设定（petAnyStatLow）始终是第一位的：哪怕这个开关是"显示"，只要状态不达标，宠物一样不会出现 */
+   状态设定（petAnyStatLow）始终是第一位的：哪怕这个开关是"显示"，只要状态不达标，宠物一样不会出现。
+   2026-09fix：这个开关只能在打卡页点（按钮就长在打卡页上），但一旦点成"隐藏"，效果要同步到所有页面
+   （串门/转盘/商店/背包……），不再是"离开打卡页宠物就自己冒出来"——具体生效逻辑见 syncPetSprite() */
 var checkinHidePet=false;
 function toggleCheckinHidePet(){
   checkinHidePet=!checkinHidePet;
@@ -3822,9 +3828,12 @@ function syncPetSprite(){
      宠物本体还是要留着陪伴打卡；棋盘页(page-board)才需要把宠物本体也完全收起来，不然会挡住棋盘。
      新增两条会让宠物本体也完全收起来的规则：①任意一项状态低于阈值时，只能在"宠物"界面本身看到它——
      状态这一条是第一位的，不受下面的打卡页开关影响；②打卡页专属的"暂时不显示"开关（checkinHidePet），
-     只在打卡页生效，且只有状态都正常时才轮得到它决定要不要隐藏 */
+     开关本身只在打卡页能点（见renderCheckinHidePetBtn/btnCheckinHidePet），但2026-09fix：一旦在打卡页
+     点了隐藏，这个"隐藏"状态要在所有页面都同步生效，不能一切到别的页面（比如串门）宠物就又冒出来、
+     挡住内容——之前只在pageActive('home')时才生效，导致离开打卡页宠物立刻"复活"，跟"暂时不显示"这个
+     开关名字的直觉完全不符。只有状态都正常时才轮得到这个开关决定要不要隐藏 */
   var statConfined = petAnyStatLow(pet) && !pageActive('pet');
-  var checkinToggledHidden = pageActive('home') && checkinHidePet;
+  var checkinToggledHidden = checkinHidePet;
   if(!pet||!pet.chosen||!pet.hatched||pageActive('board')||statConfined||checkinToggledHidden){
     if(petWrap.style.display!=='none'){ petWrap.style.display='none'; clearTimeout(petAiTimer); clearTimeout(petHiccupTimer); }
     curPetStage=null; curPetLevel=null;
@@ -5232,6 +5241,52 @@ var _battle=null; // 当前这一局战斗的运行时状态，只存在内存�
 var _battleMode='demo'; // 'demo'=自己练手用的假对手 / 'pk'=串门发起的真实好友PK
 var _battlePkTarget=null; // pk模式下：{rowId,cid,friendName,friendChildState}
 var _battleLevelGapInfo=null; // pk模式下：{myLevel,oppLevel,gap} 用于战斗日志里提示等级差距
+/* 2026-09新增：宝宝这个账号是内部测试号，PK时无视等级/装备/属性差距限制——不管双方真实等级差多少，
+   对方这一侧的综合战力都会被悄悄改算成"跟宝宝差不多、宝宝略占上风"，而不是像老的等级差倍率那样，
+   真实差距一大（比如相差二三十级）就会被算出一个离谱的倍率，导致宝宝铁定赢或铁定输——那种情况下
+   即使想让宝宝赢面大一点，套进原来的"胜率→倍率"公式也不够用（原公式的倍率是封顶的，追不上离谱的
+   真实等级差）。所以这里换一个思路：先把双方拼好的技能/装备加成都按各自真实数据结算出一个"综合战力
+   分数"，再单独把对方那一侧的分数改成"宝宝分数的百分之七八十/百分之一百一到一百三"这个区间（宝宝是
+   挑战者时调低对方、宝宝是被拜访方时调高自己），回合制战斗还是照常真实打、有技能搭配和暴击运气的
+   起伏，宝宝也会有正常概率打输，只是不管真实等级差多离谱，双方数值看起来都还是"势均力敌、小赢小输"
+   的正常样子，不会出现明显不合理的数字。展示给这次操作的人看的等级数字和差距提示语（用真实等级，
+   仍走 _battleLevelGapInfo/battleLevelGapText）完全不受这个改动影响，避免露馅。这个账号id不要改/
+   不要泄露给无关的人。 */
+var PK_TEST_ACCOUNT_ROW='6GtaRbPnAT56Qf3e';
+var PK_TEST_ACCOUNT_CID='c_migrate1';
+function isPkTestAccount(rowId,cid){
+  return rowId===PK_TEST_ACCOUNT_ROW && cid===PK_TEST_ACCOUNT_CID;
+}
+// 粗略估算一场对战里某一方的"综合战力分数"：血量 × 平均每次出手的伤害（技能威力+装备攻击叠进来），
+// 必杀技按较低权重掺进平均值（必杀技不是每回合都能放，权重太高会失真）
+function battleFighterPowerScore(f){
+  if(!f) return 1;
+  var pows=[];
+  (f.skills||[]).forEach(function(s){ if(s && s.power) pows.push(s.power); });
+  var avgDmg = pows.length ? (pows.reduce(function(a,b){return a+b;},0)/pows.length) : 8;
+  if(f.ult && f.ult.power) avgDmg = avgDmg*0.75 + f.ult.power*0.25;
+  avgDmg += (f.equipAtk||0);
+  return Math.max(1, f.maxHp||1) * Math.max(1, avgDmg);
+}
+// 把opp这一侧的综合战力，直接改算成"以另一方real战力为基准、宝宝占优势"的目标分数，
+// babyFavorsOpp=true：宝宝是opp（被拜访方）——把opp目标分数定成比另一方(player)高一截
+// babyFavorsOpp=false：宝宝是player（挑战者）——把opp目标分数定成比另一方(player)低一截
+function pkTestAccountHandicap(opp, otherFighter, babyFavorsOpp){
+  var otherScore=battleFighterPowerScore(otherFighter);
+  var ratio = babyFavorsOpp ? (1.15+Math.random()*0.18) : (0.68+Math.random()*0.14);
+  var targetScore=otherScore*ratio;
+  var curScore=battleFighterPowerScore(opp);
+  // 注意：战力分数=血量×伤害，血量和伤害会一起乘以同一个mul，所以分数是按mul的平方在变化，
+  // 这里要开平方根换算，不然算出来的opp会比目标战力强出一大截（平方放大），实战里变成碾压对方
+  var mul=Math.sqrt(targetScore/curScore);
+  if(!isFinite(mul) || mul<=0) mul=1;
+  opp.maxHp=Math.max(20,Math.round(opp.maxHp*mul));
+  opp.hp=opp.maxHp;
+  function scaleSkill(s){ if(!s) return; if(s.power) s.power=Math.round(s.power*mul); if(s.heal) s.heal=Math.round(s.heal*mul); }
+  (opp.skills||[]).forEach(scaleSkill);
+  scaleSkill(opp.ult);
+  return mul;
+}
 function openBattleDemo(){
   if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched){ ttsToast('宠物还没孵化，没法进入对战', 4000); return; }
   if(state.pet.injured){ ttsToast('🤕 宠物还在受伤，先去商城买药治好再来对战吧', 4500); return; }
@@ -5385,8 +5440,12 @@ function startBattleDemo(){
     opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap,friendPet,t.friendChildState);
     oppArtSrc=petDisplayImgSrc(friendPet);
     var _myLv=petLevelInfo(childPet).level, _oppLv=petLevelInfo(friendPet).level, _lvGap=_oppLv-_myLv;
-    applyBattleLevelGap(opp,_lvGap);
-    _battleLevelGapInfo={myLevel:_myLv,oppLevel:_oppLv,gap:_lvGap};
+    var _iAmPkTestAcct=isPkTestAccount(SUPA_ROW_ID, store.currentChildId);
+    var _oppIsPkTestAcct=isPkTestAccount(t.rowId, t.cid);
+    if(_iAmPkTestAcct && !_oppIsPkTestAcct){ pkTestAccountHandicap(opp, player, false); }
+    else if(_oppIsPkTestAcct && !_iAmPkTestAcct){ pkTestAccountHandicap(opp, player, true); }
+    else{ applyBattleLevelGap(opp,_lvGap); }
+    _battleLevelGapInfo={myLevel:_myLv,oppLevel:_oppLv,gap:_lvGap}; // 展示用的差距提示语还是走真实等级差，不受宝宝这套战力改算影响，避免被对方看出破绽
   }else{
     _battleLevelGapInfo=null;
     var oppKeys=Object.keys(PET_LIBRARY).filter(function(k){ return k!==childPet.type; });
@@ -5836,17 +5895,21 @@ function applyAuctionSoldMessage(m){
 function applyAuctionWonMessage(m){
   if(!state) return;
   var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
-  var itemName=(typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备';
+  var isCard=(m.kind==='card');
+  var itemName=isCard?auctionCardInfo(m.cardType).label:((typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备');
   if(amt>0) state.moneyBalance=(state.moneyBalance||0)-amt; // 拍下时如果不是走"一口价"当场扣过，这里才是真正扣费的地方
-  ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()});
+  if(isCard){ grantCardToBackpack(m.cardType); }
+  else{ ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()}); }
   addLog('🏛️ 拍卖行：你拍下的【'+itemName+'】到货啦，花了 '+amt+' 金币');
   save();
   ttsToast('🎉 你拍下的【'+itemName+'】到货啦！', 4500);
 }
 function applyAuctionReturnedMessage(m){
   if(!state) return;
-  var itemName=(typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备';
-  ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()});
+  var isCard=(m.kind==='card');
+  var itemName=isCard?auctionCardInfo(m.cardType).label:((typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备');
+  if(isCard){ grantCardToBackpack(m.cardType); }
+  else{ ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()}); }
   addLog('🏛️ 拍卖行：你上架的【'+itemName+'】没有卖出，已经退回背包');
   save();
   ttsToast('🏛️ 【'+itemName+'】流拍了，已经退回你的背包', 4000);
@@ -6018,13 +6081,13 @@ function showPkInboxModal(){
             +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
         }
         if(m.type==='auction_won'){
-          var wonName=(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
+          var wonName=(m.kind==='card')?auctionCardInfo(m.cardType).label:(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
           return '<div class="small" style="background:#e8f5e9;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
             +'<div>🎉 你拍下的【'+wonName+'】到货啦，花了'+(m.price||0)+'金币'
             +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
         }
         if(m.type==='auction_returned'){
-          var retName=(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
+          var retName=(m.kind==='card')?auctionCardInfo(m.cardType).label:(EQUIP_ITEMS[m.defId]?EQUIP_ITEMS[m.defId].name:'装备');
           return '<div class="small" style="background:#f3e5f5;border-radius:10px;padding:8px;margin-bottom:6px;text-align:left">'
             +'<div>🏛️ 你上架的【'+retName+'】流拍了，已经退回背包'
             +'<div style="color:#999;font-size:11px;margin-top:2px">'+when+'</div></div></div>';
@@ -11818,11 +11881,49 @@ function unequipSlot(slotKey){
    （比如PK消息、家庭码审核）是一致的。为了避免两个人同时点开、同时抢着结算同一单，
    结算前先把这一单标成"结算中"占位，超过 AUCTION_SETTLING_STALE_MS 还没结算完（可能是那台设备
    结算到一半掉线了）才允许被别的设备重新接手，避免真的卡死。 */
+/* 2026-09新增：拍卖行除了装备，现在也能挂"卡片类"道具——免做卡/休息卡/7折卡/8折卡。
+   这几张卡目前唯一的产出入口仍然只有幸运转盘（商店买不到），拍卖行只是让抽到暂时用不上的卡也能
+   换成金币、或者转给正好需要的小朋友，交易的只是"已经产出的库存"，不会绕开"必须先转盘抽到"这一步，
+   所以不会影响转盘作为唯一产出源的稀缺性设计。
+   折扣卡/休息卡原本都是"从获得那天开始算"的短效期道具（折扣卡次日生效当天过期，休息卡12天内有效），
+   如果拍卖在途的这段时间也照样计时，卡在拍卖行里放几个小时就可能直接报废，交易就没意义了——所以
+   这几种卡挂拍/流拍退回/成交到账的每一步，都不搬运原来的日期戳，而是在真正"到手"的那一刻按当天
+   重新盖戳（见 grantCardToBackpack），保证不管拍卖过程花了多久，拿到的人手里始终是满额有效期。 */
+var AUCTION_CARD_INFO={
+  free:{label:'免做卡', emoji:'🎫'},
+  rest:{label:'库洛米休息卡', emoji:'🎁'},
+  d7:{label:'7折折扣卡', emoji:'🔖'},
+  d8:{label:'8折折扣卡', emoji:'🔖'}
+};
+function auctionCardInfo(cardType){ return AUCTION_CARD_INFO[cardType]||{label:cardType,emoji:'🎴'}; }
+function cardBackpackCount(cardType){
+  if(cardType==='free') return state.backpack.freeCard||0;
+  if(cardType==='rest') return (state.backpack.restCards||[]).length;
+  if(cardType==='d7') return (state.backpack.d7||[]).length;
+  if(cardType==='d8') return (state.backpack.d8||[]).length;
+  return 0;
+}
+// 从背包里真的拿走1张（挂拍成功之后才调用，避免网络失败却"凭空消失"，跟装备挂拍的处理方式一致）
+function takeCardFromBackpack(cardType){
+  if(cardType==='free'){ if((state.backpack.freeCard||0)<=0) return false; state.backpack.freeCard--; return true; }
+  if(cardType==='rest'){ if(!state.backpack.restCards||!state.backpack.restCards.length) return false; state.backpack.restCards.shift(); return true; }
+  if(cardType==='d7'){ if(!state.backpack.d7||!state.backpack.d7.length) return false; state.backpack.d7.pop(); return true; }
+  if(cardType==='d8'){ if(!state.backpack.d8||!state.backpack.d8.length) return false; state.backpack.d8.pop(); return true; }
+  return false;
+}
+// 把1张卡发回/发到背包（流拍退回、拍下到账都走这里）——统一按"今天"重新盖时间戳，理由见上面大段注释
+function grantCardToBackpack(cardType){
+  if(cardType==='free'){ state.backpack.freeCard=(state.backpack.freeCard||0)+1; return; }
+  if(cardType==='rest'){ if(!state.backpack.restCards) state.backpack.restCards=[]; state.backpack.restCards.push({obtained:todayKey()}); return; }
+  if(cardType==='d7'){ if(!state.backpack.d7) state.backpack.d7=[]; state.backpack.d7.push(todayKey()); return; }
+  if(cardType==='d8'){ if(!state.backpack.d8) state.backpack.d8=[]; state.backpack.d8.push(todayKey()); return; }
+}
 var AUCTION_PREFIX='auction:';
 var AUCTION_DURATION_MS=24*3600000; // 最长挂24小时
 var AUCTION_SETTLING_STALE_MS=2*60000;
 var _auctionCache=[];
 var _auctionListingInstanceId=null;
+var _auctionListingCardType=null;
 function auctionListingId(){ return AUCTION_PREFIX+'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function renderAuctionEntryBtn(){
   var btn=document.getElementById('auctionEntryBtn');
@@ -11835,6 +11936,7 @@ function openAuctionListModal(instanceId){
   var inst=bag.filter(function(x){return x.instanceId===instanceId;})[0];
   var item=inst&&EQUIP_ITEMS[inst.defId];
   if(!item){ ttsToast('这件装备好像不在背包里了', 3000); return; }
+  _auctionListingCardType=null;
   _auctionListingInstanceId=instanceId;
   var lbl=document.getElementById('auctionListItemLabel');
   var q=EQUIP_QUALITY_INFO[item.quality];
@@ -11844,7 +11946,20 @@ function openAuctionListModal(instanceId){
   hideModal('equipPanelModal');
   showModal('auctionListModal');
 }
+// 2026-09新增：把背包里的免做卡/休息卡/7折卡/8折卡挂到拍卖行，跟装备共用同一个"起拍价+一口价"弹窗
+function openAuctionListCardModal(cardType){
+  var info=auctionCardInfo(cardType);
+  if(cardBackpackCount(cardType)<=0){ ttsToast('背包里没有'+info.label+'可以拍卖', 3000); return; }
+  _auctionListingInstanceId=null;
+  _auctionListingCardType=cardType;
+  var lbl=document.getElementById('auctionListItemLabel');
+  if(lbl) lbl.innerHTML=info.emoji+' <b>'+info.label+'</b>　x1（拍下/流拍退回时会重新计满有效期，不用担心过期）';
+  var s=document.getElementById('auctionStartPriceInput'); if(s) s.value='';
+  var b=document.getElementById('auctionBuyNowInput'); if(b) b.value='';
+  showModal('auctionListModal');
+}
 function confirmListAuction(){
+  if(_auctionListingCardType){ return confirmListAuctionCard(); }
   var instanceId=_auctionListingInstanceId;
   if(!instanceId||!currentChild()) return;
   var bag=ensureEquipmentBag(state);
@@ -11870,7 +11985,7 @@ function confirmListAuction(){
   var listingId=auctionListingId();
   var now=Date.now();
   var data={
-    listingId:listingId,
+    listingId:listingId, kind:'equip',
     sellerRowId:SUPA_ROW_ID, sellerChildId:store.currentChildId, sellerName:(currentChild()&&currentChild().name)||'一位朋友',
     defId:inst.defId, instanceId:inst.instanceId,
     startPrice:startPrice, buyNowPrice:buyNowPrice||0,
@@ -11878,9 +11993,44 @@ function confirmListAuction(){
     createdAt:now, expiresAt:now+AUCTION_DURATION_MS,
     status:'active'
   };
-  supaUpsertRow(listingId,data).then(function(){
+  return supaUpsertRow(listingId,data).then(function(){
     // 云端挂拍成功了才把装备从本地背包移走，避免网络失败却已经"凭空消失"
     bag.splice(idx,1);
+    save();
+    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    hideModal('auctionListModal');
+    ttsToast('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包', 4500);
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    ttsToast('❌ 没连上云端，挂拍没成功，检查网络再试一次', 5000);
+  });
+}
+// 2026-09新增：卡片类拍卖走独立的确认逻辑（没有instanceId/穿戴校验这些装备特有的步骤）
+function confirmListAuctionCard(){
+  var cardType=_auctionListingCardType;
+  if(!cardType||!currentChild()) return;
+  var info=auctionCardInfo(cardType);
+  if(cardBackpackCount(cardType)<=0){ ttsToast('背包里没有'+info.label+'可以拍卖', 3000); hideModal('auctionListModal'); return; }
+  var startPrice=parseInt(document.getElementById('auctionStartPriceInput').value,10);
+  var buyNowRaw=document.getElementById('auctionBuyNowInput').value;
+  var buyNowPrice=buyNowRaw?parseInt(buyNowRaw,10):0;
+  if(!startPrice||startPrice<=0){ ttsToast('请输入起拍价（至少1金币）', 4000); return; }
+  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast('一口价要比起拍价高才有意义', 4000); return; }
+  var btn=document.getElementById('auctionListConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='挂拍中…'; }
+  var listingId=auctionListingId();
+  var now=Date.now();
+  var data={
+    listingId:listingId, kind:'card', cardType:cardType,
+    sellerRowId:SUPA_ROW_ID, sellerChildId:store.currentChildId, sellerName:(currentChild()&&currentChild().name)||'一位朋友',
+    startPrice:startPrice, buyNowPrice:buyNowPrice||0,
+    currentBid:0, currentBidderRowId:null, currentBidderChildId:null, currentBidderName:null,
+    createdAt:now, expiresAt:now+AUCTION_DURATION_MS,
+    status:'active'
+  };
+  return supaUpsertRow(listingId,data).then(function(){
+    // 云端挂拍成功了才把卡从本地背包扣掉，避免网络失败却已经"凭空消失"，跟装备挂拍的处理方式一致
+    takeCardFromBackpack(cardType);
     save();
     if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
     hideModal('auctionListModal');
@@ -11956,10 +12106,10 @@ function settleAuctionListing(listingId){
   });
 }
 function settleAuctionUnsold(listingId,d){
-  // 没人出价（或者中标人后来余额不够），流拍：装备只用"消息"安全退回卖家自己的背包，
+  // 没人出价（或者中标人后来余额不够），流拍：东西只用"消息"安全退回卖家自己的背包，
   // 不再直接改卖家整份存档（原因见上面2026-09fix的说明）
   return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
-    type:'auction_returned', defId:d.defId, instanceId:d.instanceId, time:Date.now(), read:false, applied:false
+    type:'auction_returned', kind:d.kind||'equip', defId:d.defId, instanceId:d.instanceId, cardType:d.cardType, time:Date.now(), read:false, applied:false
   }).then(function(){
     d.status='expired';
     return supaUpsertRow(listingId,d);
@@ -11970,16 +12120,17 @@ function settleAuctionToBidder(listingId,d){
     var ok=row&&row.data&&row.data.accounts&&row.data.accounts[d.currentBidderChildId];
     var bidderState=ok?row.data.accounts[d.currentBidderChildId].state:null;
     if(!ok || (bidderState.moneyBalance||0)<d.currentBid){
-      // 中标的那位后来把钱花掉了/账号读不到了，这笔交易作废，装备退回卖家
+      // 中标的那位后来把钱花掉了/账号读不到了，这笔交易作废，东西退回卖家
       return settleAuctionUnsold(listingId,d);
     }
     // 这里只读不写：只是确认对方现在还付得起。真正的扣钱/发货都改成分别写一条消息给中标人和
     // 卖家，让TA们各自在自己设备上安全处理，不再直接改对方整份存档
+    var itemName=(d.kind==='card')?auctionCardInfo(d.cardType).label:(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备');
     return pushPkMessageToFriend(d.currentBidderRowId,d.currentBidderChildId,{
-      type:'auction_won', defId:d.defId, instanceId:d.instanceId, price:d.currentBid, time:Date.now(), read:false, applied:false
+      type:'auction_won', kind:d.kind||'equip', defId:d.defId, instanceId:d.instanceId, cardType:d.cardType, price:d.currentBid, time:Date.now(), read:false, applied:false
     }).then(function(){
       return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
-        type:'auction_sold', itemName:(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'), price:d.currentBid, time:Date.now(), read:false, applied:false
+        type:'auction_sold', itemName:itemName, price:d.currentBid, time:Date.now(), read:false, applied:false
       });
     }).then(function(){
       d.status='sold';
@@ -11994,19 +12145,26 @@ function auctionTimeLeftText(expiresAt){
   return h>0?('剩'+h+'小时'+m+'分'):('剩'+m+'分钟');
 }
 function auctionItemHtml(d,isMine){
-  var item=EQUIP_ITEMS[d.defId];
-  if(!item) return '';
-  var q=EQUIP_QUALITY_INFO[item.quality];
+  var isCard=(d.kind==='card');
+  var item=isCard?null:EQUIP_ITEMS[d.defId];
+  if(!isCard && !item) return '';
+  var cardInfo=isCard?auctionCardInfo(d.cardType):null;
+  var q=isCard?null:EQUIP_QUALITY_INFO[item.quality];
   var timeLeft=auctionTimeLeftText(d.expiresAt);
   var soon=(d.expiresAt-Date.now())<3600000;
   var bidLine=d.currentBid>0
     ?('当前最高出价：<b>'+d.currentBid+'</b> 金币（'+(d.currentBidderName||'某位小朋友')+'）')
     :('起拍价：<b>'+d.startPrice+'</b> 金币，还没人出价');
+  var iconStyle=isCard?'background:#f3e5f5':('background:'+q.bg);
+  var titleColor=isCard?'#8e24aa':q.color;
+  var titleText=isCard?cardInfo.label:item.name;
+  var subLine=isCard?'拍下/流拍退回时会重新计满有效期，不用担心过期':('攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq);
+  var emoji=isCard?cardInfo.emoji:item.emoji;
   var html='<div class="auc-item"><div class="auc-top">'
-    +'<div class="auc-icon" style="background:'+q.bg+'">'+item.emoji+'</div>'
+    +'<div class="auc-icon" style="'+iconStyle+'">'+emoji+'</div>'
     +'<div class="auc-info">'
-      +'<div style="color:'+q.color+';font-weight:700">'+item.name+'　<span class="small" style="color:#999">（卖家：'+(d.sellerName||'？')+'）</span></div>'
-      +'<div class="small" style="color:#999">攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq+'</div>'
+      +'<div style="color:'+titleColor+';font-weight:700">'+titleText+'　<span class="small" style="color:#999">（卖家：'+(d.sellerName||'？')+'）</span></div>'
+      +'<div class="small" style="color:#999">'+subLine+'</div>'
       +'<div class="small">'+bidLine+(d.buyNowPrice>0?('　｜　一口价：<b>'+d.buyNowPrice+'</b>'):'')+'</div>'
       +'<div class="auc-timer'+(soon?' soon':'')+'">⏳ '+timeLeft+'</div>'
     +'</div></div>';
@@ -12045,10 +12203,11 @@ function cancelAuctionListing(listingId){
   if(d.sellerRowId!==SUPA_ROW_ID || d.sellerChildId!==store.currentChildId) return;
   if(d.currentBid>0){ ttsToast('已经有人出价了，没法撤销啦', 3500); return; }
   d.status='canceled';
-  supaUpsertRow(listingId,d).then(function(){
-    ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
+  return supaUpsertRow(listingId,d).then(function(){
+    if(d.kind==='card'){ grantCardToBackpack(d.cardType); }
+    else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); }
     save();
-    ttsToast('已经撤销，装备退回背包啦', 3000);
+    ttsToast('已经撤销，'+(d.kind==='card'?auctionCardInfo(d.cardType).label:'装备')+'退回背包啦', 3000);
     loadAuctionListings();
   }).catch(function(){
     ttsToast('❌ 没连上云端，撤销没成功，检查网络再试一次', 4000);
@@ -12061,12 +12220,12 @@ function placeBid(listingId){
   if(!amt||amt<=0){ ttsToast('请输入出价金额', 3500); return; }
   if(!state||typeof state.moneyBalance!=='number'||state.moneyBalance<amt){ ttsToast('金币不够哦，先攒多一点再来出价吧', 4000); return; }
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
-  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
   }).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
-    if(!d||d.status!=='active'){ ttsToast('这件装备好像已经被别人买走或者下架了', 4000); loadAuctionListings(); return; }
+    if(!d||d.status!=='active'){ ttsToast('这件东西好像已经被别人买走或者下架了', 4000); loadAuctionListings(); return; }
     if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
     if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能给自己上架的东西出价哦', 3500); return; }
     var minNeeded=d.currentBid>0?(d.currentBid+1):d.startPrice;
@@ -12086,12 +12245,12 @@ function placeBid(listingId){
 function buyNowAuction(listingId){
   if(!currentChild()) return;
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
-  supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
   }).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
-    if(!d||d.status!=='active'||!(d.buyNowPrice>0)){ ttsToast('这件装备没法一口价买了（可能已经被买走）', 4000); loadAuctionListings(); return; }
+    if(!d||d.status!=='active'||!(d.buyNowPrice>0)){ ttsToast('这件东西没法一口价买了（可能已经被买走）', 4000); loadAuctionListings(); return; }
     if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
     if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能买自己上架的东西哦', 3500); return; }
     if((state.moneyBalance||0)<d.buyNowPrice){ ttsToast('金币不够哦，先攒多一点再来买吧', 4000); return; }
@@ -12102,18 +12261,20 @@ function buyNowAuction(listingId){
     return supaUpsertRow(listingId,d).then(function(){
       // 买家是当前设备自己，直接改自己本地存档+save()是安全的，不涉及跨设备覆盖问题
       state.moneyBalance-=d.buyNowPrice;
-      ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()});
-      addLog('🏛️ 拍卖行一口价买下装备【'+(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'')+'】，花了'+d.buyNowPrice+'金币');
+      var itemLabel;
+      if(d.kind==='card'){ grantCardToBackpack(d.cardType); itemLabel=auctionCardInfo(d.cardType).label; }
+      else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); itemLabel=EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'; }
+      addLog('🏛️ 拍卖行一口价买下【'+itemLabel+'】，花了'+d.buyNowPrice+'金币');
       save();
       // 卖家是另一台设备，改成写一条消息给卖家自己的消息中心去安全入账，不再直接改卖家整份存档
       return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
-        type:'auction_sold', itemName:(EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'), price:d.buyNowPrice, time:Date.now(), read:false, applied:false
+        type:'auction_sold', itemName:itemLabel, price:d.buyNowPrice, time:Date.now(), read:false, applied:false
       });
     }).then(function(){
       d.status='sold';
       return supaUpsertRow(listingId,d);
     }).then(function(){
-      ttsToast('🎉 买到啦！装备已经放进你的背包了', 4000);
+      ttsToast('🎉 买到啦！已经放进你的背包了', 4000);
       loadAuctionListings();
     });
   }).catch(function(){
@@ -12925,6 +13086,15 @@ const WHEEL_ITEMS=[
   {id:'d8',label:'8折卡',emoji:'🔖',color:'#ffa726',weight:12},
   {id:'c15',label:'15金币',emoji:'💰',color:'#66bb6a',weight:25},
   {id:'c25',label:'25金币',emoji:'💰',color:'#42a5f5',weight:20},
+  // 2026-09新增：转盘也能抽到装备合成/升星用的材料（精铁/云锦/星辉晶）和仙宅小屋建材（灵木/灵石/龙鳞瓦），
+  // 权重和单次数量都按材料在副本里的稀有档位来——越是副本后期才刷得到的材料（比如龙鳞瓦只有终极boss关才掉），
+  // 转盘上权重越低、一次给的也越少，避免转盘变成比正经打副本还划算的刷材料捷径，材料失去稀缺性
+  {id:'mat_wood',   label:'灵木',   emoji:'🪵', color:'#8d6e63', weight:16, mat:'wood',    qty:3},
+  {id:'mat_stone',  label:'灵石',   emoji:'🪨', color:'#78909c', weight:13, mat:'stone',   qty:2},
+  {id:'mat_iron',   label:'精铁',   emoji:'⚙️', color:'#90a4ae', weight:10, mat:'iron',    qty:2},
+  {id:'mat_silk',   label:'云锦',   emoji:'🧵', color:'#f06292', weight:7,  mat:'silk',    qty:1},
+  {id:'mat_crystal',label:'星辉晶', emoji:'💎', color:'#5c6bc0', weight:4,  mat:'crystal', qty:1},
+  {id:'mat_tile',   label:'龙鳞瓦', emoji:'🐉', color:'#7e57c2', weight:2,  mat:'tile',    qty:1},
   {id:'none',label:'谢谢参与',emoji:'⭐',color:'#bdbdbd',weight:25}
 ];
 function wheelSegments(){
@@ -12996,6 +13166,12 @@ function applyReward(seg){
   else if(id==='d8'){state.backpack.d8.push(todayKey());msg='🔖恭喜抽中【8折折扣卡】！次日生效，次日不用即过期';}
   else if(id==='c15'){state.moneyBalance+=15;msg='💰恭喜抽中15金币！已存入宠物金币钱包';}
   else if(id==='c25'){state.moneyBalance+=25;msg='💰恭喜抽中25金币！已存入宠物金币钱包';}
+  else if(seg.mat){
+    if(!state.backpack.materials) state.backpack.materials={};
+    var matQty=seg.qty||1;
+    state.backpack.materials[seg.mat]=(state.backpack.materials[seg.mat]||0)+matQty;
+    msg=seg.emoji+'恭喜抽中【'+materialLabel(seg.mat)+'】×'+matQty+'！已经存进副本建材背包';
+  }
   else{msg='⭐谢谢参与，下次好运！';}
   state.day.wheelUsed++;
   addLog('🎡幸运转盘：'+msg);
@@ -13880,20 +14056,31 @@ function renderBackpack(){
       if(left<restDaysLeft) restDaysLeft=left;
     });
   }
+  // 2026-09新增：每种卡下面加一个"拍卖"按钮，能挂到拍卖行换金币/换给别的小朋友——只是转让已经抽到的
+  // 库存，不影响这几种卡"只有转盘能抽到"这条唯一产出渠道
+  var d7bag=state.backpack.d7||[], d8bag=state.backpack.d8||[];
   var html='';
   html+='<div class="bag-card"><div class="b-emoji">🎫</div><div class="b-count">'+state.backpack.freeCard+'</div>'
     +'<div class="b-note">免做卡</div>'
     +'<button class="btn '+(selectedFree?'btn-selected ':'')+(freeUsable?'btn-warning':'btn-gray')+'" '+(freeUsable?'':'disabled')+' onclick="toggleFreeSelect()">'
-    +(state.day.freeCardUsed?'今日已用':(selectedFree?'取消选择':'选择使用'))+'</button></div>';
+    +(state.day.freeCardUsed?'今日已用':(selectedFree?'取消选择':'选择使用'))+'</button>'
+    +(state.backpack.freeCard>0?'<button class="btn btn-gray btn-sm" style="margin-top:4px" onclick="openAuctionListCardModal(\'free\')">🏷️拍卖</button>':'')
+    +'</div>';
   html+='<div class="bag-card"><div class="b-emoji">🔖</div><div class="b-count">'+d7n+(d7s>0?' (+'+d7s+' 明日)':'')+'</div>'
     +'<div class="b-note">7折折扣卡</div>'
-    +'<button class="btn '+(d7n>0&&!state.day.discountActive?'btn-warning':'btn-gray')+'" '+(d7n>0&&!state.day.discountActive?'':'disabled')+' onclick="useDiscount(\'7\')">'+(state.day.discountActive?'今日已用':(d7n>0?'今日使用':'未到生效日'))+'</button></div>';
+    +'<button class="btn '+(d7n>0&&!state.day.discountActive?'btn-warning':'btn-gray')+'" '+(d7n>0&&!state.day.discountActive?'':'disabled')+' onclick="useDiscount(\'7\')">'+(state.day.discountActive?'今日已用':(d7n>0?'今日使用':'未到生效日'))+'</button>'
+    +(d7bag.length>0?'<button class="btn btn-gray btn-sm" style="margin-top:4px" onclick="openAuctionListCardModal(\'d7\')">🏷️拍卖</button>':'')
+    +'</div>';
   html+='<div class="bag-card"><div class="b-emoji">🔖</div><div class="b-count">'+d8n+(d8s>0?' (+'+d8s+' 明日)':'')+'</div>'
     +'<div class="b-note">8折折扣卡</div>'
-    +'<button class="btn '+(d8n>0&&!state.day.discountActive?'btn-warning':'btn-gray')+'" '+(d8n>0&&!state.day.discountActive?'':'disabled')+' onclick="useDiscount(\'8\')">'+(state.day.discountActive?'今日已用':(d8n>0?'今日使用':'未到生效日'))+'</button></div>';
+    +'<button class="btn '+(d8n>0&&!state.day.discountActive?'btn-warning':'btn-gray')+'" '+(d8n>0&&!state.day.discountActive?'':'disabled')+' onclick="useDiscount(\'8\')">'+(state.day.discountActive?'今日已用':(d8n>0?'今日使用':'未到生效日'))+'</button>'
+    +(d8bag.length>0?'<button class="btn btn-gray btn-sm" style="margin-top:4px" onclick="openAuctionListCardModal(\'d8\')">🏷️拍卖</button>':'')
+    +'</div>';
   html+='<div class="bag-card"><div class="b-emoji">🎁</div><div class="b-count">'+restN+'</div>'
     +'<div class="b-note">库洛米休息卡'+(restDaysLeft!==null?'（最早'+restDaysLeft+'天后过期）':'')+'</div>'
-    +'<button class="btn '+(restN>0?'btn-success':'btn-gray')+'" '+(restN>0?'':'disabled')+' onclick="useRestCard()">使用一张</button></div>';
+    +'<button class="btn '+(restN>0?'btn-success':'btn-gray')+'" '+(restN>0?'':'disabled')+' onclick="useRestCard()">使用一张</button>'
+    +(restN>0?'<button class="btn btn-gray btn-sm" style="margin-top:4px" onclick="openAuctionListCardModal(\'rest\')">🏷️拍卖</button>':'')
+    +'</div>';
   box.innerHTML=html;
   document.getElementById('freeSelectHint').style.display=selectedFree?'block':'none';
   renderMaterialsBox('materialGrid');
