@@ -5250,27 +5250,27 @@ function adminSaveFamilyData(){
    使出（点"出手"就好，不用一个个选），必杀技攒够能量后什么时候放由小朋友自己决定。
    技能数据结构先把"7维度×(3通用+1必杀)"这个完整表都列出来（方便以后直接拿去接真实解锁判定）。 */
 var BATTLE_SKILL_LIB={
-  sport_n1:{name:'疾风踢',dim:'sport',kind:'normal',power:16,desc:'普通攻击'},
-  sport_n2:{name:'瞬身冲撞',dim:'sport',kind:'normal',power:12,firstStrike:true,desc:'较弱攻击，但本回合优先出手'},
-  sport_n3:{name:'连续快打',dim:'sport',kind:'normal',power:9,hits:2,desc:'连续打两下，各造成一次伤害'},
-  sport_ult:{name:'腾云蹴',dim:'sport',kind:'ultimate',power:34,stunChance:0.3,desc:'高伤害必杀，有几率击退打断对手'},
-  study_n1:{name:'慧光打击',dim:'study',kind:'normal',power:15,desc:'普通攻击'},
-  study_n2:{name:'凝神破防',dim:'study',kind:'normal',power:6,debuffTakeMore:0.2,debuffTurns:1,desc:'小伤害，让对方下回合受到的伤害增加20%'},
-  study_n3:{name:'智识屏障',dim:'study',kind:'normal',power:0,shield:0.25,shieldTurns:1,desc:'本回合减免25%伤害'},
-  study_ult:{name:'开智灵符',dim:'study',kind:'ultimate',power:14,sealChance:0.6,desc:'中等伤害，较高概率封印对手下一回合技能'},
-  house_n1:{name:'暖心修复',dim:'house',kind:'normal',power:0,heal:18,desc:'为自己回复生命'},
-  house_n2:{name:'轻甲护体',dim:'house',kind:'normal',power:0,shield:0.3,shieldTurns:1,desc:'本回合减免30%伤害'},
-  house_n3:{name:'洁净减伤',dim:'house',kind:'normal',power:8,heal:6,desc:'小伤害，同时回复自己一点生命'},
-  house_ult:{name:'织暖神盾',dim:'house',kind:'ultimate',power:0,shield:0.5,shieldTurns:2,heal:10,desc:'生成护盾，2回合内减免50%伤害，并小额回血'},
-  courage_n1:{name:'定心固守',dim:'courage',kind:'normal',power:0,shield:0.35,shieldTurns:1,desc:'本回合减免35%伤害'},
-  courage_n2:{name:'反制格挡',dim:'courage',kind:'normal',power:10,shield:0.2,shieldTurns:1,desc:'小伤害，同时减免20%下回合伤害'},
-  courage_ult:{name:'守心印',dim:'courage',kind:'ultimate',power:12,reflect:0.3,desc:'中等伤害，并反弹对方30%的下一次攻击伤害'},
-  music_n1:{name:'仙音增攻',dim:'music',kind:'normal',power:13,buffAtk:0.15,buffTurns:2,desc:'小伤害，给自己接下来2回合增伤15%'},
-  music_ult:{name:'鸣仙韵',dim:'music',kind:'ultimate',power:20,buffAtk:0.3,buffTurns:2,desc:'中高伤害，并大幅增加自身接下来的攻击力'},
-  empathy_n1:{name:'结伴连击',dim:'empathy',kind:'normal',power:9,hits:2,desc:'连续打两下'},
-  empathy_ult:{name:'聚友狂击',dim:'empathy',kind:'ultimate',power:16,hits:2,stunChance:0.25,desc:'二连击，命中后有概率眩晕对方1回合'},
-  creativity_n1:{name:'清醒蓄力',dim:'creativity',kind:'normal',power:0,cleanse:true,heal:8,desc:'清除自身负面状态，并回复一点生命'},
-  creativity_ult:{name:'醒神诀',dim:'creativity',kind:'ultimate',power:0,cleanse:true,firstStrike:true,desc:'清除自身所有负面状态，本回合绝对优先出手'}
+  sport_n1:{name:'疾风踢',nameEn:'Gale Kick',dim:'sport',kind:'normal',power:16,desc:'普通攻击',descEn:'A basic attack'},
+  sport_n2:{name:'瞬身冲撞',nameEn:'Flash Charge',dim:'sport',kind:'normal',power:12,firstStrike:true,desc:'较弱攻击，但本回合优先出手',descEn:'A weaker attack, but goes first this turn'},
+  sport_n3:{name:'连续快打',nameEn:'Rapid Strikes',dim:'sport',kind:'normal',power:9,hits:2,desc:'连续打两下，各造成一次伤害',descEn:'Strikes twice in a row, each hit dealing damage'},
+  sport_ult:{name:'腾云蹴',nameEn:'Cloudleap Kick',dim:'sport',kind:'ultimate',power:34,stunChance:0.3,desc:'高伤害必杀，有几率击退打断对手',descEn:'A high-damage ultimate with a chance to stun the opponent'},
+  study_n1:{name:'慧光打击',nameEn:'Wisdom Strike',dim:'study',kind:'normal',power:15,desc:'普通攻击',descEn:'A basic attack'},
+  study_n2:{name:'凝神破防',nameEn:'Focus Break',dim:'study',kind:'normal',power:6,debuffTakeMore:0.2,debuffTurns:1,desc:'小伤害，让对方下回合受到的伤害增加20%',descEn:"Minor damage, increases the opponent's damage taken next turn by 20%"},
+  study_n3:{name:'智识屏障',nameEn:'Insight Barrier',dim:'study',kind:'normal',power:0,shield:0.25,shieldTurns:1,desc:'本回合减免25%伤害',descEn:'Reduces damage taken this turn by 25%'},
+  study_ult:{name:'开智灵符',nameEn:'Enlightening Talisman',dim:'study',kind:'ultimate',power:14,sealChance:0.6,desc:'中等伤害，较高概率封印对手下一回合技能',descEn:"Moderate damage, high chance to seal the opponent's skill next turn"},
+  house_n1:{name:'暖心修复',nameEn:'Warmhearted Mend',dim:'house',kind:'normal',power:0,heal:18,desc:'为自己回复生命',descEn:'Restores your own HP'},
+  house_n2:{name:'轻甲护体',nameEn:'Light Armor Guard',dim:'house',kind:'normal',power:0,shield:0.3,shieldTurns:1,desc:'本回合减免30%伤害',descEn:'Reduces damage taken this turn by 30%'},
+  house_n3:{name:'洁净减伤',nameEn:'Purifying Cleanse',dim:'house',kind:'normal',power:8,heal:6,desc:'小伤害，同时回复自己一点生命',descEn:'Minor damage, also restores a bit of your own HP'},
+  house_ult:{name:'织暖神盾',nameEn:'Warmweave Aegis',dim:'house',kind:'ultimate',power:0,shield:0.5,shieldTurns:2,heal:10,desc:'生成护盾，2回合内减免50%伤害，并小额回血',descEn:'Creates a shield reducing damage by 50% for 2 turns, and restores a bit of HP'},
+  courage_n1:{name:'定心固守',nameEn:'Steadfast Guard',dim:'courage',kind:'normal',power:0,shield:0.35,shieldTurns:1,desc:'本回合减免35%伤害',descEn:'Reduces damage taken this turn by 35%'},
+  courage_n2:{name:'反制格挡',nameEn:'Counter Block',dim:'courage',kind:'normal',power:10,shield:0.2,shieldTurns:1,desc:'小伤害，同时减免20%下回合伤害',descEn:"Minor damage, also reduces next turn's damage taken by 20%"},
+  courage_ult:{name:'守心印',nameEn:'Heartward Seal',dim:'courage',kind:'ultimate',power:12,reflect:0.3,desc:'中等伤害，并反弹对方30%的下一次攻击伤害',descEn:"Moderate damage, reflects 30% of the opponent's next attack damage"},
+  music_n1:{name:'仙音增攻',nameEn:'Fae Melody Boost',dim:'music',kind:'normal',power:13,buffAtk:0.15,buffTurns:2,desc:'小伤害，给自己接下来2回合增伤15%',descEn:'Minor damage, boosts your own damage by 15% for the next 2 turns'},
+  music_ult:{name:'鸣仙韵',nameEn:'Resounding Fae Song',dim:'music',kind:'ultimate',power:20,buffAtk:0.3,buffTurns:2,desc:'中高伤害，并大幅增加自身接下来的攻击力',descEn:'Fairly high damage, and greatly boosts your own attack for a while'},
+  empathy_n1:{name:'结伴连击',nameEn:'Bonded Combo',dim:'empathy',kind:'normal',power:9,hits:2,desc:'连续打两下',descEn:'Strikes twice in a row'},
+  empathy_ult:{name:'聚友狂击',nameEn:'Friendship Barrage',dim:'empathy',kind:'ultimate',power:16,hits:2,stunChance:0.25,desc:'二连击，命中后有概率眩晕对方1回合',descEn:'A double strike, with a chance to stun the opponent for 1 turn on hit'},
+  creativity_n1:{name:'清醒蓄力',dim:'creativity',nameEn:'Clear Mind Charge',kind:'normal',power:0,cleanse:true,heal:8,desc:'清除自身负面状态，并回复一点生命',descEn:'Clears your own negative status effects and restores a bit of HP'},
+  creativity_ult:{name:'醒神诀',nameEn:'Awakening Mantra',dim:'creativity',kind:'ultimate',power:0,cleanse:true,firstStrike:true,desc:'清除自身所有负面状态，本回合绝对优先出手',descEn:'Clears all your negative status effects and always goes first this turn'}
 };
 /* 2026-09fix：技能的"维度"直接对齐app里已经在用的那套七维能力（RADAR_AXES：运动/学习/家务/
    创造力/共情爱心/音律/勇气探险），没有另外发明一套新的七维命名——这样技能解锁能直接读打卡攒出来的
@@ -5281,7 +5281,7 @@ var BATTLE_SKILL_LIB={
 function battleSkillKeysByKind(kind){ return Object.keys(BATTLE_SKILL_LIB).filter(function(k){ return BATTLE_SKILL_LIB[k].kind===kind; }); }
 function battleDimLabel(dim){
   var ax=RADAR_AXES.filter(function(a){ return a.key===dim; })[0];
-  return ax?ax.label:dim;
+  return ax?L(ax.label,ax.labelEn||ax.label):dim;
 }
 function liveAbilityPtsMap(){
   var out={};
@@ -5337,11 +5337,11 @@ function battleLevelPowerMult(gap){
   return Math.max(0.15, 0.35-(Math.abs(gap)-10)*0.03);
 }
 function battleLevelGapText(gap){
-  if(gap>10) return '💀 差距悬殊，基本很难赢，能触发必杀技暴击连炸才有机会爆冷';
-  if(gap>5)  return '⚠️ 对方明显更强，胜算较低，攒好能量靠必杀技拼一把';
-  if(gap>=-5) return '⚔️ 差距不大，主要看技能搭配和运气发挥';
-  if(gap>=-10) return '🙂 你比对方强不少，赢面很大';
-  return '😎 你远强于对方，几乎稳赢';
+  if(gap>10) return L('💀 差距悬殊，基本很难赢，能触发必杀技暴击连炸才有机会爆冷','💀 The gap is huge, very hard to win - only a lucky ultimate crit streak gives you a chance');
+  if(gap>5)  return L('⚠️ 对方明显更强，胜算较低，攒好能量靠必杀技拼一把','⚠️ The opponent is clearly stronger, low odds - save up energy and go for it with your ultimate');
+  if(gap>=-5) return L('⚔️ 差距不大，主要看技能搭配和运气发挥','⚔️ Not much of a gap - mostly comes down to skill picks and luck');
+  if(gap>=-10) return L('🙂 你比对方强不少，赢面很大','🙂 You are quite a bit stronger, good odds of winning');
+  return L('😎 你远强于对方，几乎稳赢','😎 You are far stronger, almost a guaranteed win');
 }
 function applyBattleLevelGap(opp,gap){
   var mult=battleLevelPowerMult(gap);
@@ -5387,8 +5387,8 @@ var PK_TEST_ACCOUNT_DODGE_BONUS=0.40; // 攻击宝宝时，宝宝额外+40%闪�
 var PK_TEST_ACCOUNT_CRIT_BONUS=0.30;  // 宝宝出手时，额外+30%暴击概率
 var PK_TEST_ACCOUNT_GAP_CLAMP=2; // 等级差悬殊到会明显伤害宝宝时，喂给battleLevelPowerMult的差距最多收窄到这个数值以内（数值本身贴着公式最平缓的一段，不会露馅）
 function openBattleDemo(){
-  if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched){ ttsToast('宠物还没孵化，没法进入对战', 4000); return; }
-  if(state.pet.injured){ ttsToast('🤕 宠物还在受伤，先去商城买药治好再来对战吧', 4500); return; }
+  if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched){ ttsToast(L('宠物还没孵化，没法进入对战',"Your pet hasn't hatched yet, so it can't battle"), 4000); return; }
+  if(state.pet.injured){ ttsToast(L('🤕 宠物还在受伤，先去商城买药治好再来对战吧','🤕 Your pet is still injured - buy medicine at the shop and heal it before battling'), 4500); return; }
   _battleMode='demo';
   _battlePkTarget=null;
   openBattleLoadoutUI();
@@ -5399,7 +5399,7 @@ function openBattleLoadoutUI(){
   document.getElementById('btLoadoutView').style.display='block';
   var titleEl=document.getElementById('btLoadoutTitle');
   if(titleEl){
-    titleEl.textContent=(_battleMode==='pk'&&_battlePkTarget?('⚔️ 挑战 '+_battlePkTarget.friendName):'🎒 选技能出战');
+    titleEl.textContent=(_battleMode==='pk'&&_battlePkTarget?(L('⚔️ 挑战 ','⚔️ Challenge ')+_battlePkTarget.friendName):L('🎒 选技能出战','🎒 Pick Skills to Battle'));
   }
   var gapHintEl=document.getElementById('btLevelGapHint');
   if(gapHintEl){
@@ -5408,7 +5408,7 @@ function openBattleLoadoutUI(){
       var oppLv=petLevelInfo(_battlePkTarget.friendChildState.pet).level;
       var gap=oppLv-myLv;
       gapHintEl.style.display='block';
-      gapHintEl.textContent='你的宠物 Lv.'+myLv+'　对方 Lv.'+oppLv+'　'+battleLevelGapText(gap);
+      gapHintEl.textContent=L('你的宠物 Lv.','Your pet Lv.')+myLv+L('　对方 Lv.','\u3000Opponent Lv.')+oppLv+'　'+battleLevelGapText(gap);
     }else{
       gapHintEl.style.display='none';
     }
@@ -5426,8 +5426,8 @@ function renderBattleLoadoutPicks(){
     var info=battleSkillUnlockInfo(key,ptsMap);
     var d=document.createElement('div');
     d.className='bt-skill-pick'+(_battleLoadout.normal.indexOf(key)>=0?' sel':'')+(info.unlocked?'':' locked');
-    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+sk.name+(info.enhanced?' <span class="bsp-enh">✨强化</span>':'')+'</div><div class="bsp-desc">'+sk.desc+'</div>'
-      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+'≥60解锁（现在'+Math.round(info.pts)+'）</div>');
+    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+L(sk.name,sk.nameEn||sk.name)+(info.enhanced?' <span class="bsp-enh">✨'+L('强化','Enhanced')+'</span>':'')+'</div><div class="bsp-desc">'+L(sk.desc,sk.descEn||sk.desc)+'</div>'
+      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+L('≥60解锁（现在','\u226560 to unlock (currently ')+Math.round(info.pts)+L('）',')')+'</div>');
     if(info.unlocked) d.onclick=function(){ toggleBattleNormalPick(key); };
     normalBox.appendChild(d);
   });
@@ -5436,8 +5436,8 @@ function renderBattleLoadoutPicks(){
     var info=battleSkillUnlockInfo(key,ptsMap);
     var d=document.createElement('div');
     d.className='bt-skill-pick'+(_battleLoadout.ult===key?' sel':'')+(info.unlocked?'':' locked');
-    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+sk.name+(info.enhanced?' <span class="bsp-enh">✨强化</span>':'')+'</div><div class="bsp-desc">'+sk.desc+'</div>'
-      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+'≥60解锁（现在'+Math.round(info.pts)+'）</div>');
+    d.innerHTML='<div class="bsp-name">'+battleDimLabel(sk.dim)+' '+L(sk.name,sk.nameEn||sk.name)+(info.enhanced?' <span class="bsp-enh">✨'+L('强化','Enhanced')+'</span>':'')+'</div><div class="bsp-desc">'+L(sk.desc,sk.descEn||sk.desc)+'</div>'
+      +(info.unlocked?'':'<div class="bsp-lock">🔒 '+battleDimLabel(sk.dim)+L('≥60解锁（现在','\u226560 to unlock (currently ')+Math.round(info.pts)+L('）',')')+'</div>');
     if(info.unlocked) d.onclick=function(){ _battleLoadout.ult=key; renderBattleLoadoutPicks(); };
     ultBox.appendChild(d);
   });
@@ -5448,7 +5448,7 @@ function toggleBattleNormalPick(key){
   var idx=_battleLoadout.normal.indexOf(key);
   if(idx>=0){ _battleLoadout.normal.splice(idx,1); }
   else{
-    if(_battleLoadout.normal.length>=3){ ttsToast('通用技能最多选3个，先取消一个再选新的', 3000); return; }
+    if(_battleLoadout.normal.length>=3){ ttsToast(L('通用技能最多选3个，先取消一个再选新的','You can pick at most 3 basic skills - deselect one before picking a new one'), 3000); return; }
     _battleLoadout.normal.push(key);
   }
   renderBattleLoadoutPicks();
@@ -5456,7 +5456,7 @@ function toggleBattleNormalPick(key){
 function confirmBattleLoadout(){
   // 2026-09fix：不再要求必须解锁满3个通用技能才能开打——没解锁够的位置，进战斗时会自动用
   // "普通攻击"顶上（伤害跟着等级和当前七维能力走），必杀技同理，没解锁就先不带，不影响开打
-  if(_battleLoadout.normal.length>3){ ttsToast('通用技能最多选3个，先取消一个再选新的', 3000); return; }
+  if(_battleLoadout.normal.length>3){ ttsToast(L('通用技能最多选3个，先取消一个再选新的','You can pick at most 3 basic skills - deselect one before picking a new one'), 3000); return; }
   startBattleDemo();
 }
 /* 2026-09新增：还没解锁够3个通用技能时，不再卡住不让PK/对战——空着的位置自动用"普通攻击"顶上，
@@ -5471,7 +5471,7 @@ function battleBasicAttackPower(pet,st){
   return Math.max(6, Math.round(8+level*0.5+avg*0.12));
 }
 function basicAttackInstance(pet,st){
-  return { name:'普通攻击', dim:null, kind:'normal', power: battleBasicAttackPower(pet,st), desc:'保底攻击，没解锁技能的位置会自动用它，威力跟着等级和当前七维能力走' };
+  return { name:'普通攻击', nameEn:'Basic Attack', dim:null, kind:'normal', power: battleBasicAttackPower(pet,st), desc:'保底攻击，没解锁技能的位置会自动用它，威力跟着等级和当前七维能力走', descEn:"A fallback attack used for any unlocked skill slots - its power scales with level and current stats" };
 }
 function newBattleFighter(name,hp,skillKeys,ultKey,ptsMap,pet,st){
   var skills=(skillKeys||[]).map(function(k){
@@ -5515,7 +5515,7 @@ function startBattleDemo(){
   var childPet=state.pet;
   var petArt=dungeonPetArtSrc(childPet,petLevelInfo(childPet));
   var petFilter=dirtyFilterFor(childPet.clean)||'';
-  var petName=childPet.name||'我方灵宠';
+  var petName=childPet.name||L('我方灵宠','Your Pet');
   // 没解锁够3个通用技能也能出战——空位自动用"普通攻击"顶上，伤害按等级+当前七维能力算
   var playerNormalKeys=(_battleLoadout.normal||[]).slice();
   while(playerNormalKeys.length<3) playerNormalKeys.push('basic_attack');
@@ -5524,7 +5524,7 @@ function startBattleDemo(){
   if(_battleMode==='pk' && childPet.pkNextBattleBuff){
     var _buffAtk=childPet.pkNextBattleBuff.atk||0;
     player.equipAtk=(player.equipAtk||0)+_buffAtk;
-    _pkBuffMsg='✨ 【对战增益小buff】生效：本场攻击+'+_buffAtk+'（用完即消失）';
+    _pkBuffMsg='✨ '+L('【对战增益小buff】生效：本场攻击+','[Battle Boost] active: ATK +')+_buffAtk+L('（用完即消失）',' for this battle (one-time use)');
     childPet.pkNextBattleBuff=null;
     save();
   }
@@ -5535,7 +5535,7 @@ function startBattleDemo(){
     var friendPet=t.friendChildState.pet;
     var friendPtsMap=rawAbilityPtsFromState(t.friendChildState);
     var friendLoadout=autoPickFriendLoadout(friendPtsMap);
-    oppName=t.friendName+'的灵宠';
+    oppName=t.friendName+L('的灵宠',"'s Pet");
     opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap,friendPet,t.friendChildState);
     oppArtSrc=petDisplayImgSrc(friendPet);
     var _myLv=petLevelInfo(childPet).level, _oppLv=petLevelInfo(friendPet).level, _lvGap=_oppLv-_myLv;
@@ -5568,7 +5568,7 @@ function startBattleDemo(){
       if(oppNormalKeys.indexOf(k)<0) oppNormalKeys.push(k);
     }
     var oppUltKey=oppUltPool[Math.floor(Math.random()*oppUltPool.length)];
-    oppName='神秘挑战者';
+    oppName=L('神秘挑战者','Mystery Challenger');
     opp=newBattleFighter(oppName,100,oppNormalKeys,oppUltKey,godModePtsMap());
     oppArtSrc=dungeonMonsterArtSrc(oppKey);
   }
@@ -5580,7 +5580,7 @@ function startBattleDemo(){
   document.getElementById('btBtnRow').style.display='flex';
   document.getElementById('btUltBtn').style.display='none';
   document.getElementById('btAttackBtn').disabled=false;
-  document.getElementById('btBattleTitle').textContent=(_battleMode==='pk'?'⚔️ PK中':'⚔️ 对战中');
+  document.getElementById('btBattleTitle').textContent=(_battleMode==='pk'?L('⚔️ PK中','⚔️ PK in Progress'):L('⚔️ 对战中','⚔️ Battling'));
   var petImgEl=document.getElementById('btPetImg');
   petImgEl.src=petArt; petImgEl.style.filter=petFilter;
   document.getElementById('btPetName').textContent=player.name;
@@ -5590,10 +5590,10 @@ function startBattleDemo(){
   dgSetBar('btPetHpBar','btPetHpVal',player.hp,player.maxHp,'pink');
   dgSetBar('btMonsterHpBar','btMonsterHpVal',opp.hp,opp.maxHp,'orange');
   document.getElementById('btLog').innerHTML='';
-  document.getElementById('btEnergyText').textContent='⚡ 集气：○○○';
-  btLog(_battleMode==='pk'?('⚔️ 对战开始！对方不在线，由程序自动帮TA出招～'):'⚔️ 对战开始！（这是练习模式，假想对手，赢了不加分，输了宠物会像挑战副本失败一样受伤）');
+  document.getElementById('btEnergyText').textContent=btEnergyDots(0);
+  btLog(_battleMode==='pk'?L('⚔️ 对战开始！对方不在线，由程序自动帮TA出招～','⚔️ Battle start! The opponent is offline, so the game will auto-pick moves for them~'):L('⚔️ 对战开始！（这是练习模式，假想对手，赢了不加分，输了宠物会像挑战副本失败一样受伤）','⚔️ Battle start! (This is practice mode against an imaginary opponent - winning gives no rewards, but losing will injure your pet just like a failed dungeon run)'));
   if(_battleMode==='pk'&&_battleLevelGapInfo){
-    btLog('📊 你 Lv.'+_battleLevelGapInfo.myLevel+'　对方 Lv.'+_battleLevelGapInfo.oppLevel+'　'+battleLevelGapText(_battleLevelGapInfo.gap));
+    btLog('📊 '+L('你 Lv.','You Lv.')+_battleLevelGapInfo.myLevel+L('　对方 Lv.','\u3000Opponent Lv.')+_battleLevelGapInfo.oppLevel+'　'+battleLevelGapText(_battleLevelGapInfo.gap));
   }
   if(_pkBuffMsg) btLog(_pkBuffMsg);
 }
@@ -5657,7 +5657,7 @@ function btFlash(cls){
 function btEnergyDots(n){
   var full='●'.repeat(Math.max(0,Math.min(3,n)));
   var empty='○'.repeat(3-Math.max(0,Math.min(3,n)));
-  return '⚡ 集气：'+full+empty;
+  return L('⚡ 集气：','⚡ Energy: ')+full+empty;
 }
 /* 放技能的瞬间，技能名飘在出招那一方的旁边——跟伤害数字是分开两套浮动文字，
    一个标"谁用了什么招"，一个标"扣了多少血"，两个一起看更清楚 */
@@ -5679,12 +5679,13 @@ function battleDecayStatus(f){
   if(f.debuffTurns>0){ f.debuffTurns--; if(f.debuffTurns<=0) f.debuffTakeMore=0; }
 }
 function battleResolveSkill(user,target,skill,userImgId,targetImgId){
-  if(user.sealed){ btLog('🔒 '+user.name+' 的技能被封印了，这回合没能出手'); user.sealed=false; return; }
-  if(user.stunned){ btLog('💫 '+user.name+' 被眩晕了，这回合没能动'); user.stunned=false; return; }
-  btSkillNameFloat(userImgId,skill.name+(skill.enhanced?' ✨':''));
+  var skillNameL=L(skill.name, skill.nameEn||skill.name);
+  if(user.sealed){ btLog('🔒 '+user.name+L(' 的技能被封印了，这回合没能出手',"'s skill was sealed - couldn't move this turn")); user.sealed=false; return; }
+  if(user.stunned){ btLog('💫 '+user.name+L(' 被眩晕了，这回合没能动',' was stunned - couldn\'t move this turn')); user.stunned=false; return; }
+  btSkillNameFloat(userImgId,skillNameL+(skill.enhanced?' ✨':''));
   if(skill.cleanse){
     user.shieldPct=0; user.shieldTurns=0; user.debuffTakeMore=0; user.debuffTurns=0;
-    btLog('✨ '+user.name+' 使用【'+skill.name+'】，清除了自身的负面状态');
+    btLog('✨ '+user.name+L(' 使用【'+skill.name+'】，清除了自身的负面状态',' used ['+skillNameL+'] and cleared its own negative status effects'));
   }
   var hits=skill.hits||1;
   var totalDmg=0, anyCrit=false, dodgedHits=0;
@@ -5708,18 +5709,18 @@ function battleResolveSkill(user,target,skill,userImgId,targetImgId){
   }
   if(totalDmg>0){
     btShake(targetImgId); btBurst(targetImgId); btDmgFloat(targetImgId,totalDmg,{crit:(skill.kind==='ultimate')||anyCrit});
-    btLog((anyCrit?'💥 暴击！':'💢 ')+user.name+' 使用【'+skill.name+'】，对 '+target.name+' 造成 '+totalDmg+' 点伤害'+(dodgedHits>0?'（有攻击被躲开了）':''));
+    btLog((anyCrit?L('💥 暴击！','💥 Critical hit! '):'💢 ')+user.name+L(' 使用【'+skill.name+'】，对 '+target.name+' 造成 '+totalDmg+' 点伤害'+(dodgedHits>0?'（有攻击被躲开了）':''),' used ['+skillNameL+'] and dealt '+totalDmg+' damage to '+target.name+(dodgedHits>0?' (some hits were dodged)':'')));
   }else if(dodgedHits>0){
-    btLog('💨 '+target.name+' 灵巧地闪避了 '+user.name+' 的【'+skill.name+'】，完全没受伤！');
+    btLog('💨 '+target.name+L(' 灵巧地闪避了 '+user.name+' 的【'+skill.name+'】，完全没受伤！',' nimbly dodged '+user.name+"'s ["+skillNameL+']! No damage taken!'));
   }else{
-    btLog('✨ '+user.name+' 使用了【'+skill.name+'】');
+    btLog('✨ '+user.name+L(' 使用了【'+skill.name+'】',' used ['+skillNameL+']'));
   }
-  if(skill.heal){ user.hp=Math.min(user.maxHp,user.hp+skill.heal); btLog('💚 '+user.name+' 回复了 '+skill.heal+' 点生命'); }
-  if(skill.shield){ user.shieldPct=skill.shield; user.shieldTurns=skill.shieldTurns||1; btLog('🛡️ '+user.name+' 获得了护盾'); }
+  if(skill.heal){ user.hp=Math.min(user.maxHp,user.hp+skill.heal); btLog('💚 '+user.name+L(' 回复了 '+skill.heal+' 点生命',' restored '+skill.heal+' HP')); }
+  if(skill.shield){ user.shieldPct=skill.shield; user.shieldTurns=skill.shieldTurns||1; btLog('🛡️ '+user.name+L(' 获得了护盾',' gained a shield')); }
   if(skill.buffAtk){ user.buffAtk=skill.buffAtk; user.buffTurns=skill.buffTurns||1; }
   if(skill.debuffTakeMore){ target.debuffTakeMore=skill.debuffTakeMore; target.debuffTurns=skill.debuffTurns||1; }
-  if(skill.sealChance && Math.random()<skill.sealChance){ target.sealed=true; btLog('🔒 '+target.name+' 下回合的技能被封印了'); }
-  if(skill.stunChance && Math.random()<skill.stunChance){ target.stunned=true; btLog('💫 '+target.name+' 被击退打断，下回合没法行动'); }
+  if(skill.sealChance && Math.random()<skill.sealChance){ target.sealed=true; btLog('🔒 '+target.name+L(' 下回合的技能被封印了',"'s skill will be sealed next turn")); }
+  if(skill.stunChance && Math.random()<skill.stunChance){ target.stunned=true; btLog('💫 '+target.name+L(' 被击退打断，下回合没法行动',' was knocked back and stunned - cannot act next turn')); }
 }
 function battlePickAiSkill(fighter,energyPips){
   if(energyPips>=3 && fighter.ult && Math.random()<0.5) return {skill:fighter.ult,isUlt:true};
@@ -5797,9 +5798,10 @@ function battleDemoUlt(){
 function applyBattleLossInjury(){
   if(!state||!state.pet||state.pet.injured) return;
   state.pet.injured=true; state.pet.injuredAt=Date.now(); state.pet.injurySeverity='light';
-  addLog('⚔️对战失败：'+(state.pet.name||'宠物')+' 受了轻伤，要去商城买【特效药】治疗才能再战');
+  var petNm=state.pet.name||L('宠物','the pet');
+  addLog('⚔️'+L('对战失败：','Battle lost: ')+petNm+L(' 受了轻伤，要去商城买【特效药】治疗才能再战',' got a light injury - buy [Medicine] at the shop to heal it before battling again'));
   save();
-  ttsToast('🤕 '+(state.pet.name||'宠物')+' 在对战中受了轻伤，先去商城买药治疗一下吧', 5000);
+  ttsToast('🤕 '+petNm+L(' 在对战中受了轻伤，先去商城买药治疗一下吧',' got a light injury in battle - go buy some medicine at the shop to heal it'), 5000);
 }
 /* ========== PK专属的"轻伤"系统（2026-09新增）：跟上面挑战副本/离线事件那套injured字段
    彻底分开、互不影响，两种伤可以同时挂在身上。PK输了才会触发这个；48小时内没人安抚（花金币，
@@ -5808,9 +5810,10 @@ function applyBattleLossInjury(){
 function applyPkLossInjury(){
   if(!state||!state.pet||state.pet.pkInjured) return;
   state.pet.pkInjured=true; state.pet.pkInjuredAt=Date.now();
-  addLog('⚔️PK落败：'+(state.pet.name||'宠物')+' 受了点轻伤（48小时内没人安抚会掉一级，但绝不会变回蛋）');
+  var petNm=state.pet.name||L('宠物','the pet');
+  addLog('⚔️'+L('PK落败：','PK lost: ')+petNm+L(' 受了点轻伤（48小时内没人安抚会掉一级，但绝不会变回蛋）',' got a light injury (if not comforted within 48 hours it will drop a level, but will never turn back into an egg)'));
   save();
-  ttsToast('🤕 '+(state.pet.name||'宠物')+' PK输了，受了点轻伤，48小时内记得安抚一下哦', 5000);
+  ttsToast('🤕 '+petNm+L(' PK输了，受了点轻伤，48小时内记得安抚一下哦',' lost a PK battle and got a light injury - remember to comfort it within 48 hours'), 5000);
 }
 // 跟 petLevelInfo() 的经验值分级公式完全对应的"反向"计算：算出"恰好达到 targetLevel、
 // 该级进度条刚清零"时对应的累计经验值总量，专门给下面"PK轻伤拖太久，把宠物掉级"用的，
@@ -6053,12 +6056,12 @@ function applyPkInboxSideEffects(inbox){
 /* 从消息中心直接点"⚔️"图标，找对方最新数据发起一场秒开的复仇PK */
 function quickRematchFromPkMsg(fromRowId,fromChildId){
   hideModal('pkInboxModal');
-  ttsToast('正在联系对方，准备PK…', 2000);
+  ttsToast(L('正在联系对方，准备PK…','Contacting opponent, getting ready to PK…'), 2000);
   fetchRowData(fromRowId).then(function(row){
-    if(!row||!row.data||!row.data.accounts||!row.data.accounts[fromChildId]){ ttsToast('没能联系到对方，稍后再试试吧', 4000); return; }
+    if(!row||!row.data||!row.data.accounts||!row.data.accounts[fromChildId]){ ttsToast(L('没能联系到对方，稍后再试试吧',"Couldn't reach the opponent, try again later"), 4000); return; }
     startFriendPk(fromRowId,fromChildId,row.data);
   }).catch(function(){
-    ttsToast('没能联系到对方（网络问题），稍后再试试吧', 4000);
+    ttsToast(L('没能联系到对方（网络问题），稍后再试试吧',"Couldn't reach the opponent (network issue), try again later"), 4000);
   });
 }
 /* PK结算：胜负结果单独写进对方专属的PK消息行（不碰对方主存档，不会被对方自己的日常保存覆盖）；
@@ -6085,11 +6088,11 @@ function settleFriendPk(iWon){
   pushPkMessageToFriend(t.rowId,t.cid,msg).then(function(){
     var extra='';
     if(rewardInfo){
-      extra=rewardInfo.capped ? '（今日PK奖励次数已用完，只记战绩没有奖励啦）' : ('，获得 '+rewardInfo.coins+' 金币'+(rewardInfo.bonusText?'，'+rewardInfo.bonusText:''));
+      extra=rewardInfo.capped ? L('（今日PK奖励次数已用完，只记战绩没有奖励啦）',' (today\'s PK reward count is used up, this win is recorded but has no reward)') : (L('，获得 ',', got ')+rewardInfo.coins+L(' 金币',' coins')+(rewardInfo.bonusText?(L('，','; ')+rewardInfo.bonusText):''));
     }
-    if(note) note.textContent='✅ 已经通知对方这场PK的结果，TA下次打开App会看到'+extra;
+    if(note) note.textContent=L('✅ 已经通知对方这场PK的结果，TA下次打开App会看到','✅ The opponent has been notified of this PK result, they will see it next time they open the app')+extra;
   }).catch(function(){
-    if(note) note.textContent='⚠️ 没能把结果发给对方（网络问题），下次再PK试试';
+    if(note) note.textContent=L('⚠️ 没能把结果发给对方（网络问题），下次再PK试试','⚠️ Could not send the result to the opponent (network issue), try PK again next time');
   });
 }
 function battleDemoEnd(win){
@@ -6098,21 +6101,21 @@ function battleDemoEnd(win){
   document.getElementById('btBtnRow').style.display='none';
   var box=document.getElementById('btResultBox');
   if(win){
-    btLog('🎉 '+_battle.mon.name+' 被击败了，'+_battle.pet.name+' 获胜！');
-    box.innerHTML='<div style="font-size:16px;font-weight:700;color:#66bb6a">🎉 胜利！</div>';
+    btLog('🎉 '+_battle.mon.name+L(' 被击败了，'+_battle.pet.name+' 获胜！',' was defeated, '+_battle.pet.name+' wins!'));
+    box.innerHTML='<div style="font-size:16px;font-weight:700;color:#66bb6a">🎉 '+L('胜利！','Victory!')+'</div>';
   }else{
-    btLog('😢 '+_battle.pet.name+' 被击败了');
-    box.innerHTML='<div style="font-size:16px;font-weight:700;color:#ef5350">😢 落败了</div>';
+    btLog('😢 '+_battle.pet.name+L(' 被击败了',' was defeated'));
+    box.innerHTML='<div style="font-size:16px;font-weight:700;color:#ef5350">😢 '+L('落败了','Defeat')+'</div>';
   }
   box.style.display='block';
   if(_battleMode==='pk' && _battlePkTarget){
-    box.innerHTML+='<div class="small" id="btPkSettleNote" style="margin-top:6px;color:#999">结算中，请稍等…</div>'
-      +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="hideModal(\'battleDemoModal\')">✅ 知道了</button>';
+    box.innerHTML+='<div class="small" id="btPkSettleNote" style="margin-top:6px;color:#999">'+L('结算中，请稍等…','Settling up, please wait…')+'</div>'
+      +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="hideModal(\'battleDemoModal\')">✅ '+L('知道了','Got it')+'</button>';
     settleFriendPk(win);
     _battlePkTarget=null; _battleMode='demo';
   }else{
     if(!win) applyBattleLossInjury();
-    box.innerHTML+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="openBattleDemo()">🎒 重新选技能再来一局</button>';
+    box.innerHTML+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="openBattleDemo()">🎒 '+L('重新选技能再来一局','Pick Skills and Battle Again')+'</button>';
   }
 }
 /* 2026-09fix：以前弹窗右上角✕直接hideModal('battleDemoModal')，小朋友发现快要输了（或者PK里对方
@@ -6132,15 +6135,15 @@ function closeBattleDemoModal(){
 function startFriendPk(rowId,cid,friendStore){
   if(!currentChild()) return;
   var myPet=state.pet;
-  if(!myPet||!myPet.chosen||!myPet.hatched){ ttsToast('你的宠物还没孵化，没法出战哦', 4000); return; }
-  if(myPet.injured){ ttsToast('🤕 你的宠物还在受伤，先去商城买药治好再来挑战吧', 4500); return; }
-  if(myPet.pkInjured){ ttsToast('🤕 你的宠物还在PK轻伤中，先安抚好了再来挑战吧', 4500); return; }
+  if(!myPet||!myPet.chosen||!myPet.hatched){ ttsToast(L('你的宠物还没孵化，没法出战哦',"Your pet hasn't hatched yet, so it can't battle"), 4000); return; }
+  if(myPet.injured){ ttsToast(L('🤕 你的宠物还在受伤，先去商城买药治好再来挑战吧','🤕 Your pet is still injured - buy medicine at the shop and heal it before challenging'), 4500); return; }
+  if(myPet.pkInjured){ ttsToast(L('🤕 你的宠物还在PK轻伤中，先安抚好了再来挑战吧','🤕 Your pet still has a light PK injury - comfort it before challenging again'), 4500); return; }
   var c=friendStore.accounts[cid];
   var friendChildState=c&&c.state;
   var friendPet=friendChildState&&friendChildState.pet;
-  if(!friendPet||!friendPet.chosen||!friendPet.hatched){ ttsToast('对方的宠物还没孵化，没法挑战TA', 4000); return; }
-  if(friendPet.injured){ ttsToast('对方的宠物正在受伤中，没法应战，换个时间再来吧', 4500); return; }
-  if(friendPet.pkInjured){ ttsToast('对方的宠物正在PK轻伤中，没法应战，换个时间再来吧', 4500); return; }
+  if(!friendPet||!friendPet.chosen||!friendPet.hatched){ ttsToast(L('对方的宠物还没孵化，没法挑战TA',"The other pet hasn't hatched yet, so you can't challenge it"), 4000); return; }
+  if(friendPet.injured){ ttsToast(L('对方的宠物正在受伤中，没法应战，换个时间再来吧','The other pet is currently injured and cannot battle - try again another time'), 4500); return; }
+  if(friendPet.pkInjured){ ttsToast(L('对方的宠物正在PK轻伤中，没法应战，换个时间再来吧','The other pet currently has a light PK injury and cannot battle - try again another time'), 4500); return; }
   _battleMode='pk';
   _battlePkTarget={rowId:rowId,cid:cid,friendName:c.name,friendChildState:friendChildState};
   closeVisitDetail();
@@ -6162,7 +6165,7 @@ function checkPkInboxOnBoot(){
 function pkInboxBadgeRender(){
   var unread=(_pkInboxCache&&Array.isArray(_pkInboxCache.messages))?_pkInboxCache.messages.filter(function(m){ return !m.read; }).length:0;
   var btn=document.getElementById('pkInboxEntryBtn');
-  if(btn) btn.textContent='📬 消息中心'+(unread>0?'（'+unread+'条未读）':'');
+  if(btn) btn.textContent='📬 '+L('消息中心','Inbox')+(unread>0?L('（'+unread+'条未读）',' ('+unread+' unread)'):'');
   // 2026-09新增：跟微信角标一样，底部导航"串门"这个tab上直接显示未读数红点，
   // 不用点进"串门"页再点"PK消息记录"才发现有新结果
   var navBadge=document.getElementById('visitTabBadge');
@@ -6406,7 +6409,7 @@ function buildCompareRadarSvg(myScores,friendScores){
     var cosv=Math.cos(a*Math.PI/180);
     var anchor = cosv>0.25 ? 'start' : (cosv<-0.25 ? 'end' : 'middle');
     var dx = anchor==='start' ? 3 : (anchor==='end' ? -3 : 0);
-    return '<text x="'+(lp[0]+dx)+'" y="'+lp[1]+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+RADAR_AXES[i].label+'</text>';
+    return '<text x="'+(lp[0]+dx)+'" y="'+lp[1]+'" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="10" fill="#6a1b8a" font-weight="700">'+L(RADAR_AXES[i].label,RADAR_AXES[i].labelEn||RADAR_AXES[i].label)+'</text>';
   }).join('');
   return '<svg viewBox="-30 0 320 300" width="100%" style="max-width:320px;display:block;margin:0 auto;overflow:visible">'
     +gridSvg+axisLines
@@ -11138,13 +11141,13 @@ function petAbilityStars(){
    注意：petPersonality() 的"叛逆"判定用到这里的维度（学习 vs 其余维度平均分，故意不含courage，
    见 PERSONALITY_OTHER_KEYS 处的说明），新增/调整维度时记得一并检查性格判定是否还合理。 */
 var RADAR_AXES=[
-  {key:'sport', label:'🏃 运动'},
-  {key:'study', label:'📖 学习'},
-  {key:'house', label:'🧹 家务'},
-  {key:'creativity', label:'🎨 创造力'},
-  {key:'empathy', label:'💞 共情爱心'},
-  {key:'music', label:'🎵 音律'},
-  {key:'courage', label:'🗡️ 勇气探险'}
+  {key:'sport', label:'🏃 运动', labelEn:'🏃 Sport'},
+  {key:'study', label:'📖 学习', labelEn:'📖 Study'},
+  {key:'house', label:'🧹 家务', labelEn:'🧹 Chores'},
+  {key:'creativity', label:'🎨 创造力', labelEn:'🎨 Creativity'},
+  {key:'empathy', label:'💞 共情爱心', labelEn:'💞 Empathy'},
+  {key:'music', label:'🎵 音律', labelEn:'🎵 Music'},
+  {key:'courage', label:'🗡️ 勇气探险', labelEn:'🗡️ Courage'}
 ];
 function radarPoint(cx,cy,R,angleDeg,valuePct){
   var rad=angleDeg*Math.PI/180;
@@ -11284,7 +11287,7 @@ function renderAbilityRadar(){
   var n=RADAR_AXES.length;
   var angles=RADAR_AXES.map(function(ax,i){ return -90+i*(360/n); }); // 第一个轴朝上，其余顺时针均匀分布
   var vals=RADAR_AXES.map(function(ax){ return sc[ax.key]; });
-  var labels=RADAR_AXES.map(function(ax){ return ax.label+' '+sc[ax.key]+(stars[ax.key]>0?' ⭐'+stars[ax.key]:''); }); // 满100分后显示星级，没有封顶
+  var labels=RADAR_AXES.map(function(ax){ return L(ax.label,ax.labelEn||ax.label)+' '+sc[ax.key]+(stars[ax.key]>0?' ⭐'+stars[ax.key]:''); }); // 满100分后显示星级，没有封顶
   var gridLevels=[33,66,100];
   var gridSvg=gridLevels.map(function(lv,i){
     var pts=angles.map(function(a){ return radarPoint(cx,cy,R,a,lv).join(','); }).join(' ');
