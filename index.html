@@ -983,55 +983,55 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <!-- ============ 页1：打卡 ============ -->
 <div class="page" id="page-home">
   <div class="card">
-    <h2>📅 今日设置</h2>
+    <h2 data-i18n="checkin_settings_title">📅 今日设置</h2>
     <div class="row-between">
-      <span>打卡模式</span>
+      <span data-i18n="checkin_mode_label">打卡模式</span>
       <div>
-        <button class="btn btn-primary" id="btnMorning" onclick="setTimeMode('morning')">早上</button>
-        <button class="btn btn-primary" id="btnEvening" onclick="setTimeMode('evening')">晚上</button>
+        <button class="btn btn-primary" id="btnMorning" onclick="setTimeMode('morning')" data-i18n="btn_morning">早上</button>
+        <button class="btn btn-primary" id="btnEvening" onclick="setTimeMode('evening')" data-i18n="btn_evening">晚上</button>
       </div>
     </div>
-    <div class="small" style="margin-top:5px">当前模式：<span id="timeModeText">晚上</span>｜早上：波比跳40个、仰卧起坐35个，平板/平衡各3组（比晚上少1组）</div>
+    <div class="small" style="margin-top:5px"><span data-i18n="checkin_mode_desc_prefix">当前模式：</span><span id="timeModeText">晚上</span><span data-i18n="checkin_mode_desc_suffix">｜早上：波比跳40个、仰卧起坐35个，平板/平衡各3组（比晚上少1组）</span></div>
     <div class="row-between" style="margin-top:8px">
-      <span>宠物打扰</span>
+      <span data-i18n="checkin_pet_disturb_label">宠物打扰</span>
       <button class="btn btn-primary btn-sm" id="btnCheckinHidePet" onclick="toggleCheckinHidePet()">🐾 打卡页宠物：显示中</button>
     </div>
-    <div class="small" style="margin-top:3px">怕学习时被宠物分心，可以点这个按钮暂时不让它出现在打卡页——每次重新打开App都会恢复默认显示。宠物如果有状态（吃饱饱/水汪汪/笑眯眯/香喷喷）低于50，则不论这个开关如何都只能在"宠物"界面看到它。</div>
+    <div class="small" style="margin-top:3px" data-i18n="checkin_pet_disturb_desc">怕学习时被宠物分心，可以点这个按钮暂时不让它出现在打卡页——每次重新打开App都会恢复默认显示。宠物如果有状态（吃饱饱/水汪汪/笑眯眯/香喷喷）低于50，则不论这个开关如何都只能在"宠物"界面看到它。</div>
   </div>
 
   <div class="checkin-tabbar" id="checkinTabbar">
-    <button class="checkin-tab-btn" data-checkin="sport" onclick="showCheckinCategory('sport')">🏃 运动</button>
-    <button class="checkin-tab-btn" data-checkin="study" onclick="showCheckinCategory('study')">📖 学习</button>
-    <button class="checkin-tab-btn" data-checkin="math" onclick="showCheckinCategory('math')">🏰 守卫家园</button>
-    <button class="checkin-tab-btn" data-checkin="readEn" onclick="showCheckinCategory('readEn')">📗 英文阅读</button>
-    <button class="checkin-tab-btn" data-checkin="readCn" onclick="showCheckinCategory('readCn')">📕 中文阅读</button>
-    <button class="checkin-tab-btn" data-checkin="story" onclick="showCheckinCategory('story')">📚 故事</button>
-    <button class="checkin-tab-btn" data-checkin="fun" onclick="showCheckinCategory('fun')">🎉 娱乐</button>
-    <button class="checkin-tab-btn" data-checkin="diary" onclick="showCheckinCategory('diary')">📔 日记</button>
-    <button class="checkin-tab-btn" data-checkin="comm" onclick="showCheckinCategory('comm')">☎️ 沟通</button>
-    <button class="checkin-tab-btn" data-checkin="custom" onclick="showCheckinCategory('custom')">⭐ 加分项</button>
-    <button class="checkin-tab-btn" data-checkin="house" onclick="showCheckinCategory('house')">🧹 家务</button>
-    <button class="checkin-tab-btn" data-checkin="makeup" onclick="showCheckinCategory('makeup')">⚠️ 补卡</button>
+    <button class="checkin-tab-btn" data-checkin="sport" onclick="showCheckinCategory('sport')" data-i18n="tab_sport">🏃 运动</button>
+    <button class="checkin-tab-btn" data-checkin="study" onclick="showCheckinCategory('study')" data-i18n="tab_study">📖 学习</button>
+    <button class="checkin-tab-btn" data-checkin="math" onclick="showCheckinCategory('math')" data-i18n="tab_math">🏰 守卫家园</button>
+    <button class="checkin-tab-btn" data-checkin="readEn" onclick="showCheckinCategory('readEn')" data-i18n="tab_readEn">📗 英文阅读</button>
+    <button class="checkin-tab-btn" data-checkin="readCn" onclick="showCheckinCategory('readCn')" data-i18n="tab_readCn">📕 中文阅读</button>
+    <button class="checkin-tab-btn" data-checkin="story" onclick="showCheckinCategory('story')" data-i18n="tab_story">📚 故事</button>
+    <button class="checkin-tab-btn" data-checkin="fun" onclick="showCheckinCategory('fun')" data-i18n="tab_fun">🎉 娱乐</button>
+    <button class="checkin-tab-btn" data-checkin="diary" onclick="showCheckinCategory('diary')" data-i18n="tab_diary">📔 日记</button>
+    <button class="checkin-tab-btn" data-checkin="comm" onclick="showCheckinCategory('comm')" data-i18n="tab_comm">☎️ 沟通</button>
+    <button class="checkin-tab-btn" data-checkin="custom" onclick="showCheckinCategory('custom')" data-i18n="tab_custom">⭐ 加分项</button>
+    <button class="checkin-tab-btn" data-checkin="house" onclick="showCheckinCategory('house')" data-i18n="tab_house">🧹 家务</button>
+    <button class="checkin-tab-btn" data-checkin="makeup" onclick="showCheckinCategory('makeup')" data-i18n="tab_makeup">⚠️ 补卡</button>
   </div>
 
   <div class="card checkin-card" data-checkin="sport">
     <div class="row-between">
-      <h2 style="margin:0">🏃 运动打卡（家长确认后点完成）</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('sport')">⚙️ 编辑任务</button>
+      <h2 style="margin:0" data-i18n="checkin_sport_title">🏃 运动打卡（家长确认后点完成）</h2>
+      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('sport')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
     </div>
     <div class="daily-pick-box" id="dailyPickBox-sport"></div>
     <div class="item" id="item-burpee">
-      <div class="label">💪 波比跳 <b><span id="burpeeTarget">60</span></b> 个
+      <div class="label"><span data-i18n="burpee_label_prefix">💪 波比跳 </span><b><span id="burpeeTarget">60</span></b><span data-i18n="burpee_label_suffix"> 个</span>
         <small id="burpeeNote"></small>
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button class="btn btn-success" id="btnBurpeeGroup" onclick="startExerciseTimer('sport','burpee','group')">✅分组完成</button>
-        <button class="btn btn-success" id="btnBurpeeOnce" onclick="startExerciseTimer('sport','burpee','once')">✅一次完成</button>
+        <button class="btn btn-success" id="btnBurpeeGroup" onclick="startExerciseTimer('sport','burpee','group')" data-i18n="btn_burpee_group">✅分组完成</button>
+        <button class="btn btn-success" id="btnBurpeeOnce" onclick="startExerciseTimer('sport','burpee','once')" data-i18n="btn_burpee_once">✅一次完成</button>
       </div>
     </div>
     <div id="list-sport"></div>
-    <div class="small" style="margin-top:2px">波比跳有专属的分组/一次做完模式，暂不支持增删，可在"⚙️编辑任务"的"特殊任务金币"里调整它的金币数</div>
-    <div class="small" style="margin-top:5px">
+    <div class="small" style="margin-top:2px" data-i18n="sport_burpee_note">波比跳有专属的分组/一次做完模式，暂不支持增删，可在"⚙️编辑任务"的"特殊任务金币"里调整它的金币数</div>
+    <div class="small" style="margin-top:5px" data-i18n="sport_bonus_note">
       ✅ 今日转盘抽中的必做运动任务做完 → 15分钟短视频 + 1次抽奖<br>
       波比跳只有一次性做完才有次日优惠：1次做完→次日免做一天，第三天恢复正常；分组完成没有次日优惠；漏打卡×1.5惩罚；每周1次补卡
     </div>
@@ -1039,155 +1039,155 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 
   <div class="card checkin-card" data-checkin="study">
     <div class="row-between">
-      <h2 style="margin:0">📖 学习打卡</h2>
+      <h2 style="margin:0" data-i18n="checkin_study_title">📖 学习打卡</h2>
       <div style="display:flex;gap:6px">
         <!-- 2026-09新增：本周学习统计与复习测验的入口，从卡片最下面挪到标题旁边，相当于加一个路口按钮，不用把整张卡片滑到底才能找到 -->
-        <button class="btn btn-gray btn-sm" onclick="showPage('weekly')">📊 本周测验</button>
-        <button class="btn btn-gray btn-sm" onclick="openTaskSettings('study')">⚙️ 编辑任务</button>
+        <button class="btn btn-gray btn-sm" onclick="showPage('weekly')" data-i18n="btn_weekly_quiz">📊 本周测验</button>
+        <button class="btn btn-gray btn-sm" onclick="openTaskSettings('study')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
       </div>
     </div>
     <div class="daily-pick-box" id="dailyPickBox-study"></div>
     <div id="list-study"></div>
     <div class="row-between" style="margin:8px 0 4px;align-items:flex-start">
       <div id="studyThemeBanner" style="flex:1"></div>
-      <button class="btn btn-gray btn-sm" style="flex-shrink:0;margin-left:6px" onclick="openStudyThemeModal()">🎨 主题设置</button>
+      <button class="btn btn-gray btn-sm" style="flex-shrink:0;margin-left:6px" onclick="openStudyThemeModal()" data-i18n="btn_theme_settings">🎨 主题设置</button>
     </div>
-    <div class="small" style="margin:8px 0 4px;font-weight:700;color:#7b1fa2">📚 今日学习内容（点🔊听发音）</div>
-    <div class="small" style="margin-bottom:2px">🔤 单词：</div>
+    <div class="small" style="margin:8px 0 4px;font-weight:700;color:#7b1fa2" data-i18n="study_content_label">📚 今日学习内容（点🔊听发音）</div>
+    <div class="small" style="margin-bottom:2px" data-i18n="label_words">🔤 单词：</div>
     <div id="studyWordBox"></div>
-    <div class="small" style="margin:6px 0 2px">🀄 汉字：</div>
+    <div class="small" style="margin:6px 0 2px" data-i18n="label_hanzi">🀄 汉字：</div>
     <div id="studyHanziBox"></div>
     <div class="row-between" style="margin:6px 0 2px">
-      <span class="small">💬 句子：</span>
-      <button class="btn btn-gray btn-sm" onclick="refreshSentenceBatch()">🔄 换一批</button>
+      <span class="small" data-i18n="label_sentences">💬 句子：</span>
+      <button class="btn btn-gray btn-sm" onclick="refreshSentenceBatch()" data-i18n="btn_refresh_batch">🔄 换一批</button>
     </div>
     <div id="studySentenceBox"></div>
-    <div class="small" style="margin:6px 0 2px">📖 阅读理解：</div>
+    <div class="small" style="margin:6px 0 2px" data-i18n="label_reading_comp">📖 阅读理解：</div>
     <div id="studyReadingBox"></div>
-    <div class="small" style="margin:6px 0 2px">🧮 纯英文数学题：</div>
+    <div class="small" style="margin:6px 0 2px" data-i18n="label_math_en">🧮 纯英文数学题：</div>
     <div id="studyMathEnBox"></div>
     <div class="row-between" style="margin:6px 0 2px">
-      <span class="small">📜 今日古诗背诵（人教版小学1-6年级）：</span>
-      <button class="btn btn-gray btn-sm" onclick="refreshPoem()">🔄 换一首</button>
+      <span class="small" data-i18n="label_poem">📜 今日古诗背诵（人教版小学1-6年级）：</span>
+      <button class="btn btn-gray btn-sm" onclick="refreshPoem()" data-i18n="btn_refresh_poem">🔄 换一首</button>
     </div>
     <div id="studyPoemBox"></div>
     <div class="row-between" style="margin-top:6px">
-      <span class="tag tag-purple">🎫 免背卡：<span id="freeStudyCard">0</span> 张</span>
-      <span class="small">学习连续全勤：<span id="studyStreakText">0</span> 天</span>
+      <span class="tag tag-purple"><span data-i18n="label_free_study_card">🎫 免背卡：</span><span id="freeStudyCard">0</span><span data-i18n="unit_zhang"> 张</span></span>
+      <span class="small"><span data-i18n="label_study_streak">学习连续全勤：</span><span id="studyStreakText">0</span><span data-i18n="unit_days"> 天</span></span>
     </div>
   </div>
 
   <div class="card checkin-card" data-checkin="math">
     <div class="row-between">
-      <h2 style="margin:0">🏰 守卫家园</h2>
+      <h2 style="margin:0" data-i18n="checkin_math_title">🏰 守卫家园</h2>
     </div>
-    <div class="small" style="margin:2px 0 8px">答对题目，打败僵尸，一关一关往下守护家园，宠物也会跟着一起成长！今天认真完成"学习打卡"和"沟通打卡"，闯关题目会更眼熟、更容易过关哦～</div>
+    <div class="small" style="margin:2px 0 8px" data-i18n="checkin_math_desc">答对题目，打败僵尸，一关一关往下守护家园，宠物也会跟着一起成长！今天认真完成"学习打卡"和"沟通打卡"，闯关题目会更眼熟、更容易过关哦～</div>
     <div class="row-between" style="margin-bottom:8px">
-      <span class="tag tag-purple">🎮 今日已通关：<span id="mathClearedLevels">无</span></span>
-      <span class="tag tag-purple">💰 今日已得：<span id="mathTodayCoins">0</span> 金币</span>
+      <span class="tag tag-purple"><span data-i18n="math_cleared_label">🎮 今日已通关：</span><span id="mathClearedLevels">无</span></span>
+      <span class="tag tag-purple"><span data-i18n="math_coins_label">💰 今日已得：</span><span id="mathTodayCoins">0</span><span data-i18n="unit_coins"> 金币</span></span>
     </div>
-    <button class="btn btn-success" onclick="openMathChallenge()" style="width:100%">🚀 开始守卫</button>
+    <button class="btn btn-success" onclick="openMathChallenge()" style="width:100%" data-i18n="btn_start_guard">🚀 开始守卫</button>
   </div>
 
   <div class="card checkin-card" data-checkin="readEn">
     <div class="row-between">
-      <h2 style="margin:0">📗 英文阅读打卡</h2>
+      <h2 style="margin:0" data-i18n="checkin_readEn_title">📗 英文阅读打卡</h2>
     </div>
-    <div class="small" style="margin:2px 0 8px">喜欢读英文小故事的话，来这里读一读、想一想问题，读完就可以打卡～每次打卡后，下次会换一篇新的故事</div>
+    <div class="small" style="margin:2px 0 8px" data-i18n="checkin_readEn_desc">喜欢读英文小故事的话，来这里读一读、想一想问题，读完就可以打卡～每次打卡后，下次会换一篇新的故事</div>
     <div id="readEnBox"></div>
-    <button class="btn btn-success" onclick="completeReadingTask('readEn')" style="width:100%;margin-top:8px">✅ 完成阅读打卡</button>
+    <button class="btn btn-success" onclick="completeReadingTask('readEn')" style="width:100%;margin-top:8px" data-i18n="btn_finish_reading">✅ 完成阅读打卡</button>
   </div>
 
   <div class="card checkin-card" data-checkin="readCn">
     <div class="row-between">
-      <h2 style="margin:0">📕 中文阅读打卡</h2>
+      <h2 style="margin:0" data-i18n="checkin_readCn_title">📕 中文阅读打卡</h2>
     </div>
-    <div class="small" style="margin:2px 0 8px">喜欢读中文小故事的话，来这里读一读、想一想问题，读完就可以打卡～每次打卡后，下次会换一篇新的故事</div>
+    <div class="small" style="margin:2px 0 8px" data-i18n="checkin_readCn_desc">喜欢读中文小故事的话，来这里读一读、想一想问题，读完就可以打卡～每次打卡后，下次会换一篇新的故事</div>
     <div id="readCnBox"></div>
-    <button class="btn btn-success" onclick="completeReadingTask('readCn')" style="width:100%;margin-top:8px">✅ 完成阅读打卡</button>
+    <button class="btn btn-success" onclick="completeReadingTask('readCn')" style="width:100%;margin-top:8px" data-i18n="btn_finish_reading">✅ 完成阅读打卡</button>
   </div>
 
   <div class="card checkin-card" data-checkin="story">
     <div class="row-between">
-      <h2 style="margin:0">📚 故事时间</h2>
+      <h2 style="margin:0" data-i18n="checkin_story_title">📚 故事时间</h2>
     </div>
-    <div class="small" style="margin:2px 0 8px">英文童话、中国四大名著小故事，单独放在这里，读完想一想小问题就能打卡～每次打卡后，下次会换一个新故事</div>
-    <div class="small" style="margin:8px 0 2px;font-weight:700;color:#7b1fa2">🏰 英文童话故事</div>
+    <div class="small" style="margin:2px 0 8px" data-i18n="checkin_story_desc">英文童话、中国四大名著小故事，单独放在这里，读完想一想小问题就能打卡～每次打卡后，下次会换一个新故事</div>
+    <div class="small" style="margin:8px 0 2px;font-weight:700;color:#7b1fa2" data-i18n="story_en_label">🏰 英文童话故事</div>
     <div id="storyEnBox"></div>
-    <button class="btn btn-success" onclick="completeReadingTask('storyEn')" style="width:100%;margin-top:8px">✅ 完成英文故事打卡</button>
-    <div class="small" style="margin:14px 0 2px;font-weight:700;color:#7b1fa2">📖 四大名著小故事</div>
+    <button class="btn btn-success" onclick="completeReadingTask('storyEn')" style="width:100%;margin-top:8px" data-i18n="btn_finish_story_en">✅ 完成英文故事打卡</button>
+    <div class="small" style="margin:14px 0 2px;font-weight:700;color:#7b1fa2" data-i18n="story_cn_label">📖 四大名著小故事</div>
     <div id="storyCnBox"></div>
-    <button class="btn btn-success" onclick="completeReadingTask('storyCn')" style="width:100%;margin-top:8px">✅ 完成名著故事打卡</button>
+    <button class="btn btn-success" onclick="completeReadingTask('storyCn')" style="width:100%;margin-top:8px" data-i18n="btn_finish_story_cn">✅ 完成名著故事打卡</button>
   </div>
 
   <div class="card checkin-card" data-checkin="fun">
     <div class="row-between">
-      <h2 style="margin:0">🎉 娱乐打卡</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('fun')">⚙️ 编辑任务</button>
+      <h2 style="margin:0" data-i18n="checkin_fun_title">🎉 娱乐打卡</h2>
+      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('fun')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
     </div>
     <div id="list-fun"></div>
-    <div class="small">✅ 娱乐打卡全部完成 → 1次抽奖机会</div>
+    <div class="small" data-i18n="checkin_fun_bonus">✅ 娱乐打卡全部完成 → 1次抽奖机会</div>
   </div>
 
   <div class="card checkin-card" data-checkin="diary">
     <div class="row-between">
-      <h2 style="margin:0">📔 每日日记</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('diary')">⚙️ 编辑任务</button>
+      <h2 style="margin:0" data-i18n="checkin_diary_title">📔 每日日记</h2>
+      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('diary')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
     </div>
     <div id="list-diary"></div>
-    <div class="small">✅ 完成日记分享 → 1次抽奖机会</div>
+    <div class="small" data-i18n="checkin_diary_bonus">✅ 完成日记分享 → 1次抽奖机会</div>
   </div>
 
   <div class="card checkin-card" data-checkin="comm">
     <div class="row-between">
-      <h2 style="margin:0">☎️ 沟通打卡</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('comm')">⚙️ 编辑任务</button>
+      <h2 style="margin:0" data-i18n="checkin_comm_title">☎️ 沟通打卡</h2>
+      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('comm')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
     </div>
     <div id="list-comm"></div>
-    <div class="small" style="margin:8px 0 4px;font-weight:700;color:#7b1fa2">🗣️ 今日日常用语（点🔊听发音）</div>
+    <div class="small" style="margin:8px 0 4px;font-weight:700;color:#7b1fa2" data-i18n="comm_phrase_label">🗣️ 今日日常用语（点🔊听发音）</div>
     <div id="commPhraseBox"></div>
     <div class="item">
-      <div class="label">🙋 见到认识或不认识的人，主动say hello（可叠加10次）</div>
-      <button class="btn btn-success" id="btnHelloTask" onclick="completeHelloTask()">打招呼 +1金币</button>
+      <div class="label" data-i18n="comm_hello_label">🙋 见到认识或不认识的人，主动say hello（可叠加10次）</div>
+      <button class="btn btn-success" id="btnHelloTask" onclick="completeHelloTask()" data-i18n="btn_hello_task">打招呼 +1金币</button>
     </div>
     <div class="row-between" style="margin-top:6px">
-      <span class="tag tag-purple">今日已打招呼 <span id="helloTaskCount">0</span>/10 次</span>
+      <span class="tag tag-purple"><span data-i18n="comm_hello_count_prefix">今日已打招呼 </span><span id="helloTaskCount">0</span><span data-i18n="comm_hello_count_suffix">/10 次</span></span>
     </div>
-    <div class="small" style="margin-top:2px">✅ 沟通打卡全部完成（含打招呼满10次）→ 1次抽奖机会。打招呼的金币数可以在"⚙️编辑任务"的"特殊任务金币"里调整</div>
+    <div class="small" style="margin-top:2px" data-i18n="comm_bonus_note">✅ 沟通打卡全部完成（含打招呼满10次）→ 1次抽奖机会。打招呼的金币数可以在"⚙️编辑任务"的"特殊任务金币"里调整</div>
   </div>
 
   <div class="card checkin-card" data-checkin="custom">
-    <h2>⭐ 自定义加分项（每日限5次）</h2>
+    <h2 data-i18n="checkin_custom_title">⭐ 自定义加分项（每日限5次）</h2>
     <div class="item">
-      <input type="text" id="customTaskInput" placeholder="今天想额外表扬的小事，例如：主动收拾玩具" maxlength="30" style="flex:1;min-width:0;padding:7px 9px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />
-      <button class="btn btn-success" id="btnCustomTask" onclick="completeCustomTask()">完成 +<span id="customCoinsLabel">2</span>金币</button>
+      <input type="text" id="customTaskInput" placeholder="今天想额外表扬的小事，例如：主动收拾玩具" data-i18n-placeholder="custom_task_ph" maxlength="30" style="flex:1;min-width:0;padding:7px 9px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />
+      <button class="btn btn-success" id="btnCustomTask" onclick="completeCustomTask()"><span data-i18n="btn_custom_task_prefix">完成 +</span><span id="customCoinsLabel">2</span><span data-i18n="unit_coins">金币</span></button>
     </div>
     <div class="row-between" style="margin-top:6px">
-      <span class="tag tag-purple">今日已完成 <span id="customTaskCount">0</span>/5 次</span>
+      <span class="tag tag-purple"><span data-i18n="custom_count_prefix">今日已完成 </span><span id="customTaskCount">0</span><span data-i18n="custom_count_suffix">/5 次</span></span>
     </div>
     <div id="customTaskLog" class="small" style="margin-top:4px"></div>
-    <div class="small" style="margin-top:2px">✅ 完成5次 → 额外1次抽奖机会。每次金币数可以在"⚙️编辑任务"的"特殊任务金币"里调整</div>
+    <div class="small" style="margin-top:2px" data-i18n="checkin_custom_bonus">✅ 完成5次 → 额外1次抽奖机会。每次金币数可以在"⚙️编辑任务"的"特殊任务金币"里调整</div>
   </div>
 
   <div class="card checkin-card" data-checkin="house">
     <div class="row-between">
-      <h2 style="margin:0">🧹 家务打卡</h2>
-      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('house')">⚙️ 编辑任务</button>
+      <h2 style="margin:0" data-i18n="checkin_house_title">🧹 家务打卡</h2>
+      <button class="btn btn-gray btn-sm" onclick="openTaskSettings('house')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
     </div>
     <div class="daily-pick-box" id="dailyPickBox-house"></div>
     <div class="row-between" style="margin-bottom:5px">
-      <span class="tag tag-green">❤️ 今日家务 <span id="houseDone">0</span>/<span id="houseTotal">8</span></span>
+      <span class="tag tag-green"><span data-i18n="house_done_prefix">❤️ 今日家务 </span><span id="houseDone">0</span>/<span id="houseTotal">8</span></span>
     </div>
     <div id="houseList"></div>
-    <div class="small">今日转盘抽中的必做家务做完，才算今天的家务完成</div>
+    <div class="small" data-i18n="checkin_house_note">今日转盘抽中的必做家务做完，才算今天的家务完成</div>
   </div>
 
   <div class="card checkin-card" data-checkin="makeup">
-    <h2>⚠️ 漏打卡补卡</h2>
-    <div class="item"><span class="label">本周剩余补卡：<b id="makeUpRemain">1</b> 次</span>
-      <button class="btn btn-danger" onclick="makeUpMiss()">执行补做</button>
+    <h2 data-i18n="checkin_makeup_title">⚠️ 漏打卡补卡</h2>
+    <div class="item"><span class="label"><span data-i18n="makeup_remain_prefix">本周剩余补卡：</span><b id="makeUpRemain">1</b><span data-i18n="unit_times">次</span></span>
+      <button class="btn btn-danger" onclick="makeUpMiss()" data-i18n="btn_do_makeup">执行补做</button>
     </div>
-    <div class="small">补卡需完成：波比跳90、仰卧起坐60、平板/平衡各多1组（全部约+50%）</div>
+    <div class="small" data-i18n="checkin_makeup_note">补卡需完成：波比跳90、仰卧起坐60、平板/平衡各多1组（全部约+50%）</div>
   </div>
 </div>
 
@@ -1206,24 +1206,24 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <!-- ============ 页3：转盘 ============ -->
 <div class="page" id="page-wheel">
   <div class="card">
-    <h2>🎡 幸运转盘</h2>
+    <h2 data-i18n="wheel_title">🎡 幸运转盘</h2>
     <div class="row-between">
-      <span>今日剩余抽奖：<b id="wheelRemain">0</b> / 7 次</span>
-      <span class="tag tag-purple">🎫 免做卡解锁：<span id="fullDays">0</span>/10</span>
+      <span><span data-i18n="wheel_remain_label">今日剩余抽奖：</span><b id="wheelRemain">0</b> / 7 <span data-i18n="wheel_times_suffix">次</span></span>
+      <span class="tag tag-purple"><span data-i18n="wheel_free_unlock_label">🎫 免做卡解锁：</span><span id="fullDays">0</span>/10</span>
     </div>
     <div class="row-between" style="margin-top:4px">
-      <span class="tag tag-orange">🎁 休息卡解锁：<span id="restStreak">0</span>/10<span id="restMonthLock"></span></span>
+      <span class="tag tag-orange"><span data-i18n="wheel_rest_unlock_label">🎁 休息卡解锁：</span><span id="restStreak">0</span>/10<span id="restMonthLock"></span></span>
     </div>
-    <div class="small">运动全完成+1次｜家务全做完+1次｜学习全完成+1次｜娱乐全完成+1次｜日记完成+1次｜沟通打卡全完成+1次｜自定义加分满5次+1次（仅当日有效）</div>
-    <div class="small">🎁 运动+学习连续10天全勤后，转盘才会出现休息卡；每自然月限中1次，抽中后12天内有效，逾期不用自动作废</div>
-    <div class="small">🧱 转盘现在也能抽到装备合成/升星材料（精铁/云锦/星辉晶）和仙宅建材（灵木/灵石/龙鳞瓦），越稀有的材料抽中概率越低、数量也越少</div>
+    <div class="small" data-i18n="wheel_rules1">运动全完成+1次｜家务全做完+1次｜学习全完成+1次｜娱乐全完成+1次｜日记完成+1次｜沟通打卡全完成+1次｜自定义加分满5次+1次（仅当日有效）</div>
+    <div class="small" data-i18n="wheel_rules2">🎁 运动+学习连续10天全勤后，转盘才会出现休息卡；每自然月限中1次，抽中后12天内有效，逾期不用自动作废</div>
+    <div class="small" data-i18n="wheel_rules3">🧱 转盘现在也能抽到装备合成/升星材料（精铁/云锦/星辉晶）和仙宅建材（灵木/灵石/龙鳞瓦），越稀有的材料抽中概率越低、数量也越少</div>
     <div class="wheel-box" style="margin-top:9px">
       <div class="wheel-wrap">
         <div class="pointer">▼</div>
         <canvas id="wheelCanvas" width="260" height="260"></canvas>
         <div class="wheel-center">GO</div>
       </div>
-      <button class="btn btn-danger" id="btnSpin" onclick="spinWheel()">🎲 开始抽奖（剩余 <span id="spinRemain">0</span> 次）</button>
+      <button class="btn btn-danger" id="btnSpin" onclick="spinWheel()"><span data-i18n="wheel_spin_btn_prefix">🎲 开始抽奖（剩余 </span><span id="spinRemain">0</span><span data-i18n="wheel_spin_btn_suffix"> 次）</span></button>
     </div>
   </div>
 </div>
@@ -1233,22 +1233,22 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div class="card">
     <h2 data-i18n="pg_shop_title">🛒 宠物商店（金币购买）</h2>
     <div id="shopList" class="shop-grid"></div>
-    <div class="small" style="margin-top:6px">🔒 高级商品需宠物升级解锁；普通商品宠物出生后（Lv1）开放</div>
+    <div class="small" style="margin-top:6px" data-i18n="shop_lock_hint">🔒 高级商品需宠物升级解锁；普通商品宠物出生后（Lv1）开放</div>
   </div>
 </div>
 
 <!-- ============ 页5：背包 ============ -->
 <div class="page" id="page-bag">
   <div class="card">
-    <h2>🎒 我的奖品背包</h2>
+    <h2 data-i18n="bag_title">🎒 我的奖品背包</h2>
     <div id="bagGrid" class="bag-grid"></div>
-    <div class="bag-hint" id="freeSelectHint">🎫 免做卡已选中！回打卡页点想跳过的任务即可豁免（今日限用1张）</div>
-    <div class="small" style="margin-top:6px">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。这几种卡目前都只有转盘才能抽到，商店不卖；用不上的话也可以拿去🏛️拍卖行换给别的小朋友。</div>
+    <div class="bag-hint" id="freeSelectHint" data-i18n="bag_free_card_hint">🎫 免做卡已选中！回打卡页点想跳过的任务即可豁免（今日限用1张）</div>
+    <div class="small" style="margin-top:6px" data-i18n="bag_card_desc">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。这几种卡目前都只有转盘才能抽到，商店不卖；用不上的话也可以拿去🏛️拍卖行换给别的小朋友。</div>
   </div>
   <div class="card">
-    <h2>🧱 副本建材</h2>
+    <h2 data-i18n="bag_materials_title">🧱 副本建材</h2>
     <div id="materialGrid" class="bag-grid"></div>
-    <div class="small" style="margin-top:6px">精铁⚙️/云锦🧵/星辉晶💎可以在"🛡️装备面板"里用来合成、升星装备；灵木🪵/灵石🪨/龙鳞瓦🐉可以用来建"仙宅小屋"～</div>
+    <div class="small" style="margin-top:6px" data-i18n="bag_materials_desc">精铁⚙️/云锦🧵/星辉晶💎可以在"🛡️装备面板"里用来合成、升星装备；灵木🪵/灵石🪨/龙鳞瓦🐉可以用来建"仙宅小屋"～</div>
     <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="showPage('cottage')">🏡 去建仙宅小屋</button>
   </div>
   <div class="card">
@@ -1714,8 +1714,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="equipPanelModal">
   <div class="modal" style="max-width:460px">
     <button class="modal-close" onclick="hideModal('equipPanelModal')">✕</button>
-    <h3 style="text-align:center">🛡️ 装备面板</h3>
-    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">点背包里的装备一键穿戴；点身上已穿戴的装备可以卸下</div>
+    <h3 style="text-align:center" data-i18n="equip_panel_title">🛡️ 装备面板</h3>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:6px" data-i18n="equip_panel_subtitle">点背包里的装备一键穿戴；点身上已穿戴的装备可以卸下</div>
     <div id="equipPanelBody"></div>
   </div>
 </div>
@@ -1860,20 +1860,20 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petInjuryTip"></div>
 <div id="petPkInjuryBadge" style="display:none" onmouseenter="showPetPkInjuryTip()" onmouseleave="hidePetPkInjuryTip()" onclick="petPkInjuryBadgeTap()">🤕 PK轻伤</div>
 <div id="petPkInjuryTip" onmouseenter="clearTimeout(petPkInjuryTipAutoHideTimer)" onmouseleave="hidePetPkInjuryTip()"></div>
-<button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" style="display:none">⚔️</button>
+<button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" data-i18n-title="tt_dungeon_entry" style="display:none">⚔️</button>
 <button class="hud-act-btn" id="equipEntryBtn" onclick="petQuickAction('openEquipPanel')" title="装备面板" style="display:none">🛡️</button>
-<button class="hud-act-btn" id="auctionEntryBtn" onclick="petQuickAction('openAuctionHouse')" title="拍卖行" style="display:none">🏛️</button>
-<button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" style="display:none">📊</button>
+<button class="hud-act-btn" id="auctionEntryBtn" onclick="petQuickAction('openAuctionHouse')" title="拍卖行" data-i18n-title="tt_auction_entry" style="display:none">🏛️</button>
+<button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" data-i18n-title="ability_radar_title" style="display:none">📊</button>
 <div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
 <!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
      因为沉浸式整屏模式下 body.pet-fs-active #page-pet{display:none!important}，
      放在 #page-pet 里面的话，不管 z-index 多高都会跟着整个不渲染，这正是之前"看不到雷达图"的真正原因 -->
 <div class="card" id="abilityRadarCard">
-  <h2>📊 能力雷达图</h2>
+  <h2 data-i18n="ability_radar_title">📊 能力雷达图</h2>
   <div id="abilityRadarSvg"></div>
   <div class="small" style="text-align:center;margin-top:2px" id="abilityScoreText"></div>
   <div class="small" style="text-align:center;margin-top:4px;font-weight:700;color:#7b1fa2" id="abilityPersonalityText"></div>
-  <div class="small" style="margin-top:6px">🏃 运动来自运动打卡，📖 学习来自学习打卡，🧹 家务来自家务打卡，🎨 创造力来自⭐自定义加分项，💞 共情爱心来自☎️沟通打卡+📔日记打卡，🎵 音律来自🎉娱乐打卡（唱歌跳舞），🗡️ 勇气探险来自⚔️副本挑战（暂未开放，先是0）。每项0~100是基础阶段，满100分后进入"专精星级"，不封顶，会一直慢慢涨；同一天反复刷同一类打卡，收益会衰减，连续多天打卡才有额外奖励。7项能力里，只要"学习"明显低于其它维度的平均分，宠物就容易调皮捣蛋；七维全部满100可解锁终极形态【均衡仙灵】，是长期目标，不用急。</div>
+  <div class="small" style="margin-top:6px" data-i18n="ability_radar_desc">🏃 运动来自运动打卡，📖 学习来自学习打卡，🧹 家务来自家务打卡，🎨 创造力来自⭐自定义加分项，💞 共情爱心来自☎️沟通打卡+📔日记打卡，🎵 音律来自🎉娱乐打卡（唱歌跳舞），🗡️ 勇气探险来自⚔️副本挑战（暂未开放，先是0）。每项0~100是基础阶段，满100分后进入"专精星级"，不封顶，会一直慢慢涨；同一天反复刷同一类打卡，收益会衰减，连续多天打卡才有额外奖励。7项能力里，只要"学习"明显低于其它维度的平均分，宠物就容易调皮捣蛋；七维全部满100可解锁终极形态【均衡仙灵】，是长期目标，不用急。</div>
 </div>
 <div id="petSwitcher" class="pet-switcher" style="display:none"></div>
 <div id="petAddWrap" style="display:none">
@@ -2196,7 +2196,7 @@ function materialInfo(id){
   var m=dungeonMaterialCatalog().filter(function(x){ return x.id===id; })[0];
   return m||{id:id, emoji:'❔', name:id};
 }
-function materialLabel(id){ var m=materialInfo(id); return m.emoji+m.name; }
+function materialLabel(id){ var m=materialInfo(id); return m.emoji+L(m.name, m.nameEn||m.name); }
 function equipWornInstanceIds(){
   // 2026-09fix：以前只看state.pet（当前出战的那一只），导致穿在"别的"宠物身上的装备会被误判成"未穿戴"，
   // 从而能被升星合成功能当成材料直接消耗掉——那只宠物身上却还留着一个已经不存在的装备实例引用。
@@ -2438,7 +2438,7 @@ function renderCheckinHidePetBtn(){
   if(!btn) return;
   btn.classList.toggle('btn-selected', checkinHidePet);
   btn.style.opacity=checkinHidePet?1:.6;
-  btn.innerText=checkinHidePet?'🙈 打卡页宠物：已隐藏':'🐾 打卡页宠物：显示中';
+  btn.innerText=checkinHidePet?L('🙈 打卡页宠物：已隐藏','🙈 Pet on Check-in Page: Hidden'):L('🐾 打卡页宠物：显示中','🐾 Pet on Check-in Page: Shown');
 }
 
 /* -------- 宠物页：进入即沉浸式全屏场景 -------- */
@@ -3470,7 +3470,9 @@ function L(zh, en){ return getUiLang()==='en' ? (en!=null?en:zh) : zh; }
 var I18N_EN_TITLE = {
   tt_today_earn: 'Coins earned today from check-ins/pet care',
   tt_music: 'Background music on/off',
-  tt_volume: 'Sound settings'
+  tt_volume: 'Sound settings',
+  tt_dungeon_entry: 'Dungeon Challenge',
+  tt_auction_entry: 'Auction House'
 };
 var I18N_EN_PH = {
   family_gate_input_ph: 'Enter Family Code',
@@ -3515,7 +3517,113 @@ var I18N_EN = {
   child_create_btn_add: '✅ Create Profile',
   child_modal_title: '👨‍👩‍👧 Choose Child',
   child_add_btn: '➕ Add Child',
-  child_cap_hint: 'One Family Code can only have one child profile for now.<br>To add a profile for another child, please get a new Family Code from the "🛠️Admin Panel".'
+  child_cap_hint: 'One Family Code can only have one child profile for now.<br>To add a profile for another child, please get a new Family Code from the "🛠️Admin Panel".',
+  equip_panel_title: '🛡️ Equipment Panel',
+  equip_panel_subtitle: 'Tap an item in your bag to equip it in one tap; tap a worn item to unequip it',
+  ability_radar_title: '📊 Ability Radar',
+  ability_radar_desc: '🏃 Sport comes from Sport check-ins, 📖 Study from Study check-ins, 🧹 Chores from Chore check-ins, 🎨 Creativity from ⭐Custom bonus items, 💞 Empathy from ☎️Communication + 📔Diary check-ins, 🎵 Music from 🎉Fun check-ins (singing/dancing), 🗡️ Courage from ⚔️Dungeon Challenge (not yet open, starts at 0). Each stat is 0~100 in the base stage; past 100 it enters "Mastery Star" tier, uncapped, and keeps slowly growing; repeating the same check-in type on the same day gives diminishing returns, while checking in for several days in a row earns bonus rewards. Of the 7 abilities, if "Study" falls noticeably behind the average of the others, the pet becomes more prone to mischief; maxing all 7 at 100 unlocks the ultimate form [Balanced Fae Spirit] — a long-term goal, no rush.',
+  wheel_title: '🎡 Lucky Wheel',
+  wheel_rules1: 'Full Sport +1 spin | Full Chores +1 spin | Full Study +1 spin | Full Fun +1 spin | Diary done +1 spin | Full Communication check-in +1 spin | 5 Custom bonus items +1 spin (today only)',
+  wheel_rules2: '🎁 After 10 consecutive days of full Sport + Study check-ins, Rest Cards start appearing on the wheel; limited to 1 win per calendar month, valid for 12 days after winning, no need to use it — it never auto-expires early',
+  wheel_rules3: '🧱 The wheel can now also award equipment synthesis/star-up materials (Iron/Silk/Starlight Crystal) and Fae Cottage building materials (Spirit Wood/Spirit Stone/Dragon Tile) — the rarer the material, the lower the odds and the smaller the amount',
+  shop_lock_hint: '🔒 Premium items unlock as the pet levels up; basic items are available right after the pet is born (Lv1)',
+  bag_title: '🎒 My Prize Bag',
+  bag_free_card_hint: 'Free-Pass Card selected! Go back to the check-in page and tap the task you want to skip (limited to 1 use per day)',
+  bag_card_desc: 'Free-Pass Card: up to 1 per day; a 2nd one converts to 10 coins; only 1 usable per day. Discount Card: takes effect the next day, expires if unused that day; 7%-off/8%-off — pick one, applies to Bobby Jumps. Rest Card: won from the Lucky Wheel, requires 10 consecutive full days of Sport+Study check-ins to unlock, limited to 1 win per calendar month, valid 12 days, no need to use it. These cards can currently only be won from the wheel — not sold in the shop; if you don\'t need one, trade it to another kid via 🏛️Auction House.',
+  bag_materials_title: '🧱 Dungeon Materials',
+  bag_materials_desc: 'Iron⚙️/Silk🧵/Starlight Crystal💎 are used in "🛡️Equipment Panel" for equipment synthesis and star-ups; Spirit Wood🪵/Spirit Stone🪨/Dragon Tile🐉 are used to build the "Fae Cottage"~',
+  wheel_remain_label: 'Spins left today: ',
+  wheel_times_suffix: 'spins',
+  wheel_free_unlock_label: '🎫 Free-Pass unlock: ',
+  wheel_rest_unlock_label: '🎁 Rest Card unlock: ',
+  wheel_spin_btn_prefix: '🎲 Spin (',
+  wheel_spin_btn_suffix: ' left)',
+  checkin_settings_title: '📅 Today\'s Settings',
+  checkin_mode_label: 'Check-in Mode',
+  btn_morning: 'Morning',
+  btn_evening: 'Evening',
+  checkin_mode_desc_prefix: 'Current mode: ',
+  checkin_mode_desc_suffix: '｜Morning: 40 Bobby Jumps, 35 sit-ups, 3 sets each of plank/balance (1 fewer set than evening)',
+  checkin_pet_disturb_label: 'Pet on Check-in Page',
+  checkin_pet_disturb_desc: 'If your pet distracts you while studying, tap this to temporarily hide it from the check-in page - it resets to showing every time you reopen the app. If the pet\'s stats (Fullness/Hydration/Happiness/Cleanliness) drop below 50, it will only be visible on the "Pet" page regardless of this toggle.',
+  tab_sport: '🏃 Sport',
+  tab_study: '📖 Study',
+  tab_math: '🏰 Guard Home',
+  tab_readEn: '📗 English Reading',
+  tab_readCn: '📕 Chinese Reading',
+  tab_story: '📚 Story',
+  tab_fun: '🎉 Fun',
+  tab_diary: '📔 Diary',
+  tab_comm: '☎️ Communication',
+  tab_custom: '⭐ Bonus',
+  tab_house: '🧹 Chores',
+  tab_makeup: '⚠️ Makeup',
+  checkin_sport_title: '🏃 Sport Check-in (parent confirms, then tap Done)',
+  btn_edit_task: '⚙️ Edit Tasks',
+  burpee_label_prefix: '💪 Bobby Jumps ',
+  burpee_label_suffix: '',
+  btn_burpee_group: '✅ Done in Sets',
+  btn_burpee_once: '✅ Done in One Go',
+  sport_burpee_note: 'Bobby Jumps has its own set/one-go modes and can\'t be added or removed for now; adjust its coin reward in "⚙️Edit Tasks" → "Special Task Coins"',
+  sport_bonus_note: '\n      ✅ Finish today\'s required Sport task from the wheel → 15-min short video + 1 spin<br>\n      Bobby Jumps only gets a next-day discount if done in one go: 1 session done → skip the next day, back to normal on day 3; done in sets gets no discount; missing a day ×1.5 penalty; 1 makeup per week\n    ',
+  checkin_study_title: '📖 Study Check-in',
+  btn_weekly_quiz: '📊 Weekly Quiz',
+  btn_theme_settings: '🎨 Theme Settings',
+  study_content_label: '📚 Today\'s Study Content (tap 🔊 to hear it)',
+  label_words: '🔤 Words: ',
+  label_hanzi: '🀄 Chinese Characters: ',
+  label_sentences: '💬 Sentences: ',
+  btn_refresh_batch: '🔄 New Batch',
+  label_reading_comp: '📖 Reading Comprehension: ',
+  label_math_en: '🧮 English Math: ',
+  label_poem: '📜 Today\'s Classical Poem (PEP Elementary Grades 1-6): ',
+  btn_refresh_poem: '🔄 New Poem',
+  label_free_study_card: '🎫 Free-Recite Cards: ',
+  unit_zhang: '',
+  label_study_streak: 'Study streak: ',
+  unit_days: ' days',
+  checkin_math_title: '🏰 Guard the Home',
+  checkin_math_desc: 'Answer correctly, defeat zombies, guard the home level by level - your pet grows right along with you! Finish "Study" and "Communication" check-ins carefully today and the challenge questions will look more familiar and be easier to clear~',
+  math_cleared_label: '🎮 Cleared today: ',
+  math_coins_label: '💰 Earned today: ',
+  unit_coins: ' coins',
+  btn_start_guard: '🚀 Start Guarding',
+  checkin_readEn_title: '📗 English Reading Check-in',
+  checkin_readEn_desc: 'If you enjoy reading short English stories, come read one here, think about the questions, and check in when you\'re done~ Each check-in swaps in a new story next time',
+  btn_finish_reading: '✅ Finish Reading Check-in',
+  checkin_readCn_title: '📕 Chinese Reading Check-in',
+  checkin_readCn_desc: 'If you enjoy reading short Chinese stories, come read one here, think about the questions, and check in when you\'re done~ Each check-in swaps in a new story next time',
+  checkin_story_title: '📚 Story Time',
+  checkin_story_desc: 'English fairy tales and stories from China\'s Four Great Classical Novels, kept here on their own - read one, think about a little question, and check in~ Each check-in swaps in a new story next time',
+  story_en_label: '🏰 English Fairy Tales',
+  btn_finish_story_en: '✅ Finish English Story Check-in',
+  story_cn_label: '📖 Classical Novel Stories',
+  btn_finish_story_cn: '✅ Finish Classic Story Check-in',
+  checkin_fun_title: '🎉 Fun Check-in',
+  checkin_fun_bonus: '✅ Finish all Fun check-ins → 1 spin',
+  checkin_diary_title: '📔 Daily Diary',
+  checkin_diary_bonus: '✅ Finish sharing your diary → 1 spin',
+  checkin_comm_title: '☎️ Communication Check-in',
+  comm_phrase_label: '🗣️ Today\'s Everyday Phrases (tap 🔊 to hear it)',
+  comm_hello_label: '🙋 Say hello to anyone you meet, known or not (stacks up to 10 times)',
+  btn_hello_task: 'Say Hi +1 coin',
+  comm_hello_count_prefix: 'Said hi ',
+  comm_hello_count_suffix: '/10 times today',
+  comm_bonus_note: '✅ Finish all Communication check-ins (incl. 10 hellos) → 1 spin. Adjust the hello coin reward in "⚙️Edit Tasks" → "Special Task Coins"',
+  checkin_custom_title: '⭐ Custom Bonus Item (5/day max)',
+  custom_task_ph: "Something extra to praise today, e.g.: put toys away on their own",
+  btn_custom_task_prefix: 'Done +',
+  custom_count_prefix: 'Done ',
+  custom_count_suffix: '/5 times today',
+  checkin_custom_bonus: '✅ Finish 5 → 1 extra spin. Adjust the coin reward per item in "⚙️Edit Tasks" → "Special Task Coins"',
+  checkin_house_title: '🧹 Chores Check-in',
+  house_done_prefix: '❤️ Today\'s Chores ',
+  checkin_house_note: 'Today\'s Chores only counts as complete once the required chore drawn by the wheel is finished',
+  checkin_makeup_title: '⚠️ Makeup Check-in',
+  makeup_remain_prefix: 'Makeups left this week: ',
+  unit_times: ' left',
+  btn_do_makeup: 'Do Makeup',
+  checkin_makeup_note: 'Makeup requires: 90 Bobby Jumps, 60 sit-ups, 1 extra set each of plank/balance (~+50% overall)'
 };
 var _i18nZhCache={};
 /* 静态界面按当前语言刷新一遍：切换语言、或页面刚加载完时调用。中文原文第一次遇到时自动缓存，
@@ -6491,7 +6599,7 @@ function showFriendChildDetail(rowId,cid,friendStore){
   var radarTitle=document.createElement('div');
   radarTitle.className='small';
   radarTitle.style.cssText='text-align:center;font-weight:600;color:#7b1fa2;margin-bottom:2px';
-  radarTitle.textContent='📊 能力雷达图对比（浅色=你，深色=对方）';
+  radarTitle.textContent=L('📊 能力雷达图对比（浅色=你，深色=对方）','📊 Ability Radar Comparison (light = you, dark = them)');
   radarWrap.appendChild(radarTitle);
   var radarSvgHost=document.createElement('div');
   radarSvgHost.innerHTML=buildCompareRadarSvg(petAbilityScores(), abilityScoresFromState(st));
@@ -10549,6 +10657,8 @@ function cleanDiscounts(){
    只看转盘抽中的那一个任务有没有做完，其他任务做不做都不影响"全勤"和棋盘任务判定。 */
 var DAILY_PICK_CATS=['sport','study','house'];
 var DAILY_PICK_CAT_NAME={sport:'运动',study:'学习',house:'家务'};
+var DAILY_PICK_CAT_NAME_EN={sport:'Sport',study:'Study',house:'Chores'};
+function dailyPickCatName(cat){ return L(DAILY_PICK_CAT_NAME[cat], DAILY_PICK_CAT_NAME_EN[cat]||DAILY_PICK_CAT_NAME[cat]); }
 function ensureDailyPick(d){
   if(!d.dailyPick) d.dailyPick={sport:null,study:null,house:null};
   return d.dailyPick;
@@ -10568,12 +10678,12 @@ function isDailyPickTaskDone(cat,d,pickId){
 function spinDailyTask(cat){
   var d=state.day;
   var pick=ensureDailyPick(d);
-  if(pick[cat]){ alert('今天'+DAILY_PICK_CAT_NAME[cat]+'转盘已经转过啦，今日必做任务是【'+taskLabel(cat,pick[cat])+'】，明天才能再转～'); return; }
+  if(pick[cat]){ alert(L('今天'+DAILY_PICK_CAT_NAME[cat]+'转盘已经转过啦，今日必做任务是【'+taskLabel(cat,pick[cat])+'】，明天才能再转～','You already spun the '+dailyPickCatName(cat)+' wheel today - today\'s required task is ['+taskLabel(cat,pick[cat])+'], you can spin again tomorrow~')); return; }
   var candidates=dailyPickCandidates(cat);
-  if(!candidates.length){ alert('还没有可以抽的'+DAILY_PICK_CAT_NAME[cat]+'任务，请先去"⚙️编辑任务"里添加任务吧'); return; }
+  if(!candidates.length){ alert(L('还没有可以抽的'+DAILY_PICK_CAT_NAME[cat]+'任务，请先去"⚙️编辑任务"里添加任务吧','No '+dailyPickCatName(cat)+' tasks to spin yet - please add some in "⚙️Edit Tasks" first')); return; }
   var chosen=candidates[Math.floor(Math.random()*candidates.length)];
   pick[cat]=chosen;
-  addLog('🎡'+DAILY_PICK_CAT_NAME[cat]+'转盘转到了：今日必做【'+taskLabel(cat,chosen)+'】');
+  addLog(L('🎡'+DAILY_PICK_CAT_NAME[cat]+'转盘转到了：今日必做【'+taskLabel(cat,chosen)+'】','🎡 '+dailyPickCatName(cat)+' wheel landed on: today\'s required task ['+taskLabel(cat,chosen)+']'));
   save();
   render();
 }
@@ -11160,6 +11270,12 @@ var ABILITY_PERSONALITY_LABEL={
   worker:'💼 勤劳打工型（家务值高，离线时会自动打工赚金币）',
   neutral:'🙂 均衡型（还没有特别突出的方向，多打卡试试看）'
 };
+var ABILITY_PERSONALITY_LABEL_EN={
+  rebel:'😈 Playful Rebel (Study lags behind other areas - prone to mischief offline, even risky moves that cause injury)',
+  good:'😇 Well-Behaved (High Study score - stable behavior, no mischief)',
+  worker:'💼 Hardworking (High Chores score - auto-works for coins while offline)',
+  neutral:'🙂 Balanced (No standout direction yet - try more check-ins!)'
+};
 /* ========== 上线后"想做喜欢的事"念叨提醒 ==========
    宠物按几个"有固定每日打卡来源"的维度里最高的那一项，判定出自己"最喜欢/最擅长"的类别（创造力绑
    在自由发挥的⭐加分项上，没有固定"今天做没做"的判定方式；勇气探险绑在还没开放的副本系统上，两者
@@ -11317,14 +11433,14 @@ function renderAbilityRadar(){
   if(svgHost) svgHost.innerHTML=svg;
   var scoreEl=document.getElementById('abilityScoreText');
   if(scoreEl){
-    var txt='能力点数：运动'+abilityDimPts('sport')+' · 学习'+abilityDimPts('study')+' · 家务'+abilityDimPts('house')
-      +' · 创造力'+abilityDimPts('creativity')+' · 共情爱心'+abilityDimPts('empathy')+' · 音律'+abilityDimPts('music')
-      +' · 勇气探险'+abilityDimPts('courage')+'（100分后进入专精星级，不封顶）';
-    if(state.balancedImmortalUnlocked) txt='🌟 已达成终极形态【均衡仙灵】！ '+txt;
+    var txt=L('能力点数：运动','Ability points: Sport ')+abilityDimPts('sport')+' · '+L('学习','Study ')+abilityDimPts('study')+' · '+L('家务','Chores ')+abilityDimPts('house')
+      +' · '+L('创造力','Creativity ')+abilityDimPts('creativity')+' · '+L('共情爱心','Empathy ')+abilityDimPts('empathy')+' · '+L('音律','Music ')+abilityDimPts('music')
+      +' · '+L('勇气探险','Courage ')+abilityDimPts('courage')+L('（100分后进入专精星级，不封顶）',' (past 100 pts enters Mastery Star tier, uncapped)');
+    if(state.balancedImmortalUnlocked) txt=L('🌟 已达成终极形态【均衡仙灵】！ ','🌟 Ultimate form unlocked: [Balanced Fae Spirit]! ')+txt;
     scoreEl.innerText=txt;
   }
   var pEl=document.getElementById('abilityPersonalityText');
-  if(pEl) pEl.innerText=ABILITY_PERSONALITY_LABEL[petPersonality()];
+  if(pEl) pEl.innerText=L(ABILITY_PERSONALITY_LABEL[petPersonality()], ABILITY_PERSONALITY_LABEL_EN[petPersonality()]||ABILITY_PERSONALITY_LABEL[petPersonality()]);
 }
 function abilityRadarPanelOpen(){
   var card=document.getElementById('abilityRadarCard');
@@ -11438,7 +11554,7 @@ function useStudyFreeCard(key){
 }
 
 /* ========== 早上/晚上 ========== */
-function setTimeMode(m){state.timeMode=m;addLog('🕐切换打卡模式：'+(m==='morning'?'早上':'晚上'));save();render();}
+function setTimeMode(m){state.timeMode=m;addLog(L('🕐切换打卡模式：','🕐 Switched check-in mode: ')+(m==='morning'?L('早上','Morning'):L('晚上','Evening')));save();render();}
 
 /* ========== 漏打卡补卡 ========== */
 function makeUpMiss(){
@@ -13336,22 +13452,22 @@ function pvpBattleEnd(win){
 
 /* ========== 幸运转盘 ========== */
 const WHEEL_ITEMS=[
-  {id:'free',label:'免做卡',emoji:'🎫',color:'#ab47bc',weight:6},
-  {id:'rest',label:'休息卡',emoji:'🎁',color:'#26a69a',weight:6},
-  {id:'d7',label:'7折卡',emoji:'🔖',color:'#ffb74d',weight:12},
-  {id:'d8',label:'8折卡',emoji:'🔖',color:'#ffa726',weight:12},
-  {id:'c15',label:'15金币',emoji:'💰',color:'#66bb6a',weight:25},
-  {id:'c25',label:'25金币',emoji:'💰',color:'#42a5f5',weight:20},
+  {id:'free',label:'免做卡',labelEn:'Free-Pass',emoji:'🎫',color:'#ab47bc',weight:6},
+  {id:'rest',label:'休息卡',labelEn:'Rest Card',emoji:'🎁',color:'#26a69a',weight:6},
+  {id:'d7',label:'7折卡',labelEn:'30% Off',emoji:'🔖',color:'#ffb74d',weight:12},
+  {id:'d8',label:'8折卡',labelEn:'20% Off',emoji:'🔖',color:'#ffa726',weight:12},
+  {id:'c15',label:'15金币',labelEn:'15 Coins',emoji:'💰',color:'#66bb6a',weight:25},
+  {id:'c25',label:'25金币',labelEn:'25 Coins',emoji:'💰',color:'#42a5f5',weight:20},
   // 2026-09新增：转盘也能抽到装备合成/升星用的材料（精铁/云锦/星辉晶）和仙宅小屋建材（灵木/灵石/龙鳞瓦），
   // 权重和单次数量都按材料在副本里的稀有档位来——越是副本后期才刷得到的材料（比如龙鳞瓦只有终极boss关才掉），
   // 转盘上权重越低、一次给的也越少，避免转盘变成比正经打副本还划算的刷材料捷径，材料失去稀缺性
-  {id:'mat_wood',   label:'灵木',   emoji:'🪵', color:'#8d6e63', weight:16, mat:'wood',    qty:3},
-  {id:'mat_stone',  label:'灵石',   emoji:'🪨', color:'#78909c', weight:13, mat:'stone',   qty:2},
-  {id:'mat_iron',   label:'精铁',   emoji:'⚙️', color:'#90a4ae', weight:10, mat:'iron',    qty:2},
-  {id:'mat_silk',   label:'云锦',   emoji:'🧵', color:'#f06292', weight:7,  mat:'silk',    qty:1},
-  {id:'mat_crystal',label:'星辉晶', emoji:'💎', color:'#5c6bc0', weight:4,  mat:'crystal', qty:1},
-  {id:'mat_tile',   label:'龙鳞瓦', emoji:'🐉', color:'#7e57c2', weight:2,  mat:'tile',    qty:1},
-  {id:'none',label:'谢谢参与',emoji:'⭐',color:'#bdbdbd',weight:25}
+  {id:'mat_wood',   label:'灵木',   labelEn:'Spirit Wood',    emoji:'🪵', color:'#8d6e63', weight:16, mat:'wood',    qty:3},
+  {id:'mat_stone',  label:'灵石',   labelEn:'Spirit Stone',   emoji:'🪨', color:'#78909c', weight:13, mat:'stone',   qty:2},
+  {id:'mat_iron',   label:'精铁',   labelEn:'Iron',           emoji:'⚙️', color:'#90a4ae', weight:10, mat:'iron',    qty:2},
+  {id:'mat_silk',   label:'云锦',   labelEn:'Silk',           emoji:'🧵', color:'#f06292', weight:7,  mat:'silk',    qty:1},
+  {id:'mat_crystal',label:'星辉晶', labelEn:'Starlight Crystal', emoji:'💎', color:'#5c6bc0', weight:4,  mat:'crystal', qty:1},
+  {id:'mat_tile',   label:'龙鳞瓦', labelEn:'Dragon Tile',    emoji:'🐉', color:'#7e57c2', weight:2,  mat:'tile',    qty:1},
+  {id:'none',label:'谢谢参与',labelEn:'Thanks for Playing',emoji:'⭐',color:'#bdbdbd',weight:25}
 ];
 function wheelSegments(){
   var arr=WHEEL_ITEMS.slice();
@@ -13376,7 +13492,7 @@ function drawWheel(){
     ctx.textAlign='right';ctx.textBaseline='middle';
     ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';
     ctx.shadowColor='rgba(0,0,0,0.35)';ctx.shadowBlur=3;
-    ctx.fillText(segs[i].label,r-14,0);
+    ctx.fillText(L(segs[i].label, segs[i].labelEn||segs[i].label),r-14,0);
     ctx.restore();
   }
 }
@@ -13389,7 +13505,7 @@ function pickWeighted(segs){
 }
 function spinWheel(){
   if(spinning) return;
-  if(remainingWheel()<=0){alert('今日抽奖次数已用完，快去完成运动/家务/学习打卡获取次数吧！');return;}
+  if(remainingWheel()<=0){alert(L('今日抽奖次数已用完，快去完成运动/家务/学习打卡获取次数吧！','Out of spins for today - go finish Sport/Chores/Study check-ins to earn more!'));return;}
   var segs=wheelSegments(),n=segs.length;
   var idx=pickWeighted(segs);
   var segDeg=360/n;
@@ -13412,26 +13528,26 @@ function spinWheel(){
 function applyReward(seg){
   var id=seg.id,msg='';
   if(id==='free'){
-    if(state.day.gotFreeCard){state.moneyBalance+=10;msg='🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！';}
-    else{state.backpack.freeCard++;state.day.gotFreeCard=true;msg='🎫恭喜抽中【免做卡】×1！';}
+    if(state.day.gotFreeCard){state.moneyBalance+=10;msg=L('🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！','🎫 Free-Pass Card drawn, but you already got one today - auto-converted to 10 coins instead!');}
+    else{state.backpack.freeCard++;state.day.gotFreeCard=true;msg=L('🎫恭喜抽中【免做卡】×1！','🎫 Congrats, you won [Free-Pass Card] ×1!');}
   }else if(id==='rest'){
     state.backpack.restCards.push({obtained:todayKey()});
     state.restCardMonthGranted=true;
-    msg='🎁恭喜抽中【库洛米休息卡】！有效期12天，逾期不用自动作废（本自然月不会再抽到）';
-  }else if(id==='d7'){state.backpack.d7.push(todayKey());msg='🔖恭喜抽中【7折折扣卡】！次日生效，次日不用即过期';}
-  else if(id==='d8'){state.backpack.d8.push(todayKey());msg='🔖恭喜抽中【8折折扣卡】！次日生效，次日不用即过期';}
-  else if(id==='c15'){state.moneyBalance+=15;msg='💰恭喜抽中15金币！已存入宠物金币钱包';}
-  else if(id==='c25'){state.moneyBalance+=25;msg='💰恭喜抽中25金币！已存入宠物金币钱包';}
+    msg=L('🎁恭喜抽中【库洛米休息卡】！有效期12天，逾期不用自动作废（本自然月不会再抽到）','🎁 Congrats, you won [Kuromi Rest Card]! Valid for 12 days, auto-expires if unused (won\'t appear again this calendar month)');
+  }else if(id==='d7'){state.backpack.d7.push(todayKey());msg=L('🔖恭喜抽中【7折折扣卡】！次日生效，次日不用即过期','🔖 Congrats, you won [30% Off Card]! Takes effect tomorrow, expires if unused that day');}
+  else if(id==='d8'){state.backpack.d8.push(todayKey());msg=L('🔖恭喜抽中【8折折扣卡】！次日生效，次日不用即过期','🔖 Congrats, you won [20% Off Card]! Takes effect tomorrow, expires if unused that day');}
+  else if(id==='c15'){state.moneyBalance+=15;msg=L('💰恭喜抽中15金币！已存入宠物金币钱包','💰 Congrats, you won 15 coins! Added to your pet coin wallet');}
+  else if(id==='c25'){state.moneyBalance+=25;msg=L('💰恭喜抽中25金币！已存入宠物金币钱包','💰 Congrats, you won 25 coins! Added to your pet coin wallet');}
   else if(seg.mat){
     if(!state.backpack.materials) state.backpack.materials={};
     var matQty=seg.qty||1;
     state.backpack.materials[seg.mat]=(state.backpack.materials[seg.mat]||0)+matQty;
-    msg=seg.emoji+'恭喜抽中【'+materialLabel(seg.mat)+'】×'+matQty+'！已经存进副本建材背包';
+    msg=seg.emoji+L('恭喜抽中【'+materialLabel(seg.mat)+'】×'+matQty+'！已经存进副本建材背包','Congrats, you won ['+materialLabel(seg.mat)+'] ×'+matQty+'! Added to your dungeon materials bag');
   }
-  else{msg='⭐谢谢参与，下次好运！';}
+  else{msg=L('⭐谢谢参与，下次好运！','⭐ Thanks for playing, better luck next time!');}
   state.day.wheelUsed++;
-  addLog('🎡幸运转盘：'+msg);
-  showReward(seg.emoji+' 抽奖结果',msg);
+  addLog(L('🎡幸运转盘：','🎡 Lucky Wheel: ')+msg);
+  showReward(seg.emoji+L(' 抽奖结果',' Spin Result'),msg);
   save();
 }
 
@@ -13600,7 +13716,7 @@ function render(){
   document.getElementById('moneyBalance').innerText=state.moneyBalance;
   document.getElementById('moneyBalance2').innerText=state.moneyBalance;
   document.getElementById('todayEarned').innerText=state.day.earned;
-  document.getElementById('timeModeText').innerText=state.timeMode==='morning'?'早上':'晚上';
+  document.getElementById('timeModeText').innerText=state.timeMode==='morning'?L('早上','Morning'):L('晚上','Evening');
   document.getElementById('btnMorning').classList.toggle('btn-selected', state.timeMode==='morning');
   document.getElementById('btnEvening').classList.toggle('btn-selected', state.timeMode==='evening');
   document.getElementById('btnMorning').style.opacity=state.timeMode==='morning'?1:.6;
@@ -13741,16 +13857,16 @@ function renderDailyPickWidgets(){
     var box=document.getElementById('dailyPickBox-'+cat);
     if(!box) continue;
     var pickId=d.dailyPick[cat];
-    var name=DAILY_PICK_CAT_NAME[cat];
+    var name=L(DAILY_PICK_CAT_NAME[cat], DAILY_PICK_CAT_NAME_EN[cat]||DAILY_PICK_CAT_NAME[cat]);
     var html;
     if(!pickId){
-      html='<div class="dp-text">🎡 还没转今日<b>'+name+'</b>必做任务转盘，转到什么就要先做完什么，才算今天'+name+'完成～</div>'
-        +'<button class="dp-spin-btn" onclick="spinDailyTask(\''+cat+'\')">🎡 转一下</button>';
+      html='<div class="dp-text">'+L('🎡 还没转今日<b>'+name+'</b>必做任务转盘，转到什么就要先做完什么，才算今天'+name+'完成～','🎡 Haven\'t spun today\'s <b>'+name+'</b> required-task wheel yet - whatever it lands on must be done first for today\'s '+name+' to count~')+'</div>'
+        +'<button class="dp-spin-btn" onclick="spinDailyTask(\''+cat+'\')">'+L('🎡 转一下','🎡 Spin')+'</button>';
       box.classList.remove('dp-done');
     }else{
       var done=isDailyPickTaskDone(cat,d,pickId);
-      html='<div class="dp-text">'+(done?'✅':'🎯')+' 今日'+name+'必做任务：<b>'+taskLabel(cat,pickId)+'</b>'+(done?'（已完成！）':'（还没完成）')+'</div>'
-        +'<button class="dp-spin-btn" disabled>今日已转盘</button>';
+      html='<div class="dp-text">'+(done?'✅':'🎯')+' '+L('今日'+name+'必做任务：','Today\'s required '+name+' task: ')+'<b>'+taskLabel(cat,pickId)+'</b>'+(done?L('（已完成！）',' (Done!)'):L('（还没完成）',' (Not done yet)'))+'</div>'
+        +'<button class="dp-spin-btn" disabled>'+L('今日已转盘','Already spun today')+'</button>';
       box.classList.toggle('dp-done',done);
     }
     box.innerHTML=html;
