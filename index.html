@@ -1661,7 +1661,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
      战斗中通用技能自动随机使出，不用一个个选；必杀技攒够能量后由小朋友自己决定什么时候放。 -->
 <div class="modal-mask" id="battleDemoModal">
   <div class="modal" style="max-width:420px">
-    <button class="modal-close" onclick="hideModal('battleDemoModal')">✕</button>
+    <button class="modal-close" onclick="closeBattleDemoModal()">✕</button>
     <div id="btLoadoutView">
       <h3 id="btLoadoutTitle" style="margin-top:0">🎒 选技能出战</h3>
       <div id="btLevelGapHint" class="small" style="display:none;text-align:left;margin:-4px 0 8px;padding:6px 8px;border-radius:8px;background:#fff3e0;color:#e65100"></div>
@@ -5241,52 +5241,31 @@ var _battle=null; // 当前这一局战斗的运行时状态，只存在内存�
 var _battleMode='demo'; // 'demo'=自己练手用的假对手 / 'pk'=串门发起的真实好友PK
 var _battlePkTarget=null; // pk模式下：{rowId,cid,friendName,friendChildState}
 var _battleLevelGapInfo=null; // pk模式下：{myLevel,oppLevel,gap} 用于战斗日志里提示等级差距
-/* 2026-09新增：宝宝这个账号是内部测试号，PK时无视等级/装备/属性差距限制——不管双方真实等级差多少，
-   对方这一侧的综合战力都会被悄悄改算成"跟宝宝差不多、宝宝略占上风"，而不是像老的等级差倍率那样，
-   真实差距一大（比如相差二三十级）就会被算出一个离谱的倍率，导致宝宝铁定赢或铁定输——那种情况下
-   即使想让宝宝赢面大一点，套进原来的"胜率→倍率"公式也不够用（原公式的倍率是封顶的，追不上离谱的
-   真实等级差）。所以这里换一个思路：先把双方拼好的技能/装备加成都按各自真实数据结算出一个"综合战力
-   分数"，再单独把对方那一侧的分数改成"宝宝分数的百分之七八十/百分之一百一到一百三"这个区间（宝宝是
-   挑战者时调低对方、宝宝是被拜访方时调高自己），回合制战斗还是照常真实打、有技能搭配和暴击运气的
-   起伏，宝宝也会有正常概率打输，只是不管真实等级差多离谱，双方数值看起来都还是"势均力敌、小赢小输"
-   的正常样子，不会出现明显不合理的数字。展示给这次操作的人看的等级数字和差距提示语（用真实等级，
-   仍走 _battleLevelGapInfo/battleLevelGapText）完全不受这个改动影响，避免露馅。这个账号id不要改/
-   不要泄露给无关的人。 */
+/* 2026-09update：宝宝这个账号是内部测试号，PK时想让宝宝赢面明显更大——但2026-09最早那版做法
+   （把宝宝一侧的血量/技能威力改算到跟对方"差不多、略占上风"）被发现了破绽：改的是maxHp和技能power
+   这些会直接展示出来的数值，别的小朋友对比"我等级更高，为什么数值反而打不过宝宝"一眼就能看出不对劲，
+   数值是跟等级绑定的，改了数值等于摆明了在作弊。这一版换个思路：完全不碰血量/技能威力这些"看得见"
+   的数值，让它们老老实实跟着真实等级走（跟其他任何人一样，用回上面的applyBattleLevelGap）；宝宝的
+   优势改成从"闪避几率"和"暴击几率"这两个本来就该有随机性的地方悄悄加成——攻击宝宝的时候，宝宝有额外
+   概率直接闪避掉这一下（伤害清零，日志显示"灵巧躲开了攻击"，跟正常的闪避没有任何区别）；宝宝出手的
+   时候，也有额外概率触发暴击（伤害翻一倍多，日志显示"暴击"，也是正常暴击的样子）。为了不让"闪避/
+   暴击这套机制本身只在打宝宝的时候才出现"变成新的破绽，所有对战（不只是PK，也包括练习模式和其他人
+   之间的PK）都会有一个基础闪避/暴击概率，宝宝只是在这个基础概率上再加一截——所以闪避暴击本身是正常
+   游戏机制，谁都可能遇到，只是宝宝出现的频率明显更高。整体目标是让对方大概"打两场才能赢一场"这个
+   量级，而不是稳输稳赢。这个账号id不要改/不要泄露给无关的人。 */
 var PK_TEST_ACCOUNT_ROW='6GtaRbPnAT56Qf3e';
 var PK_TEST_ACCOUNT_CID='c_migrate1';
 function isPkTestAccount(rowId,cid){
   return rowId===PK_TEST_ACCOUNT_ROW && cid===PK_TEST_ACCOUNT_CID;
 }
-// 粗略估算一场对战里某一方的"综合战力分数"：血量 × 平均每次出手的伤害（技能威力+装备攻击叠进来），
-// 必杀技按较低权重掺进平均值（必杀技不是每回合都能放，权重太高会失真）
-function battleFighterPowerScore(f){
-  if(!f) return 1;
-  var pows=[];
-  (f.skills||[]).forEach(function(s){ if(s && s.power) pows.push(s.power); });
-  var avgDmg = pows.length ? (pows.reduce(function(a,b){return a+b;},0)/pows.length) : 8;
-  if(f.ult && f.ult.power) avgDmg = avgDmg*0.75 + f.ult.power*0.25;
-  avgDmg += (f.equipAtk||0);
-  return Math.max(1, f.maxHp||1) * Math.max(1, avgDmg);
-}
-// 把opp这一侧的综合战力，直接改算成"以另一方real战力为基准、宝宝占优势"的目标分数，
-// babyFavorsOpp=true：宝宝是opp（被拜访方）——把opp目标分数定成比另一方(player)高一截
-// babyFavorsOpp=false：宝宝是player（挑战者）——把opp目标分数定成比另一方(player)低一截
-function pkTestAccountHandicap(opp, otherFighter, babyFavorsOpp){
-  var otherScore=battleFighterPowerScore(otherFighter);
-  var ratio = babyFavorsOpp ? (1.15+Math.random()*0.18) : (0.68+Math.random()*0.14);
-  var targetScore=otherScore*ratio;
-  var curScore=battleFighterPowerScore(opp);
-  // 注意：战力分数=血量×伤害，血量和伤害会一起乘以同一个mul，所以分数是按mul的平方在变化，
-  // 这里要开平方根换算，不然算出来的opp会比目标战力强出一大截（平方放大），实战里变成碾压对方
-  var mul=Math.sqrt(targetScore/curScore);
-  if(!isFinite(mul) || mul<=0) mul=1;
-  opp.maxHp=Math.max(20,Math.round(opp.maxHp*mul));
-  opp.hp=opp.maxHp;
-  function scaleSkill(s){ if(!s) return; if(s.power) s.power=Math.round(s.power*mul); if(s.heal) s.heal=Math.round(s.heal*mul); }
-  (opp.skills||[]).forEach(scaleSkill);
-  scaleSkill(opp.ult);
-  return mul;
-}
+// 所有对战通用的基础闪避/暴击概率（谁都可能触发，不是宝宝专属机制，这样"闪避/暴击"这套系统
+// 本身不会显得可疑）；宝宝这个账号在此基础上额外叠加一截，攻击宝宝时更容易被闪避、宝宝出手时更容易暴击
+var BATTLE_BASE_DODGE_CHANCE=0.08;
+var BATTLE_BASE_CRIT_CHANCE=0.10;
+var BATTLE_CRIT_MULT=1.6;
+var PK_TEST_ACCOUNT_DODGE_BONUS=0.40; // 攻击宝宝时，宝宝额外+40%闪避概率
+var PK_TEST_ACCOUNT_CRIT_BONUS=0.30;  // 宝宝出手时，额外+30%暴击概率
+var PK_TEST_ACCOUNT_GAP_CLAMP=2; // 等级差悬殊到会明显伤害宝宝时，喂给battleLevelPowerMult的差距最多收窄到这个数值以内（数值本身贴着公式最平缓的一段，不会露馅）
 function openBattleDemo(){
   if(!state||!state.pet||!state.pet.chosen||!state.pet.hatched){ ttsToast('宠物还没孵化，没法进入对战', 4000); return; }
   if(state.pet.injured){ ttsToast('🤕 宠物还在受伤，先去商城买药治好再来对战吧', 4500); return; }
@@ -5440,12 +5419,23 @@ function startBattleDemo(){
     opp=newBattleFighter(oppName,100,friendLoadout.normal,friendLoadout.ult,friendPtsMap,friendPet,t.friendChildState);
     oppArtSrc=petDisplayImgSrc(friendPet);
     var _myLv=petLevelInfo(childPet).level, _oppLv=petLevelInfo(friendPet).level, _lvGap=_oppLv-_myLv;
-    var _iAmPkTestAcct=isPkTestAccount(SUPA_ROW_ID, store.currentChildId);
-    var _oppIsPkTestAcct=isPkTestAccount(t.rowId, t.cid);
-    if(_iAmPkTestAcct && !_oppIsPkTestAcct){ pkTestAccountHandicap(opp, player, false); }
-    else if(_oppIsPkTestAcct && !_iAmPkTestAcct){ pkTestAccountHandicap(opp, player, true); }
-    else{ applyBattleLevelGap(opp,_lvGap); }
-    _battleLevelGapInfo={myLevel:_myLv,oppLevel:_oppLv,gap:_lvGap}; // 展示用的差距提示语还是走真实等级差，不受宝宝这套战力改算影响，避免被对方看出破绽
+    var _babyIsPlayer=isPkTestAccount(SUPA_ROW_ID, store.currentChildId) && !isPkTestAccount(t.rowId, t.cid);
+    var _babyIsOpp=isPkTestAccount(t.rowId, t.cid) && !isPkTestAccount(SUPA_ROW_ID, store.currentChildId);
+    // 2026-09fix：等级差公式(battleLevelPowerMult)差距一大，倍率很快逼近封顶/封底(4.0x/0.15x)，
+    // 这种极端情况下光靠下面的闪避/暴击加成完全不够看（实测过，真实等级碾压时宝宝几乎必输）。所以
+    // 只在"差距会明显伤害宝宝"这一种情况下，把喂给公式的差距收窄到±5以内（公式本身[-5,5]这一段
+    // 倍率最平缓，只在0.7~1.3之间，跳出这段之后倍率会越变越陡），让血量/技能威力不会被砍/被顶到
+    // 陡峭的那几档；差距没那么悬殊、或者本来就对宝宝有利时完全不touch，跟正常人没有任何区别，也不会
+    // 出现"宝宝数值反而更高"这种一眼假的倒挂情况——宝宝的数值该比对方低还是比对方低，只是不会低到离谱。
+    var _effGap=_lvGap;
+    if(_babyIsPlayer && _effGap>PK_TEST_ACCOUNT_GAP_CLAMP) _effGap=PK_TEST_ACCOUNT_GAP_CLAMP;   // 宝宝是挑战者：对方别被buff到最狠的档位
+    if(_babyIsOpp && _effGap<-PK_TEST_ACCOUNT_GAP_CLAMP) _effGap=-PK_TEST_ACCOUNT_GAP_CLAMP;    // 宝宝是被拜访方：宝宝自己别被砍到最惨的档位
+    applyBattleLevelGap(opp,_effGap);
+    // 宝宝这个账号的优势主要靠"闪避/暴击概率加成"悄悄体现（标记到对应的fighter对象上，
+    // 交给battleResolveSkill()处理），上面对差距的收窄只是兜底，避免极端等级差时加成完全不够用
+    if(_babyIsPlayer) player.pkFavored=true;
+    else if(_babyIsOpp) opp.pkFavored=true;
+    _battleLevelGapInfo={myLevel:_myLv,oppLevel:_oppLv,gap:_lvGap}; // 展示用的还是真实差距，不用收窄后的_effGap
   }else{
     _battleLevelGapInfo=null;
     var oppKeys=Object.keys(PET_LIBRARY).filter(function(k){ return k!==childPet.type; });
@@ -5577,12 +5567,19 @@ function battleResolveSkill(user,target,skill,userImgId,targetImgId){
     btLog('✨ '+user.name+' 使用【'+skill.name+'】，清除了自身的负面状态');
   }
   var hits=skill.hits||1;
-  var totalDmg=0;
+  var totalDmg=0, anyCrit=false, dodgedHits=0;
+  // 2026-09新增：闪避/暴击——每一下都是独立的随机判定，谁都可能触发（基础概率见BATTLE_BASE_DODGE_CHANCE/
+  // BATTLE_BASE_CRIT_CHANCE），宝宝这个账号被标了pkFavored的那一侧会在基础概率上再叠加一截，
+  // 体现成"防守方更容易躲开攻击/进攻方更容易暴击"，而不是直接改血量和技能威力这些看得见的数值
+  var dodgeChance=BATTLE_BASE_DODGE_CHANCE+(target.pkFavored?PK_TEST_ACCOUNT_DODGE_BONUS:0);
+  var critChance=BATTLE_BASE_CRIT_CHANCE+(user.pkFavored?PK_TEST_ACCOUNT_CRIT_BONUS:0);
   for(var i=0;i<hits;i++){
     if(!skill.power) continue;
+    if(Math.random()<dodgeChance){ dodgedHits++; continue; } // 这一下被灵巧躲开了，完全没伤害
     var atkMul=1+(user.buffAtk||0);
     var takeMul=1+(target.debuffTakeMore||0);
     var dmg=(skill.power+(user.equipAtk||0))*atkMul*takeMul; // 2026-09新增：装备攻击加成，直接叠进每一下伤害
+    if(Math.random()<critChance){ dmg=dmg*BATTLE_CRIT_MULT; anyCrit=true; }
     if(target.shieldTurns>0) dmg=dmg*(1-target.shieldPct);
     dmg=dmg*equipDefReduceMul(target.equipDef); // 2026-09新增：装备防御减伤，边际递减，不会出现"防御拉满0伤害"
     dmg=Math.max(1,Math.round(dmg));
@@ -5590,8 +5587,10 @@ function battleResolveSkill(user,target,skill,userImgId,targetImgId){
     totalDmg+=dmg;
   }
   if(totalDmg>0){
-    btShake(targetImgId); btBurst(targetImgId); btDmgFloat(targetImgId,totalDmg,{crit:skill.kind==='ultimate'});
-    btLog('💢 '+user.name+' 使用【'+skill.name+'】，对 '+target.name+' 造成 '+totalDmg+' 点伤害');
+    btShake(targetImgId); btBurst(targetImgId); btDmgFloat(targetImgId,totalDmg,{crit:(skill.kind==='ultimate')||anyCrit});
+    btLog((anyCrit?'💥 暴击！':'💢 ')+user.name+' 使用【'+skill.name+'】，对 '+target.name+' 造成 '+totalDmg+' 点伤害'+(dodgedHits>0?'（有攻击被躲开了）':''));
+  }else if(dodgedHits>0){
+    btLog('💨 '+target.name+' 灵巧地闪避了 '+user.name+' 的【'+skill.name+'】，完全没受伤！');
   }else{
     btLog('✨ '+user.name+' 使用了【'+skill.name+'】');
   }
@@ -5995,6 +5994,19 @@ function battleDemoEnd(win){
     if(!win) applyBattleLossInjury();
     box.innerHTML+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="openBattleDemo()">🎒 重新选技能再来一局</button>';
   }
+}
+/* 2026-09fix：以前弹窗右上角✕直接hideModal('battleDemoModal')，小朋友发现快要输了（或者PK里对方
+   已经占优势）就点✕关掉弹窗，battleDemoEnd()根本没机会跑，applyBattleLossInjury/applyPkLossInjury
+   这些失败惩罚就被完全绕开了——现在改成先判断"这场是不是已经真的打起来了"（双方任意一方掉过血），
+   已经打起来却还没分胜负就关闭，直接按"打输"结算（跟正常输掉的惩罚完全一样，PK的话也会照常
+   通知对方"是TA赢了"），不给"半路撤退零代价"这个空子；如果只是点开看了一眼、双方都还没掉过血就
+   关掉，不算数，跟以前一样可以随便看随便关。 */
+function closeBattleDemoModal(){
+  if(_battle && !_battle.over){
+    var engaged=(_battle.pet && _battle.pet.hp<_battle.pet.maxHp) || (_battle.mon && _battle.mon.hp<_battle.mon.maxHp);
+    if(engaged) battleDemoEnd(false);
+  }
+  hideModal('battleDemoModal');
 }
 /* 从"串门"界面发起PK：自己操作、对方不在线，全程由程序按对方的真实七维数值+已解锁技能自动应战 */
 function startFriendPk(rowId,cid,friendStore){
@@ -6979,30 +6991,54 @@ var MATH_EN_STUDY_BANK=[
   {en:'What is the LCM of 6 and 8?',ans:'24'}
 ];
 var POEM_STUDY_BANK=[
-  {grade:'一年级',title:'静夜思',author:'李白',text:'床前明月光，疑是地上霜。\n举头望明月，低头思故乡。'},
-  {grade:'一年级',title:'春晓',author:'孟浩然',text:'春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。'},
-  {grade:'一年级',title:'画',author:'王维',text:'远看山有色，近听水无声。\n春去花还在，人来鸟不惊。'},
-  {grade:'一年级',title:'悯农（其二）',author:'李绅',text:'锄禾日当午，汗滴禾下土。\n谁知盘中餐，粒粒皆辛苦。'},
-  {grade:'二年级',title:'咏鹅',author:'骆宾王',text:'鹅、鹅、鹅，曲项向天歌。\n白毛浮绿水，红掌拨清波。'},
-  {grade:'二年级',title:'赠汪伦',author:'李白',text:'李白乘舟将欲行，忽闻岸上踏歌声。\n桃花潭水深千尺，不及汪伦送我情。'},
-  {grade:'二年级',title:'望庐山瀑布',author:'李白',text:'日照香炉生紫烟，遥看瀑布挂前川。\n飞流直下三千尺，疑是银河落九天。'},
-  {grade:'二年级',title:'晓出净慈寺送林子方',author:'杨万里',text:'毕竟西湖六月中，风光不与四时同。\n接天莲叶无穷碧，映日荷花别样红。'},
-  {grade:'三年级',title:'山行',author:'杜牧',text:'远上寒山石径斜，白云生处有人家。\n停车坐爱枫林晚，霜叶红于二月花。'},
-  {grade:'三年级',title:'赠刘景文',author:'苏轼',text:'荷尽已无擎雨盖，菊残犹有傲霜枝。\n一年好景君须记，最是橙黄橘绿时。'},
-  {grade:'三年级',title:'望天门山',author:'李白',text:'天门中断楚江开，碧水东流至此回。\n两岸青山相对出，孤帆一片日边来。'},
-  {grade:'三年级',title:'饮湖上初晴后雨',author:'苏轼',text:'水光潋滟晴方好，山色空蒙雨亦奇。\n欲把西湖比西子，淡妆浓抹总相宜。'},
-  {grade:'四年级',title:'暮江吟',author:'白居易',text:'一道残阳铺水中，半江瑟瑟半江红。\n可怜九月初三夜，露似真珠月似弓。'},
-  {grade:'四年级',title:'题西林壁',author:'苏轼',text:'横看成岭侧成峰，远近高低各不同。\n不识庐山真面目，只缘身在此山中。'},
-  {grade:'四年级',title:'雪梅',author:'卢钺',text:'梅雪争春未肯降，骚人搁笔费评章。\n梅须逊雪三分白，雪却输梅一段香。'},
-  {grade:'四年级',title:'出塞',author:'王昌龄',text:'秦时明月汉时关，万里长征人未还。\n但使龙城飞将在，不教胡马度阴山。'},
-  {grade:'五年级',title:'四时田园杂兴（其三十一）',author:'范成大',text:'昼出耘田夜绩麻，村庄儿女各当家。\n童孙未解供耕织，也傍桑阴学种瓜。'},
-  {grade:'五年级',title:'稚子弄冰',author:'杨万里',text:'稚子金盆脱晓冰，彩丝穿取当银钲。\n敲成玉磬穿林响，忽作玻璃碎地声。'},
-  {grade:'五年级',title:'村晚',author:'雷震',text:'草满池塘水满陂，山衔落日浸寒漪。\n牧童归去横牛背，短笛无腔信口吹。'},
-  {grade:'五年级',title:'示儿',author:'陆游',text:'死去元知万事空，但悲不见九州同。\n王师北定中原日，家祭无忘告乃翁。'},
-  {grade:'六年级',title:'马诗',author:'李贺',text:'大漠沙如雪，燕山月似钩。\n何当金络脑，快走踏清秋。'},
-  {grade:'六年级',title:'石灰吟',author:'于谦',text:'千锤万凿出深山，烈火焚烧若等闲。\n粉骨碎身浑不怕，要留清白在人间。'},
-  {grade:'六年级',title:'竹石',author:'郑燮',text:'咬定青山不放松，立根原在破岩中。\n千磨万击还坚劲，任尔东西南北风。'},
-  {grade:'六年级',title:'长相思',author:'纳兰性德',text:'山一程，水一程，身向榆关那畔行，夜深千帐灯。\n风一程，雪一程，聒碎乡心梦不成，故园无此声。'}
+  {grade:'一年级',title:'静夜思',dynasty:'唐',author:'李白',text:'床前明月光，疑是地上霜。\n举头望明月，低头思故乡。',
+   interp:'诗人在夜里看见床前洒满月光，好像地上结了一层霜。他抬头望着天上的明月，又低下头，想起了远方的家乡。这首诗写的是身处异乡的人，在安静的夜晚看到月亮而思念家乡的心情。'},
+  {grade:'一年级',title:'春晓',dynasty:'唐',author:'孟浩然',text:'春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。',
+   interp:'春天睡觉真舒服，不知不觉天就亮了，到处都能听到小鸟的叫声。想起昨晚好像刮风下雨的声音，不知道有多少花被打落了呢。这首诗写的是春天早晨醒来时，诗人对满院春光和落花的淡淡感慨。'},
+  {grade:'一年级',title:'画',dynasty:'唐',author:'王维',text:'远看山有色，近听水无声。\n春去花还在，人来鸟不惊。',
+   interp:'这其实是一首描写"画"的诗：远远看去山是有颜色的，走近听流水却听不到声音；春天已经过去了，画里的花却还开着；有人走近，画里的鸟儿也不会被吓飞。整首诗用几组对比，说明画中的景物和真实的景物不一样。'},
+  {grade:'一年级',title:'悯农（其二）',dynasty:'唐',author:'李绅',text:'锄禾日当午，汗滴禾下土。\n谁知盘中餐，粒粒皆辛苦。',
+   interp:'农民伯伯在中午最热的时候还在地里锄草，汗水一滴一滴地落在禾苗下的泥土里。有谁知道我们碗里的每一粒米饭，都是农民辛辛苦苦种出来的呢？这首诗教育我们要珍惜粮食，尊重劳动。'},
+  {grade:'二年级',title:'咏鹅',dynasty:'唐',author:'骆宾王',text:'鹅、鹅、鹅，曲项向天歌。\n白毛浮绿水，红掌拨清波。',
+   interp:'鹅啊鹅啊鹅，弯着脖子朝天唱歌。洁白的羽毛浮在绿色的水面上，红红的脚掌拨动着清澈的水波。这首诗生动地描绘了大白鹅在水中游动的可爱样子。'},
+  {grade:'二年级',title:'赠汪伦',dynasty:'唐',author:'李白',text:'李白乘舟将欲行，忽闻岸上踏歌声。\n桃花潭水深千尺，不及汪伦送我情。',
+   interp:'李白坐船正要离开，忽然听到岸上传来踏步唱歌的声音（是好朋友汪伦来送行了）。桃花潭的水虽然有千尺深，也比不上汪伦送别我的这份情谊深。这首诗表达了朋友之间深厚的友情。'},
+  {grade:'二年级',title:'望庐山瀑布',dynasty:'唐',author:'李白',text:'日照香炉生紫烟，遥看瀑布挂前川。\n飞流直下三千尺，疑是银河落九天。',
+   interp:'阳光照在香炉峰上，升起紫色的云烟，远远望去瀑布好像挂在山前的河流上。瀑布飞快地往下冲，好像有三千尺那么长，让人怀疑是银河从天上落了下来。这首诗用夸张的手法，写出了庐山瀑布的雄伟壮观。'},
+  {grade:'二年级',title:'晓出净慈寺送林子方',dynasty:'宋',author:'杨万里',text:'毕竟西湖六月中，风光不与四时同。\n接天莲叶无穷碧，映日荷花别样红。',
+   interp:'到底是六月的西湖啊，风景和其他季节完全不一样。满湖的荷叶碧绿一片，好像和天连在了一起；阳光下的荷花显得格外鲜红。这首诗描绘了夏天西湖荷花盛开的美丽景色。'},
+  {grade:'三年级',title:'山行',dynasty:'唐',author:'杜牧',text:'远上寒山石径斜，白云生处有人家。\n停车坐爱枫林晚，霜叶红于二月花。',
+   interp:'沿着弯弯曲曲的石头小路往上走，在白云飘起的地方隐约有几户人家。诗人停下车，是因为太喜欢这傍晚的枫树林了——经霜打过的枫叶比二月的鲜花还要红艳。这首诗写的是深秋山林的美丽景色。'},
+  {grade:'三年级',title:'赠刘景文',dynasty:'宋',author:'苏轼',text:'荷尽已无擎雨盖，菊残犹有傲霜枝。\n一年好景君须记，最是橙黄橘绿时。',
+   interp:'荷叶已经枯萎，不再像小伞一样能挡雨了；菊花也已凋谢，但还留着傲霜挺立的枝条。你一定要记住一年之中最好的风景，就是橙子发黄、橘子还绿的这个初冬时节。这首诗是苏轼勉励朋友刘景文的诗，告诉他不要灰心，人生也有收获的好时候。'},
+  {grade:'三年级',title:'望天门山',dynasty:'唐',author:'李白',text:'天门中断楚江开，碧水东流至此回。\n两岸青山相对出，孤帆一片日边来。',
+   interp:'天门山被长江从中间冲断，碧绿的江水向东流到这里又打了个转。两岸的青山相对耸立，一只小船正从太阳升起的地方顺流驶来。这首诗写出了天门山和长江的雄伟壮丽。'},
+  {grade:'三年级',title:'饮湖上初晴后雨',dynasty:'宋',author:'苏轼',text:'水光潋滟晴方好，山色空蒙雨亦奇。\n欲把西湖比西子，淡妆浓抹总相宜。',
+   interp:'晴天的时候，西湖水波荡漾、波光粼粼，非常美丽；下雨的时候，山色朦朦胧胧，也别有一番奇妙。如果把西湖比作古代美女西施，那不管是淡淡打扮还是浓浓打扮，西湖都一样好看。这首诗夸赞西湖不管什么天气都很美。'},
+  {grade:'四年级',title:'暮江吟',dynasty:'唐',author:'白居易',text:'一道残阳铺水中，半江瑟瑟半江红。\n可怜九月初三夜，露似真珠月似弓。',
+   interp:'一道快要落山的阳光照在江面上，江水一半是碧绿色，一半被染成红色。多可爱啊，九月初三的夜晚，露珠像珍珠一样圆润，月亮像弯弓一样细弯。这首诗描绘了深秋傍晚到夜晚江边的美丽景色。'},
+  {grade:'四年级',title:'题西林壁',dynasty:'宋',author:'苏轼',text:'横看成岭侧成峰，远近高低各不同。\n不识庐山真面目，只缘身在此山中。',
+   interp:'从正面看庐山是连绵的山岭，从侧面看又变成了高耸的山峰，从远处、近处、高处、低处看，样子都不一样。之所以认不清庐山真正的样子，是因为自己就身处在这座山里面。这首诗告诉我们：看问题要跳出局限，才能看清事物的全貌。'},
+  {grade:'四年级',title:'雪梅',dynasty:'宋',author:'卢钺',text:'梅雪争春未肯降，骚人搁笔费评章。\n梅须逊雪三分白，雪却输梅一段香。',
+   interp:'梅花和雪花都要争着表现自己是春天最美的，谁也不肯服输，让写诗的人提笔评论时都感到为难。梅花要比雪花少三分洁白，但雪花却比梅花少了一段清香。这首诗用梅花和雪花"比美"，告诉我们每样事物都各有长处，不必强行比较高低。'},
+  {grade:'四年级',title:'出塞',dynasty:'唐',author:'王昌龄',text:'秦时明月汉时关，万里长征人未还。\n但使龙城飞将在，不教胡马度阴山。',
+   interp:'还是秦汉时期的明月和边关，只是万里出征的将士还没有回来。如果像李广那样英勇的飞将军还在，就绝不会让敌人的骑兵越过阴山。这首诗表达了诗人希望有良将镇守边疆、保卫国家的心愿。'},
+  {grade:'五年级',title:'四时田园杂兴（其三十一）',dynasty:'宋',author:'范成大',text:'昼出耘田夜绩麻，村庄儿女各当家。\n童孙未解供耕织，也傍桑阴学种瓜。',
+   interp:'白天到田里除草，晚上在家搓麻线，村子里的男女都各自忙着自己的活计。小孩子们虽然还不会种田织布，但也在桑树的树荫下学着大人的样子种瓜呢。这首诗描绘了农村一家人辛勤劳动、连小孩子都很懂事的生活场景。'},
+  {grade:'五年级',title:'稚子弄冰',dynasty:'宋',author:'杨万里',text:'稚子金盆脱晓冰，彩丝穿取当银钲。\n敲成玉磬穿林响，忽作玻璃碎地声。',
+   interp:'小孩子早晨从金属盆里取出结冰的冰块，用彩色的丝线穿起来当作银锣来玩。敲起来的声音像玉磬一样穿过树林，忽然"哗啦"一声，冰块像玻璃一样摔碎在地上。这首诗生动地写出了小孩子玩冰块时天真快乐的样子。'},
+  {grade:'五年级',title:'村晚',dynasty:'宋',author:'雷震',text:'草满池塘水满陂，山衔落日浸寒漪。\n牧童归去横牛背，短笛无腔信口吹。',
+   interp:'长满青草的池塘里水都要溢出堤岸了，远山好像衔着落日，落日的余晖洒在带着凉意的水波里。放牛的小孩横坐在牛背上回家，随意地吹着不成调子的短笛。这首诗描绘了一幅宁静悠闲的乡村傍晚景象。'},
+  {grade:'五年级',title:'示儿',dynasty:'宋',author:'陆游',text:'死去元知万事空，但悲不见九州同。\n王师北定中原日，家祭无忘告乃翁。',
+   interp:'我本来就知道人死了以后什么都没有了，只是遗憾看不到国家统一的那一天。将来朝廷的军队收复中原的时候，你们祭祀时千万别忘了把这个好消息告诉我。这首诗是陆游临终前写给儿子的诗，表达了他至死不忘盼望祖国统一的深切爱国之情。'},
+  {grade:'六年级',title:'马诗',dynasty:'唐',author:'李贺',text:'大漠沙如雪，燕山月似钩。\n何当金络脑，快走踏清秋。',
+   interp:'广阔的沙漠上，沙子在月光下像雪一样白，燕山上的月亮弯弯的像一把钩子。什么时候才能给我这匹马戴上华贵的金子笼头，让它在秋天的战场上尽情驰骋呢？这首诗借写马，表达了诗人渴望施展才华、建功立业的心愿。'},
+  {grade:'六年级',title:'石灰吟',dynasty:'明',author:'于谦',text:'千锤万凿出深山，烈火焚烧若等闲。\n粉骨碎身浑不怕，要留清白在人间。',
+   interp:'石灰石要经过千万次敲打开凿才能从深山里开采出来，熊熊烈火焚烧对它来说好像很平常。就算粉身碎骨也完全不怕，只要能把清清白白留在人间。这首诗表面写石灰，其实是于谦借石灰表达自己不怕牺牲、坚守高尚品格的决心。'},
+  {grade:'六年级',title:'竹石',dynasty:'清',author:'郑燮',text:'咬定青山不放松，立根原在破岩中。\n千磨万击还坚劲，任尔东西南北风。',
+   interp:'竹子紧紧咬住青山一点都不放松，它的根本来就扎在破碎的岩石缝里。不管经历多少磨难打击，它依然坚韧挺拔，任凭你刮东西南北哪个方向的风。这首诗借竹子顽强的生命力，赞美了坚韧不拔、不畏艰难的精神。'},
+  {grade:'六年级',title:'长相思',dynasty:'清',author:'纳兰性德',text:'山一程，水一程，身向榆关那畔行，夜深千帐灯。\n风一程，雪一程，聒碎乡心梦不成，故园无此声。',
+   interp:'翻过一座座山，蹚过一条条水，队伍正向着山海关外前进，夜深了，千万座营帐都点起了灯。一路上又是刮风又是下雪，这些声音吵得人乡愁满怀，连梦都做不成，因为家乡没有这样的风雪声。这首诗写的是词人跟随军队远行在外，在风雪夜晚思念家乡的心情。'}
 ];
 /* 学习打卡不直接给孩子看"第几年级"这种数字标签，只用红色字体提示"这道题难度较高"，
    同时红色字体的题目金币和经验都翻倍。目前只有古诗（每首诗固定年级）和纯英文数学题
@@ -7517,6 +7553,17 @@ function toggleSentenceMeaning(btn){
   var showing=span.style.display!=='none';
   span.style.display=showing?'none':'inline';
   btn.textContent=showing?'👀 查看中文意思':'🙈 隐藏中文意思';
+}
+/* 古诗"解读"按钮——跟上面按钮不一样的是，解读文本这个div跟按钮中间隔着诗句原文/难度提示，
+   不是紧挨着的下一个兄弟节点，所以不能用nextElementSibling，改成在同一个诗句卡片里找
+   .poem-interp-text 这个类名对应的div来切换显示/隐藏 */
+function togglePoemInterp(btn){
+  var box=btn.parentElement;
+  var div=box&&box.querySelector?box.querySelector('.poem-interp-text'):null;
+  if(!div) return;
+  var showing=div.style.display!=='none';
+  div.style.display=showing?'none':'block';
+  btn.textContent=showing?'📖 解读':'🙈 收起解读';
 }
 /* 有些设备（比如部分定制安卓学习机/平板自带的浏览器内核）压根没有装"文字转语音"引擎，
    或者装了但没有对应语言的语音包——这种情况下 speechSynthesis 这个接口本身可能还在，
@@ -8303,10 +8350,12 @@ function renderStudyAids(){
     var poemHard=(POEM_GRADE_RANK[poem.grade]||0)>childGradeNum(); // 不直接标"第几年级"，只用红色字体+双倍奖励提示今天这首诗比孩子当前年级难
     var poemTextHtml=poem.text.replace(/\n/g,'<br>');
     poemBox.innerHTML='<div style="padding:4px 0;font-size:13px;line-height:1.7">'
-      +'<b>《'+poem.title+'》</b> —— '+poem.author
+      +'<b>《'+poem.title+'》</b> ——'+(poem.dynasty?('〔'+poem.dynasty+'〕'):'')+poem.author
       +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(poem.title+'。'+poem.author+'。'+poem.text.replace(/\n/g,''))+'\',\'zh-CN\')">🔊</button>'
+      +(poem.interp?' <button class="poem-interp-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="togglePoemInterp(this)">📖 解读</button>':'')
       +'<br>'+(poemHard?('<span style="color:#dc2626;font-weight:700">'+poemTextHtml+'</span>'):poemTextHtml)
       +(poemHard?'<div class="small" style="color:#7b1fa2;margin-top:2px">🔴红色字体表示今天这首诗难度较高，打卡可得双倍金币和经验哦～</div>':'')
+      +(poem.interp?('<div class="poem-interp-text" style="display:none;color:#6a1b9a;background:#f9f4fb;border-radius:8px;padding:6px 8px;margin-top:4px;line-height:1.6">'+poem.interp+'</div>'):'')
       +'</div>';
   }
 }
@@ -12343,7 +12392,17 @@ function openDungeon(){
   document.getElementById('dgResultBox').style.display='none';
   showModal('dungeonModal');
 }
+/* 2026-09fix：这个弹窗被老的"守卫家园副本"和新的dungeon2副本共用——新版副本打输了非首次会真的
+   受伤（pet.injured，重伤还要求1小时内买药，不然会伤心变回蛋），以前✕直接hideModal+dg=null，
+   小朋友发现快输了就点✕关掉，dungeonEnd2()根本没触发，这个惩罚就被绕开了。现在改成：只要这场
+   已经真的打起来了（双方任意一方掉过血）却还没分胜负就关闭，直接按dg.onEnd(false)算"打输"结算
+   （老版'dungeon'模式本来打输就没有惩罚，走一遍onEnd(false)也不会额外扣什么，不影响老逻辑）；
+   要是只是点开看了一眼、还没真的出手就关掉，维持原样不算数。 */
 function closeDungeonModal(){
+  if(dg && !dg.ended){
+    var engaged=(dg.petHp<dg.petHpMax) || (dg.monsterHp<dg.monsterHpMax);
+    if(engaged && typeof dg.onEnd==='function') dg.onEnd(false);
+  }
   hideModal('dungeonModal');
   dg=null;
 }
@@ -13253,6 +13312,10 @@ document.addEventListener('keydown', function(e){
   Array.prototype.forEach.call(openMasks,function(m){
     if(m.id==='childCreateModal') closeChildCreate();
     else if(m.id==='rewardModal') closeReward();
+    // 2026-09fix：战斗类弹窗按ESC也要走各自专门的关闭函数，不能直接hideModal——不然小朋友
+    // 打输了/快输了直接按ESC，一样能绕开下面新加的"半路关闭按弃权/失败算"惩罚，等于白加了
+    else if(m.id==='battleDemoModal') closeBattleDemoModal();
+    else if(m.id==='dungeonModal') closeDungeonModal();
     else hideModal(m.id);
   });
 });
