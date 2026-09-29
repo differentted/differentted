@@ -1324,7 +1324,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <!-- ============ 页6：大富翁月历 ============ -->
 <div class="page" id="page-board">
   <div class="card board-card">
-    <h2>🎁 心愿挑战</h2>
+    <h2 data-i18n="wish_title">🎁 心愿挑战</h2>
     <div class="board-month" id="boardMonthLabel"></div>
     <div class="board-progress-wrap">
       <div class="progress-wrap board-progress-bar-wrap"><div class="progress-bar orange" id="boardProgressBar"></div></div>
@@ -1332,20 +1332,20 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     </div>
     <div class="board-today-hint" id="boardTodayHint"></div>
     <div id="wishRestartWrap" style="display:none;text-align:center;margin-bottom:10px">
-      <button class="btn btn-primary" onclick="restartWishChallenge()">🔄 重新开始心愿挑战</button>
+      <button class="btn btn-primary" onclick="restartWishChallenge()" data-i18n="btn_wish_restart">🔄 重新开始心愿挑战</button>
     </div>
     <div class="board-track" id="boardTrack"></div>
     <div class="board-legend">
-      <span class="bl-chip"><i class="bl-dot bl-todo"></i>未到</span>
-      <span class="bl-chip"><i class="bl-dot bl-done"></i>已到达</span>
-      <span class="bl-chip bl-ms">🍦 第10天</span>
-      <span class="bl-chip bl-ms">🎁 第20天</span>
-      <span class="bl-chip bl-ms">🏎️ 第30天</span>
+      <span class="bl-chip"><i class="bl-dot bl-todo"></i><span data-i18n="wish_legend_todo">未到</span></span>
+      <span class="bl-chip"><i class="bl-dot bl-done"></i><span data-i18n="wish_legend_done">已到达</span></span>
+      <span class="bl-chip bl-ms" data-i18n="wish_legend_day10">🍦 第10天</span>
+      <span class="bl-chip bl-ms" data-i18n="wish_legend_day20">🎁 第20天</span>
+      <span class="bl-chip bl-ms" data-i18n="wish_legend_day30">🏎️ 第30天</span>
     </div>
     <div style="text-align:center;margin-top:10px">
-      <button class="btn btn-info btn-sm" onclick="openWishRewardsModal()">🎁 家长自定义每日奖励</button>
+      <button class="btn btn-info btn-sm" onclick="openWishRewardsModal()" data-i18n="btn_wish_rewards_edit">🎁 家长自定义每日奖励</button>
     </div>
-    <div class="small board-tip">每天集齐当天转盘抽中的运动+学习+家务任务，人物就会在心愿挑战路线上前进一格；共30天，第10/20/30天是固定的大奖天，其余每一天奖不奖励、奖励什么，家长都可以自由设置。如果有一天没能集齐三项任务，挑战进度会清零，下次打开App会询问是否重新开始。</div>
+    <div class="small board-tip" data-i18n="wish_page_desc">每天集齐当天转盘抽中的运动+学习+家务任务，人物就会在心愿挑战路线上前进一格；共30天，第10/20/30天是固定的大奖天，其余每一天奖不奖励、奖励什么，家长都可以自由设置。如果有一天没能集齐三项任务，挑战进度会清零，下次打开App会询问是否重新开始。</div>
   </div>
 </div>
 
@@ -1445,14 +1445,14 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="petStatsHelpModal">
   <div class="modal" style="max-width:340px;text-align:left">
     <button class="modal-close" onclick="hideModal('petStatsHelpModal')">✕</button>
-    <h3 style="text-align:center">📖 宠物状态说明</h3>
+    <h3 style="text-align:center" data-i18n="pet_stats_help_title">📖 宠物状态说明</h3>
     <div class="small" style="line-height:1.7">
-      <p>📈 <b>等级经验</b>：完成每日打卡任务会自动获得，也可以用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升</p>
-      <p>🍖 <b>吃饱饱</b>：代表宠物饿不饿，会随时间慢慢下降，用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升</p>
-      <p>💧 <b>水汪汪</b>：代表宠物渴不渴，会随时间慢慢下降，用💧饮用水（+18）可以提升</p>
-      <p>😊 <b>笑眯眯</b>：代表宠物开不开心，会随时间慢慢下降，用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会更开心</p>
-      <p>✨ <b>香喷喷</b>：代表宠物干不干净，会随时间慢慢下降，用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦</p>
-      <p style="margin-top:8px;padding:8px;background:#fff3e0;border-radius:10px;color:#9a6b00">💡 小提示：🎯训练虽然能加经验，但也会额外消耗一些吃饱饱、水汪汪和香喷喷——练得越勤，宠物越容易饿、口渴、变脏，记得练完要及时喂食、喝水、洗澡哦！</p>
+      <p data-i18n="pet_stats_help_exp">📈 <b>等级经验</b>：完成每日打卡任务会自动获得，也可以用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升</p>
+      <p data-i18n="pet_stats_help_food">🍖 <b>吃饱饱</b>：代表宠物饿不饿，会随时间慢慢下降，用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升</p>
+      <p data-i18n="pet_stats_help_thirst">💧 <b>水汪汪</b>：代表宠物渴不渴，会随时间慢慢下降，用💧饮用水（+18）可以提升</p>
+      <p data-i18n="pet_stats_help_happy">😊 <b>笑眯眯</b>：代表宠物开不开心，会随时间慢慢下降，用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会更开心</p>
+      <p data-i18n="pet_stats_help_clean">✨ <b>香喷喷</b>：代表宠物干不干净，会随时间慢慢下降，用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦</p>
+      <p style="margin-top:8px;padding:8px;background:#fff3e0;border-radius:10px;color:#9a6b00" data-i18n="pet_stats_help_tip">💡 小提示：🎯训练虽然能加经验，但也会额外消耗一些吃饱饱、水汪汪和香喷喷——练得越勤，宠物越容易饿、口渴、变脏，记得练完要及时喂食、喝水、洗澡哦！</p>
     </div>
   </div>
 </div>
@@ -1666,12 +1666,12 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div id="btLoadoutView">
       <h3 id="btLoadoutTitle" style="margin-top:0">🎒 选技能出战</h3>
       <div id="btLevelGapHint" class="small" style="display:none;text-align:left;margin:-4px 0 8px;padding:6px 8px;border-radius:8px;background:#fff3e0;color:#e65100"></div>
-      <div class="small" style="text-align:left;margin:-4px 0 8px;line-height:1.6">最多选3个通用技能、1个必杀技带出战——还没解锁技能也没关系，没选够的位置会自动用"普通攻击"顶上（伤害跟着等级和当前七维能力走）。战斗时通用技能会自动随机使出，不用一个个点；必杀技攒满能量后，什么时候放由你自己判断。</div>
-      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:8px 0 4px">⚔️ 通用技能（最多选3个）：<span id="btNormalPickCount">0</span>/3</div>
+      <div class="small" style="text-align:left;margin:-4px 0 8px;line-height:1.6" data-i18n="battle_loadout_desc">最多选3个通用技能、1个必杀技带出战——还没解锁技能也没关系，没选够的位置会自动用"普通攻击"顶上（伤害跟着等级和当前七维能力走）。战斗时通用技能会自动随机使出，不用一个个点；必杀技攒满能量后，什么时候放由你自己判断。</div>
+      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:8px 0 4px"><span data-i18n="battle_normal_pick_label">⚔️ 通用技能（最多选3个）：</span><span id="btNormalPickCount">0</span>/3</div>
       <div id="btNormalPickBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
-      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:10px 0 4px">💥 必杀技（选1个）</div>
+      <div class="small" style="font-weight:700;color:#7b1fa2;text-align:left;margin:10px 0 4px" data-i18n="battle_ult_pick_label">💥 必杀技（选1个）</div>
       <div id="btUltPickBox" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="confirmBattleLoadout()">⚔️ 开始对战</button>
+      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="confirmBattleLoadout()" data-i18n="btn_start_battle">⚔️ 开始对战</button>
     </div>
     <div id="btBattleView" style="display:none">
       <h3 id="btBattleTitle" style="margin-top:0;text-align:center">⚔️ 战斗中</h3>
@@ -1692,8 +1692,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div id="btLog" class="bt-log"></div>
       <div class="small" style="text-align:center;margin:4px 0;color:#e65100;font-weight:600" id="btEnergyText">⚡ 集气：○○○</div>
       <div id="btBtnRow" style="display:flex;gap:8px;justify-content:center;margin-top:6px">
-        <button class="btn btn-primary" id="btAttackBtn" onclick="battleDemoAttack()">⚔️ 出手</button>
-        <button class="btn btn-warning" id="btUltBtn" onclick="battleDemoUlt()" style="display:none">💥 必杀技</button>
+        <button class="btn btn-primary" id="btAttackBtn" onclick="battleDemoAttack()" data-i18n="btn_battle_attack">⚔️ 出手</button>
+        <button class="btn btn-warning" id="btUltBtn" onclick="battleDemoUlt()" style="display:none" data-i18n="btn_battle_ult_short">💥 必杀技</button>
       </div>
       <div id="btResultBox" style="display:none;margin-top:10px;text-align:center"></div>
     </div>
@@ -1725,10 +1725,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="auctionModal">
   <div class="modal" style="max-width:440px">
     <button class="modal-close" onclick="hideModal('auctionModal')">✕</button>
-    <h3 style="text-align:center">🏛️ 拍卖行</h3>
-    <div class="small" style="text-align:center;color:#999;margin-bottom:6px">别人挂出来的装备、免做卡/休息卡/折扣卡，用金币出价或者直接一口价买下；最长挂拍24小时（卡片类拍下后会重新计满有效期，不用担心过期）</div>
+    <h3 style="text-align:center" data-i18n="auction_title">🏛️ 拍卖行</h3>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:6px" data-i18n="auction_desc">别人挂出来的装备、免做卡/休息卡/折扣卡，用金币出价或者直接一口价买下；最长挂拍24小时（卡片类拍下后会重新计满有效期，不用担心过期）</div>
     <div id="auctionMineBox" style="margin-bottom:8px"></div>
-    <div id="auctionListBox">加载中…</div>
+    <div id="auctionListBox" data-i18n="auction_loading">加载中…</div>
   </div>
 </div>
 
@@ -1736,13 +1736,13 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="auctionListModal">
   <div class="modal">
     <button class="modal-close" onclick="hideModal('auctionListModal')">✕</button>
-    <h3 style="text-align:center">🏷️ 挂到拍卖行</h3>
+    <h3 style="text-align:center" data-i18n="auction_list_title">🏷️ 挂到拍卖行</h3>
     <div id="auctionListItemLabel" class="small" style="text-align:center;margin-bottom:8px"></div>
-    <div class="small" style="margin-bottom:4px">起拍价（金币，别人最少要出这么多）</div>
-    <input type="number" id="auctionStartPriceInput" min="1" placeholder="比如 10" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
-    <div class="small" style="margin-bottom:4px">一口价（可选，填了别人能直接买断不用等）</div>
-    <input type="number" id="auctionBuyNowInput" min="1" placeholder="不填就没有一口价" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
-    <button class="btn btn-primary btn-block" id="auctionListConfirmBtn" onclick="confirmListAuction()">🏷️ 确认挂拍（24小时）</button>
+    <div class="small" style="margin-bottom:4px" data-i18n="auction_start_price_label">起拍价（金币，别人最少要出这么多）</div>
+    <input type="number" id="auctionStartPriceInput" min="1" placeholder="比如 10" data-i18n-placeholder="auction_start_price_ph" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <div class="small" style="margin-bottom:4px" data-i18n="auction_buynow_label">一口价（可选，填了别人能直接买断不用等）</div>
+    <input type="number" id="auctionBuyNowInput" min="1" placeholder="不填就没有一口价" data-i18n-placeholder="auction_buynow_ph" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" />
+    <button class="btn btn-primary btn-block" id="auctionListConfirmBtn" onclick="confirmListAuction()" data-i18n="btn_auction_confirm_list">🏷️ 确认挂拍（24小时）</button>
   </div>
 </div>
 
@@ -1783,8 +1783,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div class="modal-mask" id="wishRewardsModal">
   <div class="modal" style="text-align:left;max-width:420px">
     <button class="modal-close" onclick="hideModal('wishRewardsModal')">✕</button>
-    <h3 style="text-align:center">🎁 每日奖励设置</h3>
-    <div class="small" style="margin:-4px 0 8px;text-align:center">第10/20/30天是固定大奖天（不填就用默认的🍦🎁🏎️），其余每一天留空表示只前进一步、没有特别奖励</div>
+    <h3 style="text-align:center" data-i18n="wish_rewards_modal_title">🎁 每日奖励设置</h3>
+    <div class="small" style="margin:-4px 0 8px;text-align:center" data-i18n="wish_rewards_modal_desc">第10/20/30天是固定大奖天（不填就用默认的🍦🎁🏎️），其余每一天留空表示只前进一步、没有特别奖励</div>
     <div id="wishRewardsBody"></div>
   </div>
 </div>
@@ -1815,13 +1815,13 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" id="petDungeonTitle" style="display:none;color:#7b1fa2;font-weight:700;margin:-2px 0 2px">🎖️ ——</div>
     <div class="exp-line" title="经验值：用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升，也可以靠每日打卡获得"><span>📈Lv<span id="petLevel">0</span></span><div class="progress-wrap"><div class="progress-bar yellow" id="expBar"></div></div><span id="expText" class="val">0/50</span></div>
     <div id="eggTip" class="small">完成每日打卡任务可获得经验，攒满 50 经验破壳！</div>
-    <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
-    <div class="stat-line" title="水汪汪：用💧饮用水（+18）可以提升"><span class="ico">💧</span><div class="progress-wrap"><div class="progress-bar blue" id="thirstBar"></div></div><span class="val" id="thirstVal">100</span></div>
-    <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
-    <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
+    <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升" data-i18n-title="tt_stat_food"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
+    <div class="stat-line" title="水汪汪：用💧饮用水（+18）可以提升" data-i18n-title="tt_stat_thirst"><span class="ico">💧</span><div class="progress-wrap"><div class="progress-bar blue" id="thirstBar"></div></div><span class="val" id="thirstVal">100</span></div>
+    <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心" data-i18n-title="tt_stat_happy"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
+    <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦" data-i18n-title="tt_stat_clean"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
     <div class="mood" id="moodText">😊 状态不错！</div>
     <div class="hud-care" id="hudCareCount" style="display:none">💖 今日照顾 0/5</div>
-    <div id="petHouseLine" class="small" style="margin-top:5px;display:none">🏠 当前小窝：<span id="houseName">温馨小屋</span></div>
+    <div id="petHouseLine" class="small" style="margin-top:5px;display:none"><span data-i18n="pet_house_label">🏠 当前小窝：</span><span id="houseName">温馨小屋</span></div>
   </div>
 </div>
 <div id="petActions" style="display:none">
@@ -2606,9 +2606,9 @@ function syncPetImmersive(){
         // 看完整原因，再点一下收起——跟状态卡片的收起/展开是同一个思路
         var lockedByLevel=(state.pets.length<PET_SLOT_BASE);
         var fullHint=lockedByLevel
-          ? ('🔒 还不能养下一只，'+petSlotUnlockHint())
-          : ('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），'+petSlotUnlockHint());
-        lockHint.textContent=addPetLockHintExpanded?(fullHint+'（点击收起）'):'🔒 暂时还不能再养（点击查看原因）';
+          ? (L('🔒 还不能养下一只，','🔒 Can\'t adopt another yet - ')+petSlotUnlockHint())
+          : (L('🔒 宠物仓库已满（'+state.pets.length+'/'+petSlotCapacity()+'），','🔒 Pet storage is full ('+state.pets.length+'/'+petSlotCapacity()+') - ')+petSlotUnlockHint());
+        lockHint.textContent=addPetLockHintExpanded?(fullHint+L('（点击收起）',' (tap to collapse)')):L('🔒 暂时还不能再养（点击查看原因）','🔒 Can\'t adopt another right now (tap to see why)');
       }
     }
   }
@@ -3472,7 +3472,11 @@ var I18N_EN_TITLE = {
   tt_music: 'Background music on/off',
   tt_volume: 'Sound settings',
   tt_dungeon_entry: 'Dungeon Challenge',
-  tt_auction_entry: 'Auction House'
+  tt_auction_entry: 'Auction House',
+  tt_stat_food: 'Fullness: raised with 🍖Pet Food (+18) or 🥛Milk (+11)',
+  tt_stat_thirst: 'Hydration: raised with 💧Drinking Water (+18)',
+  tt_stat_happy: 'Happiness: raised with 🥛Milk (+7) or 🎡Outing Ticket (+32); petting it also helps',
+  tt_stat_clean: 'Cleanliness: raised with 🛁Grooming (+22); if too dirty, your pet won\'t want to be petted'
 };
 var I18N_EN_PH = {
   family_gate_input_ph: 'Enter Family Code',
@@ -3623,7 +3627,41 @@ var I18N_EN = {
   makeup_remain_prefix: 'Makeups left this week: ',
   unit_times: ' left',
   btn_do_makeup: 'Do Makeup',
-  checkin_makeup_note: 'Makeup requires: 90 Bobby Jumps, 60 sit-ups, 1 extra set each of plank/balance (~+50% overall)'
+  checkin_makeup_note: '补卡需完成：波比跳90、仰卧起坐60、平板/平衡各多1组（全部约+50%）',
+  battle_loadout_desc: 'Pick up to 3 Normal Skills and 1 Ultimate to bring into battle - it\'s fine if you haven\'t unlocked enough skills yet, unfilled slots auto-fill with "Basic Attack" (damage scales with level and current 7-stat abilities). Normal skills fire automatically at random during battle, no need to pick each one; once the Ultimate\'s energy is full, you decide when to use it.',
+  battle_normal_pick_label: '⚔️ Normal Skills (up to 3): ',
+  battle_ult_pick_label: '💥 Ultimate (pick 1)',
+  btn_start_battle: '⚔️ Start Battle',
+  btn_battle_attack: '⚔️ Attack',
+  btn_battle_ult_short: '💥 Ultimate',
+  wish_title: '🎁 Wish Quest',
+  btn_wish_restart: '🔄 Restart Wish Quest',
+  wish_legend_todo: 'Not there yet',
+  wish_legend_done: 'Reached',
+  wish_legend_day10: '🍦 Day 10',
+  wish_legend_day20: '🎁 Day 20',
+  wish_legend_day30: '🏎️ Day 30',
+  btn_wish_rewards_edit: '🎁 Customize Daily Rewards',
+  wish_page_desc: 'Complete each day\'s wheel-drawn Sport+Study+Chores tasks and your character advances 1 square on the Wish Quest route; 30 days total, with Days 10/20/30 fixed as big-prize days - every other day\'s reward (or lack of one) is fully customizable by parents. If a day\'s 3 tasks aren\'t all completed, progress resets, and the app will ask whether to restart next time it\'s opened.',
+  wish_rewards_modal_title: '🎁 Daily Reward Settings',
+  wish_rewards_modal_desc: 'Days 10/20/30 are fixed big-prize days (leave blank to use the default 🍦🎁🏎️); leave any other day blank to just advance 1 square with no special reward',
+  pet_stats_help_title: '📖 Pet Status Guide',
+  pet_stats_help_exp: '📈 <b>Level EXP</b>: earned automatically by finishing daily check-in tasks, or boosted with a 🎯Training Item (+30 EXP) or 🏆Advanced Training Item (+60 EXP)',
+  pet_stats_help_food: '🍖 <b>Fullness</b>: how hungry your pet is - slowly drops over time, raised with 🍖Pet Food (+18) or 🥛Milk (+11)',
+  pet_stats_help_thirst: '💧 <b>Hydration</b>: how thirsty your pet is - slowly drops over time, raised with 💧Drinking Water (+18)',
+  pet_stats_help_happy: '😊 <b>Happiness</b>: how happy your pet is - slowly drops over time, raised with 🥛Milk (+7) or 🎡Outing Ticket (+32); petting it also helps',
+  pet_stats_help_clean: '✨ <b>Cleanliness</b>: how clean your pet is - slowly drops over time, raised with 🛁Grooming (+22); if too dirty, your pet won\'t want to be petted',
+  pet_stats_help_tip: '💡 Tip: 🎯Training earns EXP, but also costs some Fullness, Hydration and Cleanliness - the more you train, the hungrier/thirstier/dirtier your pet gets, so remember to feed, water and bathe it after training!',
+  pet_house_label: '🏠 Current Home: ',
+  auction_title: '🏛️ Auction House',
+  auction_desc: "Bid coins on or Buy Now other kids' listed equipment, Free-Pass/Rest/Discount Cards; listings run up to 24 hours (cards get a fresh full validity period once won)",
+  auction_loading: 'Loading…',
+  auction_list_title: '🏷️ List in Auction House',
+  auction_start_price_label: 'Starting Price (coins, minimum others can bid)',
+  auction_start_price_ph: 'e.g. 10',
+  auction_buynow_label: 'Buy Now Price (optional - lets others buy it instantly without waiting)',
+  auction_buynow_ph: 'Leave blank for no Buy Now price',
+  btn_auction_confirm_list: '🏷️ Confirm Listing (24h)'
 };
 var _i18nZhCache={};
 /* 静态界面按当前语言刷新一遍：切换语言、或页面刚加载完时调用。中文原文第一次遇到时自动缓存，
@@ -4183,7 +4221,8 @@ function petMoodOf(pet){
 }
 function petMoodText(mood){
   var m={happy:'😊 状态不错，好好陪它玩吧！',hungry:'😫 肚子饿啦，快去喂食吧！',thirsty:'🥺 有点口渴，快去喝水吧！',dirty:'😖 身上脏脏的，快去洗护一下吧！',sad:'😿 不开心，多陪它玩一玩吧！',angry:'😡 好几天没人管了，它生气啦！快来全面照顾它！'};
-  return m[mood]||m.happy;
+  var mEn={happy:'😊 Doing great, go spend some time with it!',hungry:'😫 Getting hungry, go feed it!',thirsty:'🥺 A bit thirsty, go give it some water!',dirty:'😖 Getting dirty, time for a clean-up!',sad:'😿 Feeling down, go play with it a bit!',angry:"😡 No one's looked after it for days and it's upset! Come take care of it right away!"};
+  return L(m[mood]||m.happy, mEn[mood]||mEn.happy);
 }
 
 /* ========== "护体灵光"倒计时装置：宠物页悬浮小徽章，提醒小朋友再不照顾灵光就要耗尽、
@@ -4418,7 +4457,7 @@ function showPetToast(text){
   host.appendChild(el);
   setTimeout(function(){ el.remove(); },1750);
 }
-const HOUSES = {0:{name:'温馨小屋',emoji:'🏠'},1:{name:'梦幻城堡',emoji:'🏰'}};
+const HOUSES = {0:{name:'温馨小屋',nameEn:'Cozy Cottage',emoji:'🏠'},1:{name:'梦幻城堡',nameEn:'Dream Castle',emoji:'🏰'}};
 const DEFAULT_TASK_DEFS = {
   sport: [
     {id:'plank',label:'平板支撑',emoji:'🧘',coins:4},
@@ -6118,31 +6157,34 @@ function applyAuctionSoldMessage(m){
   if(!state) return;
   var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
   if(amt>0) state.moneyBalance=(state.moneyBalance||0)+amt;
-  addLog('🏛️ 拍卖行：你上架的【'+(m.itemName||'装备')+'】卖出了，获得 '+amt+' 金币');
+  var itemName=m.itemName||L('装备','Item');
+  addLog(L('🏛️ 拍卖行：你上架的【'+itemName+'】卖出了，获得 '+amt+' 金币','🏛️ Auction House: your listing ['+itemName+'] sold, you earned '+amt+' coins'));
   save();
-  ttsToast('🏛️ 你上架的【'+(m.itemName||'装备')+'】卖出啦，+'+amt+' 金币', 4500);
+  ttsToast(L('🏛️ 你上架的【'+itemName+'】卖出啦，+'+amt+' 金币','🏛️ Your listing ['+itemName+'] sold, +'+amt+' coins'), 4500);
 }
 function applyAuctionWonMessage(m){
   if(!state) return;
   var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
   var isCard=(m.kind==='card');
-  var itemName=isCard?auctionCardInfo(m.cardType).label:((typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备');
+  var _eqDef=(typeof EQUIP_ITEMS!=='undefined')?EQUIP_ITEMS[m.defId]:null;
+  var itemName=isCard?auctionCardInfo(m.cardType).label:(_eqDef?L(_eqDef.name,_eqDef.nameEn||_eqDef.name):L('装备','Item'));
   if(amt>0) state.moneyBalance=(state.moneyBalance||0)-amt; // 拍下时如果不是走"一口价"当场扣过，这里才是真正扣费的地方
   if(isCard){ grantCardToBackpack(m.cardType); }
   else{ ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()}); }
-  addLog('🏛️ 拍卖行：你拍下的【'+itemName+'】到货啦，花了 '+amt+' 金币');
+  addLog(L('🏛️ 拍卖行：你拍下的【'+itemName+'】到货啦，花了 '+amt+' 金币','🏛️ Auction House: your winning bid ['+itemName+'] has arrived, cost '+amt+' coins'));
   save();
-  ttsToast('🎉 你拍下的【'+itemName+'】到货啦！', 4500);
+  ttsToast(L('🎉 你拍下的【'+itemName+'】到货啦！','🎉 Your winning bid ['+itemName+'] has arrived!'), 4500);
 }
 function applyAuctionReturnedMessage(m){
   if(!state) return;
   var isCard=(m.kind==='card');
-  var itemName=isCard?auctionCardInfo(m.cardType).label:((typeof EQUIP_ITEMS!=='undefined'&&EQUIP_ITEMS[m.defId])?EQUIP_ITEMS[m.defId].name:'装备');
+  var _eqDef2=(typeof EQUIP_ITEMS!=='undefined')?EQUIP_ITEMS[m.defId]:null;
+  var itemName=isCard?auctionCardInfo(m.cardType).label:(_eqDef2?L(_eqDef2.name,_eqDef2.nameEn||_eqDef2.name):L('装备','Item'));
   if(isCard){ grantCardToBackpack(m.cardType); }
   else{ ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()}); }
-  addLog('🏛️ 拍卖行：你上架的【'+itemName+'】没有卖出，已经退回背包');
+  addLog(L('🏛️ 拍卖行：你上架的【'+itemName+'】没有卖出，已经退回背包','🏛️ Auction House: your listing ['+itemName+'] didn\'t sell and has been returned to your bag'));
   save();
-  ttsToast('🏛️ 【'+itemName+'】流拍了，已经退回你的背包', 4000);
+  ttsToast(L('🏛️ 【'+itemName+'】流拍了，已经退回你的背包','🏛️ [' +itemName+ '] went unsold and is back in your bag'), 4000);
 }
 /* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；某一条送金币消息，
    第一次被我自己看到时，在自己本机给自己加钱；拍卖相关的三种消息同理——都用 applied 标记
@@ -10094,7 +10136,7 @@ function boardTokenImg(){
    哪天没能集齐这三项，进度会清零并暂停，下次打开App会弹窗询问要不要重新开始。 */
 var WISH_TOTAL_DAYS=30;
 var WISH_MILESTONE_DAYS=[10,20,30];
-var WISH_MILESTONE_DEFAULT={10:{emoji:'🍦',name:'冰淇淋'},20:{emoji:'🎁',name:'盲盒'},30:{emoji:'🏎️',name:'卡丁车'}};
+var WISH_MILESTONE_DEFAULT={10:{emoji:'🍦',name:'冰淇淋',nameEn:'Ice Cream'},20:{emoji:'🎁',name:'盲盒',nameEn:'Mystery Box'},30:{emoji:'🏎️',name:'卡丁车',nameEn:'Go-Kart'}};
 function ensureWishState(s){
   if(!s.wish) s.wish={};
   var w=s.wish;
@@ -10111,7 +10153,7 @@ function wishRewardText(day){
   var custom=w.rewards&&w.rewards[day];
   if(custom&&(''+custom).trim()) return (''+custom).trim();
   var def=WISH_MILESTONE_DEFAULT[day];
-  if(def) return def.emoji+def.name;
+  if(def) return def.emoji+L(def.name, def.nameEn||def.name);
   return '';
 }
 function renderWish(){
@@ -10122,8 +10164,8 @@ function renderWish(){
   var petTokenImgSrc=boardTokenImg();
   var tokenDirtyFilter=(state.pet&&state.pet.hatched)?dirtyFilterFor(state.pet.clean):'';
   var monthLabelEl=document.getElementById('boardMonthLabel');
-  if(monthLabelEl) monthLabelEl.innerText='第 '+w.cycle+' 轮 · 心愿挑战';
-  document.getElementById('boardProgressText').innerText=(w.paused?'⏸️ 挑战已暂停 · ':'')+'已前进 '+progress+' / '+WISH_TOTAL_DAYS+' 天';
+  if(monthLabelEl) monthLabelEl.innerText=L('第 '+w.cycle+' 轮 · 心愿挑战','Round '+w.cycle+' · Wish Quest');
+  document.getElementById('boardProgressText').innerText=(w.paused?L('⏸️ 挑战已暂停 · ','⏸️ Paused · '):'')+L('已前进 '+progress+' / '+WISH_TOTAL_DAYS+' 天','Progress '+progress+' / '+WISH_TOTAL_DAYS+' days');
   var pbar=document.getElementById('boardProgressBar');
   if(pbar) pbar.style.width=Math.round(progress/WISH_TOTAL_DAYS*100)+'%';
 
@@ -10153,7 +10195,7 @@ function renderWish(){
       }else{
         cellBody=n;
       }
-      var titleTxt='第'+n+'天'+(rewardText?('：'+rewardText):'');
+      var titleTxt=L('第'+n+'天','Day '+n)+(rewardText?(L('：','：')+rewardText):'');
       html+='<div class="board-sq'+(done?' done':'')+(isCur?' today':'')+(isMs?' ms-sq':'')+'" title="'+titleTxt+'">'
         +(showToken?'<span class="board-token"><span class="board-token-inner">'+tokenInner+'</span></span>':'')
         +cellBody
@@ -10163,7 +10205,7 @@ function renderWish(){
   }
   track.innerHTML=html;
   if(progress<=0 && !w.paused){
-    document.getElementById('boardProgressText').innerText='今天集齐运动+学习+家务三项转盘任务，人物就出发啦～';
+    document.getElementById('boardProgressText').innerText=L('今天集齐运动+学习+家务三项转盘任务，人物就出发啦～','Complete today\'s Sport+Study+Chores wheel tasks and your character will set off~');
   }
 
   var todayCredited=w.doneDays.indexOf(state.day.key)>=0;
@@ -10172,11 +10214,11 @@ function renderWish(){
   var hint=document.getElementById('boardTodayHint');
   if(hint){
     if(w.paused){
-      hint.innerText='⏸️ 挑战已暂停，点击下方按钮重新开始';
+      hint.innerText=L('⏸️ 挑战已暂停，点击下方按钮重新开始','⏸️ Paused - tap the button below to restart');
     }else if(todayCredited){
-      hint.innerText='✅ 今天运动/学习/家务的转盘任务已全部完成，前进1格！';
+      hint.innerText=L('✅ 今天运动/学习/家务的转盘任务已全部完成，前进1格！','✅ Today\'s Sport/Study/Chores wheel tasks are all done - advance 1 square!');
     }else{
-      hint.innerText='今天转盘任务已完成 '+doneCnt+'/3 项（运动/学习/家务），三项都完成才能前进1格';
+      hint.innerText=L('今天转盘任务已完成 '+doneCnt+'/3 项（运动/学习/家务），三项都完成才能前进1格','Today\'s wheel tasks done: '+doneCnt+'/3 (Sport/Study/Chores) - all three needed to advance 1 square');
     }
     hint.classList.toggle('hint-done', !!todayCredited && !w.paused);
   }
@@ -10187,7 +10229,7 @@ function restartWishChallenge(){
   var w=ensureWishState(state);
   w.paused=false;
   w.resetPending=false;
-  addLog('🔄 心愿挑战重新开始！');
+  addLog(L('🔄 心愿挑战重新开始！','🔄 Wish Quest restarted!'));
   save();
   if(pageActive('board')) renderWish();
 }
@@ -10204,9 +10246,9 @@ function renderWishRewardsModal(){
     var isMs=WISH_MILESTONE_DAYS.indexOf(n)>=0;
     var def=WISH_MILESTONE_DEFAULT[n];
     var val=(w.rewards&&w.rewards[n])||'';
-    var placeholder=isMs?(def.emoji+def.name+'（默认）'):'（无特别奖励，仅前进一步）';
+    var placeholder=isMs?(def.emoji+L(def.name,def.nameEn||def.name)+L('（默认）',' (default)')):L('（无特别奖励，仅前进一步）','(No special reward, just advances 1 square)');
     html+='<div class="item" style="align-items:center'+(isMs?';background:#fff6dd;border:1px solid #ffd98a':'')+'">'
-      +'<div class="label" style="min-width:52px;font-weight:'+(isMs?'800':'600')+';color:'+(isMs?'#a9660a':'#7b1fa2')+'">'+(isMs?('🌟第'+n+'天'):('第'+n+'天'))+'</div>'
+      +'<div class="label" style="min-width:52px;font-weight:'+(isMs?'800':'600')+';color:'+(isMs?'#a9660a':'#7b1fa2')+'">'+(isMs?(L('🌟第'+n+'天','🌟 Day '+n)):(L('第'+n+'天','Day '+n)))+'</div>'
       +'<input type="text" value="'+escapeAttr(val)+'" placeholder="'+escapeAttr(placeholder)+'" onchange="updateWishReward('+n+',this.value)" style="flex:1;min-width:120px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
       +'</div>';
   }
@@ -10239,7 +10281,7 @@ function maybeShowWishResetPrompt(){
   if(!w.resetPending) return;
   w.resetPending=false; // 立刻清掉标记，避免重复弹窗
   var dateStr=w.resetPendingDate||'';
-  var restart=confirm('💔 心愿挑战：'+(dateStr?('『'+dateStr+'』'):'昨天')+'没有集齐运动/学习/家务三项转盘任务，挑战进度已经清零。\n\n要现在重新开始心愿挑战吗？\n（选择"取消"可以先暂停，之后随时在"心愿挑战"页面点"重新开始"）');
+  var restart=confirm(L('💔 心愿挑战：'+(dateStr?('『'+dateStr+'』'):'昨天')+'没有集齐运动/学习/家务三项转盘任务，挑战进度已经清零。\n\n要现在重新开始心愿挑战吗？\n（选择"取消"可以先暂停，之后随时在"心愿挑战"页面点"重新开始"）','💔 Wish Quest: '+(dateStr?('['+dateStr+']'):'Yesterday')+' didn\'t complete all 3 Sport/Study/Chores wheel tasks, so progress has been reset.\n\nRestart the Wish Quest now?\n(Choose "Cancel" to pause for now - you can restart anytime on the "Wish Quest" page)'));
   w.paused=!restart;
   save();
   render();
@@ -12251,12 +12293,12 @@ function unequipSlot(slotKey){
    这几种卡挂拍/流拍退回/成交到账的每一步，都不搬运原来的日期戳，而是在真正"到手"的那一刻按当天
    重新盖戳（见 grantCardToBackpack），保证不管拍卖过程花了多久，拿到的人手里始终是满额有效期。 */
 var AUCTION_CARD_INFO={
-  free:{label:'免做卡', emoji:'🎫'},
-  rest:{label:'库洛米休息卡', emoji:'🎁'},
-  d7:{label:'7折折扣卡', emoji:'🔖'},
-  d8:{label:'8折折扣卡', emoji:'🔖'}
+  free:{label:'免做卡', labelEn:'Free-Pass Card', emoji:'🎫'},
+  rest:{label:'库洛米休息卡', labelEn:'Kuromi Rest Card', emoji:'🎁'},
+  d7:{label:'7折折扣卡', labelEn:'30% Off Card', emoji:'🔖'},
+  d8:{label:'8折折扣卡', labelEn:'20% Off Card', emoji:'🔖'}
 };
-function auctionCardInfo(cardType){ return AUCTION_CARD_INFO[cardType]||{label:cardType,emoji:'🎴'}; }
+function auctionCardInfo(cardType){ var c=AUCTION_CARD_INFO[cardType]; return c?{label:L(c.label,c.labelEn||c.label),emoji:c.emoji}:{label:cardType,emoji:'🎴'}; }
 function cardBackpackCount(cardType){
   if(cardType==='free') return state.backpack.freeCard||0;
   if(cardType==='rest') return (state.backpack.restCards||[]).length;
@@ -12301,7 +12343,7 @@ function openAuctionListModal(instanceId){
   _auctionListingInstanceId=instanceId;
   var lbl=document.getElementById('auctionListItemLabel');
   var q=EQUIP_QUALITY_INFO[item.quality];
-  if(lbl) lbl.innerHTML=item.emoji+' <b style="color:'+q.color+'">'+item.name+'</b>　攻+'+item.atk+' 防+'+item.def;
+  if(lbl) lbl.innerHTML=item.emoji+' <b style="color:'+q.color+'">'+L(item.name,item.nameEn||item.name)+'</b>　ATK+'+item.atk+' DEF+'+item.def;
   var s=document.getElementById('auctionStartPriceInput'); if(s) s.value='';
   var b=document.getElementById('auctionBuyNowInput'); if(b) b.value='';
   hideModal('equipPanelModal');
@@ -12310,11 +12352,11 @@ function openAuctionListModal(instanceId){
 // 2026-09新增：把背包里的免做卡/休息卡/7折卡/8折卡挂到拍卖行，跟装备共用同一个"起拍价+一口价"弹窗
 function openAuctionListCardModal(cardType){
   var info=auctionCardInfo(cardType);
-  if(cardBackpackCount(cardType)<=0){ ttsToast('背包里没有'+info.label+'可以拍卖', 3000); return; }
+  if(cardBackpackCount(cardType)<=0){ ttsToast(L('背包里没有'+info.label+'可以拍卖','No '+info.label+' in your bag to auction'), 3000); return; }
   _auctionListingInstanceId=null;
   _auctionListingCardType=cardType;
   var lbl=document.getElementById('auctionListItemLabel');
-  if(lbl) lbl.innerHTML=info.emoji+' <b>'+info.label+'</b>　x1（拍下/流拍退回时会重新计满有效期，不用担心过期）';
+  if(lbl) lbl.innerHTML=info.emoji+' <b>'+info.label+'</b>　x1'+L('（拍下/流拍退回时会重新计满有效期，不用担心过期）',' (timer resets to full when won or returned unsold)');
   var s=document.getElementById('auctionStartPriceInput'); if(s) s.value='';
   var b=document.getElementById('auctionBuyNowInput'); if(b) b.value='';
   showModal('auctionListModal');
@@ -12334,15 +12376,15 @@ function confirmListAuction(){
   var pet=state.pet;
   if(pet&&pet.equipment){
     var wornSlot=Object.keys(pet.equipment).filter(function(k){ return pet.equipment[k]===instanceId; })[0];
-    if(wornSlot){ ttsToast('这件装备正穿在身上，先卸下来再拍卖吧', 3500); return; }
+    if(wornSlot){ ttsToast(L('这件装备正穿在身上，先卸下来再拍卖吧','This item is currently worn - unequip it first before auctioning'), 3500); return; }
   }
   var startPrice=parseInt(document.getElementById('auctionStartPriceInput').value,10);
   var buyNowRaw=document.getElementById('auctionBuyNowInput').value;
   var buyNowPrice=buyNowRaw?parseInt(buyNowRaw,10):0;
-  if(!startPrice||startPrice<=0){ ttsToast('请输入起拍价（至少1金币）', 4000); return; }
-  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast('一口价要比起拍价高才有意义', 4000); return; }
+  if(!startPrice||startPrice<=0){ ttsToast(L('请输入起拍价（至少1金币）','Please enter a starting price (at least 1 coin)'), 4000); return; }
+  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast(L('一口价要比起拍价高才有意义','Buy Now price must be higher than the starting price'), 4000); return; }
   var btn=document.getElementById('auctionListConfirmBtn');
-  if(btn){ btn.disabled=true; btn.textContent='挂拍中…'; }
+  if(btn){ btn.disabled=true; btn.textContent=L('挂拍中…','Listing…'); }
   var listingId=auctionListingId();
   var now=Date.now();
   var data={
@@ -12358,12 +12400,12 @@ function confirmListAuction(){
     // 云端挂拍成功了才把装备从本地背包移走，避免网络失败却已经"凭空消失"
     bag.splice(idx,1);
     save();
-    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    if(btn){ btn.disabled=false; btn.textContent=L('🏷️ 确认挂拍（24小时）','🏷️ Confirm Listing (24h)'); }
     hideModal('auctionListModal');
-    ttsToast('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包', 4500);
+    ttsToast(L('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包','✅ Listed in the Auction House! It\'ll auto-return to your bag if unsold within 24h'), 4500);
   }).catch(function(){
-    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
-    ttsToast('❌ 没连上云端，挂拍没成功，检查网络再试一次', 5000);
+    if(btn){ btn.disabled=false; btn.textContent=L('🏷️ 确认挂拍（24小时）','🏷️ Confirm Listing (24h)'); }
+    ttsToast(L('❌ 没连上云端，挂拍没成功，检查网络再试一次','❌ Couldn\'t connect - listing failed, check your network and try again'), 5000);
   });
 }
 // 2026-09新增：卡片类拍卖走独立的确认逻辑（没有instanceId/穿戴校验这些装备特有的步骤）
@@ -12371,14 +12413,14 @@ function confirmListAuctionCard(){
   var cardType=_auctionListingCardType;
   if(!cardType||!currentChild()) return;
   var info=auctionCardInfo(cardType);
-  if(cardBackpackCount(cardType)<=0){ ttsToast('背包里没有'+info.label+'可以拍卖', 3000); hideModal('auctionListModal'); return; }
+  if(cardBackpackCount(cardType)<=0){ ttsToast(L('背包里没有'+info.label+'可以拍卖','No '+info.label+' in your bag to auction'), 3000); hideModal('auctionListModal'); return; }
   var startPrice=parseInt(document.getElementById('auctionStartPriceInput').value,10);
   var buyNowRaw=document.getElementById('auctionBuyNowInput').value;
   var buyNowPrice=buyNowRaw?parseInt(buyNowRaw,10):0;
-  if(!startPrice||startPrice<=0){ ttsToast('请输入起拍价（至少1金币）', 4000); return; }
-  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast('一口价要比起拍价高才有意义', 4000); return; }
+  if(!startPrice||startPrice<=0){ ttsToast(L('请输入起拍价（至少1金币）','Please enter a starting price (at least 1 coin)'), 4000); return; }
+  if(buyNowRaw && (!buyNowPrice||buyNowPrice<=startPrice)){ ttsToast(L('一口价要比起拍价高才有意义','Buy Now price must be higher than the starting price'), 4000); return; }
   var btn=document.getElementById('auctionListConfirmBtn');
-  if(btn){ btn.disabled=true; btn.textContent='挂拍中…'; }
+  if(btn){ btn.disabled=true; btn.textContent=L('挂拍中…','Listing…'); }
   var listingId=auctionListingId();
   var now=Date.now();
   var data={
@@ -12393,18 +12435,18 @@ function confirmListAuctionCard(){
     // 云端挂拍成功了才把卡从本地背包扣掉，避免网络失败却已经"凭空消失"，跟装备挂拍的处理方式一致
     takeCardFromBackpack(cardType);
     save();
-    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
+    if(btn){ btn.disabled=false; btn.textContent=L('🏷️ 确认挂拍（24小时）','🏷️ Confirm Listing (24h)'); }
     hideModal('auctionListModal');
-    ttsToast('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包', 4500);
+    ttsToast(L('✅ 已经挂到拍卖行啦，24小时内没卖出会自动退回背包','✅ Listed in the Auction House! It\'ll auto-return to your bag if unsold within 24h'), 4500);
   }).catch(function(){
-    if(btn){ btn.disabled=false; btn.textContent='🏷️ 确认挂拍（24小时）'; }
-    ttsToast('❌ 没连上云端，挂拍没成功，检查网络再试一次', 5000);
+    if(btn){ btn.disabled=false; btn.textContent=L('🏷️ 确认挂拍（24小时）','🏷️ Confirm Listing (24h)'); }
+    ttsToast(L('❌ 没连上云端，挂拍没成功，检查网络再试一次','❌ Couldn\'t connect - listing failed, check your network and try again'), 5000);
   });
 }
 function openAuctionHouse(){
   showModal('auctionModal');
   var box=document.getElementById('auctionListBox');
-  if(box) box.innerHTML='加载中…';
+  if(box) box.innerHTML=L('加载中…','Loading…');
   var mineBox=document.getElementById('auctionMineBox');
   if(mineBox) mineBox.innerHTML='';
   loadAuctionListings();
@@ -12501,9 +12543,9 @@ function settleAuctionToBidder(listingId,d){
 }
 function auctionTimeLeftText(expiresAt){
   var ms=expiresAt-Date.now();
-  if(ms<=0) return '已到期，结算中…';
+  if(ms<=0) return L('已到期，结算中…','Expired, settling…');
   var h=Math.floor(ms/3600000), m=Math.floor((ms%3600000)/60000);
-  return h>0?('剩'+h+'小时'+m+'分'):('剩'+m+'分钟');
+  return h>0?L('剩'+h+'小时'+m+'分','left '+h+'h '+m+'m'):L('剩'+m+'分钟','left '+m+' min');
 }
 function auctionItemHtml(d,isMine){
   var isCard=(d.kind==='card');
@@ -12514,29 +12556,29 @@ function auctionItemHtml(d,isMine){
   var timeLeft=auctionTimeLeftText(d.expiresAt);
   var soon=(d.expiresAt-Date.now())<3600000;
   var bidLine=d.currentBid>0
-    ?('当前最高出价：<b>'+d.currentBid+'</b> 金币（'+(d.currentBidderName||'某位小朋友')+'）')
-    :('起拍价：<b>'+d.startPrice+'</b> 金币，还没人出价');
+    ?(L('当前最高出价：','Current top bid: ')+'<b>'+d.currentBid+'</b>'+L(' 金币（','coins (')+(d.currentBidderName||L('某位小朋友','a friend'))+'）')
+    :(L('起拍价：','Starting price: ')+'<b>'+d.startPrice+'</b>'+L(' 金币，还没人出价',' coins, no bids yet'));
   var iconStyle=isCard?'background:#f3e5f5':('background:'+q.bg);
   var titleColor=isCard?'#8e24aa':q.color;
-  var titleText=isCard?cardInfo.label:item.name;
-  var subLine=isCard?'拍下/流拍退回时会重新计满有效期，不用担心过期':('攻+'+item.atk+' 防+'+item.def+'　需求Lv.'+item.lvReq);
+  var titleText=isCard?cardInfo.label:L(item.name,item.nameEn||item.name);
+  var subLine=isCard?L('拍下/流拍退回时会重新计满有效期，不用担心过期','Timer resets to full when won or returned unsold - no need to worry about expiry'):('ATK+'+item.atk+' DEF+'+item.def+L('　需求Lv.','  Req. Lv.')+item.lvReq);
   var emoji=isCard?cardInfo.emoji:item.emoji;
   var html='<div class="auc-item"><div class="auc-top">'
     +'<div class="auc-icon" style="'+iconStyle+'">'+emoji+'</div>'
     +'<div class="auc-info">'
-      +'<div style="color:'+titleColor+';font-weight:700">'+titleText+'　<span class="small" style="color:#999">（卖家：'+(d.sellerName||'？')+'）</span></div>'
+      +'<div style="color:'+titleColor+';font-weight:700">'+titleText+'　<span class="small" style="color:#999">（'+L('卖家：','Seller: ')+(d.sellerName||'？')+'）</span></div>'
       +'<div class="small" style="color:#999">'+subLine+'</div>'
-      +'<div class="small">'+bidLine+(d.buyNowPrice>0?('　｜　一口价：<b>'+d.buyNowPrice+'</b>'):'')+'</div>'
+      +'<div class="small">'+bidLine+(d.buyNowPrice>0?(L('　｜　一口价：','  |  Buy Now: ')+'<b>'+d.buyNowPrice+'</b>'):'')+'</div>'
       +'<div class="auc-timer'+(soon?' soon':'')+'">⏳ '+timeLeft+'</div>'
     +'</div></div>';
   if(isMine){
     html+=(d.currentBid>0
-      ?'<div class="small" style="color:#999;margin-top:6px">已经有人出价了，没法撤销啦</div>'
-      :'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="cancelAuctionListing(\''+d.listingId+'\')">撤销挂拍</button>');
+      ?'<div class="small" style="color:#999;margin-top:6px">'+L('已经有人出价了，没法撤销啦','Someone has already bid - this can\'t be canceled')+'</div>'
+      :'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="cancelAuctionListing(\''+d.listingId+'\')">'+L('撤销挂拍','Cancel Listing')+'</button>');
   }else{
-    html+='<div class="auc-bidrow"><input type="number" min="1" id="bid_'+d.listingId+'" placeholder="出价（金币）">'
-      +'<button class="btn btn-primary btn-sm" onclick="placeBid(\''+d.listingId+'\')">出价</button>'
-      +(d.buyNowPrice>0?'<button class="btn btn-warning btn-sm" onclick="buyNowAuction(\''+d.listingId+'\')">一口价买下</button>':'')
+    html+='<div class="auc-bidrow"><input type="number" min="1" id="bid_'+d.listingId+'" placeholder="'+L('出价（金币）','Bid (coins)')+'">'
+      +'<button class="btn btn-primary btn-sm" onclick="placeBid(\''+d.listingId+'\')">'+L('出价','Bid')+'</button>'
+      +(d.buyNowPrice>0?'<button class="btn btn-warning btn-sm" onclick="buyNowAuction(\''+d.listingId+'\')">'+L('一口价买下','Buy Now')+'</button>':'')
       +'</div>';
   }
   html+='</div>';
@@ -12550,57 +12592,57 @@ function renderAuctionHouse(){
   var mine=active.filter(function(d){ return d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId; });
   var others=active.filter(function(d){ return !(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId); });
   if(mineBox){
-    mineBox.innerHTML=mine.length?('<h4 style="margin:4px 0 6px">🏷️ 我上架的</h4>'+mine.map(function(d){ return auctionItemHtml(d,true); }).join('')):'';
+    mineBox.innerHTML=mine.length?('<h4 style="margin:4px 0 6px">'+L('🏷️ 我上架的','🏷️ Your Listings')+'</h4>'+mine.map(function(d){ return auctionItemHtml(d,true); }).join('')):'';
   }
   if(!others.length){
-    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">拍卖行里暂时没有别人上架的装备</div>';
+    box.innerHTML='<div class="small" style="text-align:center;color:#999;padding:14px 0">'+L('拍卖行里暂时没有别人上架的装备','No items listed by others in the Auction House right now')+'</div>';
     return;
   }
-  box.innerHTML='<h4 style="margin:4px 0 6px">🛒 大家上架的</h4>'+others.map(function(d){ return auctionItemHtml(d,false); }).join('');
+  box.innerHTML='<h4 style="margin:4px 0 6px">'+L('🛒 大家上架的','🛒 Everyone\'s Listings')+'</h4>'+others.map(function(d){ return auctionItemHtml(d,false); }).join('');
 }
 function cancelAuctionListing(listingId){
   var d=_auctionCache.filter(function(x){return x.listingId===listingId;})[0];
   if(!d) return;
   if(d.sellerRowId!==SUPA_ROW_ID || d.sellerChildId!==store.currentChildId) return;
-  if(d.currentBid>0){ ttsToast('已经有人出价了，没法撤销啦', 3500); return; }
+  if(d.currentBid>0){ ttsToast(L('已经有人出价了，没法撤销啦','Someone has already bid - this can\'t be canceled'), 3500); return; }
   d.status='canceled';
   return supaUpsertRow(listingId,d).then(function(){
     if(d.kind==='card'){ grantCardToBackpack(d.cardType); }
     else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); }
     save();
-    ttsToast('已经撤销，'+(d.kind==='card'?auctionCardInfo(d.cardType).label:'装备')+'退回背包啦', 3000);
+    ttsToast(L('已经撤销，'+(d.kind==='card'?auctionCardInfo(d.cardType).label:'装备')+'退回背包啦','Canceled - the '+(d.kind==='card'?auctionCardInfo(d.cardType).label:'item')+' is back in your bag'), 3000);
     loadAuctionListings();
   }).catch(function(){
-    ttsToast('❌ 没连上云端，撤销没成功，检查网络再试一次', 4000);
+    ttsToast(L('❌ 没连上云端，撤销没成功，检查网络再试一次','❌ Couldn\'t connect - cancel failed, check your network and try again'), 4000);
   });
 }
 function placeBid(listingId){
   if(!currentChild()) return;
   var input=document.getElementById('bid_'+listingId);
   var amt=parseInt(input&&input.value,10);
-  if(!amt||amt<=0){ ttsToast('请输入出价金额', 3500); return; }
-  if(!state||typeof state.moneyBalance!=='number'||state.moneyBalance<amt){ ttsToast('金币不够哦，先攒多一点再来出价吧', 4000); return; }
+  if(!amt||amt<=0){ ttsToast(L('请输入出价金额','Please enter a bid amount'), 3500); return; }
+  if(!state||typeof state.moneyBalance!=='number'||state.moneyBalance<amt){ ttsToast(L('金币不够哦，先攒多一点再来出价吧','Not enough coins - save up a bit more before bidding'), 4000); return; }
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(listingId)+'&select=data';
   return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
     if(!res.ok) throw new Error('http '+res.status);
     return res.json();
   }).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
-    if(!d||d.status!=='active'){ ttsToast('这件东西好像已经被别人买走或者下架了', 4000); loadAuctionListings(); return; }
-    if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
-    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能给自己上架的东西出价哦', 3500); return; }
+    if(!d||d.status!=='active'){ ttsToast(L('这件东西好像已经被别人买走或者下架了','This item seems to have already been bought or delisted'), 4000); loadAuctionListings(); return; }
+    if(Date.now()>=d.expiresAt){ ttsToast(L('拍卖已经到期啦，正在结算，稍后刷新看看结果','This auction has expired and is settling - check back shortly for the result'), 4000); loadAuctionListings(); return; }
+    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast(L('不能给自己上架的东西出价哦','You can\'t bid on your own listing'), 3500); return; }
     var minNeeded=d.currentBid>0?(d.currentBid+1):d.startPrice;
-    if(amt<minNeeded){ ttsToast('出价至少要 '+minNeeded+' 金币才能超过当前价', 4000); loadAuctionListings(); return; }
+    if(amt<minNeeded){ ttsToast(L('出价至少要 '+minNeeded+' 金币才能超过当前价','Bid at least '+minNeeded+' coins to beat the current price'), 4000); loadAuctionListings(); return; }
     d.currentBid=amt;
     d.currentBidderRowId=SUPA_ROW_ID;
     d.currentBidderChildId=store.currentChildId;
     d.currentBidderName=(currentChild()&&currentChild().name)||'一位朋友';
     return supaUpsertRow(listingId,d).then(function(){
-      ttsToast('✅ 出价成功！拍卖到期时如果你还是最高价就能拍下', 4000);
+      ttsToast(L('✅ 出价成功！拍卖到期时如果你还是最高价就能拍下','✅ Bid placed! If you\'re still the top bidder when it expires, you\'ll win it'), 4000);
       loadAuctionListings();
     });
   }).catch(function(){
-    ttsToast('❌ 没连上云端，出价没成功，检查网络再试一次', 4000);
+    ttsToast(L('❌ 没连上云端，出价没成功，检查网络再试一次','❌ Couldn\'t connect - bid failed, check your network and try again'), 4000);
   });
 }
 function buyNowAuction(listingId){
@@ -12611,10 +12653,10 @@ function buyNowAuction(listingId){
     return res.json();
   }).then(function(rows){
     var d=rows&&rows[0]&&rows[0].data;
-    if(!d||d.status!=='active'||!(d.buyNowPrice>0)){ ttsToast('这件东西没法一口价买了（可能已经被买走）', 4000); loadAuctionListings(); return; }
-    if(Date.now()>=d.expiresAt){ ttsToast('拍卖已经到期啦，正在结算，稍后刷新看看结果', 4000); loadAuctionListings(); return; }
-    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast('不能买自己上架的东西哦', 3500); return; }
-    if((state.moneyBalance||0)<d.buyNowPrice){ ttsToast('金币不够哦，先攒多一点再来买吧', 4000); return; }
+    if(!d||d.status!=='active'||!(d.buyNowPrice>0)){ ttsToast(L('这件东西没法一口价买了（可能已经被买走）','Can\'t Buy Now on this item anymore (it may already be sold)'), 4000); loadAuctionListings(); return; }
+    if(Date.now()>=d.expiresAt){ ttsToast(L('拍卖已经到期啦，正在结算，稍后刷新看看结果','This auction has expired and is settling - check back shortly for the result'), 4000); loadAuctionListings(); return; }
+    if(d.sellerRowId===SUPA_ROW_ID && d.sellerChildId===store.currentChildId){ ttsToast(L('不能买自己上架的东西哦','You can\'t buy your own listing'), 3500); return; }
+    if((state.moneyBalance||0)<d.buyNowPrice){ ttsToast(L('金币不够哦，先攒多一点再来买吧','Not enough coins - save up a bit more before buying'), 4000); return; }
     d.status='settling'; d.settlingAt=Date.now();
     d.currentBid=d.buyNowPrice;
     d.currentBidderRowId=SUPA_ROW_ID; d.currentBidderChildId=store.currentChildId;
@@ -12622,10 +12664,10 @@ function buyNowAuction(listingId){
     return supaUpsertRow(listingId,d).then(function(){
       // 买家是当前设备自己，直接改自己本地存档+save()是安全的，不涉及跨设备覆盖问题
       state.moneyBalance-=d.buyNowPrice;
-      var itemLabel;
-      if(d.kind==='card'){ grantCardToBackpack(d.cardType); itemLabel=auctionCardInfo(d.cardType).label; }
-      else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); itemLabel=EQUIP_ITEMS[d.defId]?EQUIP_ITEMS[d.defId].name:'装备'; }
-      addLog('🏛️ 拍卖行一口价买下【'+itemLabel+'】，花了'+d.buyNowPrice+'金币');
+      var itemLabel, itemLabelEn;
+      if(d.kind==='card'){ grantCardToBackpack(d.cardType); itemLabel=auctionCardInfo(d.cardType).label; itemLabelEn=itemLabel; }
+      else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); var _eqDef=EQUIP_ITEMS[d.defId]; itemLabel=_eqDef?L(_eqDef.name,_eqDef.nameEn||_eqDef.name):L('装备','Item'); itemLabelEn=itemLabel; }
+      addLog(L('🏛️ 拍卖行一口价买下【'+itemLabel+'】，花了'+d.buyNowPrice+'金币','🏛️ Auction House: bought ['+itemLabelEn+'] via Buy Now for '+d.buyNowPrice+' coins'));
       save();
       // 卖家是另一台设备，改成写一条消息给卖家自己的消息中心去安全入账，不再直接改卖家整份存档
       return pushPkMessageToFriend(d.sellerRowId,d.sellerChildId,{
@@ -12635,11 +12677,11 @@ function buyNowAuction(listingId){
       d.status='sold';
       return supaUpsertRow(listingId,d);
     }).then(function(){
-      ttsToast('🎉 买到啦！已经放进你的背包了', 4000);
+      ttsToast(L('🎉 买到啦！已经放进你的背包了','🎉 Purchased! It\'s now in your bag'), 4000);
       loadAuctionListings();
     });
   }).catch(function(){
-    ttsToast('❌ 没连上云端，购买没成功，检查网络再试一次', 4000);
+    ttsToast(L('❌ 没连上云端，购买没成功，检查网络再试一次','❌ Couldn\'t connect - purchase failed, check your network and try again'), 4000);
   });
 }
 /* 第 i 关是否已解锁：等级达标 + 前一关已经打赢过（第0关不需要前置）——
@@ -12650,10 +12692,15 @@ function dungeonTierUnlocked(idx,info,pet){
   if(idx>0 && (!pet || (pet.dungeonBestTier==null?-1:pet.dungeonBestTier)<idx-1)) return false;
   return true;
 }
+var DUNGEON_TITLE_EN_MAP={
+  '新手勇士':'Novice Warrior','沼泽猎人':'Marsh Hunter','草原骑士':'Prairie Knight','洞穴探险家':'Cave Explorer',
+  '云端行者':'Cloud Walker','沙漠斗士':'Desert Fighter','深海征服者':'Deep-Sea Conqueror','传说守护者':'Legendary Guardian'
+};
 function dungeonTitleFor(bestTier){
   if(bestTier==null||bestTier<0) return null;
   var st=CONFIG.dungeon[Math.min(bestTier,CONFIG.dungeon.length-1)];
-  return st?st.title:null;
+  if(!st) return null;
+  return L(st.title, DUNGEON_TITLE_EN_MAP[st.title]||st.title);
 }
 function renderDungeonList(){
   var box=document.getElementById('dungeonListBox');
@@ -14092,14 +14139,14 @@ function renderPet(){
     main.style.background='linear-gradient(135deg,#f3e5f5,#fce4ec)';
     document.getElementById('hudPetName').innerText=pet.name;
     var st='';
-    if(stage==='baby') st='🐣 幼年期（Lv'+info.level+'）';
-    else if(stage==='teen') st='🌟 成长期（Lv'+info.level+'）【长大了！】';
-    else if(stage==='adult') st='👑 成熟期（Lv'+info.level+'）完全形态';
+    if(stage==='baby') st=L('🐣 幼年期（Lv'+info.level+'）','🐣 Baby Stage (Lv'+info.level+')');
+    else if(stage==='teen') st=L('🌟 成长期（Lv'+info.level+'）【长大了！】','🌟 Growing Stage (Lv'+info.level+') [Grew Up!]');
+    else if(stage==='adult') st=L('👑 成熟期（Lv'+info.level+'）完全形态','👑 Adult Stage (Lv'+info.level+') Full Form');
     document.getElementById('petStage').innerText=st;
     var dgTitleEl=document.getElementById('petDungeonTitle');
     var dgTitle=dungeonTitleFor(pet.dungeonBestTier);
     if(dgTitleEl){
-      if(dgTitle){ dgTitleEl.style.display='block'; dgTitleEl.innerText='🎖️ '+dgTitle; }
+      if(dgTitle){ dgTitleEl.style.display='block'; dgTitleEl.innerText=L('🎖️ ','🎖️ ')+dgTitle; }
       else{ dgTitleEl.style.display='none'; }
     }
     document.getElementById('petLevel').innerText=info.level;
@@ -14110,7 +14157,7 @@ function renderPet(){
     setBar('happyBar','happyVal',pet.happy,'pink');
     setBar('cleanBar','cleanVal',pet.clean,'purple');
     document.getElementById('moodText').innerHTML=petMoodText(petMood);
-    document.getElementById('houseName').innerText=HOUSES[pet.house||0].name+' '+(HOUSES[pet.house||0].emoji);
+    document.getElementById('houseName').innerText=L(HOUSES[pet.house||0].name,HOUSES[pet.house||0].nameEn||HOUSES[pet.house||0].name)+' '+(HOUSES[pet.house||0].emoji);
     var houseInfo=HOUSES[pet.house||0];
     var houseBadge=document.getElementById('petHouseBadge');
     var houseUpgraded=(pet.house||0)>=1;
@@ -14231,7 +14278,7 @@ function renderCare(){
   var cc=document.getElementById('hudCareCount');
   if(cc){
     cc.style.display='block';
-    cc.innerText=(doneCount>=5?'🌟':'💖')+' 今日照顾 '+doneCount+'/5';
+    cc.innerText=(doneCount>=5?'🌟':'💖')+L(' 今日照顾 ',' Today\'s Care ')+doneCount+'/5';
   }
   // 折叠按钮上的小圆点数字：提示今天还有几项日常照顾没做，一眼就知道要不要点开看看；
   // 全部做完了就换成绿色对勾，不用再点开确认
