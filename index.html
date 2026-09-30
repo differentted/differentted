@@ -1051,17 +1051,18 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="row-between" style="margin:8px 0 4px;align-items:flex-start">
       <div id="studyThemeBanner" style="flex:1"></div>
       <button class="btn btn-gray btn-sm" style="flex-shrink:0;margin-left:6px" onclick="openStudyThemeModal()" data-i18n="btn_theme_settings">🎨 主题设置</button>
+      <button class="btn btn-gray btn-sm" style="flex-shrink:0;margin-left:6px" onclick="openStudyContentModal()" data-i18n="btn_study_content_manage">📚 内容管理</button>
     </div>
     <div class="small" style="margin:8px 0 4px;font-weight:700;color:#7b1fa2" data-i18n="study_content_label">📚 今日学习内容（点🔊听发音）</div>
     <div class="small" style="margin-bottom:2px" data-i18n="label_words">🔤 单词：</div>
     <div id="studyWordBox"></div>
+    <div id="studyGate_word" style="margin:2px 0 8px;text-align:center"></div>
     <div class="small" style="margin:6px 0 2px" data-i18n="label_hanzi">🀄 汉字：</div>
     <div id="studyHanziBox"></div>
-    <div class="row-between" style="margin:6px 0 2px">
-      <span class="small" data-i18n="label_sentences">💬 句子：</span>
-      <button class="btn btn-gray btn-sm" onclick="refreshSentenceBatch()" data-i18n="btn_refresh_batch">🔄 换一批</button>
-    </div>
+    <div id="studyGate_hanzi" style="margin:2px 0 8px;text-align:center"></div>
+    <div class="small" style="margin:6px 0 2px" data-i18n="label_sentences">💬 句子：</div>
     <div id="studySentenceBox"></div>
+    <div id="studyGate_sentence" style="margin:2px 0 8px;text-align:center"></div>
     <div class="small" style="margin:6px 0 2px" data-i18n="label_reading_comp">📖 阅读理解：</div>
     <div id="studyReadingBox"></div>
     <div class="small" style="margin:6px 0 2px" data-i18n="label_math_en">🧮 纯英文数学题：</div>
@@ -1797,6 +1798,21 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" style="margin:-4px 0 8px;text-align:center">选一种今天学习内容的主题挑选方式，单词/汉字/句子/阅读/数学题都会跟着主题走</div>
     <div id="studyThemeModeBody"></div>
     <div id="studyThemeManualBody" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- 学习内容管理：家长可以删除/新增单词/汉字/句子/阅读短文/整个主题，每个家庭码各自独立，互不影响 -->
+<div class="modal-mask" id="studyContentModal">
+  <div class="modal" style="text-align:left;max-width:460px">
+    <button class="modal-close" onclick="hideModal('studyContentModal')">✕</button>
+    <h3 style="text-align:center">📚 学习内容管理</h3>
+    <div class="small" style="margin:-4px 0 8px;text-align:center">可以删除不需要的主题/单词/句子，也可以新增自己想要的内容；这里的改动只影响当前这个家庭码，不会影响其他家庭</div>
+    <div id="studyContentThemeList" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;max-height:150px;overflow-y:auto;padding:4px;border:1px solid #f0d8f5;border-radius:8px"></div>
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="addStudyTheme()">➕ 新建主题</button>
+      <button class="btn btn-danger btn-sm" onclick="resetStudyThemesToDefault()">↩️ 恢复默认全部内容</button>
+    </div>
+    <div id="studyContentDetailBody" style="margin-top:10px"></div>
   </div>
 </div>
 
@@ -4527,6 +4543,19 @@ function ensureTaskDefs(){
   if(typeof store.specialCoins.readEn!=='number') store.specialCoins.readEn=CONFIG.coins.readEn;
   if(typeof store.specialCoins.readCn!=='number') store.specialCoins.readCn=CONFIG.coins.readCn;
   if(typeof store.specialCoins.quiz!=='number') store.specialCoins.quiz=CONFIG.coins.quiz;
+  ensureStudyThemes();
+}
+/* 2026-09新增：学习打卡内容（单词/汉字/句子/阅读短文，即"题库"）按家庭码独立——
+   跟 taskDefs 一样的思路：把默认的 THEMES 深拷贝一份存进 store.studyThemes，
+   之后所有增删改都只改这一份存档专属的拷贝，不会碰到全局默认内容，
+   自然就实现了"新家庭想要自己的题库、删掉默认内容"也不影响其他还在用默认内容的家庭。 */
+function ensureStudyThemes(){
+  if(!store.studyThemes || !store.studyThemes.length){
+    store.studyThemes=JSON.parse(JSON.stringify(THEMES));
+  }
+}
+function activeThemes(){
+  return (store && store.studyThemes && store.studyThemes.length) ? store.studyThemes : THEMES;
 }
 function specialCoin(key){ return (store.specialCoins&&typeof store.specialCoins[key]==='number')?store.specialCoins[key]:CONFIG.coins[key]; }
 function taskDef(cat,id){
@@ -4588,6 +4617,8 @@ function freshDay(key){
     dailyPick:{sport:null,study:null,house:null},
     quiz:{},
     typeCopy:{}, // 中文词组打字练习：今天每个词是否已经照着原文打对过（训练打字能力用，跟quiz的"猜意思"判分逻辑分开）
+    studyBatch:{word:0,hanzi:0}, // 2026-09新增：单词/汉字"5个一组"当前显示到第几批，每天从头开始
+    studyViewed:{word:{},hanzi:{},sentence:{}}, // 2026-09新增：今天点开看过（或听过发音）的单词/汉字/句子，"换一批"要求本批全部点开过才解锁
     wheel:{sport:false,house:false,study:false,fun:false,diary:false,custom:false,comm:false},
     wheelUsed:0,
     gotFreeCard:false,
@@ -7767,15 +7798,16 @@ var THEMES=[
 /* 按"某一天的日期+模式+年级"重建当天应该显示的主题——抽成独立函数是为了"每周复习测验"能
    按过去7天各自的日期重建那天实际学习打卡展示过的主题内容，不用只能拿到"今天"这一天 */
 function themeForDoy(doy,mode,manualId,grade){
+  var themes=activeThemes();
   if(mode==='manual' && manualId){
-    var manualTheme=THEMES.filter(function(t){ return t.id===manualId; })[0];
+    var manualTheme=themes.filter(function(t){ return t.id===manualId; })[0];
     if(manualTheme) return manualTheme;
   }
   if(mode==='random'){
     var rnd=mulberry32(doy*97+grade*131)();
-    return THEMES[Math.floor(rnd*THEMES.length)];
+    return themes[Math.floor(rnd*themes.length)];
   }
-  return THEMES[(doy+(grade-1)*2)%THEMES.length];
+  return themes[(doy+(grade-1)*2)%themes.length];
 }
 function dailyTheme(){
   // 主题挑选方式分三种（state.studyThemeMode）：
@@ -7790,9 +7822,12 @@ function dailyTheme(){
   return themeForDoy(doy,mode,manualId,childGradeNum());
 }
 
-/* 把所有主题里的句子汇总成一个大句库，这样"换一批"按钮才有足够多不一样的句子可以换，
-   而不是只能在当天主题自带的几句里打转 */
-var SENTENCE_STUDY_BANK=THEMES.reduce(function(acc,t){ return acc.concat(t.sentences); },[]);
+/* 把所有(当前家庭自己的)主题里的句子汇总成一个大句库，这样"换一批"按钮才有足够多不一样的句子可以换，
+   而不是只能在当天主题自带的几句里打转。改成函数、每次现算，是因为家长可能随时增删主题/句子，
+   不能像以前那样只在脚本一加载时算一次就固定住不变了 */
+function sentenceStudyBank(){
+  return activeThemes().reduce(function(acc,t){ return acc.concat(t.sentences); },[]);
+}
 function pickBatchItems(bank,idx,count){
   var start=((idx%bank.length)+bank.length)%bank.length;
   var out=[];
@@ -7803,15 +7838,94 @@ function currentSentenceBatch(){
   // 句子现在从"今天的主题"自己的句库里挑（每个主题有8句），而不是全部30个主题混在一起的大句库——
   // 这样手动/随机切换主题后，下面的英文句子练习才会跟着主题一起换，不然会出现"主题换了，句子却还是老样子"的问题
   var theme=dailyTheme();
-  var bank=(theme&&theme.sentences&&theme.sentences.length)?theme.sentences:SENTENCE_STUDY_BANK;
+  var bank=(theme&&theme.sentences&&theme.sentences.length)?theme.sentences:sentenceStudyBank();
   // 同样加上按年级错开的偏移量，原因跟 dailyTheme() 一样：不然不同年级的账号同一天看到的5句英文会完全一样
   var idx=studyDayOfYear(new Date())*5+childGradeNum()*7+(state&&state.sentenceBatchOffset?state.sentenceBatchOffset:0)*5;
   return pickBatchItems(bank, idx, Math.min(5,bank.length));
 }
-function refreshSentenceBatch(){
+function refreshSentenceBatch(){ refreshStudyBatch('sentence'); }
+/* ========== 2026-09新增：单词/汉字/句子"5个一组、点开看过才能换下一批" ==========
+   跟以前"一次性把整个主题的单词/汉字全部列出来"不一样：现在每次只显示5个（跟句子早就有的
+   "换一批"思路统一），每一条默认收起，点一下才展开看到音标/拼音/听发音/中文意思/练习题；
+   "换一批"按钮要等这一批5个全部点开过至少一次才会解锁，逼着小朋友真的把这一批都看一遍，
+   不能跳过内容直接换下一批。是否"点开过"的记录存在 state.day.studyViewed 里，每天跨天自动清空。 */
+function studyItemKey(type,item){
+  if(type==='word') return item.en;
+  if(type==='hanzi') return item.zi;
+  return item.en; // sentence
+}
+function isStudyItemViewed(type,key){
+  return !!(state && state.day && state.day.studyViewed && state.day.studyViewed[type] && state.day.studyViewed[type][key]);
+}
+function markStudyItemViewed(type,key){
+  if(!state||!state.day) return false;
+  if(!state.day.studyViewed) state.day.studyViewed={word:{},hanzi:{},sentence:{}};
+  if(!state.day.studyViewed[type]) state.day.studyViewed[type]={};
+  if(state.day.studyViewed[type][key]) return false; // 已经点开过了，不用重复记录/存档
+  state.day.studyViewed[type][key]=true;
+  saveStore(); // 只存档，不整页重渲染（跟toggleSentenceMeaning一样，展开/收起这种小交互没必要触发整页render）
+  return true;
+}
+function toggleStudyItemBody(headEl,type,key){
+  var body=headEl.nextElementSibling;
+  if(!body) return;
+  var showing=body.style.display!=='none';
+  body.style.display=showing?'none':'block';
+  var arrow=headEl.querySelector('.study-arrow');
+  if(arrow) arrow.textContent=showing?'▶':'🔽';
+  if(!showing){
+    var changed=markStudyItemViewed(type,key);
+    if(changed){
+      var badge=headEl.querySelector('.study-viewed-badge');
+      if(badge) badge.style.display='inline';
+      refreshStudyGateButton(type);
+    }
+  }
+}
+function currentWordBatch(theme){
+  if(!theme||!theme.words||!theme.words.length) return [];
+  var off=(state&&state.day&&state.day.studyBatch&&state.day.studyBatch.word)||0;
+  return pickBatchItems(theme.words, off*5, Math.min(5,theme.words.length));
+}
+function currentHanziBatch(theme){
+  if(!theme||!theme.hanzi||!theme.hanzi.length) return [];
+  var off=(state&&state.day&&state.day.studyBatch&&state.day.studyBatch.hanzi)||0;
+  return pickBatchItems(theme.hanzi, off*5, Math.min(5,theme.hanzi.length));
+}
+function studyBatchAllViewed(type,batchItems){
+  if(!batchItems||!batchItems.length) return true;
+  return batchItems.every(function(it){ return isStudyItemViewed(type, studyItemKey(type,it)); });
+}
+function studyBatchGateHtml(type,batchItems){
+  if(!batchItems||!batchItems.length) return '';
+  var allViewed=studyBatchAllViewed(type,batchItems);
+  return allViewed
+    ? '<button class="btn btn-primary btn-sm" onclick="refreshStudyBatch(\''+type+'\')">'+L('🔄 换一批','🔄 New batch')+'</button>'
+    : '<button class="btn btn-gray btn-sm" disabled style="opacity:.55;cursor:not-allowed" title="'+escapeAttr(L('先把这一批都点开看一遍，才能换下一批哦','View everything in this batch first, then you can switch'))+'">'+L('🔒 换一批（还没看完）','🔒 New batch (not finished)')+'</button>';
+}
+function refreshStudyGateButton(type){
+  var theme=dailyTheme();
+  var box=document.getElementById('studyGate_'+type);
+  if(!box) return;
+  var batchItems = type==='word' ? currentWordBatch(theme) : type==='hanzi' ? currentHanziBatch(theme) : currentSentenceBatch();
+  box.innerHTML=studyBatchGateHtml(type,batchItems);
+}
+function refreshStudyBatch(type){
   if(!state) return;
-  state.sentenceBatchOffset=(state.sentenceBatchOffset||0)+1;
-  save();
+  var theme=dailyTheme();
+  var batchItems = type==='word' ? currentWordBatch(theme) : type==='hanzi' ? currentHanziBatch(theme) : currentSentenceBatch();
+  if(!studyBatchAllViewed(type,batchItems)){
+    alert(L('先把这一批都点开看一遍，才能换下一批哦～','View everything in this batch first, then you can switch~'));
+    return;
+  }
+  if(type==='sentence'){
+    state.sentenceBatchOffset=(state.sentenceBatchOffset||0)+1;
+  }else{
+    if(!state.day.studyBatch) state.day.studyBatch={word:0,hanzi:0};
+    state.day.studyBatch[type]=(state.day.studyBatch[type]||0)+1;
+  }
+  saveStore();
+  renderStudyAids();
 }
 
 function pickDailyStudyItems(bank,count){
@@ -8525,12 +8639,172 @@ function renderStudyThemeModal(){
     var currentId=state.studyThemeManualId||dailyTheme().id;
     manualBody.innerHTML='<div class="small" style="font-weight:700;color:#7b1fa2;margin-bottom:6px">选一个主题：</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
-      +THEMES.map(function(t){
+      +activeThemes().map(function(t){
         var active=t.id===currentId;
         return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="padding:6px 2px;font-size:12px" onclick="setStudyThemeManual(\''+t.id+'\')">'+t.icon+' '+t.name+'</button>';
       }).join('')
       +'</div>';
   }
+}
+var studyContentEditId=null;
+function studyTheme(themeId){
+  ensureStudyThemes();
+  return store.studyThemes.filter(function(t){ return t.id===themeId; })[0]||null;
+}
+function openStudyContentModal(){
+  ensureStudyThemes();
+  var themes=store.studyThemes;
+  if(!studyContentEditId || !themes.some(function(t){ return t.id===studyContentEditId; })){
+    studyContentEditId=(themes[0]||{}).id||null;
+  }
+  renderStudyContentModal();
+  showModal('studyContentModal');
+}
+function selectStudyContentTheme(themeId){
+  studyContentEditId=themeId;
+  renderStudyContentModal();
+}
+function studyThemeDetailHtml(theme){
+  var html='<div class="item" style="align-items:center;flex-wrap:wrap;background:#f3e5f5">'
+    +'<input type="text" value="'+escapeAttr(theme.icon)+'" onchange="updateStudyThemeMeta(\''+theme.id+'\',\'icon\',this.value)" style="width:44px;padding:6px;border:1px solid #e1bee7;border-radius:8px;font-size:15px;text-align:center" />'
+    +'<input type="text" value="'+escapeAttr(theme.name)+'" onchange="updateStudyThemeMeta(\''+theme.id+'\',\'name\',this.value)" style="flex:1;min-width:100px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<button class="btn btn-danger btn-sm" onclick="removeStudyTheme(\''+theme.id+'\')">删除整个主题</button>'
+    +'</div>';
+
+  html+='<div class="small" style="font-weight:700;color:#7b1fa2;margin:8px 0 4px">🔤 单词（'+theme.words.length+'个）</div>';
+  theme.words.forEach(function(w,i){
+    html+='<div class="item" style="align-items:center;flex-wrap:wrap">'
+      +'<span class="small" style="flex:1">'+escapeAttr(w.en)+' '+escapeAttr(w.ph||'')+'　'+escapeAttr(w.cn)+'</span>'
+      +'<button class="btn btn-danger btn-sm" onclick="removeStudyItem(\''+theme.id+'\',\'words\','+i+')">删除</button>'
+      +'</div>';
+  });
+  html+='<div class="item" style="margin-top:4px;background:#f9f0fb;flex-wrap:wrap">'
+    +'<input type="text" id="newWordEn_'+theme.id+'" placeholder="英文单词" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" id="newWordPh_'+theme.id+'" placeholder="音标(可空)" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" id="newWordCn_'+theme.id+'" placeholder="中文意思" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<button class="btn btn-primary btn-sm" onclick="addStudyItem(\''+theme.id+'\',\'words\')">+ 添加</button>'
+    +'</div>';
+
+  html+='<div class="small" style="font-weight:700;color:#7b1fa2;margin:8px 0 4px">🈶 汉字词语（'+theme.hanzi.length+'个）</div>';
+  theme.hanzi.forEach(function(h,i){
+    html+='<div class="item" style="align-items:center;flex-wrap:wrap">'
+      +'<span class="small" style="flex:1">'+escapeAttr(h.zi)+' '+escapeAttr(h.py||'')+'　'+escapeAttr(h.cn)+'</span>'
+      +'<button class="btn btn-danger btn-sm" onclick="removeStudyItem(\''+theme.id+'\',\'hanzi\','+i+')">删除</button>'
+      +'</div>';
+  });
+  html+='<div class="item" style="margin-top:4px;background:#f9f0fb;flex-wrap:wrap">'
+    +'<input type="text" id="newHanziZi_'+theme.id+'" placeholder="汉字/词语" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" id="newHanziPy_'+theme.id+'" placeholder="拼音(可空)" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" id="newHanziCn_'+theme.id+'" placeholder="释义" style="flex:1;min-width:64px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<button class="btn btn-primary btn-sm" onclick="addStudyItem(\''+theme.id+'\',\'hanzi\')">+ 添加</button>'
+    +'</div>';
+
+  html+='<div class="small" style="font-weight:700;color:#7b1fa2;margin:8px 0 4px">✏️ 英文句子（'+theme.sentences.length+'个）</div>';
+  theme.sentences.forEach(function(s,i){
+    html+='<div class="item" style="align-items:center;flex-wrap:wrap">'
+      +'<span class="small" style="flex:1">'+escapeAttr(s.en)+'　'+escapeAttr(s.cn)+'</span>'
+      +'<button class="btn btn-danger btn-sm" onclick="removeStudyItem(\''+theme.id+'\',\'sentences\','+i+')">删除</button>'
+      +'</div>';
+  });
+  html+='<div class="item" style="margin-top:4px;background:#f9f0fb;flex-wrap:wrap">'
+    +'<input type="text" id="newSentEn_'+theme.id+'" placeholder="英文句子" style="flex:1;min-width:100px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" id="newSentCn_'+theme.id+'" placeholder="中文翻译" style="flex:1;min-width:100px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<button class="btn btn-primary btn-sm" onclick="addStudyItem(\''+theme.id+'\',\'sentences\')">+ 添加</button>'
+    +'</div>';
+
+  var rd=theme.reading||{title:'',text:'',question:'',optA:'',optB:'',answer:'A'};
+  html+='<div class="small" style="font-weight:700;color:#7b1fa2;margin:8px 0 4px">📰 阅读短文</div>'
+    +'<input type="text" value="'+escapeAttr(rd.title)+'" placeholder="短文标题" onchange="updateStudyReading(\''+theme.id+'\',\'title\',this.value)" style="width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px;box-sizing:border-box" />'
+    +'<textarea placeholder="短文内容" onchange="updateStudyReading(\''+theme.id+'\',\'text\',this.value)" style="width:100%;min-height:56px;margin-bottom:4px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px;box-sizing:border-box">'+escapeAttr(rd.text)+'</textarea>'
+    +'<input type="text" value="'+escapeAttr(rd.question)+'" placeholder="问题" onchange="updateStudyReading(\''+theme.id+'\',\'question\',this.value)" style="width:100%;margin-bottom:4px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px;box-sizing:border-box" />'
+    +'<div class="item" style="flex-wrap:wrap">'
+    +'<input type="text" value="'+escapeAttr(rd.optA)+'" placeholder="选项A" onchange="updateStudyReading(\''+theme.id+'\',\'optA\',this.value)" style="flex:1;min-width:80px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<input type="text" value="'+escapeAttr(rd.optB)+'" placeholder="选项B" onchange="updateStudyReading(\''+theme.id+'\',\'optB\',this.value)" style="flex:1;min-width:80px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<select onchange="updateStudyReading(\''+theme.id+'\',\'answer\',this.value)" style="padding:6px;border:1px solid #e1bee7;border-radius:8px;font-size:13px">'
+    +'<option value="A" '+(rd.answer==='A'?'selected':'')+'>正确答案：A</option>'
+    +'<option value="B" '+(rd.answer==='B'?'selected':'')+'>正确答案：B</option>'
+    +'</select></div>';
+  return html;
+}
+function renderStudyContentModal(){
+  ensureStudyThemes();
+  var themes=store.studyThemes;
+  var listBox=document.getElementById('studyContentThemeList');
+  if(listBox){
+    listBox.innerHTML=themes.map(function(t){
+      var active=t.id===studyContentEditId;
+      return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="padding:6px 2px;font-size:12px" onclick="selectStudyContentTheme(\''+t.id+'\')">'+t.icon+' '+t.name+'</button>';
+    }).join('');
+  }
+  var box=document.getElementById('studyContentDetailBody');
+  if(!box) return;
+  var theme=themes.filter(function(t){ return t.id===studyContentEditId; })[0];
+  box.innerHTML=theme?studyThemeDetailHtml(theme):'<div class="small" style="text-align:center">还没有任何学习主题，点上面"➕新建主题"加一个吧～</div>';
+}
+function afterStudyContentChange(){
+  saveStore();
+  render();
+  renderStudyContentModal();
+  renderStudyThemeModal();
+}
+function updateStudyThemeMeta(themeId,field,val){
+  var t=studyTheme(themeId); if(!t) return;
+  t[field]=(val||'').trim()||t[field];
+  afterStudyContentChange();
+}
+function removeStudyTheme(themeId){
+  if(!confirm('确定删除整个主题吗？里面的单词/汉字/句子/阅读短文都会一起删掉（不影响其他家庭码）')) return;
+  ensureStudyThemes();
+  store.studyThemes=store.studyThemes.filter(function(t){ return t.id!==themeId; });
+  if(state && state.studyThemeManualId===themeId) state.studyThemeManualId=null;
+  studyContentEditId=(store.studyThemes[0]||{}).id||null;
+  afterStudyContentChange();
+}
+function addStudyTheme(){
+  ensureStudyThemes();
+  var id='custom'+Date.now()+Math.floor(Math.random()*1000);
+  store.studyThemes.push({id:id,name:'新主题',icon:'⭐',words:[],hanzi:[],sentences:[],mathNoun:'items',reading:{title:'',text:'',question:'',optA:'',optB:'',answer:'A'}});
+  studyContentEditId=id;
+  afterStudyContentChange();
+}
+function resetStudyThemesToDefault(){
+  if(!confirm('确定要恢复成默认的全部学习内容吗？你自己新增/删除的改动都会丢失（只影响当前这个家庭码）')) return;
+  store.studyThemes=JSON.parse(JSON.stringify(THEMES));
+  studyContentEditId=(store.studyThemes[0]||{}).id||null;
+  afterStudyContentChange();
+}
+function removeStudyItem(themeId,field,idx){
+  var t=studyTheme(themeId); if(!t||!t[field]) return;
+  t[field].splice(idx,1);
+  afterStudyContentChange();
+}
+function addStudyItem(themeId,field){
+  var t=studyTheme(themeId); if(!t) return;
+  if(field==='words'){
+    var en=(document.getElementById('newWordEn_'+themeId).value||'').trim();
+    var ph=(document.getElementById('newWordPh_'+themeId).value||'').trim();
+    var cn=(document.getElementById('newWordCn_'+themeId).value||'').trim();
+    if(!en||!cn){ alert('请至少填写英文单词和中文意思'); return; }
+    t.words.push({en:en,ph:ph,cn:cn});
+  }else if(field==='hanzi'){
+    var zi=(document.getElementById('newHanziZi_'+themeId).value||'').trim();
+    var py=(document.getElementById('newHanziPy_'+themeId).value||'').trim();
+    var hcn=(document.getElementById('newHanziCn_'+themeId).value||'').trim();
+    if(!zi||!hcn){ alert('请至少填写汉字/词语和释义'); return; }
+    t.hanzi.push({zi:zi,py:py,cn:hcn});
+  }else if(field==='sentences'){
+    var senEn=(document.getElementById('newSentEn_'+themeId).value||'').trim();
+    var senCn=(document.getElementById('newSentCn_'+themeId).value||'').trim();
+    if(!senEn||!senCn){ alert('请填写完整的英文句子和中文翻译'); return; }
+    t.sentences.push({en:senEn,cn:senCn});
+  }
+  afterStudyContentChange();
+}
+function updateStudyReading(themeId,field,val){
+  var t=studyTheme(themeId); if(!t) return;
+  if(!t.reading) t.reading={title:'',text:'',question:'',optA:'',optB:'',answer:'A'};
+  t.reading[field]=val;
+  afterStudyContentChange();
 }
 function renderStudyAids(){
   var theme=dailyTheme();
@@ -8542,48 +8816,81 @@ function renderStudyAids(){
   }
   var wordBox=document.getElementById('studyWordBox');
   if(wordBox){
-    wordBox.innerHTML=theme.words.map(function(w){
+    /* 2026-09新增：以前是把主题里全部单词（最多15个）一次性列出来，现在改成跟句子一样"5个一组"，
+       每条默认收起（只显示英文单词本身），点一下才展开看到音标/🔊听发音/中文意思/猜意思小测验；
+       "换一批"要等这5个都点开过一次才解锁（见studyBatchGateHtml/studyGate_word） */
+    var wordBatch=currentWordBatch(theme);
+    wordBox.innerHTML=wordBatch.map(function(w){
+      var key=studyItemKey('word',w);
+      var viewed=isStudyItemViewed('word',key);
       var qkey='quiz:word:'+theme.id+':'+w.en;
-      return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
-        +'<b>'+w.en+'</b> <span style="color:#9c7ab0">'+w.ph+'</span>'
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+        +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'word\',\''+studyEscape(key)+'\')">'
+        +'<span class="study-arrow">▶</span> <b>'+w.en+'</b> <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'</div>'
+        +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
+        +'<span style="color:#9c7ab0">'+w.ph+'</span>'
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(w.en)+'\',\'en-US\')">🔊</button>'
         +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 不知道？看中文意思</button>'
         +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+w.cn+'</span>'
         +quizFillHtml(qkey,w.cn,'单词：'+w.en,'这个单词是什么意思？')
+        +'</div>'
         +'</div>';
-    }).join('');
+    }).join('') || '<div class="small">'+L('这个主题还没有单词内容','No words in this theme yet')+'</div>';
+    var gateWordBox=document.getElementById('studyGate_word');
+    if(gateWordBox) gateWordBox.innerHTML=studyBatchGateHtml('word',wordBatch);
   }
   var hanziBox=document.getElementById('studyHanziBox');
   if(hanziBox){
-    /* 2026-09新增：这里原来是"打出这个词的意思"的猜意思填空题，现在改成"打字练习"——
-       让小朋友照着原样打出这个词本身（练打字能力），意思改成点一下才显示的辅助信息；
-       今天5个词都打对之后，下面"5个带拼音汉字"这项打卡的"完成"按钮才会解锁（见hanziTypingAllDone） */
-    hanziBox.innerHTML=theme.hanzi.map(function(h,idx){
+    /* 2026-09新增：汉字也改成"5个一组"，默认收起，点开才看到拼音/🔊/中文释义/打字练习；
+       注意"打字练习是否必做"(isRequired)判断的是这个字在theme.hanzi里的原始位置（前5个），
+       跟它现在被分到第几批显示无关——不然分批之后哪5个算"必做"就说不清楚了，
+       打卡完成判定(hanziTypingAllDone)本来就是直接按theme.hanzi前5个查，不受这里分批展示影响 */
+    var hanziBatch=currentHanziBatch(theme);
+    hanziBox.innerHTML=hanziBatch.map(function(h){
+      var origIdx=theme.hanzi.indexOf(h);
+      var isRequired=origIdx>=0 && origIdx<5;
+      var key=studyItemKey('hanzi',h);
+      var viewed=isStudyItemViewed('hanzi',key);
       var tkey='typecopy:hanzi:'+theme.id+':'+h.zi;
-      var isRequired=idx<5; // 打卡任务只要求前5个打对，后面几个是额外加练，打不打不影响"完成"解锁
-      return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
-        +'<b>'+h.zi+'</b> <span style="color:#9c7ab0">'+h.py+'</span>'
-        +(isRequired?'':' <span class="small" style="color:#ad7bbf">（加练，非必须）</span>')
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+        +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'hanzi\',\''+studyEscape(key)+'\')">'
+        +'<span class="study-arrow">▶</span> <b>'+h.zi+'</b>'+(isRequired?'':' <span class="small" style="color:#ad7bbf">（加练，非必须）</span>')+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'</div>'
+        +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
+        +'<span style="color:#9c7ab0">'+h.py+'</span>'
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(h.zi)+'\',\'zh-CN\')">🔊</button>'
         +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 不知道？看中文意思</button>'
         +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+h.cn+'</span>'
         +'<div class="small" style="color:#9c7ab0;margin-top:2px">⌨️ 打字练习：照着上面的字打一遍</div>'
         +quizTypeCopyHtml(tkey,h.zi)
+        +'</div>'
         +'</div>';
-    }).join('');
+    }).join('') || '<div class="small">'+L('这个主题还没有汉字内容','No hanzi in this theme yet')+'</div>';
+    var gateHanziBox=document.getElementById('studyGate_hanzi');
+    if(gateHanziBox) gateHanziBox.innerHTML=studyBatchGateHtml('hanzi',hanziBatch);
   }
   var sentBox=document.getElementById('studySentenceBox');
   if(sentBox){
-    /* 英文句子不再要求小朋友自己打字翻译才能看到答案（很多小朋友中文打字本来就慢，容易卡在这一步），
-       改成点一下"查看中文意思"按钮直接显示，纯粹是辅助阅读理解，不再对应任何金币/经验奖励 */
-    sentBox.innerHTML=currentSentenceBatch().map(function(s){
-      return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
-        +s.en
-        +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(s.en)+'\',\'en-US\')">🔊</button>'
+    /* 句子同理也改成默认收起、点开才展开看🔊/中文意思；英文句子本身不算"答案"，直接显示在收起状态
+       不会剧透，展开只是多看一下🔊听发音和中文翻译，所以收起时就直接显示英文原句 */
+    var sentBatch=currentSentenceBatch();
+    sentBox.innerHTML=sentBatch.map(function(s){
+      var key=studyItemKey('sentence',s);
+      var viewed=isStudyItemViewed('sentence',key);
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+        +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'sentence\',\''+studyEscape(key)+'\')">'
+        +'<span class="study-arrow">▶</span> '+s.en+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'</div>'
+        +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
+        +'<button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(s.en)+'\',\'en-US\')">🔊</button>'
         +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 查看中文意思</button>'
         +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+s.cn+'</span>'
+        +'</div>'
         +'</div>';
-    }).join('');
+    }).join('') || '<div class="small">'+L('这个主题还没有句子内容','No sentences in this theme yet')+'</div>';
+    var gateSentBox=document.getElementById('studyGate_sentence');
+    if(gateSentBox) gateSentBox.innerHTML=studyBatchGateHtml('sentence',sentBatch);
   }
   var phraseBox=document.getElementById('commPhraseBox');
   if(phraseBox){
@@ -9754,11 +10061,18 @@ function migrateState(s){
   if(s.studyThemeMode!=='auto'&&s.studyThemeMode!=='random'&&s.studyThemeMode!=='manual') s.studyThemeMode='auto';
   if(typeof s.studyThemeManualId==='undefined') s.studyThemeManualId=null;
   // 手动选的主题如果不在当前 THEMES 列表里了（比如主题库更新），就退回自动轮换，避免卡在一个不存在的主题上
-  if(s.studyThemeMode==='manual' && !THEMES.some(function(t){ return t.id===s.studyThemeManualId; })) s.studyThemeMode='auto';
+  if(s.studyThemeMode==='manual' && !activeThemes().some(function(t){ return t.id===s.studyThemeManualId; })) s.studyThemeMode='auto';
   if(!s.day.study) s.day.study={};
   if(typeof s.day.study.sentenceRepeatCount!=='number') s.day.study.sentenceRepeatCount=0;
   delete s.day.study.math; // 已删除的重复任务：数学学习半小时（和数学闯关挑战重复）
   if(!s.day.typeCopy) s.day.typeCopy={}; // 2026-09新增：中文词组打字练习，老存档当天的day对象里还没有这个字段，兜底补上
+  if(!s.day.studyBatch) s.day.studyBatch={word:0,hanzi:0}; // 2026-09新增：单词/汉字分批展示，老存档当天的day对象里还没有这个字段，兜底补上
+  if(typeof s.day.studyBatch.word!=='number') s.day.studyBatch.word=0;
+  if(typeof s.day.studyBatch.hanzi!=='number') s.day.studyBatch.hanzi=0;
+  if(!s.day.studyViewed) s.day.studyViewed={word:{},hanzi:{},sentence:{}};
+  if(!s.day.studyViewed.word) s.day.studyViewed.word={};
+  if(!s.day.studyViewed.hanzi) s.day.studyViewed.hanzi={};
+  if(!s.day.studyViewed.sentence) s.day.studyViewed.sentence={};
   if(!s.studyCompletionLog) s.studyCompletionLog=[]; // 2026-09新增：每天跨天时记一笔"当天真的完成了哪些学习打卡"，给"每周复习测验"用
   if(!s.day.wheel) s.day.wheel={sport:false,house:false,study:false,fun:false,diary:false};
   if(typeof s.day.wheel.fun==='undefined') s.day.wheel.fun=false;
