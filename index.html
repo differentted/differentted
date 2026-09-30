@@ -10800,7 +10800,54 @@ function petPersonality(){
   return 'neutral';
 }
 var OFFLINE_EVENT_MIN_HOURS=0.5; // 2026-09：从2小时改成半小时——离线只要够半小时，一上线就会有描述"宠物做了什么"的提示，让小朋友更有惦记着要上线看看的动力
+/* 2026-09新增："金币攒太多"会让宠物乱花钱的概率大幅提高——注意这个机制是按"账号金币余额"判定的，
+   跟宠物本身是什么性格（乖巧/叛逆/勤劳/中性）无关：不是只有叛逆性格才会因为钱多变得爱乱花，
+   而是不管什么性格，只要家里金币堆太多，宠物都会被"惯坏"，管不住乱花钱的手。
+   管理员账号（具体是指默认家庭行下面"宝宝"这一个孩子档案，判定复用PK豁免同一套isPkTestAccount）
+   不受这个机制影响，方便管理员自己日常测试/体验，不被这个惩罚机制打扰；注意默认家庭行下面
+   如果还有茜茜/嫣嫣等其它孩子档案，它们并不豁免，一样要正常受这个机制约束——只有"宝宝"这一个
+   具体账号才是管理员。
+   分档：金币越多，档位越高，触发概率越高，但到顶之后不再继续往上涨，避免金币多到夸张时
+   概率高到几乎每次离线都在乱花钱，体验太差。触发一次和"普通的性格离线事件"互斥
+   （命中这个就不再走下面正常的性格判定），没触发的话完全不影响原来的性格离线事件逻辑。 */
+var HOARD_SPEND_TIERS=[
+  {min:2000, chance:0.65},
+  {min:1000, chance:0.5},
+  {min:600, chance:0.35},
+  {min:300, chance:0.2},
+  {min:150, chance:0.08}
+];
+function computeHoardSpendChance(balance){
+  for(var i=0;i<HOARD_SPEND_TIERS.length;i++){
+    if(balance>=HOARD_SPEND_TIERS[i].min) return HOARD_SPEND_TIERS[i].chance;
+  }
+  return 0;
+}
+function maybeRollHoardSpendEvent(pet){
+  // 2026-09fix：管理员账号具体指"宝宝"这一个孩子档案，不是整个默认家庭行下面所有孩子都豁免——
+  // 复用PK豁免机制同一套判定（isPkTestAccount），保证"谁是管理员"这件事全app口径一致
+  if(isPkTestAccount(SUPA_ROW_ID, store.currentChildId)) return null; // 管理员（宝宝）自己不受影响
+  if(!(state.moneyBalance>0)) return null;
+  var chance=computeHoardSpendChance(state.moneyBalance);
+  if(chance<=0) return null;
+  if(Math.random()>=chance) return null;
+  var level=petLevelInfo(pet).level;
+  var tier=petMaturityTier(level);
+  var scale=REBEL_PUNISH_SCALE[tier]||1; // 沿用叛逆闯祸同一套"等级越高、破坏力越大"的缩放规则，保持力度手感一致
+  var pct=(0.1+Math.random()*0.2)*scale;
+  var cap=Math.round(80*scale);
+  var lost=Math.max(5,Math.min(cap,Math.round(state.moneyBalance*pct)));
+  lost=Math.min(lost,state.moneyBalance);
+  if(!(lost>0)) return null;
+  state.moneyBalance-=lost;
+  var petName=pet.name||L('宠物','the pet');
+  addLog('🤑'+petName+L(' 因为家里金币攒太多，趁你不在管不住自己，偷偷拿了 ',", because there were too many coins piled up at home, while you were away it couldn't help itself and secretly took ")+lost+L(' 金币出去乱花了',' coins and blew it'));
+  var moneyLabel=L(lost+' 金币', lost+' coins');
+  return '🤑 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 好像被家里攒的一堆金币"惯坏"了，没忍住偷偷乱花掉了 ',' seemed to get spoiled by the pile of coins at home, and couldn\'t resist secretly blowing ')+'<b>'+moneyLabel+'</b>'+L('！平时别让金币攒太多，帮它养成好的消费习惯～','! Try not to let coins pile up too much - help it build better spending habits~');
+}
 function rollOfflineEvent(pet){
+  var hoardNotice=maybeRollHoardSpendEvent(pet);
+  if(hoardNotice) return hoardNotice;
   var personality=petPersonality();
   if(personality==='rebel') return rollRebelEvent(pet);
   if(personality==='worker') return rollWorkerEvent(pet);
