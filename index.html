@@ -2005,7 +2005,35 @@ const CONFIG = {
     {id:'medicine', name:'特效药', nameEn:'Medicine', emoji:'💊', price:15, lv:1, desc:'立刻治好轻伤，避免变回蛋（对重伤无效）', descEn:'Instantly cures a light injury, preventing it from reverting to an egg (no effect on severe injuries)', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
     {id:'medicine2', name:'高级特效药', nameEn:'Advanced Medicine', emoji:'✨💊', price:40, lv:1, desc:'轻伤/重伤都能立刻治好，避免变回蛋', descEn:'Instantly cures either light or severe injuries, preventing it from reverting to an egg', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
     {id:'hospital', name:'住院治疗', nameEn:'Hospital Treatment', emoji:'🏥', price:15, lv:1, desc:'立刻治好PK轻伤，不用等48小时倒计时，也不会掉级', descEn:'Instantly cures a PK injury — skip the 48-hour countdown and avoid a level drop', fx:function(p){p.pkInjured=false;p.pkInjuredAt=null;}},
-    {id:'house', name:'新小窝（豪华大房子）', nameEn:'New Home (Deluxe Mansion)', emoji:'🏰', price:20, lv:7, desc:'更换房子外观', descEn:'Changes your house appearance', fx:function(p){p.house=1}}
+    {id:'house', name:'新小窝（豪华大房子）', nameEn:'New Home (Deluxe Mansion)', emoji:'🏰', price:20, lv:7, desc:'更换房子外观', descEn:'Changes your house appearance', fx:function(p){p.house=1}},
+    /* 2026-09新增：贵到离谱的纯装饰奢侈品，价格从几百到几十万金币不等，没有任何数值效果，
+       专门用来当"金币多到没地方花"时的合理去处（见上面大段说明） */
+    {id:'luxury_snackbox', name:'定制零食礼盒', nameEn:'Custom Snack Gift Box', emoji:'🍬', price:150, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_bow', name:'蕾丝蝴蝶结发饰', nameEn:'Lace Bow Hair Clip', emoji:'🎀', price:400, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_tophat', name:'复古礼帽', nameEn:'Vintage Top Hat', emoji:'🎩', price:900, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_pearl', name:'仿珍珠项链', nameEn:'Faux Pearl Necklace', emoji:'📿', price:1800, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_crown', name:'塑料皇冠', nameEn:'Plastic Crown', emoji:'👑', price:3500, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_ring', name:'仿钻戒指', nameEn:'Fake Diamond Ring', emoji:'💍', price:7000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_sunglasses', name:'限量款墨镜', nameEn:'Limited-Edition Sunglasses', emoji:'🕶️', price:12000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_scarf', name:'羊绒围巾', nameEn:'Cashmere Scarf', emoji:'🧣', price:20000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_bag', name:'仿名牌手袋', nameEn:'Knockoff Designer Bag', emoji:'👛', price:35000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_watch', name:'镶钻手表', nameEn:'Diamond-Studded Watch', emoji:'⌚', price:55000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_castle', name:'迷你城堡摆件', nameEn:'Mini Castle Ornament', emoji:'🏰', price:90000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_car', name:'纯金镀层玩具跑车', nameEn:'Gold-Plated Toy Sports Car', emoji:'🚗', price:140000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_diacrown', name:'传说级钻石王冠', nameEn:'Legendary Diamond Crown', emoji:'💎', price:220000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    {id:'luxury_unicorn', name:'纯金独角兽雕像', nameEn:'Solid Gold Unicorn Statue', emoji:'🦄', price:300000, lv:1, luxury:true, desc:'纯装饰摆件，摆着好看，没有任何实际效果', descEn:'Purely cosmetic, no actual effect', fx:function(p){}},
+    /* 2026-09update：又加了一批"吃喝玩乐+旅游送礼"主题的奢侈消费，专门标记 glutton:true——
+       跟上面纯摆件不同，这些是"吃太多/玩太疯"类型的体验型消费，配合下面 enforceHoardSpendCapOnNewDay()
+       里新增的"乐极生悲"效果：跨天乱花钱时如果买中了这批东西，有一定概率会"吃撑了/水土不服"，
+       倒扣一些开心值和清洁值，形成"开心→乐极生悲"的完整故事线，而不是单纯一路开心到底 */
+    {id:'luxury_snackfeast', name:'网红奶茶配超辣烧烤自助', nameEn:'Trendy Milk Tea + All-You-Can-Eat Spicy BBQ', emoji:'🍢', price:350, lv:1, luxury:true, glutton:true, desc:'奢华嘴馋型消费，没有任何实际效果（小心别贪嘴）', descEn:'A gluttonous splurge - purely cosmetic, no actual effect (careful not to overdo it)', fx:function(p){}},
+    {id:'luxury_crabfeast', name:'帝王蟹海鲜自助餐', nameEn:'All-You-Can-Eat King Crab Buffet', emoji:'🦀', price:3000, lv:1, luxury:true, glutton:true, desc:'奢华嘴馋型消费，没有任何实际效果（小心别贪嘴）', descEn:'A gluttonous splurge - purely cosmetic, no actual effect (careful not to overdo it)', fx:function(p){}},
+    {id:'luxury_wagyufeast', name:'顶级和牛盛宴', nameEn:'Premium Wagyu Feast', emoji:'🥩', price:9000, lv:1, luxury:true, glutton:true, desc:'奢华嘴馋型消费，没有任何实际效果（小心别贪嘴）', descEn:'A gluttonous splurge - purely cosmetic, no actual effect (careful not to overdo it)', fx:function(p){}},
+    {id:'luxury_caviar', name:'鱼子酱下午茶', nameEn:'Caviar Afternoon Tea', emoji:'🥂', price:18000, lv:1, luxury:true, glutton:true, desc:'奢华嘴馋型消费，没有任何实际效果（小心别贪嘴）', descEn:'A gluttonous splurge - purely cosmetic, no actual effect (careful not to overdo it)', fx:function(p){}},
+    {id:'luxury_delicacy', name:'山珍海味满汉全席', nameEn:'Grand Feast of Rare Delicacies', emoji:'🍲', price:42000, lv:1, luxury:true, glutton:true, desc:'奢华嘴馋型消费，没有任何实际效果（小心别贪嘴）', descEn:'A gluttonous splurge - purely cosmetic, no actual effect (careful not to overdo it)', fx:function(p){}},
+    {id:'luxury_hotel', name:'五星级酒店豪华套房', nameEn:'Five-Star Hotel Luxury Suite', emoji:'🏨', price:65000, lv:1, luxury:true, glutton:true, desc:'奢华体验型消费，没有任何实际效果（玩太疯也会乐极生悲）', descEn:'A lavish experience - purely cosmetic, no actual effect (too much fun can backfire)', fx:function(p){}},
+    {id:'luxury_worldtour', name:'环球奢华旅行套餐', nameEn:'Luxury World Tour Package', emoji:'✈️', price:160000, lv:1, luxury:true, glutton:true, desc:'奢华体验型消费，没有任何实际效果（玩太疯也会乐极生悲）', descEn:'A lavish experience - purely cosmetic, no actual effect (too much fun can backfire)', fx:function(p){}},
+    {id:'luxury_souvenir', name:'环球旅行伴手礼大采购', nameEn:'World Tour Souvenir Shopping Spree', emoji:'🎁', price:26000, lv:1, luxury:true, glutton:true, desc:'奢华体验型消费，没有任何实际效果（玩太疯也会乐极生悲）', descEn:'A lavish experience - purely cosmetic, no actual effect (too much fun can backfire)', fx:function(p){}}
   ],
   /* 副本挑战：按宠物等级解锁，每天只能挑战一次；挑战成功获得金币 + 该副本专属装饰（只在首次通关时发放）
      战斗画面里的"怪物"直接复用已有的三种宠物造型美术（petKey），用滤镜(tint)调色区分成不同的"野生变异"，不需要新画图 */
@@ -4695,6 +4723,7 @@ function defaultState(){
     dungeonEquipPity:{noDropStreak:0}, // 装备副本保底计数：连续多少次"有资格判定"没掉装备，跨天累计不清零
     pkRewardToday:{dateKey:null,count:0}, // 当天已经从PK获胜领取过几次奖励，超过每日上限后只记胜场不再发奖励
     pkWinCount:0, // 2026-09新增：PK累计胜场，只用来展示荣誉徽章，不受每日奖励上限影响、永远累加
+    hoardDripLastAt:null, // 2026-09新增："金币手滑乱花"账号级独立计时器，记录上次结算到哪个时间点了，见 processHoardDripSpend()
     version:4
   };
 }
@@ -5252,21 +5281,63 @@ function loadAdminCoinOverview(){
         Object.keys(accounts).forEach(function(cid){
           var st=accounts[cid]&&accounts[cid].state;
           var bal=(st&&typeof st.moneyBalance==='number')?st.moneyBalance:null;
-          list.push({rowId:rid, childName:(accounts[cid]&&accounts[cid].name)||names.join('、')||'？', balance:bal});
+          list.push({rowId:rid, cid:cid, childName:(accounts[cid]&&accounts[cid].name)||names.join('、')||'？', balance:bal});
           anyChild=true;
         });
-        if(!anyChild) list.push({rowId:rid, childName:names.join('、')||'？', balance:null});
+        if(!anyChild) list.push({rowId:rid, cid:null, childName:names.join('、')||'？', balance:null});
       });
       list.sort(function(a,b){ return (b.balance||0)-(a.balance||0); });
-      box.innerHTML=list.map(function(it){
+      box.innerHTML='';
+      list.forEach(function(it){
         var balText=(typeof it.balance==='number')?(it.balance+' 金币'):'（读不到金币数据）';
-        return '<div style="display:flex;justify-content:space-between;background:#f7f0fb;border-radius:8px;padding:6px 8px;margin-bottom:4px">'
-          +'<span>'+escapeAttr(it.childName)+'<span style="color:#999;font-size:11px;margin-left:4px">('+escapeAttr(it.rowId)+')</span></span>'
-          +'<b style="color:#7b1fa2">'+balText+'</b>'
-          +'</div>';
-      }).join('');
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;justify-content:space-between;align-items:center;background:#f7f0fb;border-radius:8px;padding:6px 8px;margin-bottom:4px;gap:6px';
+        var left=document.createElement('span');
+        left.textContent=it.childName+'（'+it.rowId+'）';
+        var right=document.createElement('div');
+        right.style.cssText='display:flex;align-items:center;gap:6px';
+        var balEl=document.createElement('b');
+        balEl.style.color='#7b1fa2';
+        balEl.textContent=balText;
+        right.appendChild(balEl);
+        // 2026-09新增：只有能定位到具体孩子档案（cid和余额都读得到）才给"调整"按钮，
+        // 数据结构异常读不到金币数据时不给按钮，避免往一个不确定的地方乱写数据
+        if(it.cid && typeof it.balance==='number'){
+          var adjBtn=document.createElement('button');
+          adjBtn.className='btn btn-warning btn-sm';
+          adjBtn.textContent='✏️ 调整金币';
+          adjBtn.onclick=(function(rid2,cid2,name2,bal2){ return function(){ adminAdjustCoinBalance(rid2,cid2,name2,bal2); }; })(it.rowId,it.cid,it.childName,it.balance);
+          right.appendChild(adjBtn);
+        }
+        row.appendChild(left);
+        row.appendChild(right);
+        box.appendChild(row);
+      });
     });
   }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
+}
+/* 2026-09新增：不管金币异常的根本原因是什么（bug/误操作/甚至是孩子直接改了本地存储作弊），
+   管理员都需要一个能直接把某个具体孩子档案的金币"改成一个数"的兜底工具，不用非得依赖
+   "回档至前一天"（回档只能回到某个整天的快照，如果异常已经持续好几天，回档也救不回来）。
+   只精确修改这一个孩子(cid)的moneyBalance，不碰同一家庭行下其他孩子的数据。 */
+function adminAdjustCoinBalance(rowId,cid,childName,currentBalance){
+  var input=window.prompt('把「'+childName+'」的金币余额改成多少？（当前 '+currentBalance+' 金币，只会改这一个孩子档案，不影响同一家庭码下的其他孩子）', String(currentBalance));
+  if(input===null) return; // 点了取消
+  var n=Math.round(Number(input));
+  if(!isFinite(n) || n<0){ ttsToast('❌ 请输入一个不小于0的数字', 4000); return; }
+  if(!window.confirm('确定要把「'+childName+'」的金币改成 '+n+' 吗？\n\n⚠️这会直接覆盖云端数据，且没法撤销（如果改错了，可以试试上面的"回档至前一天"）。')){ return; }
+  return fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    if(!d||!d.accounts||!d.accounts[cid]){ ttsToast('❌ 没找到这个孩子的存档数据，可能数据结构有问题，先用"查看/修复"确认一下', 6000); return; }
+    if(!d.accounts[cid].state) d.accounts[cid].state={};
+    d.accounts[cid].state.moneyBalance=n;
+    return supaUpsertRow(rowId, d).then(function(){
+      ttsToast('✅ 「'+childName+'」的金币已经改成 '+n, 4500);
+      loadAdminCoinOverview();
+    });
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，修改没成功，检查网络再试一次', 5000);
+  });
 }
 function loadAdminApplications(){
   var box=document.getElementById('adminApplyList');
@@ -10138,6 +10209,7 @@ function migrateState(s){
   if(!s.mathLevelsEverCleared) s.mathLevelsEverCleared=[];
   if(!s.activeDays) s.activeDays=[];
   if(!s.boardMilestoneLog) s.boardMilestoneLog={};
+  if(typeof s.hoardDripLastAt==='undefined') s.hoardDripLastAt=null; // 老存档没有这个字段，补上，第一次调用时会从"现在"开始算，不会倒推历史
   ensureWishState(s);
   if(!s.day.comm) s.day.comm={grandpa:false,inlaw:false,hello:0};
   if(!s.day.dungeon) s.day.dungeon={count:0};
@@ -10706,6 +10778,107 @@ function snapshotYesterdayForRollback(oldDayKey){
   var snapshotData={dayKey:oldDayKey, data:JSON.parse(JSON.stringify(store)), savedAt:new Date().toISOString()};
   supaUpsertRow('snapshot:'+SUPA_ROW_ID, snapshotData).catch(function(){});
 }
+var HOARD_NIGHTLY_CAP = 200; // 跨天后允许保留的金币上限（不含这个数）
+/* 2026-09update：不再是"凭空蒸发"，改成真的从商店里挑东西买——跟上面CONFIG.shop末尾新增的
+   那批luxury:true奢侈摆件是同一份数据，保证"宠物半夜跑去商店买了个金币雕像"这句话背后
+   真的有这么一件标价一致的商品，而不是编造出来的。最便宜的一件(150)低于HOARD_NIGHTLY_CAP(200)，
+   保证不管余额多高，这个循环总能一路买到低于200为止(每次都只挑"当前还买得起"的里面随机一件，
+   金额越高，一开始能选的越多、越容易先买走几件贵的，符合直觉)。guard只是双保险，正常情况下
+   走不到。 */
+function enforceHoardSpendCapOnNewDay(){
+  if(isPkTestAccount(SUPA_ROW_ID, store.currentChildId)) return; // 管理员(宝宝)不受影响
+  if(!(state.moneyBalance>=HOARD_NIGHTLY_CAP)) return; // 本来就没超标，不用管
+  var before=state.moneyBalance;
+  var luxuryPool=CONFIG.shop.filter(function(it){ return it.luxury; });
+  var remain=before, bought=[], guard=0;
+  while(remain>=HOARD_NIGHTLY_CAP && guard<500){
+    guard++;
+    var affordable=luxuryPool.filter(function(it){ return it.price<=remain; });
+    if(!affordable.length) break; // 理论上不会发生：最便宜的一件比HOARD_NIGHTLY_CAP还低
+    // 2026-09fix：以前是在"买得起的东西"里完全均匀随机挑，余额巨大(比如上百万)时容易连续挑中
+    // 便宜档位的道具，guard次数不够用，导致极端情况下砍不到200以下、破坏了"第二天金币一定不到200"
+    // 这个硬承诺。改成优先从"买得起的里面最贵的几件"里挑——余额越高，起步就越容易先买走贵的，
+    // 收敛更快，也更符合"钱多了就买最贵的"这个直觉；同时保留几件里的随机性，不会每次都精确一样。
+    affordable.sort(function(a,b){ return b.price-a.price; });
+    var topN=Math.min(3, affordable.length);
+    var pick=affordable[Math.floor(Math.random()*topN)];
+    bought.push(pick);
+    remain-=pick.price;
+  }
+  if(remain>=HOARD_NIGHTLY_CAP){
+    // 双重保险：正常情况下不会走到这里（价格分布+guard上限足够应付现实中可能出现的任何余额），
+    // 但"第二天金币一定不到200"是个硬承诺，就算真出现算法之外没考虑到的极端情况，也绝不能破例
+    remain=Math.floor(Math.random()*HOARD_NIGHTLY_CAP);
+  }
+  state.moneyBalance=remain;
+  var pet=state.pet;
+  var petName=(pet&&pet.chosen&&pet.name)||L('宠物','the pet');
+  var shownItems=bought.slice(0,5);
+  var itemListZh=shownItems.map(function(it){ return it.emoji+it.name; }).join('、');
+  var itemListEn=shownItems.map(function(it){ return it.emoji+(it.nameEn||it.name); }).join(', ');
+  var moreCount=bought.length-shownItems.length;
+  var moreTextZh=moreCount>0?('，还有另外'+moreCount+'件稀奇古怪的东西'):'';
+  var moreTextEn=moreCount>0?(', plus '+moreCount+' more odd items'):'';
+  var itemsTextZh=bought.length?('买了'+itemListZh+moreTextZh):'东西都没买，就是单纯地把钱造光了';
+  var itemsTextEn=bought.length?('bought '+itemListEn+moreTextEn):"didn't buy anything in particular, just blew through the coins";
+  /* 2026-09新增：宠物不但会乱花钱，花完了还会一脸得意地跑回来跟主人炫耀"我好开心"，
+     顺带真的给自己加开心值——就是要让"攒太多金币"这件事在孩子眼里变成一件明确的坏事：
+     不但钱没了，宠物还理直气壮地拿着这份"战利品"邀功，看着就来气，才更有动力平时把金币花掉、
+     别攒成一大笔。每件东西+6点开心（数额不大，但买得越多攒的开心也越多），封顶100不会溢出。 */
+  var happyGain=0;
+  if(bought.length && pet){
+    var curHappy=pet.happy||0;
+    happyGain=Math.max(0,Math.min(100-curHappy, bought.length*6));
+    pet.happy=curHappy+happyGain;
+  }
+  /* 2026-09新增·乐极生悲：如果这次"战利品"里买到了吃喝玩乐/旅游类(glutton:true)的东西，
+     有55%概率会因为吃太多/玩太疯出点小岔子——闹肚子、水土不服之类的，倒扣一部分刚拿到的
+     开心值，顺带弄脏一截清洁值(提醒家长它需要洗澡了)。两个值都用Math.max(0,...)兜底，不会
+     扣成负数。这不是每次必然发生，纯粹是"偶尔"的调皮惊喜，让"开心"这条线不是无脑一路涨到底，
+     还会自己作死一把，跟用户要的"乐极生悲"效果对上。 */
+  var boughtGlutton=bought.some(function(it){ return it.glutton; });
+  var gotSick=false, sickHappyLoss=0, sickCleanLoss=0;
+  if(boughtGlutton && pet && Math.random()<0.55){
+    gotSick=true;
+    sickHappyLoss=5+Math.floor(Math.random()*11); // 5~15
+    sickCleanLoss=15+Math.floor(Math.random()*21); // 15~35
+    pet.happy=Math.max(0,(pet.happy||0)-sickHappyLoss);
+    pet.clean=Math.max(0,(pet.clean||0)-sickCleanLoss);
+  }
+  var HOARD_SICK_FLAVORS=[
+    {zh:'不过……乐极生悲，它吃太多山珍海味，半夜肚子疼得直打滚，还闹起了肠胃炎', en:"But... joy turned to sorrow - it overate on all those rare delicacies and spent half the night doubled over with a stomachache, coming down with a bout of gastroenteritis"},
+    {zh:'不过……乐极生悲，酒店自助餐吃得太撑，上吐下泻，把自己弄得脏兮兮的', en:'But... joy turned to sorrow - it overdid it at the hotel buffet and ended up sick to its stomach, making a mess of itself'},
+    {zh:'不过……乐极生悲，旅游回来水土不服，闹起了肚子，浑身都不清爽', en:"But... joy turned to sorrow - it came back from its trip not agreeing with the local food, got an upset stomach, and is a mess all over"},
+    {zh:'不过……乐极生悲，网红奶茶配烧烤吃太猛，撑得直哼哼，还拉了肚子', en:'But... joy turned to sorrow - it went way too hard on the milk tea and BBQ, ended up groaning in discomfort with a bad case of diarrhea'}
+  ];
+  var HOARD_BRAG_FLAVORS=[
+    {zh:'主人主人！我跟你说哦，我瞒着你偷偷去了一趟商店，', en:'Hey hey, guess what! I snuck off to the shop without telling you, and '},
+    {zh:'哇你终于回来啦！快看快看，我趁你不在的时候大采购了一番，', en:"Oh, you're finally back! Look look, I went on a huge shopping spree while you were gone, "},
+    {zh:'主人你是不知道，我刚刚超级开心地花了好多钱，', en:'You have no idea, I just had the BEST time spending a ton of coins, '},
+    {zh:'嘿嘿，被你发现啦？我确实是趁你不在偷偷跑去商店，', en:'Hehe, caught me? Yep, I really did sneak off to the shop while you were away, '}
+  ];
+  var HOARD_BRAG_TAIL_FLAVORS=[
+    {zh:'是不是看得你牙痒痒？下次别再攒这么多金币啦，不然它还会继续这样"庆祝"哦！', en:"Doesn't that just make your blood boil? Try not to let coins pile up so much next time, or it'll keep 'celebrating' like this!"},
+    {zh:'它现在一脸得意地等着你夸它，气得你真想把它拎去罚站——想避免这种事，平时记得把金币花掉，别攒成一大笔！', en:"It's standing there looking VERY pleased with itself, waiting to be praised - want to avoid this next time? Spend your coins along the way instead of letting them pile up!"},
+    {zh:'还一脸开心地等你表扬它"会过日子"，真是又好气又好笑——平时多花点、别攒太多金币，就不会再被这样气到啦！', en:"It's grinning, waiting for you to praise its 'financial skills' - equal parts hilarious and infuriating. Spend along the way and don't let coins pile up, and this won't happen again!"}
+  ];
+  var brag=HOARD_BRAG_FLAVORS[Math.floor(Math.random()*HOARD_BRAG_FLAVORS.length)];
+  var tail=HOARD_BRAG_TAIL_FLAVORS[Math.floor(Math.random()*HOARD_BRAG_TAIL_FLAVORS.length)];
+  var sick=HOARD_SICK_FLAVORS[Math.floor(Math.random()*HOARD_SICK_FLAVORS.length)];
+  addLog('🤑'+petName+L(' 趁跨天这段时间，跑去商店'+itemsTextZh+'：从 '+before+' 金币花到只剩 '+remain+(happyGain?'，还美滋滋地给自己加了 '+happyGain+' 点开心值':'')+(gotSick?('，结果乐极生悲，开心值倒扣 '+sickHappyLoss+'、清洁值倒扣 '+sickCleanLoss+'，得赶紧去商城买【美容洗护】给它洗澡'):''),', while the day rolled over, snuck off to the shop and '+itemsTextEn+': from '+before+' coins down to just '+remain+(happyGain?', and happily gave itself +'+happyGain+' happiness on top':'')+(gotSick?(', but then it overdid it - happiness -'+sickHappyLoss+', cleanliness -'+sickCleanLoss+' - go buy it a [Grooming & Bath] from the shop'):'')));
+  var msg;
+  if(bought.length){
+    msg='🤑 '+L(brag.zh+petName+'跑回来跟你说："'+itemsTextZh+'，好开心呀，开心值直接 <b>+'+happyGain+'</b>！"<br>结果把攒了老半天的 <b>'+before+' 金币</b>，一下子造得只剩 <b>'+remain+' 金币</b>。<br>'+tail.zh,
+      brag.en+petName+' runs up and tells you: "I '+itemsTextEn+', I\'m SO happy, Happiness <b>+'+happyGain+'</b>!"<br>And just like that, the <b>'+before+' coins</b> you\'d been saving up got blown down to just <b>'+remain+' coins</b>.<br>'+tail.en);
+    if(gotSick){
+      msg+='<br><br>🤢 '+L(sick.zh+'……开心值又被扣回 <b>-'+sickHappyLoss+'</b>，清洁值也掉了 <b>-'+sickCleanLoss+'</b>，赶紧带它去商城买【美容洗护】洗个澡吧，谁让它自己管不住嘴/玩太疯呢！',
+        sick.en+'... Happiness dropped back down <b>-'+sickHappyLoss+'</b>, and Cleanliness fell <b>-'+sickCleanLoss+'</b> too. Better get it a [Grooming & Bath] from the shop - that\'s what it gets for not knowing when to stop!');
+    }
+  }else{
+    msg='🤑 '+L('新的一天到啦！'+petName+' 趁你不在的时候，把攒了太多的金币几乎都花光了——从 <b>'+before+' 金币</b> 一下花到只剩 <b>'+remain+' 金币</b>。攒太多金币真的会把它惯坏，还是让它保持"细水长流"的好习惯吧～','A new day has begun! While you were away, '+petName+' blew through almost all the coins piling up, from <b>'+before+' coins</b> down to just <b>'+remain+' coins</b>. Hoarding too many coins really does spoil it - better to keep its habits modest~');
+  }
+  state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
+}
 function onNewDay(){
   var today=todayKey();
   if(state.day.key!==today){
@@ -10716,6 +10889,7 @@ function onNewDay(){
     checkWishDayRollover(state.day.key);
     applyDecayAcrossDays(state.day.key, today);
     maybeTriggerCoinWipe(today);
+    enforceHoardSpendCapOnNewDay();
     var carry=state.nextBurpeeBonus||0;
     state.day=freshDay(today);
     state.day.burpeeBonus=carry;
@@ -10823,31 +10997,85 @@ function computeHoardSpendChance(balance){
   }
   return 0;
 }
-function maybeRollHoardSpendEvent(pet){
-  // 2026-09fix：管理员账号具体指"宝宝"这一个孩子档案，不是整个默认家庭行下面所有孩子都豁免——
-  // 复用PK豁免机制同一套判定（isPkTestAccount），保证"谁是管理员"这件事全app口径一致
-  if(isPkTestAccount(SUPA_ROW_ID, store.currentChildId)) return null; // 管理员（宝宝）自己不受影响
-  if(!(state.moneyBalance>0)) return null;
-  var chance=computeHoardSpendChance(state.moneyBalance);
-  if(chance<=0) return null;
-  if(Math.random()>=chance) return null;
-  var level=petLevelInfo(pet).level;
-  var tier=petMaturityTier(level);
-  var scale=REBEL_PUNISH_SCALE[tier]||1; // 沿用叛逆闯祸同一套"等级越高、破坏力越大"的缩放规则，保持力度手感一致
-  var pct=(0.1+Math.random()*0.2)*scale;
-  var cap=Math.round(80*scale);
-  var lost=Math.max(5,Math.min(cap,Math.round(state.moneyBalance*pct)));
-  lost=Math.min(lost,state.moneyBalance);
-  if(!(lost>0)) return null;
-  state.moneyBalance-=lost;
-  var petName=pet.name||L('宠物','the pet');
-  addLog('🤑'+petName+L(' 因为家里金币攒太多，趁你不在管不住自己，偷偷拿了 ',", because there were too many coins piled up at home, while you were away it couldn't help itself and secretly took ")+lost+L(' 金币出去乱花了',' coins and blew it'));
-  var moneyLabel=L(lost+' 金币', lost+' coins');
-  return '🤑 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 好像被家里攒的一堆金币"惯坏"了，没忍住偷偷乱花掉了 ',' seemed to get spoiled by the pile of coins at home, and couldn\'t resist secretly blowing ')+'<b>'+moneyLabel+'</b>'+L('！平时别让金币攒太多，帮它养成好的消费习惯～','! Try not to let coins pile up too much - help it build better spending habits~');
+/* 2026-09update：从"离线满半小时、一次性随机判一发乱花"改成"离线超过10分钟就开始，
+   一直持续地按每10分钟一个小窗口、一点点地手滑花钱"——不再跟下面性格驱动的离线小剧情
+   互斥/共用同一次判定，而是完全独立的一条线，自己按自己的节奏走：
+   ①离线不到10分钟：完全不检查，正常来回切个页面不会被误判。
+   ②离线超过10分钟、还没到本地跨天：每过一个10分钟窗口就单独判一次"要不要手滑花一点点"，
+     金额刻意压得很小（真的是"零花钱"级别），这样金币是当天一整天慢慢被啃掉一点点，
+     而不是一回来就被清空一大截。
+   ③一旦过了本地0点：这一段"小额手滑"就不再处理了（在 processHoardDripSpend 里会精确停在
+     0点这条线上），剩下的金币直接交给 enforceHoardSpendCapOnNewDay() 那个跨天大清算去
+     "大手笔"清空到200以下——这样"平时小额乱花、跨天才大笔挥霍"这两段体验就能自然衔接上，
+     不会重复扣、也不会漏掉哪一段时间没处理。
+   管理员账号（具体是"宝宝"这一个孩子档案，判定复用PK豁免同一套isPkTestAccount）不受影响。 */
+var HOARD_DRIP_INTERVAL_MS=10*60*1000; // 每10分钟一个判定窗口
+var HOARD_DRIP_MAX_BUCKETS=200; // 安全上限：一次最多结算200个窗口(约33小时)，离线更久也不用再多算，反正跨天大清算会兜底
+// 返回严格晚于ts的下一个"本地0点"时间戳——注意就算ts本身正好是0点整，也要返回24小时后的下一个0点，
+// 不能直接把ts自己原样返回：processHoardDripSpend()会把这个值当成"这段能处理到哪"的上限，
+// 如果ts=0点时直接返回ts自己，算出来的elapsed永远是0，一旦指针推到0点就会卡在原地永远推进不了。
+// 保证跟 todayKey()/onNewDay() 用的都是同一套本地时区口径，两边算出来的"今天"不会对不上
+function localMidnightAtOrAfter(ts){
+  var d=new Date(ts);
+  d.setHours(24,0,0,0);
+  return d.getTime();
+}
+/* 真正"手滑花一点点"的执行者：只负责按给定的窗口数各自独立roll一次，金额刻意比跨天大清算/
+   以前那个半小时判一次的老机制都小得多——单次上限只有15*等级缩放，且概率也打了折，
+   保证"一整天陆陆续续加起来"才有点存在感，不会单独一次就伤筋动骨。 */
+function doHoardDripTicks(pet, buckets){
+  if(!(buckets>0)) return;
+  if(isPkTestAccount(SUPA_ROW_ID, store.currentChildId)) return; // 管理员（宝宝）自己不受影响
+  var totalLost=0, ticks=0;
+  for(var i=0;i<buckets;i++){
+    if(!(state.moneyBalance>0)) break;
+    var chance=computeHoardSpendChance(state.moneyBalance);
+    if(chance<=0) break; // 余额已经不算"攒太多"了，没必要继续判下去
+    var perTickChance=Math.min(0.12, chance*0.15); // 换算成"每10分钟"的等效概率，比老的"每次离线判一发"低得多
+    if(Math.random()>=perTickChance) continue;
+    var level=petLevelInfo(pet).level;
+    var tier=petMaturityTier(level);
+    var scale=REBEL_PUNISH_SCALE[tier]||1; // 沿用叛逆闯祸同一套"等级越高、破坏力越大"的缩放规则，保持力度手感一致
+    var pct=(0.01+Math.random()*0.02)*scale; // 每次只花1%~2%左右，真的是"一点点"
+    var cap=Math.round(15*scale);
+    var lost=Math.max(1,Math.min(cap,Math.round(state.moneyBalance*pct)));
+    lost=Math.min(lost,state.moneyBalance);
+    if(lost>0){ state.moneyBalance-=lost; totalLost+=lost; ticks++; }
+  }
+  if(totalLost>0){
+    var petName=pet.name||L('宠物','the pet');
+    addLog('🤑'+petName+L(' 趁你不在，这段时间手一直不老实，陆陆续续手滑花掉了 ',", while you were away, kept nickel-and-diming coins away bit by bit, and it added up to ")+totalLost+L('金币（分了 '+ticks+' 次买些小零食/小玩意）',' coins over '+ticks+' separate little snack/toy purchases'));
+    var moneyLabel=L(totalLost+' 金币', totalLost+' coins');
+    var msg='🤑 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 手一直不老实，趁你没注意的时候一点点地花，没想到前前后后攒下来居然花掉了 ',' just couldn\'t keep its hands to itself, spending a little at a time without you noticing, and it all quietly added up to ')+'<b>'+moneyLabel+'</b>'+L('！平时多花点、别攒太多金币，它才不会这样"温水煮青蛙"式地一直乱花～','! Spend along the way and don\'t let coins pile up too much, or it will keep nickel-and-diming you like this~');
+    state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
+  }
+}
+/* 总调度：每次 applyRealTimeDecay() 被调用时都会带上当前时间戳调这个函数一次（不是每只宠物都调一次，
+   金币是账号级共享的，不用按宠物重复算）。state.hoardDripLastAt 记录"上次结算到哪个时间点了"，
+   下次调用时只结算这中间新增的那一段，天然不会重复扣、也不会漏算。 */
+function processHoardDripSpend(now){
+  if(!state || typeof state.moneyBalance!=='number') return;
+  if(!state.hoardDripLastAt){ state.hoardDripLastAt=now; return; } // 第一次见到这个账号（新建/老存档刚迁移过来），从现在开始算，不倒推历史
+  var from=state.hoardDripLastAt;
+  if(now<=from) return;
+  var pet=state.pet;
+  if(!pet || !pet.chosen || !pet.hatched){ state.hoardDripLastAt=now; return; } // 没有出战宠物，没法"手滑"，指针直接推到现在
+  var boundary=Math.min(now, localMidnightAtOrAfter(from)); // 这次最多只结算到"下一个本地0点"为止，0点之后交给跨天大清算
+  var elapsed=boundary-from;
+  var buckets=Math.min(Math.floor(elapsed/HOARD_DRIP_INTERVAL_MS), HOARD_DRIP_MAX_BUCKETS);
+  if(boundary<now){
+    // 这段时间跨天了：0点之前该判的窗口在这里判完，0点之后的部分一律不算drip的账（交给跨天大清算），
+    // 指针直接推到0点，新的一天从0点重新开始累积，不会把"昨天没判完的零头"错算进新的一天
+    state.hoardDripLastAt=boundary;
+  }else if(buckets>0){
+    state.hoardDripLastAt=from+buckets*HOARD_DRIP_INTERVAL_MS; // 只推进判过的整数个窗口，不足10分钟的零头留着，下次接着累积
+  }
+  if(buckets>0) doHoardDripTicks(pet, buckets);
 }
 function rollOfflineEvent(pet){
-  var hoardNotice=maybeRollHoardSpendEvent(pet);
-  if(hoardNotice) return hoardNotice;
+  // 2026-09update：金币"手滑乱花"已经拆到 processHoardDripSpend() 里按自己的10分钟节奏独立运作，
+  // 不再跟这里的性格离线小剧情互斥——不管触没触发过手滑，乖巧/叛逆/勤劳/中性该有的小剧情照常roll，
+  // 两条线各管各的，同一次上线可能同时看到"手滑乱花"的提示和"性格小剧情"的提示。
   var personality=petPersonality();
   if(personality==='rebel') return rollRebelEvent(pet);
   if(personality==='worker') return rollWorkerEvent(pet);
@@ -11077,6 +11305,7 @@ function applyRealTimeDecay(){
   var revertedAny=false;
   if(!state.pets || !state.pets.length) return revertedAny;
   var now=Date.now();
+  processHoardDripSpend(now); // 金币"手滑乱花"账号级独立结算，按自己的10分钟节奏走，跟下面按宠物遍历的性格小剧情互不干扰
   for(var i=0;i<state.pets.length;i++){
     var pet=state.pets[i];
     if(!pet||!pet.chosen||pet.hatched===false) continue;
@@ -11100,7 +11329,10 @@ function applyRealTimeDecay(){
        下次render()之后统一弹窗告诉主人离线期间发生了什么。 */
     if(pet===state.pet && pet.hatched && elapsedHours>=OFFLINE_EVENT_MIN_HOURS){
       var _notice=rollOfflineEvent(pet);
-      if(_notice) state.pendingOfflineNotice=_notice;
+      // 2026-09fix：以前这里是直接覆盖赋值——现在金币"手滑乱花"(processHoardDripSpend)已经拆成账号级独立
+      // 结算，可能在这个性格小剧情判定之前就已经往 pendingOfflineNotice 里写过一条提示了，改成覆盖会把
+      // 那条提示平白丢掉。这里改成"有就拼接、没有就直接用"，跟其它地方追加提示的写法保持一致。
+      if(_notice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_notice):_notice;
     }
 
     /* 倒推出"这一段时间里，四项状态是从什么时候开始全部同时归零的"，而不是简单地把整段离线时长都当成
@@ -14822,6 +15054,7 @@ function renderShop(){
       +(isMedicine2&&hatched&&!isInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">'+L('💚 宝宝现在很健康，暂时不需要吃药～','💚 Your pet is healthy right now, no medicine needed~')+'</div>':'')
       +(isHospital&&hatched&&isPkInjured?'<div class="s-desc" style="color:#c2185b;font-weight:700">'+L('🚨 PK落败还没治，不然'+formatRemainHours(pkInjuryStatusNow?pkInjuryStatusNow.remainHours:0)+'内会伤心地掉一级！','🚨 Still untreated from a PK loss — it will sadly drop a level within '+formatRemainHours(pkInjuryStatusNow?pkInjuryStatusNow.remainHours:0)+'!')+'</div>':'')
       +(isHospital&&hatched&&!isPkInjured?'<div class="s-desc" style="color:#4caf50;font-weight:700">'+L('💚 宝宝现在没有PK轻伤，暂时不需要住院～','💚 No PK injury right now, no hospital treatment needed~')+'</div>':'')
+      +(it.glutton?'<div class="s-desc" style="color:#ff7043;font-weight:700">'+L('🍽️ 吃喝玩乐型奢侈消费·纯装饰，没有任何实际效果（吃太多/玩太疯可能会乐极生悲哦）','🍽️ Food & fun splurge - purely cosmetic, no actual effect (too much of a good thing can backfire)')+'</div>':(it.luxury?'<div class="s-desc" style="color:#ab47bc;font-weight:700">'+L('💎 奢侈摆件·纯装饰，没有任何实际效果（钱多到没地方花的时候可以看看）','💎 Luxury decor - purely cosmetic, no actual effect (for when you have coins to spare)')+'</div>':''))
       +(isSupply?'<div class="s-desc" style="color:#4caf50;font-weight:700">'+L('🎒 背包库存：'+(supplies[it.id]||0)+' 份（要去宠物页面用哦）','🎒 In backpack: '+(supplies[it.id]||0)+' (use it from the Pet page)')+'</div>':'')
       +(isTraining?'<div class="s-desc" style="color:#e65100">'+L('⏱️ 每天限购1次','⏱️ Limited to 1 purchase per day')+'</div>':'')
       +'<div class="s-price">💰 '+it.price+' '+L('金币','coins')+'</div>'
