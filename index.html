@@ -1647,7 +1647,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h3 style="text-align:center">🛠️ 管理后台</h3>
     <h4 style="margin:10px 0 4px">📮 待审核的新申请</h4>
     <div id="adminApplyList" class="small">加载中…</div>
-    <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复用）</h4>
+    <h4 style="margin:14px 0 4px">💰 各账号金币情况</h4>
+    <div class="small" style="margin:-2px 0 6px;color:#999">按金币数从高到低排列，方便看有没有哪个账号金币明显异常，需要留意/调整</div>
+    <div id="adminCoinOverviewBox" class="small">加载中…</div>
+    <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复/回档用）</h4>
     <div id="adminFamilyList" class="small">加载中…</div>
     <div id="adminFamilyEditBox" style="display:none;margin-top:10px;border-top:1px dashed #e1bee7;padding-top:10px">
       <div class="small" style="font-weight:600" id="adminFamilyEditLabel"></div>
@@ -5206,8 +5209,64 @@ function submitAdminLogin(){
     hideModal('adminLoginModal');
     showModal('adminPanelModal');
     loadAdminApplications();
+    loadAdminCoinOverview();
     loadAdminFamilies();
   }).catch(function(){ ttsToast('❌ 没连上云端，等一下再试', 4000); });
+}
+/* 2026-09新增：管理后台"各账号金币情况"总览——之前要挨个点"查看/修复"才能看到某一家的原始JSON，
+   金币数字混在一大坨JSON里也不好一眼看出有没有异常。这里先查一遍"reg:*"拿到所有已注册家庭的
+   rowId和孩子姓名，再用 id=in.(...) 一次性批量查出这些rowId实际的存档数据（不用一家一家分开查，
+   省请求数量），提取每个孩子当前的金币余额，从高到低排一下，方便一眼扫出金币数明显不对劲的账号 */
+function loadAdminCoinOverview(){
+  var box=document.getElementById('adminCoinOverviewBox');
+  if(!box) return;
+  box.textContent='加载中…';
+  var regUrl=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:*')+'&select=data&limit=300';
+  supaFetch(regUrl,{method:'GET',headers:supaHeaders()},8000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){
+    var byRow={};
+    (rows||[]).forEach(function(r){
+      var d=r.data;
+      if(!d||!d.rowId||d.tombstone) return;
+      if(!byRow[d.rowId]) byRow[d.rowId]=[];
+      byRow[d.rowId].push(d.name||'？');
+    });
+    var rowIds=Object.keys(byRow);
+    if(!rowIds.length){ box.innerHTML='（暂时没有已注册宠物家的家庭）'; return Promise.resolve(); }
+    var idsParam=rowIds.map(function(id){ return encodeURIComponent(id); }).join(',');
+    var dataUrl=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=in.('+idsParam+')&select=id,data';
+    return supaFetch(dataUrl,{method:'GET',headers:supaHeaders()},8000).then(function(res2){
+      if(!res2.ok) throw new Error('http '+res2.status);
+      return res2.json();
+    }).then(function(dataRows){
+      var byId={};
+      (dataRows||[]).forEach(function(r){ byId[r.id]=r.data; });
+      var list=[];
+      rowIds.forEach(function(rid){
+        var d=byId[rid];
+        var accounts=(d&&d.accounts)||{};
+        var names=byRow[rid];
+        var anyChild=false;
+        Object.keys(accounts).forEach(function(cid){
+          var st=accounts[cid]&&accounts[cid].state;
+          var bal=(st&&typeof st.moneyBalance==='number')?st.moneyBalance:null;
+          list.push({rowId:rid, childName:(accounts[cid]&&accounts[cid].name)||names.join('、')||'？', balance:bal});
+          anyChild=true;
+        });
+        if(!anyChild) list.push({rowId:rid, childName:names.join('、')||'？', balance:null});
+      });
+      list.sort(function(a,b){ return (b.balance||0)-(a.balance||0); });
+      box.innerHTML=list.map(function(it){
+        var balText=(typeof it.balance==='number')?(it.balance+' 金币'):'（读不到金币数据）';
+        return '<div style="display:flex;justify-content:space-between;background:#f7f0fb;border-radius:8px;padding:6px 8px;margin-bottom:4px">'
+          +'<span>'+escapeAttr(it.childName)+'<span style="color:#999;font-size:11px;margin-left:4px">('+escapeAttr(it.rowId)+')</span></span>'
+          +'<b style="color:#7b1fa2">'+balText+'</b>'
+          +'</div>';
+      }).join('');
+    });
+  }).catch(function(){ box.textContent='加载失败，检查网络后重新打开管理后台再试'; });
 }
 function loadAdminApplications(){
   var box=document.getElementById('adminApplyList');
@@ -5306,7 +5365,11 @@ function loadAdminFamilies(){
       delBtn.className='btn btn-danger btn-sm';
       delBtn.textContent='🗑️ 移除';
       delBtn.onclick=function(){ adminRemoveFamily(rid,byRow[rid].join('、')); };
-      btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn); btnWrap.appendChild(delBtn);
+      var rollbackBtn=document.createElement('button');
+      rollbackBtn.className='btn btn-warning btn-sm';
+      rollbackBtn.textContent='⏪ 回档至前一天';
+      rollbackBtn.onclick=function(){ adminRollbackFamilyToYesterday(rid,byRow[rid].join('、')); };
+      btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn); btnWrap.appendChild(rollbackBtn); btnWrap.appendChild(delBtn);
       row.appendChild(btnWrap);
       box.appendChild(row);
     });
@@ -5369,6 +5432,31 @@ function adminIssueNewCode(rowId){
     });
   }).catch(function(){
     ttsToast('❌ 没连上云端，没发成功，检查网络再试一次', 5000);
+  });
+}
+/* 2026-09新增：把某个家庭码回档到"前一天结束时"的状态——用来应对"这个账号今天出bug了"这种情况
+   （比如金币数字被写坏、数据结构因为某次操作异常变得不对劲）。取的是 snapshotYesterdayForRollback()
+   在这个家庭码每天跨天那一刻自动存下的快照，不需要拿到对方设备就能远程恢复。
+   注意：如果这个家庭今天是第一天用（还没经历过跨天），或者好几天没打开过app（快照是很多天前的），
+   这里会如实告诉管理员快照对应的是哪一天，由管理员自己判断要不要执行 */
+function adminRollbackFamilyToYesterday(rowId,namesLabel){
+  return fetchRowData('snapshot:'+rowId).then(function(row){
+    var snap=row&&row.data;
+    if(!snap||!snap.data){
+      ttsToast('❌ 「'+namesLabel+'」这个家庭还没有可用的回档快照（可能是今天刚注册、还没经历过跨天，或者从来没打开过app）', 6500);
+      return;
+    }
+    var whenText=snap.dayKey||'（未知日期）';
+    if(!window.confirm('确定要把「'+namesLabel+'」这份存档，回档到 '+whenText+' 那天结束时的状态吗？\n\n⚠️回档会覆盖掉这个家庭码从那天之后到现在的所有改动（打卡记录/金币/宠物成长等等），且这个操作本身没法撤销。\n\n建议先点上面"🔍查看/修复"确认一下现在的数据确实有问题，再执行回档。')){
+      return;
+    }
+    return supaUpsertRow(rowId, snap.data).then(function(){
+      ttsToast('✅ 「'+namesLabel+'」已经回档到 '+whenText+' 那天结束时的状态', 5500);
+      adminViewFamilyData(rowId); // 刷新一下下面显示的原始数据，方便确认回档结果
+      loadAdminCoinOverview(); // 金币可能变了，顺便刷新一下总览
+    });
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，回档没成功，检查网络再试一次', 5000);
   });
 }
 function adminViewFamilyData(rowId){
@@ -6122,7 +6210,13 @@ function pushPkMessageToFriend(rowId,cid,msg){
           return res.json();
         }).then(function(rows){
           if(rows && rows.length) return true; // 抢到了，写入成功
-          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData); // 保底：多次都抢不到，至少保证我这条不丢
+          // 2026-09fix：这里以前直接 return supaUpsertRow(...)，那个函数返回的是原始fetch Response对象
+          // （而不是true/false），跟上面"return true"这个成功分支的返回类型不一致。调用方
+          // （比如赠送金币confirmGiftCoins）统一按"res.ok"判断成功与否，而true这个布尔值根本没有
+          // .ok属性（true.ok是undefined），会被误判成失败——这就是"送金币时对方能收到，但自己的金币
+          // 却没有被扣"这个bug的根源：消息其实真的写成功了，但确认逻辑一律走进"失败"分支，从来没有
+          // 走到真正扣自己金币的那一步。这里统一把结果转成明确的true/false，跟上面保持一致
+          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData).then(function(r){ return !!(r&&r.ok); }); // 保底：多次都抢不到，至少保证我这条不丢
           return attempt(retriesLeft-1); // 被别人抢先了，重新读最新数据再追加一次
         });
       }else{
@@ -6135,7 +6229,7 @@ function pushPkMessageToFriend(rowId,cid,msg){
           return res.json();
         }).then(function(rows){
           if(rows && rows.length) return true; // 真的是我第一个创建成功
-          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData);
+          if(retriesLeft<=0) return supaUpsertRow(pointerId,newData).then(function(r){ return !!(r&&r.ok); }); // 同上：统一转成true/false，不要返回原始Response对象
           return attempt(retriesLeft-1); // 已经有别人先创建了，重新读一次走正常的条件PATCH流程
         });
       }
@@ -6790,7 +6884,7 @@ function confirmGiftCoins(){
   };
   pushPkMessageToFriend(target.rowId,target.childId,msg).then(function(res){
     if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
-    if(!res || !res.ok){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
+    if(!res){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
     state.moneyBalance-=amt;
     rel.giftsToday+=1;
     rel.intimacy=(rel.intimacy||0)+amt;
@@ -10600,9 +10694,22 @@ function maybeShowWishResetPrompt(){
   save();
   render();
 }
+/* 2026-09新增：每个家庭码每天跨天的这一刻（这一刻state.day还没被freshDay()重置，正好就是
+   "昨天"结束时的完整样子），把这份完整存档单独存一份"快照"到云端专属的一行（snapshot:+rowId），
+   供管理后台"⏪回档至前一天"用。这样万一某个账号今天出了bug（数据被写坏/金币异常之类），
+   管理员不需要谁的设备在手上，直接在管理后台就能把这个家庭码回档到"前一天结束时"的状态。
+   每天只会在这个家庭码跨天的那一刻触发一次（不是每次保存都触发），失败静默忽略，
+   不影响正常打卡流程——回档本来就是"锦上添花"的安全网，不应该因为这一步失败就卡住其它功能。 */
+function snapshotYesterdayForRollback(oldDayKey){
+  if(!store||!store.accounts||!oldDayKey) return;
+  if(state && store.currentChildId && store.accounts[store.currentChildId]) store.accounts[store.currentChildId].state=state;
+  var snapshotData={dayKey:oldDayKey, data:JSON.parse(JSON.stringify(store)), savedAt:new Date().toISOString()};
+  supaUpsertRow('snapshot:'+SUPA_ROW_ID, snapshotData).catch(function(){});
+}
 function onNewDay(){
   var today=todayKey();
   if(state.day.key!==today){
+    snapshotYesterdayForRollback(state.day.key);
     var wasStudyFull=isStudyFull(state.day);
     if(!wasStudyFull) state.studyStreak=0;
     logStudyCompletionForDay(state.day); // 跨天前先把"刚过去这一天"实际完成的学习打卡记一笔，供"每周复习测验"抽题用
