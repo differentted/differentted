@@ -1600,7 +1600,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" id="familyGateDesc" style="text-align:left;margin-bottom:10px;line-height:1.7" data-i18n="family_gate_desc">
       这台设备是第一次打开这个页面，需要先输入"家庭码"才能进入对应的家庭空间——不同家庭码之间的小朋友档案完全看不到彼此。家庭码找给你这个网址链接的人要一下。
     </div>
-    <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_gate_input_ph" />
+    <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_gate_input_ph" oninput="filterFamilyCodeInput(this)" />
     <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()" data-i18n="family_gate_confirm_btn">✅ 确认进入</button>
   </div>
 </div>
@@ -1650,6 +1650,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h4 style="margin:14px 0 4px">💰 各账号金币情况</h4>
     <div class="small" style="margin:-2px 0 6px;color:#999">按金币数从高到低排列，方便看有没有哪个账号金币明显异常，需要留意/调整</div>
     <div id="adminCoinOverviewBox" class="small">加载中…</div>
+    <div id="adminCoinLedgerBox" style="display:none;margin-top:8px;background:#fffaf0;border-radius:8px;padding:8px">
+      <div class="small" style="font-weight:600" id="adminCoinLedgerLabel"></div>
+      <div id="adminCoinLedgerList" class="small" style="max-height:280px;overflow-y:auto;margin-top:6px"></div>
+      <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminCoinLedgerBox').style.display='none'">收起明细</button>
+    </div>
     <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复/回档用）</h4>
     <div id="adminFamilyList" class="small">加载中…</div>
     <div id="adminFamilyEditBox" style="display:none;margin-top:10px;border-top:1px dashed #e1bee7;padding-top:10px">
@@ -2267,7 +2272,7 @@ function starUpEquip(instanceId){
   if(lack.length){ ttsToast(L('材料不够，还差：','Not enough materials, still need: ')+lack.map(materialLabel).join(L('、',', ')), 3500); return; }
   if((state.moneyBalance||0)<cost.coin){ ttsToast(L('金币不够，还差','Not enough coins, still need ')+(cost.coin-(state.moneyBalance||0))+L('金币',' coins'), 3500); return; }
   ['iron','silk','crystal'].forEach(function(k){ if(cost[k]>0) mats[k]-=cost[k]; });
-  state.moneyBalance-=cost.coin;
+  addCoinChange(-cost.coin, '装备升星消耗');
   inst.star++;
   var item=EQUIP_ITEMS[inst.defId];
   addLog('⭐ '+L('【'+(item?item.name:'装备')+'】升到了'+inst.star+'星！','[' +(item?(item.nameEn||item.name):'Equipment')+'] reached '+inst.star+' stars!'));
@@ -2301,7 +2306,7 @@ function synthesizeEquip(quality){
   var used={}; candidates.slice(0,3).forEach(function(x){ used[x.instanceId]=true; });
   state.equipmentBag=bag.filter(function(it){ return !used[it.instanceId]; });
   ['iron','silk','crystal'].forEach(function(k){ if(cfg[k]>0) mats[k]-=cfg[k]; });
-  state.moneyBalance-=cfg.coin;
+  addCoinChange(-cfg.coin, '装备合成消耗');
   var defId=rollEquipDefIdForTier('normal', cfg.next);
   grantEquipmentItem(state, defId);
   var item=EQUIP_ITEMS[defId];
@@ -4684,6 +4689,7 @@ function defaultState(){
     restCardMonthKey:getMonthKey(),
     restCardMonthGranted:false,
     moneyBalance:0,
+    coinLedger:[], // 金币变化流水账：每一笔+/-都记一条{t,delta,reason,bal}，方便排查"钱为什么变了"
     backpack:{freeCard:0,d7:[],d8:[],restCards:[],supplies:{food:0,water:0,milk:0,out:0,bath:0}},
     log:[],
     pet:{chosen:false},
@@ -4953,9 +4959,25 @@ function openFamilyCodeRename(){
   if(input) input.value='';
   showModal('familyGateModal');
 }
+/* 2026-09新增：家庭码统一只允许"英文字母+数字"，而且不区分大小写——xH、XH、X H、x H
+   全都算同一个码。分两层做：①filterFamilyCodeInput() 在用户打字的同时就把空格/符号/中文这些
+   不允许的字符直接过滤掉，根本打不进输入框里；②normalizeFamilyCode() 在真正要用这个码
+   （查询/存储/比对）之前统一转成小写，保证"XH"和"xh"落到完全同一个指针上，不会被当成两个
+   不同的家庭码。两处用到家庭码原始输入的地方(submitFamilyCode/adminIssueNewCode)都要走
+   这个统一的normalize，不能只做其中一处，不然两头对不上、同一个家庭码在不同入口会解析出
+   不同结果。注意：硬编码的FAMILY_CODE_MAP里的旧键（比如'茜茜嫣嫣家'）保持原样不变——这个限制
+   只管"以后用户自己敲进输入框的新输入"，不会反过去把老的默认/legacy码失效掉。 */
+function filterFamilyCodeInput(el){
+  if(!el) return;
+  var cleaned=(el.value||'').replace(/[^a-zA-Z0-9]/g,'');
+  if(cleaned!==el.value) el.value=cleaned;
+}
+function normalizeFamilyCode(raw){
+  return String(raw||'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+}
 function submitFamilyCode(){
   var input=document.getElementById('familyGateInput');
-  var code=(input&&input.value||'').trim();
+  var code=normalizeFamilyCode(input&&input.value);
   if(!code){ ttsToast(L('请先输入家庭码','Please enter the Family Code first'), 4000); return; }
   var btn=document.getElementById('familyGateConfirmBtn');
   if(_familyGateMode==='rename'){
@@ -5303,6 +5325,11 @@ function loadAdminCoinOverview(){
         // 2026-09新增：只有能定位到具体孩子档案（cid和余额都读得到）才给"调整"按钮，
         // 数据结构异常读不到金币数据时不给按钮，避免往一个不确定的地方乱写数据
         if(it.cid && typeof it.balance==='number'){
+          var ledgerBtn=document.createElement('button');
+          ledgerBtn.className='btn btn-gray btn-sm';
+          ledgerBtn.textContent='📜 明细';
+          ledgerBtn.onclick=(function(rid1,cid1,name1){ return function(){ showCoinLedgerDetail(rid1,cid1,name1); }; })(it.rowId,it.cid,it.childName);
+          right.appendChild(ledgerBtn);
           var adjBtn=document.createElement('button');
           adjBtn.className='btn btn-warning btn-sm';
           adjBtn.textContent='✏️ 调整金币';
@@ -5330,13 +5357,58 @@ function adminAdjustCoinBalance(rowId,cid,childName,currentBalance){
     var d=row&&row.data;
     if(!d||!d.accounts||!d.accounts[cid]){ ttsToast('❌ 没找到这个孩子的存档数据，可能数据结构有问题，先用"查看/修复"确认一下', 6000); return; }
     if(!d.accounts[cid].state) d.accounts[cid].state={};
+    var _beforeBal=(typeof d.accounts[cid].state.moneyBalance==='number')?d.accounts[cid].state.moneyBalance:0;
     d.accounts[cid].state.moneyBalance=n;
+    addCoinLedgerEntryToRaw(d.accounts[cid].state, n-_beforeBal, '管理员后台手动调整金币');
     return supaUpsertRow(rowId, d).then(function(){
       ttsToast('✅ 「'+childName+'」的金币已经改成 '+n, 4500);
       loadAdminCoinOverview();
     });
   }).catch(function(){
     ttsToast('❌ 没连上云端，修改没成功，检查网络再试一次', 5000);
+  });
+}
+/* 2026-10新增：金币变化明细——翻这个孩子档案的 state.coinLedger 流水账，一眼看出最近每一笔
+   金币变化是什么时候、因为什么原因、变化了多少、变化后还剩多少，用来排查"钱为什么突然变多/变少"
+   这类没有头绪的bug，不用再去硬猜是哪个功能出的问题。最新的排在最上面，最多显示最近80条
+   （coinLedger本身总共最多保留300条，这里只是显示上再截一道，避免单次渲染太卡）。 */
+function showCoinLedgerDetail(rowId,cid,childName){
+  var box=document.getElementById('adminCoinLedgerBox');
+  var label=document.getElementById('adminCoinLedgerLabel');
+  var list=document.getElementById('adminCoinLedgerList');
+  if(!box||!label||!list) return;
+  box.style.display='block';
+  label.textContent='📜 「'+childName+'」金币变化明细（加载中…）';
+  list.innerHTML='';
+  fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    var st=d&&d.accounts&&d.accounts[cid]&&d.accounts[cid].state;
+    label.textContent='📜 「'+childName+'」金币变化明细（当前 '+((st&&typeof st.moneyBalance==='number')?st.moneyBalance:'？')+' 金币）';
+    var entries=(st&&Array.isArray(st.coinLedger))?st.coinLedger.slice():[];
+    if(!entries.length){
+      list.innerHTML='<div style="color:#999;padding:6px 0">这个孩子档案暂时还没有金币变化记录（老存档在这次更新之后才会的开始记录，之前发生的变化没法追溯）</div>';
+      return;
+    }
+    entries.reverse(); // 最新的排最上面
+    var shown=entries.slice(0,80);
+    list.innerHTML=shown.map(function(e){
+      var when=''; try{ when=new Date(e.t).toLocaleString(); }catch(err){}
+      var delta=(typeof e.delta==='number')?e.delta:0;
+      var deltaText=(delta>0?'+':'')+delta;
+      var deltaColor=delta>0?'#43a047':(delta<0?'#e53935':'#999');
+      var balText=(typeof e.bal==='number')?('余额 '+e.bal):'';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0">'
+        +'<span style="flex:1">'+when+' · '+(e.reason||'（未说明原因）')+'</span>'
+        +'<span style="white-space:nowrap;color:'+deltaColor+';font-weight:600">'+deltaText+'</span>'
+        +'<span style="white-space:nowrap;color:#999">'+balText+'</span>'
+        +'</div>';
+    }).join('');
+    if(entries.length>shown.length){
+      list.innerHTML+='<div style="color:#999;padding:6px 0;text-align:center">（只显示最近'+shown.length+'条，共'+entries.length+'条）</div>';
+    }
+  }).catch(function(){
+    label.textContent='📜 「'+childName+'」金币变化明细';
+    list.innerHTML='<div style="color:#e53935;padding:6px 0">加载失败，检查网络后重新点一次</div>';
   });
 }
 function loadAdminApplications(){
@@ -5476,7 +5548,7 @@ function adminRemoveFamily(rowId,namesLabel){
    新码发给对方后，对方在"更换/加入其他家庭空间"里输入新码，就能找回原来的存档，数据一点不丢 */
 function adminIssueNewCode(rowId){
   var code=window.prompt('给这份存档发一个新的家庭码（发给忘记码的人用来找回数据，原来的码不受影响，还能继续用）。\n\n如果是要修复"某个家庭码被误指向了别人数据"这种事故，在这里重新输入那个原来的家庭码，就能把它改回指向这份存档：');
-  code=(code||'').trim();
+  code=normalizeFamilyCode(code);
   if(!code) return;
   // 2026-09fix：发码前先查一下这个码现在指向哪，如果已经指向了"另一份不是当前rowId"的数据，
   // 弹出来告诉管理员一声，避免在没意识到的情况下又顺手覆盖了别的家庭正在用的码。
@@ -6211,7 +6283,7 @@ function grantPkWinReward(oppLevel){
   }
   state.pkRewardToday.count++;
   var coins=pkRewardCoinsForGap(myLevel,oppLevel);
-  state.moneyBalance=(state.moneyBalance||0)+coins;
+  addCoinChange(coins, 'PK对战获胜奖励');
   state.day.earned=(state.day.earned||0)+coins;
   var bonusText='';
   if(Math.random()<0.5){
@@ -6329,7 +6401,7 @@ function applyGiftMessage(m){
   if(!state) return;
   var amt=(typeof m.amt==='number' && m.amt>0)?m.amt:0;
   if(amt<=0) return;
-  state.moneyBalance=(state.moneyBalance||0)+amt;
+  addCoinChange(amt, '收到好友赠送的金币（来自'+(m.fromName||'一位朋友')+'）');
   if(!state.friendBook) state.friendBook={};
   var rk=(m.fromRowId||'')+'#'+(m.fromChildId||'');
   if(!state.friendBook[rk]){
@@ -6352,7 +6424,7 @@ function applyGiftMessage(m){
 function applyAuctionSoldMessage(m){
   if(!state) return;
   var amt=(typeof m.price==='number'&&m.price>0)?m.price:0;
-  if(amt>0) state.moneyBalance=(state.moneyBalance||0)+amt;
+  if(amt>0) addCoinChange(amt, '拍卖行：上架物品卖出收益');
   var itemName=m.itemName||L('装备','Item');
   addLog(L('🏛️ 拍卖行：你上架的【'+itemName+'】卖出了，获得 '+amt+' 金币','🏛️ Auction House: your listing ['+itemName+'] sold, you earned '+amt+' coins'));
   save();
@@ -6364,7 +6436,7 @@ function applyAuctionWonMessage(m){
   var isCard=(m.kind==='card');
   var _eqDef=(typeof EQUIP_ITEMS!=='undefined')?EQUIP_ITEMS[m.defId]:null;
   var itemName=isCard?auctionCardInfo(m.cardType).label:(_eqDef?L(_eqDef.name,_eqDef.nameEn||_eqDef.name):L('装备','Item'));
-  if(amt>0) state.moneyBalance=(state.moneyBalance||0)-amt; // 拍下时如果不是走"一口价"当场扣过，这里才是真正扣费的地方
+  if(amt>0) addCoinChange(-amt, '拍卖行：拍下物品花费'); // 拍下时如果不是走"一口价"当场扣过，这里才是真正扣费的地方
   if(isCard){ grantCardToBackpack(m.cardType); }
   else{ ensureEquipmentBag(state).push({instanceId:m.instanceId, defId:m.defId, obtainedAt:Date.now()}); }
   addLog(L('🏛️ 拍卖行：你拍下的【'+itemName+'】到货啦，花了 '+amt+' 金币','🏛️ Auction House: your winning bid ['+itemName+'] has arrived, cost '+amt+' coins'));
@@ -6383,21 +6455,18 @@ function applyAuctionReturnedMessage(m){
   ttsToast(L('🏛️ 【'+itemName+'】流拍了，已经退回你的背包','🏛️ [' +itemName+ '] went unsold and is back in your bag'), 4000);
 }
 /* 消息里某一条我输了的战报，第一次被我自己看到时，在自己本机记一次受伤；某一条送金币消息，
-   第一次被我自己看到时，在自己本机给自己加钱；拍卖相关的三种消息同理——都用 applied 标记
-   防止同一条消息以后重复打开消息中心时被反复处理（反复扣血/反复加钱/反复发货） */
-function applyPkInboxSideEffects(inbox){
-  if(!inbox||!Array.isArray(inbox.messages)) return false;
-  var changed=false;
-  inbox.messages.forEach(function(m){
-    if(m.applied) return;
-    if(m.type==='gift'){ applyGiftMessage(m); m.applied=true; changed=true; }
-    else if(m.type==='auction_sold'){ applyAuctionSoldMessage(m); m.applied=true; changed=true; }
-    else if(m.type==='auction_won'){ applyAuctionWonMessage(m); m.applied=true; changed=true; }
-    else if(m.type==='auction_returned'){ applyAuctionReturnedMessage(m); m.applied=true; changed=true; }
-    else if(m.friendWon===true){ applyPkLossInjury(); m.applied=true; changed=true; }
-    else{ m.applied=true; changed=true; }
+   第一次被我自己看到时，在自己本机给自己加钱；拍卖相关的三种消息同理。
+   2026-10fix：这个函数现在只负责"真正施加副作用"，不再负责判断/标记哪些消息该处理——
+   调用方(markPkInboxRead)必须先用乐观锁抢到云端写回权，确认这一批消息这次真的是第一次被处理，
+   才会把它们传进来。原因见 markPkInboxRead 顶部那段注释。 */
+function applyPkInboxSideEffects(messages){
+  (messages||[]).forEach(function(m){
+    if(m.type==='gift'){ applyGiftMessage(m); }
+    else if(m.type==='auction_sold'){ applyAuctionSoldMessage(m); }
+    else if(m.type==='auction_won'){ applyAuctionWonMessage(m); }
+    else if(m.type==='auction_returned'){ applyAuctionReturnedMessage(m); }
+    else if(m.friendWon===true){ applyPkLossInjury(); }
   });
-  return changed;
 }
 /* 从消息中心直接点"⚔️"图标，找对方最新数据发起一场秒开的复仇PK */
 function quickRematchFromPkMsg(fromRowId,fromChildId){
@@ -6523,18 +6592,65 @@ function pkInboxBadgeRender(){
 function pkInboxBadgeRefresh(){
   refreshMyPkInbox().then(pkInboxBadgeRender);
 }
-/* 2026-09fix第二版新增：把"拉取+标记已读+处理受伤副作用+写回云端+刷新角标"这一整套动作抽成
-   独立函数，方便"点进串门tab"和"点开PK消息记录弹窗"这两个入口都能各自触发一次、又不用重复代码 */
+/* 2026-09fix第二版：把"拉取+标记已读+处理受伤副作用+写回云端+刷新角标"这一整套动作抽成
+   独立函数，方便"点进串门tab"和"点开PK消息记录弹窗"这两个入口都能各自触发一次、又不用重复代码。
+   2026-10fix第三版（重要bug修复）：以前是"先在本机把副作用都applied（顺手直接加钱/扣血），
+   再把整行数据覆盖写回云端"——"点进串门tab"和"点开PK消息记录弹窗"这两个入口几乎前后脚都会各
+   调用一次这个函数，如果第一次调用的写回请求还没返回、紧接着第二次调用就already开始了（或者
+   单纯网络慢、两次点击离得近），两次调用会各自从云端读到同一份"还没applied"的消息，各自都在
+   本机把金币加了一遍——云端最终只会体现"已经applied"一次，看起来毫无破绽，但本机金币却真的
+   被重复加了两次、甚至更多次。这正是"金币毫无来由地暴涨一大笔"这类诡异bug的根源之一：送出去的
+   金币/拍卖收益消息只要被读到又没能立刻抢到写回权，就有机会被多算一次。
+   现在改成跟 pushPkMessageToFriend 一样的乐观锁思路：先在读到的这份数据副本上把"这次打算处理
+   的消息"标记好，尝试用条件PATCH（updated_at匹配才允许写）写回去；只有这次写回真的抢到了，
+   才真正把对应的副作用（加钱/扣血）落到本机state上——写回成功之前绝不先动本机数据。
+   如果被别人抢先了（可能是并发的另一次调用，也可能是这期间对方又发来了新消息），就重新读一次
+   最新数据再试，最多重试3次，从根本上保证同一条消息不管被读到多少次、被调用多少次，
+   副作用只会真正生效一次。 */
 function markPkInboxRead(){
-  return refreshMyPkInbox().then(function(inbox){
-    var sideEffectsChanged=applyPkInboxSideEffects(inbox);
-    var readChanged=false;
-    (inbox.messages||[]).forEach(function(m){ if(!m.read){ m.read=true; readChanged=true; } });
-    if(sideEffectsChanged||readChanged){
-      supaUpsertRow(pkInboxRowId(SUPA_ROW_ID,store.currentChildId),inbox).catch(function(){});
-    }
+  var pointerId=pkInboxRowId(SUPA_ROW_ID,store.currentChildId);
+  function attempt(retriesLeft){
+    return fetchRowData(pointerId).then(function(row){
+      var today=todayKey();
+      var d=row&&row.data;
+      var inbox=(d&&d.dayKey===today)?d:{dayKey:today,messages:[]}; // 换了新的一天，旧消息自动不再处理/不再显示
+      var toApply=(inbox.messages||[]).filter(function(m){ return !m.applied; });
+      var toMarkRead=(inbox.messages||[]).filter(function(m){ return !m.read; });
+      if(!toApply.length && !toMarkRead.length){
+        _pkInboxCache=inbox; pkInboxBadgeRender(); return inbox;
+      }
+      toApply.forEach(function(m){ m.applied=true; });
+      toMarkRead.forEach(function(m){ m.read=true; });
+      if(!row || !row.updated_at){
+        // 这一行在云端还不存在/读不到updated_at，没法做条件写——真正有新消息时这一行必然已经
+        // 由pushPkMessageToFriend建立过了，这里只是兜底，不强行写入，避免凭空造出一行脏数据
+        _pkInboxCache=inbox; pkInboxBadgeRender(); return inbox;
+      }
+      var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(pointerId)+'&updated_at=eq.'+encodeURIComponent(row.updated_at);
+      var body=JSON.stringify({data:inbox,updated_at:new Date().toISOString()});
+      return supaFetch(url,{method:'PATCH',headers:supaHeaders({'Prefer':'return=representation'}),body:body},9000).then(function(res){
+        if(!res.ok) throw new Error('http '+res.status);
+        return res.json();
+      }).then(function(rows){
+        if(rows && rows.length){
+          // 真的抢到了这次写回，这才是唯一能把副作用(加钱/扣血)落到本机state上的时刻
+          _pkInboxCache=inbox;
+          applyPkInboxSideEffects(toApply);
+          pkInboxBadgeRender();
+          return inbox;
+        }
+        if(retriesLeft<=0){
+          // 多次都抢不到：这次先不处理、什么副作用都不施加，下次重新打开再试——不会丢消息，
+          // 也绝不会因为"降级成强行覆盖写"而重复施加副作用
+          _pkInboxCache=inbox; pkInboxBadgeRender(); return inbox;
+        }
+        return attempt(retriesLeft-1); // 被别人抢先改过这一行了，重新读最新数据再试一次
+      });
+    });
+  }
+  return attempt(3).catch(function(){
     pkInboxBadgeRender();
-    return inbox;
+    return _pkInboxCache||{dayKey:todayKey(),messages:[]};
   });
 }
 function showPkInboxModal(){
@@ -6956,7 +7072,7 @@ function confirmGiftCoins(){
   pushPkMessageToFriend(target.rowId,target.childId,msg).then(function(res){
     if(btn){ btn.disabled=false; btn.textContent='🎁 确认赠送'; }
     if(!res){ ttsToast('❌ 没能送成功，对方那边网络/数据没连上，你的金币没有扣，晚点再试试', 5500); return; }
-    state.moneyBalance-=amt;
+    addCoinChange(-amt, '赠送金币给好友（'+target.name+'）');
     rel.giftsToday+=1;
     rel.intimacy=(rel.intimacy||0)+amt;
     rel.coinsGiftedToThem=(rel.coinsGiftedToThem||0)+amt;
@@ -10210,6 +10326,7 @@ function migrateState(s){
   if(!s.activeDays) s.activeDays=[];
   if(!s.boardMilestoneLog) s.boardMilestoneLog={};
   if(typeof s.hoardDripLastAt==='undefined') s.hoardDripLastAt=null; // 老存档没有这个字段，补上，第一次调用时会从"现在"开始算，不会倒推历史
+  if(!Array.isArray(s.coinLedger)) s.coinLedger=[]; // 老存档没有金币流水账字段，补一个空的，从这次之后的变化开始记录
   ensureWishState(s);
   if(!s.day.comm) s.day.comm={grandpa:false,inlaw:false,hello:0};
   if(!s.day.dungeon) s.day.dungeon={count:0};
@@ -10810,7 +10927,7 @@ function enforceHoardSpendCapOnNewDay(){
     // 但"第二天金币一定不到200"是个硬承诺，就算真出现算法之外没考虑到的极端情况，也绝不能破例
     remain=Math.floor(Math.random()*HOARD_NIGHTLY_CAP);
   }
-  state.moneyBalance=remain;
+  setCoinBalance(remain, '跨天清算：金币囤积过多，宠物半夜买奢侈品清空到'+HOARD_NIGHTLY_CAP+'以下');
   var pet=state.pet;
   var petName=(pet&&pet.chosen&&pet.name)||L('宠物','the pet');
   var shownItems=bought.slice(0,5);
@@ -11043,6 +11160,10 @@ function doHoardDripTicks(pet, buckets){
     if(lost>0){ state.moneyBalance-=lost; totalLost+=lost; ticks++; }
   }
   if(totalLost>0){
+    // 这里循环里每一小笔都直接改的state.moneyBalance（不逐笔走addCoinChange），避免离线久了
+    // 一口气往流水账里塞进去多达上百条"几块钱"的噪音记录；最后只统一记一笔合计，方便排查时
+    // 看到的是"这次离线期间drip机制一共扣了多少"，而不是被淹没在一堆零碎小数字里
+    _pushCoinLedgerEntry(state, -totalLost, '离线期间手滑乱花（drip机制，分'+ticks+'次小额消费合计）');
     var petName=pet.name||L('宠物','the pet');
     addLog('🤑'+petName+L(' 趁你不在，这段时间手一直不老实，陆陆续续手滑花掉了 ',", while you were away, kept nickel-and-diming coins away bit by bit, and it added up to ")+totalLost+L('金币（分了 '+ticks+' 次买些小零食/小玩意）',' coins over '+ticks+' separate little snack/toy purchases'));
     var moneyLabel=L(totalLost+' 金币', totalLost+' coins');
@@ -11195,7 +11316,7 @@ function rollRebelEvent(pet){
     var cap=Math.round(80*scale);
     var lost=Math.max(5,Math.min(cap,Math.round(state.moneyBalance*pct)));
     lost=Math.min(lost,state.moneyBalance);
-    state.moneyBalance-=lost;
+    addCoinChange(-lost, '叛逆宠物离线闯祸：偷拿金币出去买玩具/零食');
     addLog('😈'+petName+L(' 趁你不在，偷偷拿了 ',', while you were away, secretly took ')+lost+L(' 金币出去买玩具/零食/冰淇淋了',' coins to buy toys, snacks and ice cream'));
     var moneyLabelSpend=L(lost+' 金币', lost+' coins');
     return '😈 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 偷偷拿金币出去买了玩具和零食，乱花掉了 ',' secretly took coins to buy toys and snacks, wasting ')+'<b>'+moneyLabelSpend+'</b>'+L('！','!')+petTierTail(REBEL_TAIL_BY_TIER, level);
@@ -11242,7 +11363,7 @@ function rollWorkerEvent(pet){
   var petName=pet.name||L('宠物','the pet');
   var level=petLevelInfo(pet).level;
   var gain=8+Math.floor(Math.random()*13); // 8~20金币
-  state.moneyBalance+=gain;
+  addCoinChange(gain, '勤劳宠物离线打工赚钱');
   addLog('💼'+petName+L(' 趁你不在出门打工，赚了 ',', while you were away, went out to work and earned ')+gain+L(' 金币',' coins'));
   var moneyLabelWork=L(gain+' 金币', gain+' coins');
   return '💼 '+L('你不在的这段时间，你的宠物出门打工啦，赚了 ','While you were away, your pet went out to work and earned ')+'<b>'+moneyLabelWork+'</b>'+L(' 给自己买食物哦！',' to buy itself some food!')+petTierTail(WORKER_TAIL_BY_TIER, level);
@@ -11288,7 +11409,7 @@ function maybeTriggerCoinWipe(today){
     var lost=state.moneyBalance;
     var reason=rollCoinWipeReason();
     var petName=(state.pet&&state.pet.chosen&&state.pet.name)||'宠物';
-    state.moneyBalance=0;
+    setCoinBalance(0, '连续'+gap+'天未打卡，自动清空金币：'+reason);
     addLog('💸连续'+gap+'天没有打卡，'+petName+' 把攒下的 '+lost+' 金币全部花光了：'+reason);
     var msg='💸 好几天没见你打卡啦，'+petName+' 把攒下的 <b>'+lost+' 金币</b> 全部花光了——'+reason+'。快回来打卡，重新攒金币吧！';
     state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
@@ -11783,7 +11904,7 @@ function taskCoinsOf(cat,key){
   if(d) return d.coins;
   return CONFIG.coins[key]||0;
 }
-function earnCoins(n,label){state.day.earned+=n;state.moneyBalance+=n;markDayActive();state.lastCheckinDayKey=state.day.key;}
+function earnCoins(n,label){state.day.earned+=n;addCoinChange(n,label||'打卡赚金币');markDayActive();state.lastCheckinDayKey=state.day.key;}
 function categoriesDoneToday(){
   var d=state.day;
   var td=store.taskDefs||{};
@@ -11836,7 +11957,7 @@ function applyBoardDailyBonus(){
   }
   if(petCount>0&&totalCoin>0){
     state.day.earned+=totalCoin;
-    state.moneyBalance+=totalCoin;
+    addCoinChange(totalCoin, '棋盘每日打卡奖励（'+petCount+'只宠物合计）');
     addLog('🎉棋盘每日打卡奖励：家里'+petCount+'只宠物一起获得成长经验，共+'+totalCoin+'金币');
   }
 }
@@ -12542,7 +12663,7 @@ function buyItem(id){
   if(state.moneyBalance<item.price){alert(L('金币不足，先去完成打卡赚金币吧！','Not enough coins — check in to earn more first!'));return;}
   if(PET_SUPPLY_IDS.indexOf(id)>=0){
     // 日常照顾用品：买进背包囤货，不直接喂给宠物，也不算今日照顾——真正喂的时候在useSupply()里再算
-    state.moneyBalance-=item.price;
+    addCoinChange(-item.price, '商店购买（存入背包）：'+L(item.name,item.nameEn||item.name));
     if(!state.backpack.supplies) state.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
     state.backpack.supplies[id]=(state.backpack.supplies[id]||0)+1;
     addLog(L('🛒购入【'+item.name+'】x1（-'+item.price+'金币），存进了背包','🛒Bought 【'+(item.nameEn||item.name)+'】x1 (-'+item.price+' coins), stored in backpack'));
@@ -12552,7 +12673,7 @@ function buyItem(id){
     showPetToast(L('🛍️ 买了1份'+item.name+'，存进背包啦～','🛍️ Bought 1x '+(item.nameEn||item.name)+', stored in backpack~'));
     return;
   }
-  state.moneyBalance-=item.price;
+  addCoinChange(-item.price, '商店购买：'+L(item.name,item.nameEn||item.name));
   item.fx(pet);
   if(isTraining){
     // 训练/锻炼会让宠物变得又累又饿又渴又脏——除了加经验，也要顺带消耗吃饱饱/水汪汪/香喷喷
@@ -12569,7 +12690,7 @@ function buyItem(id){
   var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath',kfc_wing:'feed',egg_tart:'feed',wagyu:'feed',matcha:'water'};
   if(careMap[id]&&!state.day.petCare[careMap[id]]){
     state.day.petCare[careMap[id]]=true;
-    state.moneyBalance+=CONFIG.careReward.coin;
+    addCoinChange(CONFIG.careReward.coin, '完成每日照顾任务奖励：'+careName(careMap[id]));
     state.day.earned+=CONFIG.careReward.coin;
     pet.happy=Math.min(100,(pet.happy||0)+CONFIG.careReward.happy);
     addLog('💖完成每日照顾【'+careName(careMap[id])+'】：+'+CONFIG.careReward.coin+'金币 +'+CONFIG.careReward.happy+'好感度');
@@ -12624,7 +12745,7 @@ function useSupply(id){
   var careMap={food:'feed',water:'water',milk:'milk',out:'play',bath:'bath',kfc_wing:'feed',egg_tart:'feed',wagyu:'feed',matcha:'water'};
   if(!isAgedBasicFood && careMap[id]&&!state.day.petCare[careMap[id]]){
     state.day.petCare[careMap[id]]=true;
-    state.moneyBalance+=CONFIG.careReward.coin;
+    addCoinChange(CONFIG.careReward.coin, '完成每日照顾任务奖励：'+careName(careMap[id]));
     state.day.earned+=CONFIG.careReward.coin;
     pet.happy=Math.min(100,(pet.happy||0)+CONFIG.careReward.happy);
     addLog('💖完成每日照顾【'+careName(careMap[id])+'】：+'+CONFIG.careReward.coin+'金币 +'+CONFIG.careReward.happy+'好感度');
@@ -12671,7 +12792,7 @@ function checkCareAll(){
   var c=state.day.petCare;
   if(c.feed&&c.water&&c.milk&&c.play&&c.bath&&!state.day.careAllBonus){
     state.day.careAllBonus=true;
-    state.moneyBalance+=CONFIG.careReward.allBonus;
+    addCoinChange(CONFIG.careReward.allBonus, '当日照顾任务全部完成奖励');
     state.day.earned+=CONFIG.careReward.allBonus;
     addLog('🌟今日宠物照顾全部完成！额外奖励 '+CONFIG.careReward.allBonus+' 金币');
     showReward('🌟 全照顾达成！','今日喂食/喝水/牛奶/陪玩/美容全部完成，额外奖励 '+CONFIG.careReward.allBonus+' 金币！');
@@ -13363,7 +13484,7 @@ function buyNowAuction(listingId){
     d.currentBidderName=(currentChild()&&currentChild().name)||'一位朋友';
     return supaUpsertRow(listingId,d).then(function(){
       // 买家是当前设备自己，直接改自己本地存档+save()是安全的，不涉及跨设备覆盖问题
-      state.moneyBalance-=d.buyNowPrice;
+      addCoinChange(-d.buyNowPrice, '拍卖行：一口价拍下');
       var itemLabel, itemLabelEn;
       if(d.kind==='card'){ grantCardToBackpack(d.cardType); itemLabel=auctionCardInfo(d.cardType).label; itemLabelEn=itemLabel; }
       else{ ensureEquipmentBag(state).push({instanceId:d.instanceId, defId:d.defId, obtainedAt:Date.now()}); var _eqDef=EQUIP_ITEMS[d.defId]; itemLabel=_eqDef?L(_eqDef.name,_eqDef.nameEn||_eqDef.name):L('装备','Item'); itemLabelEn=itemLabel; }
@@ -13682,7 +13803,7 @@ function dungeonEnd(win){
       if(!pet.equippedAccessory) pet.equippedAccessory=st.accessory.id;
     }
     if(bestBefore<dg.idx) pet.dungeonBestTier=dg.idx;
-    state.moneyBalance+=st.coin;
+    addCoinChange(st.coin, '副本挑战通关奖励（第'+(dg.idx+1)+'层）');
     state.day.earned+=st.coin;
     var dgExp=st.exp||(10+dg.idx*8); // 通关层数（idx）越高，奖励经验越多；老配置万一没写 exp 字段时兜底按层数算
     gainExp(dgExp);
@@ -13915,7 +14036,7 @@ function dungeonEnd2(win){
   var box=document.getElementById('dgResultBox');
   if(win){
     var coin=dungeon2RandInt(rewardSt.coinMin,rewardSt.coinMax);
-    state.moneyBalance+=coin;
+    addCoinChange(coin, '新版副本挑战通关奖励（第'+(idx+1)+'关）');
     state.day.earned+=coin;
     var mat=rewardSt.materialPool[dungeon2RandInt(0,rewardSt.materialPool.length-1)];
     state.backpack.materials[mat.id]=(state.backpack.materials[mat.id]||0)+1;
@@ -14177,7 +14298,7 @@ function pvpBattleEnd(win){
   var pvpCoin=6;
   if(win){
     if(f) f.wins=(f.wins||0)+1;
-    state.moneyBalance+=pvpCoin;
+    addCoinChange(pvpCoin, '好友对战获胜奖励（vs '+fname+'）');
     state.day.earned+=pvpCoin;
     dgLog('🎉 打败了 '+fname+'！');
     addLog('🤝好友对战获胜【vs '+fname+'】：+'+pvpCoin+'金币');
@@ -14275,7 +14396,7 @@ function spinWheel(){
 function applyReward(seg){
   var id=seg.id,msg='';
   if(id==='free'){
-    if(state.day.gotFreeCard){state.moneyBalance+=10;msg=L('🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！','🎫 Free-Pass Card drawn, but you already got one today - auto-converted to 10 coins instead!');}
+    if(state.day.gotFreeCard){addCoinChange(10,'转盘抽中免做卡补偿（今日已有一张，换成金币）');msg=L('🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！','🎫 Free-Pass Card drawn, but you already got one today - auto-converted to 10 coins instead!');}
     else{state.backpack.freeCard++;state.day.gotFreeCard=true;msg=L('🎫恭喜抽中【免做卡】×1！','🎫 Congrats, you won [Free-Pass Card] ×1!');}
   }else if(id==='rest'){
     state.backpack.restCards.push({obtained:todayKey()});
@@ -14283,8 +14404,8 @@ function applyReward(seg){
     msg=L('🎁恭喜抽中【库洛米休息卡】！有效期12天，逾期不用自动作废（本自然月不会再抽到）','🎁 Congrats, you won [Kuromi Rest Card]! Valid for 12 days, auto-expires if unused (won\'t appear again this calendar month)');
   }else if(id==='d7'){state.backpack.d7.push(todayKey());msg=L('🔖恭喜抽中【7折折扣卡】！次日生效，次日不用即过期','🔖 Congrats, you won [30% Off Card]! Takes effect tomorrow, expires if unused that day');}
   else if(id==='d8'){state.backpack.d8.push(todayKey());msg=L('🔖恭喜抽中【8折折扣卡】！次日生效，次日不用即过期','🔖 Congrats, you won [20% Off Card]! Takes effect tomorrow, expires if unused that day');}
-  else if(id==='c15'){state.moneyBalance+=15;msg=L('💰恭喜抽中15金币！已存入宠物金币钱包','💰 Congrats, you won 15 coins! Added to your pet coin wallet');}
-  else if(id==='c25'){state.moneyBalance+=25;msg=L('💰恭喜抽中25金币！已存入宠物金币钱包','💰 Congrats, you won 25 coins! Added to your pet coin wallet');}
+  else if(id==='c15'){addCoinChange(15,'转盘抽中15金币');msg=L('💰恭喜抽中15金币！已存入宠物金币钱包','💰 Congrats, you won 15 coins! Added to your pet coin wallet');}
+  else if(id==='c25'){addCoinChange(25,'转盘抽中25金币');msg=L('💰恭喜抽中25金币！已存入宠物金币钱包','💰 Congrats, you won 25 coins! Added to your pet coin wallet');}
   else if(seg.mat){
     if(!state.backpack.materials) state.backpack.materials={};
     var matQty=seg.qty||1;
@@ -14383,6 +14504,46 @@ document.addEventListener('keydown', function(e){
 /* ========== 日志 ========== */
 function addLog(txt){var t=new Date().toLocaleString();state.log.push(t+' | '+txt);}
 
+/* ========== 金币变化明细账本 ==========
+   2026-10新增：家长反馈"金币莫名其妙变多/变少，光看最终余额完全没法排查是哪个功能加的/扣的"。
+   这里给每个孩子档案加一本"流水账"（state.coinLedger：{t时间戳,delta变化量,reason原因,bal变化后余额}），
+   以后任何地方要改 state.moneyBalance，一律改成调用下面的 addCoinChange()/setCoinBalance()，
+   不要再直接写 state.moneyBalance+=/-=/=，这样每一笔变化都会自动留痕，管理后台"👪各家数据"里
+   能直接翻这本账，一眼揪出到底是哪个功能在不正常地加钱/扣钱。只保留最近COIN_LEDGER_MAX条，
+   避免存档无限膨胀——这是排查用的调试账本，不需要也不应该保留从出生到现在的全部历史。 */
+var COIN_LEDGER_MAX=300;
+function _pushCoinLedgerEntry(st,delta,reason){
+  if(!st) return;
+  if(!Array.isArray(st.coinLedger)) st.coinLedger=[];
+  st.coinLedger.push({t:Date.now(), delta:delta, reason:reason||'（未说明原因）', bal:(typeof st.moneyBalance==='number')?st.moneyBalance:null});
+  if(st.coinLedger.length>COIN_LEDGER_MAX) st.coinLedger.splice(0, st.coinLedger.length-COIN_LEDGER_MAX);
+}
+// 金币增/减一个数额（可以是负数），同时自动记一笔明细——日常绝大多数"赚钱/花钱"场景都应该用这个，
+// 而不是直接改 state.moneyBalance。delta为0或者不是有效数字时，什么都不做、也不记流水（避免刷一堆噪音）
+function addCoinChange(delta,reason){
+  if(!state) return;
+  if(typeof delta!=='number' || !isFinite(delta) || delta===0) return;
+  if(typeof state.moneyBalance!=='number' || !isFinite(state.moneyBalance)) state.moneyBalance=0;
+  state.moneyBalance+=delta;
+  _pushCoinLedgerEntry(state, delta, reason);
+}
+// 直接把金币"设成"某个具体数值（而不是增量）时用这个——比如跨天清算收尾/修复工具，
+// 会自动按"改之前 vs 改之后"算出delta记进明细，调用方不用自己再算一遍差值
+function setCoinBalance(newVal,reason){
+  if(!state) return;
+  var before=(typeof state.moneyBalance==='number' && isFinite(state.moneyBalance))?state.moneyBalance:0;
+  var nv=(typeof newVal==='number' && isFinite(newVal))?newVal:0;
+  state.moneyBalance=nv;
+  if(nv!==before) _pushCoinLedgerEntry(state, nv-before, reason);
+}
+// 管理后台直接改"别人"存档专用——操作的是从云端fetchRowData现读出来的一份原始JSON（childState），
+// 不是当前设备本机的全局state变量，所以不能走上面两个函数，直接往目标孩子的state对象上记一笔。
+// 调用方必须先把 childState.moneyBalance 改成新值，再调用这个函数记账（delta传"改之后-改之前"）
+function addCoinLedgerEntryToRaw(childState,delta,reason){
+  if(!childState || typeof delta!=='number' || !isFinite(delta) || delta===0) return;
+  _pushCoinLedgerEntry(childState, delta, reason);
+}
+
 /* ========== 撤销副本挑战奖励（只影响当前选中的小朋友）==========
    通过扫描当前小朋友的打卡日志，把"副本挑战成功"记录里发的金币/经验，
    以及副本关闭前用金币买【训练道具】/【高级训练道具】换来的额外经验，
@@ -14439,7 +14600,7 @@ function revertDungeonRewards(){
   if(!confirm(msg)) return;
   try{ autoBackupOnLoad(); }catch(e){}
   state.pet.exp=newExp;
-  state.moneyBalance=newCoin;
+  setCoinBalance(newCoin, '管理员修复工具：撤销副本挑战重复奖励');
   // 把已经算进这次撤销的日志条目去掉，避免以后重复计算、重复撤销
   var keepLog=[];
   for(var k=0;k<state.log.length;k++){
