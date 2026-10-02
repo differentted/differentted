@@ -8670,6 +8670,11 @@ function toggleStudyAnswer(el){
    奖励金币（不影响原本各项打卡任务本身的金币），答错不给钱，但会自动显示正确答案。
    每道题当天只结算一次（答完就锁定，避免反复提交刷金币），第二天freshDay会清空重新开始。 */
 var QUIZ_MATH_EXP_BONUS=3; // 数学题答对，除了小额金币，额外再给宠物这么多点经验，并触发庆祝动画
+// 2026-10新增：正常填空题答案不可能有这么长，超过这个长度基本可以确定是不小心粘贴了不相关的
+// 大段文字（备份导出文本/聊天消息之类），直接在提交这一步就拦下来，不让它进判分逻辑、
+// 也不让它被当成"这道题的作答记录"永久存进存档里——配合下面fuzzyMeaningMatch里的长度差保护，
+// 双重防止"粘贴了一大段无关文字，却因为里面恰好出现过几个正确答案的字就被判成对了"这种误判。
+var MAX_QUIZ_ANSWER_LEN=200;
 function normalizeAnswerText(s){
   return String(s==null?'':s).trim().toLowerCase().replace(/[，,。.！!？?、\s'"]+/g,'');
 }
@@ -8687,7 +8692,15 @@ function isPureNumericAnswer(s){ return /^-?\d+(\.\d+)?$/.test(s); }
 function fuzzyMeaningMatch(a,b){
   if(!a||!b) return false;
   if(a===b) return true;
-  if(a.indexOf(b)>=0||b.indexOf(a)>=0) return true; // 一个包含另一个（比如答案更简短或更啰嗦）
+  // 2026-10fix：以前这里只要"谁包含谁"就直接判定正确，没限制两边长度差——如果孩子不小心把一长串
+  // 毫不相关的文字当成答案提交了（比如误粘贴了备份导出文本/聊天消息之类很长的内容），只要这一大段
+  // 文字里凑巧某处出现过正确答案的那几个字，就会被误判成"答对了"（真实发生过：粘贴了几千字的
+  // 存档备份JSON去答"长颈鹿"这道题，因为备份里恰好也出现过"长颈鹿"这几个字，就被判成了✅正确）。
+  // 短答案出现在一大段无关文字里纯属巧合，不代表孩子真的说对了意思，所以这里额外要求"两边长度
+  // 差不能太悬殊"才继续走包含关系判断；差太多就跳过这条捷径，老老实实走下面的重合度算法
+  // （重合度算法本身也会因为分母被拉得很大而很难凑到0.45，基本不会再误判）。
+  var longer=Math.max(a.length,b.length), shorter=Math.min(a.length,b.length);
+  if(longer<=shorter*3+6 && (a.indexOf(b)>=0||b.indexOf(a)>=0)) return true; // 一个包含另一个（比如答案更简短或更啰嗦），且长度没有离谱地悬殊
   var sa=stripStopwordsZh(a), sb=stripStopwordsZh(b);
   if(!sa||!sb) return false;
   var setA={}, setB={}, na=0, nb=0;
@@ -8759,6 +8772,7 @@ function submitQuizFillFromWrap(wrap){
   var input=wrap.querySelector('.quiz-fill-input');
   var val=input?input.value:'';
   if(!val||!val.trim()){ alert('先输入你的答案吧～'); return; }
+  if(val.length>MAX_QUIZ_ANSWER_LEN){ alert('你写的内容太长啦，是不是不小心粘贴错东西了？检查一下再重新输入吧～'); return; }
   resolveQuiz(key,answersMatch(val,correct),{input:val},label,{expBonus:expBonus,celebrate:celebrate,coinMult:coinMult});
 }
 /* 生成一道"点击选择"题的HTML：options形如[{letter:'A',text:...},{letter:'B',text:...}] */
@@ -9283,8 +9297,38 @@ function studyCompletionEntries(){
   });
   return entries;
 }
+/* 2026-10新增：阅读理解类打卡（日常英文/中文阅读 readEn/readCn + 单独一栏的英文童话/四大名著故事
+   storyEn/storyCn）以前完全没有被每周复习测验收录——家长反馈"所有打卡过的学习内容，包括故事，
+   都应该出现在测验里"，这里把这4类也加进题库。这几类打卡本身就是"读一读+选择题"的形式
+   （题库里每篇自带question/optA/optB/answer），不用再临时编一套新题，直接原样搬进每周测验，
+   按"选择题"的样式作答，而不是硬套文字填空（文字填空的宽松判分不适合这种"选A还是选B"的题）。
+   数据来源是 state.readingHistory[cat]——这是小朋友真的点了"完成打卡"才会记一笔的已读标题列表，
+   不是"题库里存在就算数"，完全符合"必须是真正完成打卡的内容"这条要求；按标题去重，避免同一篇
+   这周被反复打卡好几次时，测验里出现好几道一模一样的题。 */
+var WEEKLY_QUIZ_READING_CATS=['readEn','readCn','storyEn','storyCn'];
+var READING_CAT_LABEL_ZH={readEn:'英文阅读',readCn:'中文阅读',storyEn:'英文故事',storyCn:'名著故事'};
+function recentReadingHistoryTitles(cat){
+  var list=(state.readingHistory&&state.readingHistory[cat])||[];
+  var todayK=todayKey();
+  var seen={}, titles=[];
+  list.forEach(function(it){
+    if(!it||!it.title||!it.at) return;
+    var k=keyOf(new Date(it.at));
+    var diff=daysBetween(k,todayK);
+    if(diff<0||diff>6) return; // 只要最近7天内（含今天）真正打卡完成的，跟其它几类的"最近7天"口径保持一致
+    if(seen[it.title]) return; // 同一篇这周打卡了好几次，只算一次，避免测验里出现重复题
+    seen[it.title]=true;
+    titles.push(it.title);
+  });
+  return titles;
+}
+function findReadingBankItemByTitle(cat,title){
+  var bank=readingBankFor(cat);
+  for(var i=0;i<bank.length;i++){ if(bank[i]&&bank[i].title===title) return bank[i]; }
+  return null; // 理论上应该总能找到；找不到（比如年级中途被改了，换了一套题库）就直接跳过这一篇，不硬凑
+}
 function buildWeeklyReviewPool(){
-  var pool={words:[],hanzi:[],sentences:[],mathQs:[]};
+  var pool={words:[],hanzi:[],sentences:[],mathQs:[],reading:[]};
   studyCompletionEntries().forEach(function(e){
     var theme=themeForDoy(e.doy,e.mode,e.manualId,e.grade);
     if(!theme) return;
@@ -9292,6 +9336,12 @@ function buildWeeklyReviewPool(){
     if(e.study.hanzi) pool.hanzi=pool.hanzi.concat(theme.hanzi||[]);
     if(e.study.sentence) pool.sentences=pool.sentences.concat(theme.sentences||[]);
     if(e.study.mathen) pool.mathQs=pool.mathQs.concat(genMathEnQuestions(e.grade,2,theme.mathNoun,e.doy,parseKey(e.key).getFullYear()));
+  });
+  WEEKLY_QUIZ_READING_CATS.forEach(function(cat){
+    recentReadingHistoryTitles(cat).forEach(function(title){
+      var it=findReadingBankItemByTitle(cat,title);
+      if(it) pool.reading.push({cat:cat,title:title,question:it.question,optA:it.optA,optB:it.optB,answer:it.answer});
+    });
   });
   return pool;
 }
@@ -9317,6 +9367,9 @@ function pickWeeklyQuizItems(){
   sample(pool.hanzi,6,function(h){ return {type:'hanzi',q:h.zi+'（'+h.py+'）',ans:h.cn,label:'词语：'+h.zi}; }).forEach(function(x){ items.push(x); });
   sample(pool.sentences,4,function(s){ return {type:'sentence',q:s.en,ans:s.cn,label:'句子翻译'}; }).forEach(function(x){ items.push(x); });
   sample(pool.mathQs,4,function(m){ return {type:'mathen',q:m.en,ans:m.ans,label:'数学题'}; }).forEach(function(x){ items.push(x); });
+  // 阅读理解类用"选择题"的形式，不走文字填空那套判分——q只放问题本身（不重复整篇原文，考的是
+  // "记不记得读过的内容"，原文摆在眼前就失去测验的意义了），optA/optB/answer供render时生成A/B按钮
+  sample(pool.reading,6,function(r){ return {type:'reading',q:r.question,optA:r.optA,optB:r.optB,answer:r.answer,label:READING_CAT_LABEL_ZH[r.cat]+'：《'+r.title+'》'}; }).forEach(function(x){ items.push(x); });
   for(var i=items.length-1;i>0;i--){ var j=Math.floor(rand()*(i+1)); var tmp=items[i]; items[i]=items[j]; items[j]=tmp; }
   return items;
 }
@@ -9336,8 +9389,21 @@ function submitWeeklyQuizItem(idx){
   var input=wrap.querySelector('.quiz-fill-input');
   var val=input?input.value:'';
   if(!val||!val.trim()){ alert('先输入你的答案吧～'); return; }
+  if(val.length>MAX_QUIZ_ANSWER_LEN){ alert('你写的内容太长啦，是不是不小心粘贴错东西了？检查一下再重新输入吧～'); return; }
   var item=wq.items[idx];
   wq.answers[idx]={val:val,correct:answersMatch(val,item.ans)};
+  save();
+  renderWeeklyQuizBody();
+  maybeFinishWeeklyQuiz();
+}
+// 阅读理解题（type:'reading'）走选择题作答，跟上面的文字填空分开——答案就是字母A/B，
+// 不需要也不应该套answersMatch那套"近义判断"，直接跟item.answer精确比对
+function submitWeeklyQuizChoice(idx,letter){
+  var wq=ensureWeeklyQuizState();
+  if(wq.answers[idx]) return;
+  var item=wq.items[idx];
+  if(!item||item.type!=='reading') return;
+  wq.answers[idx]={val:letter,correct:(letter===item.answer)};
   save();
   renderWeeklyQuizBody();
   maybeFinishWeeklyQuiz();
@@ -9373,6 +9439,16 @@ function retakeWeeklyQuiz(){
   save();
   renderWeeklyQuizBody();
 }
+/* 2026-10新增：以前"重新测试"这个按钮只会在"18题全部答完"之后的那张完成卡片里才会出现——
+   如果测验只做了一部分（比如某一题不小心答错/误触，剩下的还没做完），根本找不到任何入口可以
+   清空重来，只能卡在那里。现在额外加一个不管做没做完、随时都看得见的"重新开始"入口；
+   因为随时可见也意味着可能不小心点到，已经答了一部分时弹窗确认一下，避免真的手滑清掉进度。 */
+function requestRetakeWeeklyQuiz(){
+  var wq=ensureWeeklyQuizState();
+  var answeredCount=Object.keys(wq.answers||{}).length;
+  if(answeredCount>0 && !window.confirm('确定要清空当前的测验进度，重新开始吗？已经答过的 '+answeredCount+' 题也会一起清空哦～')) return;
+  retakeWeeklyQuiz();
+}
 function renderWeeklyPage(){
   ensureWeeklyQuizState();
   renderWeeklyStatsBox();
@@ -9399,12 +9475,31 @@ function renderWeeklyQuizBody(){
     box.innerHTML='<div class="small">这周学习内容还太少，多打几天卡再来测验吧～</div>';
     return;
   }
-  var html='<div class="small" style="margin-bottom:6px;color:#7b1fa2">📝 本周复习测验（共'+wq.items.length+'题，根据最近7天<b>真正打卡完成</b>的学习内容出题，大约20分钟，随时可以重新测试）</div>';
+  var html='<div class="small" style="margin-bottom:6px;color:#7b1fa2">📝 本周复习测验（共'+wq.items.length+'题，根据最近7天<b>真正打卡完成</b>的学习内容出题，大约20分钟，随时可以重新测试）</div>'
+    +'<div style="margin-bottom:8px"><button class="btn btn-gray btn-sm" onclick="requestRetakeWeeklyQuiz()">🔁 重新开始本周测验</button></div>';
   for(var i=0;i<wq.items.length;i++){
     var item=wq.items[i], rec=wq.answers[i];
     html+='<div class="item" style="flex-direction:column;align-items:stretch" id="wkQuizItem'+i+'">'
       +'<div class="label" style="margin-bottom:3px">'+(i+1)+'. ['+item.label+'] '+item.q+'</div>';
-    if(rec){
+    if(item.type==='reading'){
+      // 阅读理解题：选择题样式，跟日常打卡里quizSelectHtml用的是同一套class，答完直接标出✅/❌和正确选项
+      if(rec){
+        html+='<div class="quiz-select">'
+          +['A','B'].map(function(letter){
+            var optText=(letter==='A')?item.optA:item.optB;
+            var isCorrectOpt=(letter===item.answer);
+            var isPicked=(rec.val===letter);
+            var cls='quiz-opt-btn quiz-opt-disabled'+(isCorrectOpt?' quiz-opt-correct':(isPicked?' quiz-opt-wrong':''));
+            return '<button class="'+cls+'" disabled>'+letter+'. '+optText+(isCorrectOpt?' ✅':(isPicked?' ❌':''))+'</button>';
+          }).join('')
+          +'</div>';
+      }else{
+        html+='<div class="quiz-select">'
+          +'<button class="quiz-opt-btn" onclick="submitWeeklyQuizChoice('+i+',\'A\')">A. '+item.optA+'</button>'
+          +'<button class="quiz-opt-btn" onclick="submitWeeklyQuizChoice('+i+',\'B\')">B. '+item.optB+'</button>'
+          +'</div>';
+      }
+    }else if(rec){
       html+='<div class="quiz-fill quiz-resolved"><span style="color:'+(rec.correct?'#2e7d32':'#c62828')+';font-weight:700">'+(rec.correct?'✅':'❌')+' 你写的：'+escapeAttr(rec.val)+'</span>'
         +(rec.correct?'':'<span style="color:#7b1fa2"> 正确答案：'+escapeAttr(item.ans)+'</span>')+'</div>';
     }else{
@@ -9416,7 +9511,7 @@ function renderWeeklyQuizBody(){
   if(wq.submitted){
     html+='<div class="card" style="background:#e8f5e9;text-align:center;margin-top:8px">'
       +'<div style="font-weight:700;color:#2e7d32;font-size:15px">🏆 本周测验完成！答对 '+wq.score+' / '+wq.total+' 题</div>'
-      +'<button class="btn btn-primary" style="margin-top:6px" onclick="retakeWeeklyQuiz()">🔁 重新测试一遍</button>'
+      +'<button class="btn btn-primary" style="margin-top:6px" onclick="requestRetakeWeeklyQuiz()">🔁 重新测试一遍</button>'
       +'</div>';
   }
   box.innerHTML=html;
