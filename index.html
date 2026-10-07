@@ -1712,8 +1712,16 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" style="color:#999;margin-bottom:10px">下面每一项都可以留空/填0/不勾，不想补的东西不会被动到；全部填好之后，点最下面的"✅确认补发"一次性生效。</div>
     <div class="small" style="font-weight:600;margin-bottom:4px">💰 金币</div>
     <input type="number" id="adminCompCoinInput" value="0" min="0" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px" />
-    <div class="small" style="font-weight:600;margin-bottom:4px">💎 星辉晶</div>
-    <input type="number" id="adminCompCrystalInput" value="0" min="0" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px" />
+    <!-- 2026-10fix：家长反馈"所有道具我都能够修改，现在只能改晶石"——以前这里只有星辉晶一个
+         材料能填数量，仙宅建材（灵木/灵石/精铁/云锦/星辉晶/龙鳞瓦）和背包日常用品（宠物粮食/
+         饮用水/牛奶/炸鸡翅/葡式蛋挞/日式和牛/抹茶拿铁/外出游玩券/美容洗护）都没法补。现在改成
+         每次打开弹窗时，由 adminGrantCompensation() 按当前游戏配置（CONFIG.dungeon2的材料表、
+         CONFIG.shop里可囤货的日常用品）自动铺出一整排数量输入框，以后游戏里新增材料/用品种类，
+         这里会自动跟着多出一行，不用再手动改这个弹窗 -->
+    <div class="small" style="font-weight:600;margin-bottom:4px">🧱 仙宅建材（可以补任意种类、任意数量）</div>
+    <div id="adminCompMaterialsWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:10px"></div>
+    <div class="small" style="font-weight:600;margin-bottom:4px">🎒 背包日常用品（可以补任意种类、任意数量）</div>
+    <div id="adminCompSuppliesWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:10px"></div>
     <div class="small" style="font-weight:600;margin-bottom:4px">🎗️ 腰带装备</div>
     <select id="adminCompBeltSelect" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px">
       <option value="">不补</option>
@@ -5726,12 +5734,37 @@ function adminAdjustCoinBalance(rowId,cid,childName,currentBalance){
 // 见上面HTML），所有要填的项目一次性摆在同一屏幕上，不会再有"后面还有框"这种容易被忽略的情况。
 // adminGrantCompensation()只负责"打开这个弹窗、把表单重置成空白默认值"；真正读表单、校验、
 // 写入云端的逻辑拆到下面 submitAdminCompensation() / performAdminCompensation() 里。
+// 2026-10新增：背包"日常用品"的目录——直接从CONFIG.shop里按PET_SUPPLY_IDS（可以囤货存进背包的那几种）
+// 挑出来，名字/emoji跟商店页面完全一致，不另外手写一份容易对不上的清单
+function shopSupplyCatalog(){
+  return PET_SUPPLY_IDS.map(function(id){
+    var it=null;
+    for(var i=0;i<CONFIG.shop.length;i++){ if(CONFIG.shop[i].id===id){ it=CONFIG.shop[i]; break; } }
+    return it||{id:id, name:id, nameEn:id, emoji:'❔'};
+  });
+}
+// 补偿弹窗里"仙宅建材"/"背包日常用品"这两排数量输入框是动态铺出来的（而不是写死在HTML里）：
+// 建材列表来自dungeonMaterialCatalog()（跟副本掉落、仙宅小屋那边用的是同一份，不会对不上），
+// 用品列表来自shopSupplyCatalog()（跟商店页面是同一份配置），以后游戏里加了新材料/新用品，
+// 这里会自动多出一行，不需要再手动维护这个弹窗
+function buildAdminCompItemRows(containerId, idPrefix, items){
+  var wrap=document.getElementById(containerId);
+  if(!wrap) return;
+  wrap.innerHTML=items.map(function(it){
+    var inputId=idPrefix+it.id;
+    return '<div>'
+      +'<div class="small" style="margin-bottom:2px">'+(it.emoji||'❔')+' '+it.name+'</div>'
+      +'<input type="number" id="'+inputId+'" value="0" min="0" style="width:100%;box-sizing:border-box;padding:6px;border-radius:8px;border:1px solid #e0c3f0;font-size:14px" />'
+      +'</div>';
+  }).join('');
+}
 var _adminCompTarget=null;
 function adminGrantCompensation(rowId,cid,childName){
   _adminCompTarget={rowId:rowId, cid:cid, childName:childName};
   var nameEl=document.getElementById('adminCompNameLabel'); if(nameEl) nameEl.textContent=childName;
   var coinEl=document.getElementById('adminCompCoinInput'); if(coinEl) coinEl.value='0';
-  var crystalEl=document.getElementById('adminCompCrystalInput'); if(crystalEl) crystalEl.value='0';
+  buildAdminCompItemRows('adminCompMaterialsWrap', 'adminCompMat_', dungeonMaterialCatalog());
+  buildAdminCompItemRows('adminCompSuppliesWrap', 'adminCompSup_', shopSupplyCatalog());
   var beltEl=document.getElementById('adminCompBeltSelect'); if(beltEl) beltEl.value='';
   var dungeonEl=document.getElementById('adminCompResetDungeonCheckbox'); if(dungeonEl) dungeonEl.checked=false;
   var levelEl=document.getElementById('adminCompLevelInput'); if(levelEl) levelEl.value='';
@@ -5740,19 +5773,40 @@ function adminGrantCompensation(rowId,cid,childName){
 }
 // 读取表单、校验、最后弹一次汇总确认——跟以前prompt链条的校验规则完全一致，只是从"一个个弹框"
 // 改成"一次性读整个表单"，校验失败时的提示文案也保持不变，家长看到的报错信息不会变得陌生
+// 2026-10fix：读表单时，建材/日常用品不再只读"星辉晶"一个输入框，而是按当前弹窗里动态铺出来的
+// 每一个材料/用品输入框都读一遍，各自存量只要>0就算要补——数量没有上限，家长想补多少填多少
+function readAdminCompItemAmounts(idPrefix, items, label){
+  var amounts={}, hasError=false, errMsg='';
+  items.forEach(function(it){
+    if(hasError) return;
+    var el=document.getElementById(idPrefix+it.id);
+    var amt=Math.round(Number((el&&el.value)||0));
+    if(!isFinite(amt)||amt<0){ hasError=true; errMsg='❌ '+it.name+'数量请输入不小于0的数字'; return; }
+    amounts[it.id]=amt;
+  });
+  return {amounts:amounts, error:hasError?errMsg:null};
+}
 function submitAdminCompensation(){
   if(!_adminCompTarget) return;
   var t=_adminCompTarget;
   var coinEl=document.getElementById('adminCompCoinInput');
-  var crystalEl=document.getElementById('adminCompCrystalInput');
   var beltEl=document.getElementById('adminCompBeltSelect');
   var dungeonEl=document.getElementById('adminCompResetDungeonCheckbox');
   var levelEl=document.getElementById('adminCompLevelInput');
 
   var coinAmt=Math.round(Number((coinEl&&coinEl.value)||0));
   if(!isFinite(coinAmt)||coinAmt<0){ ttsToast('❌ 金币数量请输入不小于0的数字', 4000); return; }
-  var crystalAmt=Math.round(Number((crystalEl&&crystalEl.value)||0));
-  if(!isFinite(crystalAmt)||crystalAmt<0){ ttsToast('❌ 星辉晶数量请输入不小于0的数字', 4000); return; }
+
+  var materialCatalog=dungeonMaterialCatalog();
+  var matRead=readAdminCompItemAmounts('adminCompMat_', materialCatalog);
+  if(matRead.error){ ttsToast(matRead.error, 4000); return; }
+  var materialsAmt=matRead.amounts;
+
+  var supplyCatalog=shopSupplyCatalog();
+  var supRead=readAdminCompItemAmounts('adminCompSup_', supplyCatalog);
+  if(supRead.error){ ttsToast(supRead.error, 4000); return; }
+  var suppliesAmt=supRead.amounts;
+
   var beltDefId=(beltEl&&beltEl.value)?beltEl.value:null;
   var resetDungeon=!!(dungeonEl&&dungeonEl.checked);
   var levelInput=(levelEl&&levelEl.value!=null)?String(levelEl.value):'';
@@ -5762,11 +5816,18 @@ function submitAdminCompensation(){
     if(!isFinite(levelAmt)||levelAmt<1){ ttsToast('❌ 等级请输入1以上的整数', 4000); return; }
   }
 
-  if(coinAmt<=0 && crystalAmt<=0 && !beltDefId && !resetDungeon && !levelAmt){ ttsToast('没有要补发的东西，已取消', 4000); return; }
+  var matLines=materialCatalog.filter(function(it){ return materialsAmt[it.id]>0; })
+    .map(function(it){ return '· '+it.emoji+it.name+' +'+materialsAmt[it.id]+'\n'; }).join('');
+  var supLines=supplyCatalog.filter(function(it){ return suppliesAmt[it.id]>0; })
+    .map(function(it){ return '· '+(it.emoji||'')+it.name+' +'+suppliesAmt[it.id]+'\n'; }).join('');
+  var hasAnyMaterial=matLines.length>0, hasAnySupply=supLines.length>0;
+
+  if(coinAmt<=0 && !hasAnyMaterial && !hasAnySupply && !beltDefId && !resetDungeon && !levelAmt){ ttsToast('没有要补发的东西，已取消', 4000); return; }
 
   var summary='确定要给「'+t.childName+'」补发：\n'
     +(coinAmt>0?('· 金币 +'+coinAmt+'\n'):'')
-    +(crystalAmt>0?('· 星辉晶💎 +'+crystalAmt+'\n'):'')
+    +matLines
+    +supLines
     +(beltDefId?('· 腰带装备【'+EQUIP_ITEMS[beltDefId].name+'】x1\n'):'')
     +(resetDungeon?('· 清空今天所有副本关卡的通关标记\n'):'')
     +(levelAmt?('· 当前出战宠物的等级直接改成 Lv.'+levelAmt+'\n'):'')
@@ -5775,7 +5836,7 @@ function submitAdminCompensation(){
 
   var btn=document.getElementById('adminCompConfirmBtn');
   if(btn){ btn.disabled=true; btn.textContent='处理中…'; }
-  return performAdminCompensation(t.rowId,t.cid,t.childName,coinAmt,crystalAmt,beltDefId,resetDungeon,levelAmt).then(function(){
+  return performAdminCompensation(t.rowId,t.cid,t.childName,coinAmt,materialsAmt,suppliesAmt,beltDefId,resetDungeon,levelAmt).then(function(){
     if(btn){ btn.disabled=false; btn.textContent='✅ 确认补发'; }
     hideModal('adminCompensationModal');
   }).catch(function(){
@@ -5785,7 +5846,9 @@ function submitAdminCompensation(){
 }
 // 真正读云端数据、写入补发内容的核心逻辑——不碰任何prompt/confirm/DOM，方便单独测试，
 // 也方便以后万一还要在别的地方（比如批量补偿）复用这同一套写入逻辑
-function performAdminCompensation(rowId,cid,childName,coinAmt,crystalAmt,beltDefId,resetDungeon,levelAmt){
+// 2026-10fix：crystalAmt(单个数字)参数改成materialsAmt/suppliesAmt两个{id:数量}对象，
+// 可以一次性补任意种类、任意数量的建材和日常用品，不再局限于只能补星辉晶
+function performAdminCompensation(rowId,cid,childName,coinAmt,materialsAmt,suppliesAmt,beltDefId,resetDungeon,levelAmt){
   return fetchRowData(rowId).then(function(row){
     var d=row&&row.data;
     if(!d||!d.accounts||!d.accounts[cid]){ ttsToast('❌ 没找到这个孩子的存档数据，可能数据结构有问题，先用"查看/修复"确认一下', 6000); return; }
@@ -5797,11 +5860,27 @@ function performAdminCompensation(rowId,cid,childName,coinAmt,crystalAmt,beltDef
       addCoinLedgerEntryToRaw(cs, coinAmt, reason);
       addItemLedgerEntryToRaw(cs, 'coin', '金币', coinAmt, 'grant', reason);
     }
-    if(crystalAmt>0){
-      if(!cs.backpack) cs.backpack={};
-      if(!cs.backpack.materials) cs.backpack.materials={};
-      cs.backpack.materials.crystal=(cs.backpack.materials.crystal||0)+crystalAmt;
-      addItemLedgerEntryToRaw(cs, 'mat_crystal', '星辉晶', crystalAmt, 'grant', reason);
+    if(materialsAmt){
+      Object.keys(materialsAmt).forEach(function(mid){
+        var amt=materialsAmt[mid];
+        if(!(amt>0)) return;
+        if(!cs.backpack) cs.backpack={};
+        if(!cs.backpack.materials) cs.backpack.materials={};
+        cs.backpack.materials[mid]=(cs.backpack.materials[mid]||0)+amt;
+        addItemLedgerEntryToRaw(cs, 'mat_'+mid, materialInfo(mid).name, amt, 'grant', reason);
+      });
+    }
+    if(suppliesAmt){
+      Object.keys(suppliesAmt).forEach(function(sid){
+        var amt=suppliesAmt[sid];
+        if(!(amt>0)) return;
+        if(!cs.backpack) cs.backpack={};
+        if(!cs.backpack.supplies) cs.backpack.supplies={};
+        cs.backpack.supplies[sid]=(cs.backpack.supplies[sid]||0)+amt;
+        var supItem=null;
+        for(var i=0;i<CONFIG.shop.length;i++){ if(CONFIG.shop[i].id===sid){ supItem=CONFIG.shop[i]; break; } }
+        addItemLedgerEntryToRaw(cs, sid, (supItem?supItem.name:sid), amt, 'grant', reason);
+      });
     }
     if(beltDefId){
       grantEquipmentItem(cs, beltDefId);
