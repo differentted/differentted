@@ -1224,6 +1224,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       </div>
       <button class="btn btn-danger" id="btnSpin" onclick="spinWheel()"><span data-i18n="wheel_spin_btn_prefix">🎲 开始抽奖（剩余 </span><span id="spinRemain">0</span><span data-i18n="wheel_spin_btn_suffix"> 次）</span></button>
     </div>
+    <!-- 2026-10新增：免费次数用完了，也可以花金币额外抽——不限次数，但越抽越贵，且保底不会抽到"谢谢参与" -->
+    <div style="text-align:center;margin-top:10px;border-top:1px solid #eee;padding-top:10px">
+      <div class="small" style="margin-bottom:6px" data-i18n="wheel_paid_desc">💰 免费次数用完了也可以花金币抽——不限次数，但每抽一次下一次要花的金币都会翻倍；金币抽奖保底不会抽到"谢谢参与"</div>
+      <button class="btn btn-gray btn-sm" id="btnSpinPaid" onclick="spinWheelPaid()"><span data-i18n="wheel_paid_btn_prefix">💰 花 </span><b id="wheelPaidCost">5</b><span data-i18n="wheel_paid_btn_suffix"> 金币抽一次</span></button>
+    </div>
   </div>
 </div>
 
@@ -1261,8 +1266,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h2>📝 打卡日志</h2>
     <div class="log" id="logBox"></div>
   </div>
+</div>
+
+<!-- ============ 页7：角色管理 ============ -->
+<!-- 2026-10新增：原来"账号登录/数据备份/管理后台/对战练习"这些跟"小朋友背包"没什么关系的内容，
+     都挤在背包页最底下，新开一个独立栏目专门放这些"账号/角色"相关的设置，背包页只留跟打卡奖励
+     本身有关的内容，逻辑上更清楚。 -->
+<div class="page" id="page-profile">
   <div class="card">
-    <h2>💾 数据备份</h2>
+    <h2>👤 角色管理</h2>
     <!-- 2026-10fix：家长反馈既然已经有自动备份+云端同步，这里面向日常使用的手动导出/导入
          （下载备份文件/从文件导入/导出备份文本/粘贴导入）就不需要了，全部拿掉，只留"自动备份"
          查看/恢复 和 "多设备同步诊断"这两个真正常用的功能。downloadBackup()这个函数本身没有删，
@@ -1308,7 +1320,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="margin-top:4px;color:#999">用你真实的七维能力值解锁技能，对手是虚拟练习角色，随时可以来试试身手</div>
     </div>
   </div>
-  <div class="card">
+  <!-- 2026-10fix：家长反馈"副本挑战管理"（撤销副本奖励）这个工具本来是给管理员做数据修复用的，
+       不应该出现在普通玩家能看到的页面里——这里改成跟"🛠️管理后台"同一套可见性规则：只有默认家庭
+       空间（管理员自己那个号）能看到这张卡片，其他任何家庭码登录进来的人，这张卡片从头到尾都不显示。 -->
+  <div class="card" id="dungeonManageCard" style="display:none">
     <h2>⚔️ 副本挑战管理</h2>
     <div class="small" style="text-align:center;color:#e65100;font-weight:600">🔒 副本挑战功能已暂时关闭（维护中）</div>
     <div style="text-align:center;margin:8px 0">
@@ -1404,6 +1419,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')" data-i18n="tab_shop"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')" data-i18n="tab_bag"><span class="t-emoji">🎒</span>背包</button>
   <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();markPkInboxRead();"><span data-i18n="tab_visit"><span class="t-emoji">🚪</span>串门</span><span class="tab-badge" id="visitTabBadge">0</span></button>
+  <button class="tab-btn" data-page="profile" onclick="showPage('profile')" data-i18n="tab_profile"><span class="t-emoji">👤</span>角色管理</button>
 </nav>
 
 <!-- 选择宠物弹窗 -->
@@ -3639,6 +3655,7 @@ var I18N_EN = {
   tab_shop: '<span class="t-emoji">🛒</span>Shop',
   tab_bag: '<span class="t-emoji">🎒</span>Bag',
   tab_visit: '<span class="t-emoji">🚪</span>Visit',
+  tab_profile: '<span class="t-emoji">👤</span>Profile',
   pg_pet_title: '🐾 My Virtual Pet',
   pg_shop_title: '🛒 Pet Shop (buy with coins)',
   pg_visit_title: '🚪 Visit',
@@ -3689,6 +3706,9 @@ var I18N_EN = {
   wheel_rest_unlock_label: '🎁 Rest Card unlock: ',
   wheel_spin_btn_prefix: '🎲 Spin (',
   wheel_spin_btn_suffix: ' left)',
+  wheel_paid_desc: '💰 Out of free spins? You can also pay coins for more - unlimited spins, but the cost doubles each time you use one; a paid spin is guaranteed to never land on "Thanks for Playing"',
+  wheel_paid_btn_prefix: '💰 Spin for ',
+  wheel_paid_btn_suffix: ' coins',
   checkin_settings_title: '📅 Today\'s Settings',
   checkin_mode_label: 'Check-in Mode',
   btn_morning: 'Morning',
@@ -4797,6 +4817,7 @@ function freshDay(key){
     studyViewed:{word:{},hanzi:{},sentence:{}}, // 2026-09新增：今天点开看过（或听过发音）的单词/汉字/句子，"换一批"要求本批全部点开过才解锁
     wheel:{sport:false,house:false,study:false,fun:false,diary:false,custom:false,comm:false},
     wheelUsed:0,
+    wheelPaidCount:0, // 2026-10新增：今天已经用金币额外抽过几次奖——每抽一次，下一次要花的金币翻倍，每天从0重新开始
     gotFreeCard:false,
     freeCardUsed:false,
     discountActive:null,
@@ -5585,6 +5606,10 @@ function refreshAdminEntryVisibility(){
   // 现在战斗系统已经接真实数据正式可用，所有家庭都应该能看到，不该再跟admin权限绑在一起
   var battleWrap=document.getElementById('battleDemoEntryWrap');
   if(battleWrap) battleWrap.style.display='block';
+  // 2026-10新增："副本挑战管理"（撤销副本奖励）是给管理员做数据修复用的工具，不该让普通玩家看到，
+  // 复用跟"🛠️管理后台"入口完全一样的可见性规则：只有默认家庭空间能看到这张卡片
+  var dungeonCard=document.getElementById('dungeonManageCard');
+  if(dungeonCard) dungeonCard.style.display=isDefault?'block':'none';
 }
 function openAdminEntry(){
   var input=document.getElementById('adminLoginInput');
@@ -11287,6 +11312,8 @@ function migrateState(s){
   // undefined 参与减法得到 NaN，"NaN<=0"恒为false，会让"今日抽奖次数用完"的限制在这个窗口期内完全失效，
   // 可以无限转动幸运转盘。这里统一补上默认值0，跟其它 day.* 字段一样兜底。
   if(typeof s.day.wheelUsed!=='number') s.day.wheelUsed=0;
+  // 2026-10新增：金币抽奖次数，老存档/当天还没跨天时也要补上默认值0，道理跟上面wheelUsed的兜底完全一样
+  if(typeof s.day.wheelPaidCount!=='number') s.day.wheelPaidCount=0;
   if(!s.day.trainBought) s.day.trainBought={train:false,train2:false};
   if(!s.sportStudyFullDays) s.sportStudyFullDays=[];
   if(!s.restCardMonthKey) s.restCardMonthKey=getMonthKey();
@@ -11595,7 +11622,7 @@ function currentChild(){ return store.accounts[store.currentChildId]; }
 
 /* ========== 页面切换 ========== */
 function showPage(name){
-  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage'].forEach(function(p){
+  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage','profile'].forEach(function(p){
     var el=document.getElementById('page-'+p);
     el.classList.toggle('active', p===name);
   });
@@ -15809,11 +15836,11 @@ function pickWeighted(segs){
   for(i=0;i<segs.length;i++){r-=segs[i].weight;if(r<=0) return i;}
   return segs.length-1;
 }
-function spinWheel(){
-  if(spinning) return;
-  if(remainingWheel()<=0){alert(L('今日抽奖次数已用完，快去完成运动/家务/学习打卡获取次数吧！','Out of spins for today - go finish Sport/Chores/Study check-ins to earn more!'));return;}
-  var segs=wheelSegments(),n=segs.length;
-  var idx=pickWeighted(segs);
+// 2026-10重构：把"转动动画"从spinWheel()里拆出来，变成一个可以复用的通用函数——
+// 免费抽奖(spinWheel)和金币抽奖(spinWheelPaid)用的是完全同一套转动动画，只是"转到哪个结果"
+// 和"转完之后要不要占用今日免费次数"不一样，拆开避免维护两份几乎一样的代码
+function runWheelSpinAnimation(segs, idx, onDone){
+  var n=segs.length;
   var segDeg=360/n;
   var centerIdx=(idx+0.5)*segDeg;
   var targetMod=(((-centerIdx)%360)+360)%360;
@@ -15827,11 +15854,55 @@ function spinWheel(){
     wheelRotation=start+(target-start)*ease;
     drawWheel();
     if(p<1){requestAnimationFrame(frame);}
-    else{spinning=false;applyReward(segs[idx]);}
+    else{spinning=false;onDone();}
   }
   requestAnimationFrame(frame);
 }
-function applyReward(seg){
+function spinWheel(){
+  if(spinning) return;
+  if(remainingWheel()<=0){alert(L('今日抽奖次数已用完，快去完成运动/家务/学习打卡获取次数吧！','Out of spins for today - go finish Sport/Chores/Study check-ins to earn more!'));return;}
+  var segs=wheelSegments();
+  var idx=pickWeighted(segs);
+  runWheelSpinAnimation(segs, idx, function(){
+    state.day.wheelUsed++; // 免费抽奖才占用"今日剩余抽奖"这个每日限量的次数
+    applyReward(segs[idx]);
+  });
+}
+/* ========== 2026-10新增：花金币额外抽奖 ==========
+   家长要求："幸运转盘增加一个可以用金币尝试抽奖,抽奖一次5金币,每抽奖一次就翻倍,不限次数,
+   金币抽奖保底不会出现谢谢参与"——跟上面"今日剩余抽奖"(靠打卡赚的免费次数)完全独立的另一条路：
+   ①不占用免费次数、也不受免费次数限制，钱够就能一直抽；②第一次5金币，之后每抽一次下一次的
+   价格就翻倍(5→10→20→40...)，每天从5金币重新开始计价；③保底不会抽到"谢谢参与"这个空奖——
+   直接把"谢谢参与"这个奖项从金币抽奖的奖池里剔除，只在剩下的真奖品里抽，天然保证每次都有收获。 */
+var WHEEL_PAID_BASE_COST=5;
+function wheelPaidNextCost(){
+  var n=(state.day && typeof state.day.wheelPaidCount==='number')?state.day.wheelPaidCount:0;
+  return WHEEL_PAID_BASE_COST*Math.pow(2,n);
+}
+function spinWheelPaid(){
+  if(spinning) return;
+  var cost=wheelPaidNextCost();
+  if((state.moneyBalance||0)<cost){ alert(L('金币不够啦，这次金币抽奖需要 '+cost+' 金币','Not enough coins - this coin spin costs '+cost+' coins')); return; }
+  var segs=wheelSegments().filter(function(s){return s.id!=='none';}); // 金币抽奖保底：奖池里压根没有"谢谢参与"这个选项
+  if(!segs.length){ alert(L('暂时没有可以抽的奖项，请稍后再试','No prizes are available to draw right now, try again later')); return; }
+  if(!confirm(L('确认花费 '+cost+' 金币抽一次奖吗？\n金币抽奖不限次数，但每抽一次，下一次要花的金币都会翻倍；金币抽奖保底不会抽到"谢谢参与"。','Spend '+cost+' coins for one extra spin?\nCoin spins are unlimited, but the cost doubles every time you use one; a coin spin is guaranteed to never land on "Thanks for Playing".'))) return;
+  addCoinChange(-cost, L('幸运转盘：花金币额外抽奖','Lucky Wheel: paid extra spin'));
+  state.day.wheelPaidCount=(state.day.wheelPaidCount||0)+1;
+  updateWheelPaidSpinUI();
+  var idx=pickWeighted(segs);
+  runWheelSpinAnimation(segs, idx, function(){
+    applyReward(segs[idx], {paid:true}); // 金币抽奖不占用免费次数，所以不调用state.day.wheelUsed++
+    updateWheelPaidSpinUI();
+  });
+}
+function updateWheelPaidSpinUI(){
+  var costEl=document.getElementById('wheelPaidCost');
+  if(costEl) costEl.innerText=wheelPaidNextCost();
+  var btn=document.getElementById('btnSpinPaid');
+  if(btn) btn.disabled=spinning||((state.moneyBalance||0)<wheelPaidNextCost());
+}
+function applyReward(seg,opts){
+  opts=opts||{};
   var id=seg.id,msg='';
   if(id==='free'){
     if(state.day.gotFreeCard){addCoinChange(10,'转盘抽中免做卡补偿（今日已有一张，换成金币）');msg=L('🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！','🎫 Free-Pass Card drawn, but you already got one today - auto-converted to 10 coins instead!');}
@@ -15851,8 +15922,8 @@ function applyReward(seg){
     msg=seg.emoji+L('恭喜抽中【'+materialLabel(seg.mat)+'】×'+matQty+'！已经存进副本建材背包','Congrats, you won ['+materialLabel(seg.mat)+'] ×'+matQty+'! Added to your dungeon materials bag');
   }
   else{msg=L('⭐谢谢参与，下次好运！','⭐ Thanks for playing, better luck next time!');}
-  state.day.wheelUsed++;
-  addLog(L('🎡幸运转盘：','🎡 Lucky Wheel: ')+msg);
+  if(!opts.paid) state.day.wheelUsed++; // 2026-10fix：这一行原来无条件执行，现在金币抽奖不应该占用"今日剩余抽奖"的免费次数，只有免费抽奖才计数
+  addLog((opts.paid?L('💰金币抽奖：','💰 Coin Spin: '):L('🎡幸运转盘：','🎡 Lucky Wheel: '))+msg);
   showReward(seg.emoji+L(' 抽奖结果',' Spin Result'),msg);
   save();
 }
@@ -16180,6 +16251,7 @@ function render(){
   document.getElementById('wheelRemain').innerText=Math.max(0,rem);
   document.getElementById('spinRemain').innerText=Math.max(0,rem);
   document.getElementById('btnSpin').disabled=rem<=0||spinning;
+  updateWheelPaidSpinUI();
   document.getElementById('fullDays').innerText=Math.min(10,state.totalFullDays);
   document.getElementById('restStreak').innerText=Math.min(10,computeSportStudyStreak());
   var restMk=getMonthKey();
