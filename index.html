@@ -5238,10 +5238,20 @@ function submitFamilyCode(){
       if(btn){ btn.disabled=false; btn.textContent=L('✅ 确认进入','✅ Confirm & Enter'); }
       if(rowId){
         try{
-          if(isChange){
-            localStorage.removeItem(STORE_KEY);
-            localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
-          }
+          // 2026-10fix【关键安全修复】：原来只有isChange("🔄更换家庭空间")才会清本机缓存的STORE_KEY，
+          // "initial"模式（首次输入家庭码 / 10分钟闲置自动登出或被踢下线后重新输入）不会清。
+          // 这就是管理后台"各家数据"里茜茜那一行莫名其妙多出来嫣嫣的真正原因——如果同一台设备/
+          // 浏览器先登录过嫣嫣（本机缓存着嫣嫣的store），嫣嫣那边因为闲置超时/被踢下线退出后，
+          // 茜茜在同一台设备上用自己的家庭码重新登录（这时候走的正是"initial"模式，不是"change"），
+          // FAMILY_ROW_ID_KEY换成了茜茜的行，但STORE_KEY这份本机缓存还是嫣嫣的——load()里
+          // finishLoadRender()->ensurePetHomeRegistry()会在云端数据真正同步回来、纠正本机缓存之前
+          // 就先跑一次，把"嫣嫣的孩子档案ID"顺着当时已经指向茜茜的SUPA_ROW_ID登记了进去，就产生了
+          // 这条张冠李戴的登记记录（云端真正的存档数据本身没有被污染，后续cloudSyncOnLoad()会正确
+          // 纠正回茜茜自己的数据，但这条登记记录不会自动消失，会一直挂在管理后台的列表里）。
+          // 不管是不是"更换家庭空间"，只要是走到这个"确认进入"的提交动作，都统一清掉本机缓存，
+          // 强制接下来走"先拉云端、拉到了才渲染"这条更安全的路径，不会有任何本机旧缓存"抢跑"的空当。
+          localStorage.removeItem(STORE_KEY);
+          localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
           localStorage.setItem(FAMILY_CODE_KEY,code);
           localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
           localStorage.removeItem(PENDING_APPLY_CODE_KEY);
@@ -5340,6 +5350,11 @@ function recheckFamilyApplication(){
   checkFamilyCodeApproved(code).then(function(rowId){
     if(rowId){
       try{
+        // 2026-10fix：跟submitFamilyCode()同一个安全修复——申请审核通过第一次真正登录进来，
+        // 这台设备上一定不能带着任何之前别的家庭码残留的本机缓存，统一清掉，强制走"先拉云端、
+        // 拉到了才渲染"这条安全路径
+        localStorage.removeItem(STORE_KEY);
+        localStorage.removeItem(SUPA_LAST_SYNCED_KEY);
         localStorage.setItem(FAMILY_CODE_KEY,code);
         localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
         localStorage.removeItem(PENDING_APPLY_CODE_KEY);
@@ -5627,13 +5642,26 @@ function adminGrantCompensation(rowId,cid,childName){
 
   var resetDungeon=window.confirm('要不要把「'+childName+'」今天所有副本关卡的"今日已通关"标记清掉，让TA今天可以把每一关都重新挑战一次？\n\n（点"取消"就不会动副本记录，其它补发项照常生效）');
 
-  if(coinAmt<=0 && crystalAmt<=0 && !beltDefId && !resetDungeon){ ttsToast('没有要补发的东西，已取消', 4000); return; }
+  // 2026-10新增：补偿功能里顺带加上"直接改等级"，不用再单独走另一套工具——
+  // 只改"当前出战宠物"(state.pet)，按目标等级反推出对应exp(用expForLevelFloor，跟正常升级
+  // 用的是同一套算法，改完之后看起来跟"正常升上来的"没有区别)，改之前/改之后都会记进这只宠物
+  // 自己的levelLedger，方便以后万一又出问题能查到"是管理员手动改的，什么时候改的"
+  var levelInput=window.prompt('要把「'+childName+'」当前出战的这只宠物，等级直接改成多少级？（这是在直接设置等级，不是增量；不用改就留空）', '');
+  if(levelInput===null) return;
+  var levelAmt=null;
+  if(levelInput && levelInput.trim()!==''){
+    levelAmt=Math.round(Number(levelInput));
+    if(!isFinite(levelAmt)||levelAmt<1){ ttsToast('❌ 等级请输入1以上的整数', 4000); return; }
+  }
+
+  if(coinAmt<=0 && crystalAmt<=0 && !beltDefId && !resetDungeon && !levelAmt){ ttsToast('没有要补发的东西，已取消', 4000); return; }
 
   var summary='确定要给「'+childName+'」补发：\n'
     +(coinAmt>0?('· 金币 +'+coinAmt+'\n'):'')
     +(crystalAmt>0?('· 星辉晶💎 +'+crystalAmt+'\n'):'')
     +(beltDefId?('· 腰带装备【'+EQUIP_ITEMS[beltDefId].name+'】x1\n'):'')
     +(resetDungeon?('· 清空今天所有副本关卡的通关标记\n'):'')
+    +(levelAmt?('· 当前出战宠物的等级直接改成 Lv.'+levelAmt+'\n'):'')
     +'\n⚠️这会直接写入云端数据，且没法撤销，确定吗？';
   if(!window.confirm(summary)) return;
 
@@ -5669,6 +5697,17 @@ function adminGrantCompensation(rowId,cid,childName){
           });
         }
       });
+    }
+    if(levelAmt){
+      if(!cs.pet){ ttsToast('⚠️没找到这个孩子当前出战的宠物，等级没有改（其它补发项已照常生效）', 6000); }
+      else{
+        var levelBefore=petLevelInfo(cs.pet).level;
+        var oldExp=(typeof cs.pet.exp==='number'&&isFinite(cs.pet.exp))?cs.pet.exp:0;
+        var newExp=expForLevelFloor(levelAmt);
+        cs.pet.exp=newExp;
+        var levelAfter=petLevelInfo(cs.pet).level;
+        addPetLevelLedgerEntryToRaw(cs.pet, newExp-oldExp, levelBefore, levelAfter, reason+'（直接设置等级为Lv.'+levelAmt+'）');
+      }
     }
     return supaUpsertRow(rowId, d).then(function(){
       ttsToast('✅ 已经给「'+childName+'」补发完成', 4500);
@@ -5744,7 +5783,7 @@ function showItemLedgerDetail(rowId,cid,childName){
     }
     entries.reverse(); // 最新的排最上面
     var shown=entries.slice(0,80);
-    var actionLabel={buy:'🛒买进背包',buy_use:'🛒购买并使用',use:'🐾取出使用'};
+    var actionLabel={buy:'🛒买进背包',buy_use:'🛒购买并使用',use:'🐾取出使用',grant:'🎁管理员补发',auto_eat:'🐾饿了自己偷吃',auto_eat_waste:'😈调皮浪费掉了'};
     list.innerHTML=shown.map(function(e){
       var when=''; try{ when=new Date(e.t).toLocaleString(); }catch(err){}
       var tag=actionLabel[e.action]||e.action||'';
@@ -5886,16 +5925,18 @@ function loadAdminFamilies(){
       var d=r.data;
       if(!d||!d.rowId||d.tombstone) return; // tombstone=后台已经移除过的家庭，不再显示
       if(!byRow[d.rowId]) byRow[d.rowId]=[];
-      byRow[d.rowId].push(d.name||'？');
+      byRow[d.rowId].push({name:d.name||'？', childId:d.childId||null}); // 2026-10新增：顺手把childId也记下来，供下面"🧹核对张冠李戴"用
     });
     var rowIds=Object.keys(byRow);
     if(!rowIds.length){ box.innerHTML='（暂时没有已注册宠物家的家庭）'; return; }
     box.innerHTML='';
     rowIds.forEach(function(rid){
+      var entries=byRow[rid];
+      var namesLabel=entries.map(function(e){return e.name;}).join('、');
       var row=document.createElement('div');
       row.style.cssText='background:#f7f0fb;border-radius:10px;padding:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px';
       // 2026-09fix：孩子姓名(byRow[rid]里的内容)和rid同样来自任何人都能直接写入的云端reg:记录，同上做转义
-      row.innerHTML='<div>👪 '+byRow[rid].map(escapeAttr).join('、')+'<div style="color:#999;font-size:11px">'+escapeAttr(rid)+'</div></div>';
+      row.innerHTML='<div>👪 '+entries.map(function(e){return escapeAttr(e.name);}).join('、')+'<div style="color:#999;font-size:11px">'+escapeAttr(rid)+'</div></div>';
       var btnWrap=document.createElement('div');
       btnWrap.style.cssText='display:flex;gap:4px;flex-wrap:wrap';
       var btn=document.createElement('button');
@@ -5909,11 +5950,22 @@ function loadAdminFamilies(){
       var delBtn=document.createElement('button');
       delBtn.className='btn btn-danger btn-sm';
       delBtn.textContent='🗑️ 移除';
-      delBtn.onclick=function(){ adminRemoveFamily(rid,byRow[rid].join('、')); };
+      delBtn.onclick=function(){ adminRemoveFamily(rid,namesLabel); };
+      if(entries.length>1){
+        // 2026-10新增：同一行底下挂了不止一个名字，很可能是"张冠李戴"的登记错误（比如同一台设备
+        // 先后登录过两个不同家庭码，第二次登录时本机缓存还没来得及切换干净，就把另一个孩子的名字
+        // 顺手登记到了这一行底下）——给个一键核对工具，自动去比对这一行真实存档里到底有哪些孩子，
+        // 把查不到对应真实档案的那些"挂名"登记记录清理掉，不动任何人的真实数据
+        var cleanupBtn=document.createElement('button');
+        cleanupBtn.className='btn btn-warning btn-sm';
+        cleanupBtn.textContent='🧹 核对张冠李戴';
+        cleanupBtn.onclick=(function(rid2,entries2){ return function(){ adminCleanupMismatchedRegistrations(rid2,entries2); }; })(rid,entries);
+        btnWrap.appendChild(cleanupBtn);
+      }
       var rollbackBtn=document.createElement('button');
       rollbackBtn.className='btn btn-warning btn-sm';
       rollbackBtn.textContent='⏪ 回档至前一天';
-      rollbackBtn.onclick=function(){ adminRollbackFamilyToYesterday(rid,byRow[rid].join('、')); };
+      rollbackBtn.onclick=function(){ adminRollbackFamilyToYesterday(rid,namesLabel); };
       btnWrap.appendChild(btn); btnWrap.appendChild(codeBtn); btnWrap.appendChild(rollbackBtn); btnWrap.appendChild(delBtn);
       row.appendChild(btnWrap);
       box.appendChild(row);
@@ -5944,6 +5996,28 @@ function adminRemoveFamily(rowId,namesLabel){
       loadAdminFamilies();
     });
   }).catch(function(){ ttsToast('❌ 没连上云端，移除没成功，检查网络再试一次', 4500); });
+}
+/* 2026-10新增：排查"张冠李戴"——某个家庭(rowId)底下公开登记目录里挂了不止一个孩子的名字，
+   很可能是某台设备先后用过两个不同家庭码、本机缓存(STORE_KEY)没来得及切换干净导致的误登记
+   （比如共用一台平板的两姐妹，第二个孩子登录时，第一个孩子的本机缓存还没清掉）。
+   这里不是简单粗暴地假设"后一个一定是错的"，而是真正去读这一行存档里实际存在哪些孩子的真实数据
+   (accounts)，只有"登记目录里有名字、但真实存档里根本查不到这个孩子"的，才判定为张冠李戴的
+   错误登记，安全地单独清掉——不会动到任何人的真实打卡/宠物存档数据，也不会影响同一行下
+   真正属于这个家庭的其他孩子 */
+function adminCleanupMismatchedRegistrations(rowId,entries){
+  ttsToast('🔍 正在核对「'+entries.map(function(e){return e.name;}).join('、')+'」这些登记跟这一行真实存档是否对得上…',3000);
+  return fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    var realCids=(d&&d.accounts)?Object.keys(d.accounts):[];
+    var stray=entries.filter(function(e){ return e.childId && realCids.indexOf(e.childId)<0; });
+    if(!stray.length){ ttsToast('✅ 核对下来这些登记都对得上这一行真实存档，没有发现张冠李戴的情况',5000); return; }
+    var names=stray.map(function(e){return e.name;}).join('、');
+    if(!window.confirm('发现「'+names+'」这'+(stray.length>1?'几条':'条')+'登记记录，指向的孩子档案并不在这一行真实存档里（大概率是本机缓存残留导致的张冠李戴）。\n\n确定要把这'+(stray.length>1?'些':'条')+'登记记录移除吗？（只会移除登记目录里的这条记录，不会动任何人真实的打卡/宠物存档数据，也不影响同一行下其他孩子）')) return;
+    Promise.all(stray.map(function(e){ return tombstonePetHomeReg(rowId,e.childId); })).then(function(){
+      ttsToast('✅ 已经移除错误登记：'+names,4500);
+      loadAdminFamilies();
+    });
+  }).catch(function(){ ttsToast('❌ 没连上云端，核对失败，检查网络再试一次',5000); });
 }
 /* 有人的家庭码忘了、设备又换了/存档清掉了，进不去自己原来的数据时用这个：
    给同一份存档（同一个rowId）再挂一个新的家庭码指针，旧码不受影响、继续有效，
@@ -12174,6 +12248,68 @@ function showCoinForecastDetail(){
    现在让它老实汇报"这次是不是真的发生了宠物变回蛋这种大事"（返回true/false），配合下面 petMinuteTick
    里的改动，把"纯粹挂机、数值小幅缓慢下降"和"真的发生了大事"分开处理——具体原因见 petMinuteTick 那边
    的注释。 */
+/* ========== 宠物饿了会自己偷吃背包存货 ==========
+   2026-10新增：家长反馈"提前买好的吃用道具，宠物饿了应该会自己偷吃，并且要有偷吃记录；
+   如果是调皮宠物，会浪费食物，有时候还会把身体弄脏"。这是跟上面rollRebelEvent()"性格离线小剧情"
+   平行的另一套独立机制：rollRebelEvent只在"离线够半小时、且恰好是当前展示的那只宠物"才判一次，
+   而这里是"不管家里几只宠物、不管在不在线，只要食欲(food)掉到够低、背包里还有能吃的东西"，
+   就会每隔一段时间自动触发一次，更贴近"宠物真的饿了会自己想办法"这个直觉，覆盖面也更广
+   （后台没在看的宠物也会饿了自己找吃的，不会被干等着饿肚子）。
+   乖巧/勤劳/中性性格：正常吃掉一份，老老实实按道具本身的效果恢复对应数值；
+   叛逆(调皮)性格：有一定概率不是好好吃，而是"糟蹋浪费"——东西照样从背包里消失，但吃了没什么效果，
+   还可能顺手把自己弄脏(清洁度下降)，跟rollRebelEvent()里waste/messy两个结果的手感保持一致。
+   不管是正常吃还是浪费，都会记一笔itemLedger（action='auto_eat'/'auto_eat_waste'），
+   家长在后台"📦道具消费明细"里就能看到"这顿是宠物自己偷吃的，不是孩子自己用掉的"。 */
+var PET_SNEAK_EAT_HUNGER_THRESHOLD=25; // 吃饱饱(food)跌到这个百分比以下，宠物才会自己翻背包找吃的
+var PET_SNEAK_EAT_INTERVAL_HOURS=1;    // 最短间隔：哪怕一直饿着，也最多每隔这么久才偷吃一次，避免一口气把库存吃空
+var PET_SNEAK_EAT_MAX_WINDOWS=24;      // 离线再久，一次最多补判这么多个间隔窗口（24小时），安全上限
+var PET_SNEAK_EAT_REBEL_WASTE_CHANCE=0.4; // 叛逆(调皮)性格，每次偷吃有这个概率变成"糟蹋浪费"而不是正常吃
+function maybeSneakEat(pet){
+  if(!pet || !pet.hatched) return;
+  if(!state || !state.backpack || !state.backpack.supplies) return;
+  if((pet.food||0)>PET_SNEAK_EAT_HUNGER_THRESHOLD) return; // 还不够饿，不用偷吃
+  var supplies=state.backpack.supplies;
+  var now=Date.now();
+  var intervalMs=PET_SNEAK_EAT_INTERVAL_HOURS*3600000;
+  if(!pet.lastSneakEatAt){ pet.lastSneakEatAt=now; return; } // 第一次见到这只宠物，先记个时间点，不倒推历史
+  var windows=Math.floor((now-pet.lastSneakEatAt)/intervalMs);
+  if(windows<=0) return;
+  windows=Math.min(windows, PET_SNEAK_EAT_MAX_WINDOWS);
+  var isRebel=(petPersonality()==='rebel'); // petPersonality()读的是账号整体能力维度，不是针对某一只宠物，家里不管哪只宠物饿了偷吃，都按同一套性格判定
+  var petName=pet.name||'宠物';
+  var ate=0;
+  for(var w=0; w<windows; w++){
+    if((pet.food||0)>PET_SNEAK_EAT_HUNGER_THRESHOLD) break; // 吃到不饿了，剩下的窗口就不用再吃了
+    var ids=FOOD_EATING_SUPPLY_IDS.filter(function(id){ return (supplies[id]||0)>0; });
+    if(!ids.length) break; // 背包里已经没有能吃的东西了
+    var pickId=ids[Math.floor(Math.random()*ids.length)];
+    var item=null; for(var i=0;i<CONFIG.shop.length;i++){ if(CONFIG.shop[i].id===pickId) item=CONFIG.shop[i]; }
+    if(!item) break;
+    supplies[pickId]=Math.max(0,supplies[pickId]-1);
+    ate++;
+    if(isRebel && Math.random()<PET_SNEAK_EAT_REBEL_WASTE_CHANCE){
+      // 调皮：东西一样从背包里没了，但没好好吃——不恢复吃饱饱，还可能顺手弄脏自己
+      addItemLedgerEntry(pickId, item.name, 1, 'auto_eat_waste', petName+'饿了偷偷翻背包，结果调皮地把【'+item.name+'】糟蹋浪费掉了');
+      addLog('😈'+petName+' 饿得翻背包找吃的，结果调皮地把一份【'+item.name+'】糟蹋浪费掉了，一点都没吃饱');
+      if(Math.random()<0.5){
+        var dropClean=5+Math.floor(Math.random()*10);
+        pet.clean=Math.max(0,(pet.clean||0)-dropClean);
+        addLog('😈'+petName+' 吃得到处都是，还把自己弄得脏兮兮的');
+      }
+    }else{
+      item.fx(pet);
+      addItemLedgerEntry(pickId, item.name, 1, 'auto_eat', petName+'饿了，自己偷偷从背包里找出【'+item.name+'】吃掉了');
+      addLog('🐾'+petName+' 肚子饿了，自己偷偷从背包里翻出一份【'+item.name+'】吃掉了');
+    }
+    // 这里不能直接调用clampPet()——它内部写死只会去clamp state.pet，而这只饿了偷吃的宠物
+    // 不一定是当前展示的那只(家里可能同时养了好几只)，所以手动对这只宠物自己的几项数值做clamp
+    pet.food=Math.min(100,Math.max(0,pet.food));
+    pet.thirst=Math.min(100,Math.max(0,pet.thirst));
+    pet.happy=Math.min(100,Math.max(0,pet.happy));
+    pet.clean=Math.min(100,Math.max(0,pet.clean));
+  }
+  if(ate>0) pet.lastSneakEatAt=now; // 只要真的吃过（不管是正常吃还是浪费），指针就推进到现在，没吃到(背包空了)则留着指针不动，等下次补货后能立刻从当前时间重新起算
+}
 function applyRealTimeDecay(){
   // 家里养了不止一只宠物时，每一只都要各自按真实经过的时间掉状态——不是只有当前选中查看的那只才需要照顾，
   // 不然"后台"的宠物就变成摆设了，起不到"要真的用心养"的效果
@@ -12196,6 +12332,10 @@ function applyRealTimeDecay(){
     pet.happy=Math.max(0,preHappy-rateHappy*elapsedHours);
     pet.clean=Math.max(0,preClean-rateClean*elapsedHours);
     pet.lastTickAt=now;
+
+    // 2026-10新增：饿了自己偷吃背包存货——不区分是不是当前展示的那只，家里每一只宠物只要真的
+    // 饿到阈值以下，都会各自独立判定，跟下面"只有当前展示的宠物才弹离线小剧情"是两件不冲突的事
+    maybeSneakEat(pet);
 
     /* 性格驱动的离线行为事件：只对当前出战/展示的这只宠物生成（家里养了不止一只时，不用每只都弹一遍，
        避免一开App连续弹好几个通知）。离线至少要够 OFFLINE_EVENT_MIN_HOURS 小时才判定一次，挂机时
@@ -13300,6 +13440,18 @@ function petLevelInfo(p){
   while(remain>=need && level<maxLv){remain-=need;level++;need=40+level*10;}
   if(level>=maxLv){ level=maxLv; remain=need; } // 满级封顶，进度条直接显示满
   return {level:level,inLv:remain,need:need};
+}
+// 2026-10新增：petLevelInfo()是"给一个exp总值，反推出等级"，这里反过来——"给一个目标等级，
+// 算出刚好达到这个等级(这一级内进度为0，也就是刚升上来那一刻)所需要的exp总值"，给管理后台
+// "把等级还原/设置成XX级"这类工具用。完全照抄petLevelInfo()里"不断减need、need往上涨"那套算法，
+// 只是方向反过来变成"不断加need"，两边务必保持同步，这样修出来的等级和正常升级算出来的等级一致。
+function expForLevelFloor(targetLevel){
+  if(!targetLevel || targetLevel<=0) return 0;
+  var maxLv=CONFIG.maxLevel||999;
+  var lv=Math.min(Math.max(1,Math.round(targetLevel)),maxLv);
+  var exp=CONFIG.eggHatchExp, level=1, need=60;
+  while(level<lv){ exp+=need; level++; need=40+level*10; }
+  return exp;
 }
 const PET_UNLOCK_LEVEL=30; // 老门槛，保留常量不删（其他地方文案可能还引用到），但已不再是养新宠物的判定依据
 function allOwnedPetsReachedLevel(minLevel){
