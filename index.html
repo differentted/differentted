@@ -5905,6 +5905,17 @@ function performAdminCompensation(rowId,cid,childName,coinAmt,materialsAmt,suppl
         var oldExp=(typeof cs.pet.exp==='number'&&isFinite(cs.pet.exp))?cs.pet.exp:0;
         var newExp=expForLevelFloor(levelAmt);
         cs.pet.exp=newExp;
+        // 2026-10fix【关键bug修复：等级怎么调都调不动】：cs.pet 和 cs.pets[cs.activePetIdx] 是从云端
+        // 原始JSON数据里各自独立解析出来的两个对象——不像孩子手机里运行中的网页那样，切换出战宠物时
+        // 用的是 state.pet=state.pets[idx]，两者其实是同一个引用，改一个另一个也跟着变。这里只改了
+        // cs.pet.exp，cs.pets数组里那一份还是原来的旧经验值没有动。而孩子端/家长端每次重新打开页面
+        // 都会走migrateState()，里面固定有一行 s.pet=s.pets[s.activePetIdx]——用pets数组里那份旧数据
+        // 重新生成一次"当前出战宠物"，会把刚刚在这里改好的等级原样覆盖回去，看起来就是"怎么调都调不动"。
+        // 这里把pets数组里对应那一份也同步改掉，两边保持一致，才不会一打开页面就被旧数据覆盖。
+        if(Array.isArray(cs.pets)){
+          var activeIdx=(typeof cs.activePetIdx==='number' && cs.activePetIdx>=0 && cs.activePetIdx<cs.pets.length) ? cs.activePetIdx : 0;
+          if(cs.pets[activeIdx]) cs.pets[activeIdx].exp=newExp;
+        }
         var levelAfter=petLevelInfo(cs.pet).level;
         addPetLevelLedgerEntryToRaw(cs.pet, newExp-oldExp, levelBefore, levelAfter, reason+'（直接设置等级为Lv.'+levelAmt+'）');
       }
