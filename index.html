@@ -154,6 +154,11 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
    这圈跟护体灵光徽章危险色呼应的红光，能让"宠物现在不开心"这件事不用看清表情细节也能感觉到 */
 @keyframes petMoodAngryPulse{ 0%,100%{filter:drop-shadow(0 8px 10px rgba(0,0,0,.35)) drop-shadow(0 0 10px rgba(229,57,53,.55))} 50%{filter:drop-shadow(0 8px 10px rgba(0,0,0,.35)) drop-shadow(0 0 20px rgba(229,57,53,.85))} }
 #petWrap.mood-angry:not(.pet-boost){ animation:petMoodAngryPulse 1.6s ease-in-out infinite; }
+/* "残血"：倒计时（护体灵光/PK轻伤）只剩最后几小时时的危急视觉——比生气的红光更强、跳动更快，
+   一眼就要能跟"只是普通心情不好"区分开，让人意识到"这次是真的要出事了" */
+@keyframes petCriticalPulse{ 0%,100%{filter:drop-shadow(0 8px 10px rgba(0,0,0,.35)) drop-shadow(0 0 14px rgba(211,47,47,.8))} 50%{filter:drop-shadow(0 8px 10px rgba(0,0,0,.35)) drop-shadow(0 0 28px rgba(211,47,47,1))} }
+#petWrap.pet-critical:not(.pet-boost){ animation:petCriticalPulse 1s ease-in-out infinite; }
+#petWrap.pet-critical #petImg{ filter:saturate(.45) brightness(.78) !important; }
 @keyframes petEntrancePop{0%{transform:scale(.2) translateY(70px);opacity:0;}55%{transform:scale(1.18) translateY(-12px);opacity:1;}75%{transform:scale(.94) translateY(4px);}100%{transform:scale(1) translateY(0);}}
 #petWrap.pet-entrance{animation:petEntrancePop .75s cubic-bezier(.34,1.56,.64,1) 1;z-index:49;}
 /* 副本挑战获得的随身装饰：跟着宠物一起移动/缩放 */
@@ -1668,6 +1673,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="font-weight:600" id="adminPetLedgerLabel"></div>
       <div id="adminPetLedgerList" class="small" style="max-height:280px;overflow-y:auto;margin-top:6px"></div>
       <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminPetLedgerBox').style.display='none'">收起明细</button>
+    </div>
+    <div id="adminItemLedgerBox" style="display:none;margin-top:8px;background:#f5fff0;border-radius:8px;padding:8px">
+      <div class="small" style="font-weight:600" id="adminItemLedgerLabel"></div>
+      <div id="adminItemLedgerList" class="small" style="max-height:280px;overflow-y:auto;margin-top:6px"></div>
+      <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminItemLedgerBox').style.display='none'">收起明细</button>
     </div>
     <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复/回档用）</h4>
     <div id="adminFamilyList" class="small">加载中…</div>
@@ -4225,6 +4235,9 @@ function syncPetSprite(){
   // 在真正的分部位换装美术做出来之前，先让小朋友能直观感受到"穿了好装备"
   if(petImg) petImg.style.filter=[moodFilterFor(moodNow), dirtyFilterFor(pet.clean), petEquipGlowFilter(pet)].filter(Boolean).join(' ');
   if(petWrap) petWrap.classList.toggle('mood-angry', moodNow==='angry');
+  // 2026-10新增："残血"危急状态比生气更严重，视觉上要盖过普通的生气光晕，二者互斥（残血时不叠加生气光晕，避免两种动画打架）
+  var isCritical=!!petCriticalStatus();
+  if(petWrap){ petWrap.classList.toggle('pet-critical', isCritical); if(isCritical) petWrap.classList.remove('mood-angry'); }
   if(petAccessoryEl){
     var accId=pet.equippedAccessory, acc=accId?DUNGEON_ACC_BY_ID[accId]:null;
     if(acc){
@@ -4499,6 +4512,48 @@ function petPkInjuryBadgeTap(){
   if(tip && tip.classList.contains('show')) hidePetPkInjuryTip();
   else showPetPkInjuryTip();
 }
+/* ========== 2026-10新增："残血"危急提醒（临近变回蛋 / 临近PK轻伤掉级）==========
+   背景：上面两套倒计时（护体灵光徽章/PK轻伤徽章）平时都只是安安静静待在角落里的一个小徽章，
+   家长反馈"宠物掉级了才发现"——徽章虽然一直都在，但不主动打断、很容易被忽略，等真正出事
+   (变回蛋/掉级)才后知后觉。这里加两层"更明显"的提醒：
+   ①倒计时进入最后CRITICAL_WARN_HOURS小时时，宠物本体直接叠加一个更强烈的"残血"视觉效果
+   （比生气时的红色光晕更强、跳动更快），不用点开任何徽章、一眼看到宠物就能感觉到"不对劲，很紧急"；
+   ②每隔CRITICAL_REMIND_INTERVAL_MS主动弹一次大号提示框（而不是等着家长自己点开小徽章看），
+   没处理的话会反复提醒，不会只提醒一次就假装没事了。 */
+var CRITICAL_WARN_HOURS=6; // 倒计时只剩这么多小时以内，就算"残血/危急"状态
+var CRITICAL_REMIND_INTERVAL_MS=2*3600*1000; // 危急状态下，每隔这么久没处理就再主动提醒一次
+function petCriticalStatus(){
+  var pet=state.pet;
+  if(!pet||!pet.chosen||!pet.hatched) return null;
+  var neglect=petNeglectStatus();
+  if(neglect && neglect.tier==='danger' && neglect.remainHours<=CRITICAL_WARN_HOURS){
+    return {type:'neglect', remainHours:neglect.remainHours};
+  }
+  var pk=petPkInjuryStatus();
+  if(pk && pk.remainHours<=CRITICAL_WARN_HOURS){
+    return {type:'pk', remainHours:pk.remainHours};
+  }
+  return null;
+}
+function maybeShowCriticalWarning(){
+  var pet=state.pet;
+  var st=petCriticalStatus();
+  if(!pet){ return; }
+  if(!st){ pet._criticalWarnAt=0; return; } // 恢复安全状态后清掉计时，下次再进入危急状态会立刻提醒，不用等上次的间隔
+  var now=Date.now();
+  if(now-(pet._criticalWarnAt||0)<CRITICAL_REMIND_INTERVAL_MS) return;
+  pet._criticalWarnAt=now;
+  var name=pet.name||L('宠物','Your pet');
+  if(st.type==='neglect'){
+    showReward('🚨 '+L(name+' 情况危急！',name+' is in critical condition!'),
+      L('护体灵光还剩 <b>'+formatRemainHours(st.remainHours)+'</b>，再不赶紧把吃饱饱🍖/水汪汪💧/笑眯眯❤️/香喷喷🛁都补起来，它就会伤心地变回蛋啦！',
+        'Guardian Aura has only <b>'+formatRemainHours(st.remainHours)+'</b> left — feed🍖/water💧/play❤️/bathe🛁 it right now, or it will sadly turn back into an egg!'));
+  }else{
+    showReward('🚨 '+L(name+' PK轻伤要恶化了！',name+'\'s PK injury is about to worsen!'),
+      L('还剩 <b>'+formatRemainHours(st.remainHours)+'</b>，再不去商店买【住院治疗】或者特效药治好，它就会伤心地掉一级！',
+        'Only <b>'+formatRemainHours(st.remainHours)+'</b> left — buy [Hospital Treatment] or medicine from the shop now, or it will sadly drop a level!'));
+  }
+}
 /* ========== 互动反馈动画：喂食/喝水/喂奶/陪玩/训练/美容 各自弹出不同的漂浮图标 ========== */
 const CARE_FX = {food:['🍖','✨'],water:['💧','💧'],milk:['🥛','✨'],kfc_wing:['🍗','✨'],egg_tart:['🥧','✨'],wagyu:['🥩','✨','⭐'],matcha:['🍵','💧'],out:['❤️','❤️','⭐'],train:['⭐','✨','⭐'],train2:['⭐','🏆','✨'],bath:['🫧','🫧','✨'],medicine:['💊','✨','💚'],hospital:['🏥','✨','💚']};
 function spawnPetFx(icons){
@@ -4706,6 +4761,7 @@ function defaultState(){
     restCardMonthGranted:false,
     moneyBalance:0,
     coinLedger:[], // 金币变化流水账：每一笔+/-都记一条{t,delta,reason,bal}，方便排查"钱为什么变了"
+    itemLedger:[], // 2026-10新增：道具（商店物品/背包用品）购买&使用流水账，每一条记一次{t,itemId,itemName,qty,action,reason}
     backpack:{freeCard:0,d7:[],d8:[],restCards:[],supplies:{food:0,water:0,milk:0,out:0,bath:0}},
     log:[],
     pet:{chosen:false},
@@ -4823,6 +4879,61 @@ document.addEventListener('visibilitychange', function(){
 });
 var _cloudPushTimer=null;
 var _cloudSyncReady=false; // 首次云端拉取、比对处理完之前不允许自动推送，避免拿本机的旧数据抢先覆盖了云端更新的数据
+
+/* ========== 2026-10新增：超过10分钟没有任何操作，自动登出（要求重新输入家庭码才能继续）==========
+   背景：家长反馈"上午打卡完成，下午东西消失了"，排查出根本原因是同一个孩子的账号在两个设备/
+   标签页同时开着——其中一个早就不再操作了，但页面本身还"开着"，云同步(trySyncFromCloud/
+   petMinuteTick里的scheduleCloudPush)会一直悄悄用它那份越来越旧的数据去跟云端比时间戳，
+   一旦它保存的时间点反而更晚，就会把另一边真正在用、真正更新的数据覆盖掉。
+   跟"整份快照覆盖"这个同步模型本身比起来，更直接、更可靠的办法是：从根上掐断"闲置太久的页面
+   还能继续参与同步"这件事——超过IDLE_LOGOUT_MS没有任何点击/触摸/按键操作，就认为这个页面已经
+   没人在看了，直接登出（清掉本机保存的家庭码，不再允许它推送/拉取云端），要继续用就必须重新
+   输入一次家庭码（会触发整页刷新，拿到的是那一刻最新的云端数据，不会带着任何旧缓存继续跑）。
+   只记"最后一次操作时间"到localStorage（而不是只存一个内存变量），这样即使浏览器把这个后台
+   标签页的定时器整个暂停掉（很多浏览器对非活跃标签页的js timer会降频/暂停），只要同一个浏览器
+   的任意一个标签页最近有操作，这个时间戳就会被刷新，不会出现"明明刚在另一个标签页操作过，
+   这个标签页却因为自己的timer被冻结而误判成闲置太久"的情况。 */
+var LAST_INTERACTION_KEY='kuroLastInteractionAtV1';
+var IDLE_LOGOUT_MS=10*60*1000; // 10分钟不操作就自动登出
+var _idleLoggedOut=false;
+function markUserInteraction(){
+  try{ localStorage.setItem(LAST_INTERACTION_KEY,String(Date.now())); }catch(e){}
+}
+['pointerdown','keydown','touchstart'].forEach(function(evt){
+  document.addEventListener(evt, markUserInteraction, {passive:true});
+});
+function millisSinceLastInteraction(){
+  var last=0;
+  try{ last=parseInt(localStorage.getItem(LAST_INTERACTION_KEY)||'0',10)||0; }catch(e){}
+  if(!last) return 0; // 还没记录过任何一次操作（比如刚登录进来），当作"刚刚有操作"，不触发登出
+  return Date.now()-last;
+}
+// 真正执行登出：清掉本机保存的家庭码/行ID，彻底不再允许任何自动推送/拉取（哪怕页面还开着、
+// 挂机定时器还在跑），然后把"输入家庭码"这个弹窗改个说明文字再弹出来，告诉TA为什么会看到这个弹窗。
+function idleAutoLogout(){
+  if(_idleLoggedOut) return; // 已经处理过，不重复弹，避免每分钟检查一次就弹一次
+  if(!store || !store.currentChildId) return; // 本来就没登录，没什么好登出的
+  _idleLoggedOut=true;
+  try{
+    localStorage.removeItem(FAMILY_CODE_KEY);
+    localStorage.removeItem(FAMILY_ROW_ID_KEY);
+  }catch(e){}
+  clearTimeout(_cloudPushTimer);
+  _cloudSyncReady=false; // scheduleCloudPush()/trySyncFromCloud()内部都认这个开关，关掉之后两边都会自动变成什么都不做
+  try{
+    var title=document.getElementById('familyGateTitle');
+    var desc=document.getElementById('familyGateDesc');
+    var closeBtn=document.getElementById('familyGateCloseBtn');
+    if(title) title.textContent=L('⏰ 长时间未操作，已自动登出','⏰ Logged out after being idle');
+    if(desc) desc.textContent=L('已经超过10分钟没有任何操作——为了避免这台设备/这个标签页跟其他设备上的新进度互相冲突覆盖，已经自动帮你登出啦。重新输入一次家庭码就能继续，不会丢失云端已经保存的进度。','It\'s been more than 10 minutes with no activity — to avoid this device/tab silently overwriting newer progress from another device, you\'ve been automatically logged out. Just re-enter your Family Code to continue; nothing already saved to the cloud is lost.');
+    if(closeBtn) closeBtn.style.display='none'; // 这个弹窗这次是强制性的，不给"叉掉继续用"的选项
+  }catch(e){}
+  _familyGateMode='initial';
+  showModal('familyGateModal');
+}
+function checkIdleAutoLogout(){
+  if(millisSinceLastInteraction()>=IDLE_LOGOUT_MS) idleAutoLogout();
+}
 
 /* ========== 2026-09新增：多家庭隔离（"家庭码"），+自助改名，+可以互相"串门"只看不改 ==========
    背景：这个网址是公开的，任何拿到链接的人打开后都会连上同一份云端数据——之前只有"茜茜/嫣嫣"
@@ -5183,6 +5294,24 @@ function recheckFamilyApplication(){
 function familyGateAndLoad(){
   var savedCode=null,savedRowId=null;
   try{ savedCode=localStorage.getItem(FAMILY_CODE_KEY); savedRowId=localStorage.getItem(FAMILY_ROW_ID_KEY); }catch(e){}
+  // 2026-10新增：早就已经超过10分钟没人管过这台设备（比如整个浏览器关掉放了好几天才重新打开），
+  // 不要用这份早就可能过期的旧缓存悄悄直接登录——让"闲置太久要求重新登录"这条规则，从"页面开着
+  // 不操作"延伸覆盖到"重新打开页面"这条路径，两条路径背后是同一个风险（旧数据参与同步覆盖掉新数据）。
+  if(savedCode!==null && millisSinceLastInteraction()>=IDLE_LOGOUT_MS){
+    try{
+      localStorage.removeItem(FAMILY_CODE_KEY);
+      localStorage.removeItem(FAMILY_ROW_ID_KEY);
+    }catch(e){}
+    _familyGateMode='initial';
+    showModal('familyGateModal');
+    try{
+      var title0=document.getElementById('familyGateTitle');
+      var desc0=document.getElementById('familyGateDesc');
+      if(title0) title0.textContent=L('⏰ 长时间未操作，已自动登出','⏰ Logged out after being idle');
+      if(desc0) desc0.textContent=L('已经超过10分钟没有任何操作，为了避免跟其他设备上的新进度冲突，需要重新输入一次家庭码才能继续（云端已保存的进度不会丢失）。','It\'s been more than 10 minutes with no activity — please re-enter your Family Code to continue (nothing saved to the cloud is lost).');
+    }catch(e){}
+    return;
+  }
   if(savedCode!==null && savedRowId){
     setActiveFamily(savedCode,savedRowId);
     load();
@@ -5351,11 +5480,21 @@ function loadAdminCoinOverview(){
           petLedgerBtn.textContent='🐾 等级明细';
           petLedgerBtn.onclick=(function(rid3,cid3,name3){ return function(){ showPetLevelLedgerDetail(rid3,cid3,name3); }; })(it.rowId,it.cid,it.childName);
           right.appendChild(petLedgerBtn);
+          var itemLedgerBtn=document.createElement('button');
+          itemLedgerBtn.className='btn btn-gray btn-sm';
+          itemLedgerBtn.textContent='📦 道具明细';
+          itemLedgerBtn.onclick=(function(rid4,cid4,name4){ return function(){ showItemLedgerDetail(rid4,cid4,name4); }; })(it.rowId,it.cid,it.childName);
+          right.appendChild(itemLedgerBtn);
           var adjBtn=document.createElement('button');
           adjBtn.className='btn btn-warning btn-sm';
           adjBtn.textContent='✏️ 调整金币';
           adjBtn.onclick=(function(rid2,cid2,name2,bal2){ return function(){ adminAdjustCoinBalance(rid2,cid2,name2,bal2); }; })(it.rowId,it.cid,it.childName,it.balance);
           right.appendChild(adjBtn);
+          var grantBtn=document.createElement('button');
+          grantBtn.className='btn btn-warning btn-sm';
+          grantBtn.textContent='🎁 补偿';
+          grantBtn.onclick=(function(rid5,cid5,name5){ return function(){ adminGrantCompensation(rid5,cid5,name5); }; })(it.rowId,it.cid,it.childName);
+          right.appendChild(grantBtn);
         }
         row.appendChild(left);
         row.appendChild(right);
@@ -5387,6 +5526,81 @@ function adminAdjustCoinBalance(rowId,cid,childName,currentBalance){
     });
   }).catch(function(){
     ttsToast('❌ 没连上云端，修改没成功，检查网络再试一次', 5000);
+  });
+}
+/* 2026-10新增："补偿/补发"工具——家长反馈孩子因为同步bug丢失了金币/装备/材料这类具体损失时，
+   管理员用这个工具一次性把东西补回去，比"✏️调整金币"（只能改金币）更全面；顺便还能在发生过
+   "副本今天打不开"这类bug时，把这个孩子今天各个副本关卡的"已通关"标记清掉，让TA今天能重新挑战。
+   每一项都可以留空/填0/点取消跳过，不想补的东西不会被动到。 */
+function adminGrantCompensation(rowId,cid,childName){
+  var coinInput=window.prompt('要给「'+childName+'」补发多少金币？（不用补就留空或填0）', '0');
+  if(coinInput===null) return;
+  var coinAmt=Math.round(Number(coinInput));
+  if(!isFinite(coinAmt)||coinAmt<0){ ttsToast('❌ 金币数量请输入不小于0的数字', 4000); return; }
+
+  var crystalInput=window.prompt('要给「'+childName+'」补发多少颗星辉晶💎？（不用补就留空或填0）', '0');
+  if(crystalInput===null) return;
+  var crystalAmt=Math.round(Number(crystalInput));
+  if(!isFinite(crystalAmt)||crystalAmt<0){ ttsToast('❌ 星辉晶数量请输入不小于0的数字', 4000); return; }
+
+  var beltInput=window.prompt('要给「'+childName+'」补发一件腰带装备吗？输入 白/蓝/紫 其中一个品质，不用补就留空：\n（白=麻绳腰带·需Lv3，蓝=鞣皮腰带·需Lv13，紫=灵纹束带·需Lv24）', '');
+  if(beltInput===null) return;
+  var beltMap={'白':'belt_white','白色':'belt_white','white':'belt_white','蓝':'belt_blue','蓝色':'belt_blue','blue':'belt_blue','紫':'belt_purple','紫色':'belt_purple','purple':'belt_purple'};
+  var beltKey=(beltInput||'').trim();
+  var beltDefId=beltKey?(beltMap[beltKey]||null):null;
+  if(beltKey && !beltDefId){ ttsToast('❌ 没看懂这个品质，请输入 白/蓝/紫 其中一个（或者留空不补）', 5000); return; }
+
+  var resetDungeon=window.confirm('要不要把「'+childName+'」今天所有副本关卡的"今日已通关"标记清掉，让TA今天可以把每一关都重新挑战一次？\n\n（点"取消"就不会动副本记录，其它补发项照常生效）');
+
+  if(coinAmt<=0 && crystalAmt<=0 && !beltDefId && !resetDungeon){ ttsToast('没有要补发的东西，已取消', 4000); return; }
+
+  var summary='确定要给「'+childName+'」补发：\n'
+    +(coinAmt>0?('· 金币 +'+coinAmt+'\n'):'')
+    +(crystalAmt>0?('· 星辉晶💎 +'+crystalAmt+'\n'):'')
+    +(beltDefId?('· 腰带装备【'+EQUIP_ITEMS[beltDefId].name+'】x1\n'):'')
+    +(resetDungeon?('· 清空今天所有副本关卡的通关标记\n'):'')
+    +'\n⚠️这会直接写入云端数据，且没法撤销，确定吗？';
+  if(!window.confirm(summary)) return;
+
+  return fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    if(!d||!d.accounts||!d.accounts[cid]){ ttsToast('❌ 没找到这个孩子的存档数据，可能数据结构有问题，先用"查看/修复"确认一下', 6000); return; }
+    if(!d.accounts[cid].state) d.accounts[cid].state={};
+    var cs=d.accounts[cid].state;
+    var reason='管理员补偿（同步问题导致的损失）';
+    if(coinAmt>0){
+      cs.moneyBalance=(typeof cs.moneyBalance==='number'?cs.moneyBalance:0)+coinAmt;
+      addCoinLedgerEntryToRaw(cs, coinAmt, reason);
+      addItemLedgerEntryToRaw(cs, 'coin', '金币', coinAmt, 'grant', reason);
+    }
+    if(crystalAmt>0){
+      if(!cs.backpack) cs.backpack={};
+      if(!cs.backpack.materials) cs.backpack.materials={};
+      cs.backpack.materials.crystal=(cs.backpack.materials.crystal||0)+crystalAmt;
+      addItemLedgerEntryToRaw(cs, 'mat_crystal', '星辉晶', crystalAmt, 'grant', reason);
+    }
+    if(beltDefId){
+      grantEquipmentItem(cs, beltDefId);
+      addItemLedgerEntryToRaw(cs, beltDefId, EQUIP_ITEMS[beltDefId].name, 1, 'grant', reason);
+    }
+    if(resetDungeon){
+      var today=todayKey();
+      var allPets=Array.isArray(cs.pets)?cs.pets.slice():[];
+      if(cs.pet && allPets.indexOf(cs.pet)<0) allPets.push(cs.pet); // 兜底：极少数老存档pets数组里可能没有同步进当前出战宠物
+      allPets.forEach(function(p){
+        if(p && p.dungeon2ClearedDate){
+          Object.keys(p.dungeon2ClearedDate).forEach(function(k){
+            if(p.dungeon2ClearedDate[k]===today) delete p.dungeon2ClearedDate[k];
+          });
+        }
+      });
+    }
+    return supaUpsertRow(rowId, d).then(function(){
+      ttsToast('✅ 已经给「'+childName+'」补发完成', 4500);
+      loadAdminCoinOverview();
+    });
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，补发没成功，检查网络再试一次', 5000);
   });
 }
 /* 2026-10新增：金币变化明细——翻这个孩子档案的 state.coinLedger 流水账，一眼看出最近每一笔
@@ -5429,6 +5643,46 @@ function showCoinLedgerDetail(rowId,cid,childName){
     }
   }).catch(function(){
     label.textContent='📜 「'+childName+'」金币变化明细';
+    list.innerHTML='<div style="color:#e53935;padding:6px 0">加载失败，检查网络后重新点一次</div>';
+  });
+}
+/* 2026-10新增：道具消费明细——翻这个孩子档案的 state.itemLedger 流水账，一眼看出最近每一笔
+   道具是什么时候、买的还是用的、花了多少钱、具体是什么道具，用来回答"今天用了哪些道具/道具去哪了"
+   这类问题，跟上面的金币明细是互补的两本账（金币明细看"钱"，这本账看"东西"）。
+   最新的排在最上面，最多显示最近80条（itemLedger本身总共最多保留ITEM_LEDGER_MAX条）。 */
+function showItemLedgerDetail(rowId,cid,childName){
+  var box=document.getElementById('adminItemLedgerBox');
+  var label=document.getElementById('adminItemLedgerLabel');
+  var list=document.getElementById('adminItemLedgerList');
+  if(!box||!label||!list) return;
+  box.style.display='block';
+  label.textContent='📦 「'+childName+'」道具消费明细（加载中…）';
+  list.innerHTML='';
+  fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    var st=d&&d.accounts&&d.accounts[cid]&&d.accounts[cid].state;
+    label.textContent='📦 「'+childName+'」道具消费明细';
+    var entries=(st&&Array.isArray(st.itemLedger))?st.itemLedger.slice():[];
+    if(!entries.length){
+      list.innerHTML='<div style="color:#999;padding:6px 0">这个孩子档案暂时还没有道具消费记录（老存档在这次更新之后才会开始记录，之前发生的购买/使用没法追溯）</div>';
+      return;
+    }
+    entries.reverse(); // 最新的排最上面
+    var shown=entries.slice(0,80);
+    var actionLabel={buy:'🛒买进背包',buy_use:'🛒购买并使用',use:'🐾取出使用'};
+    list.innerHTML=shown.map(function(e){
+      var when=''; try{ when=new Date(e.t).toLocaleString(); }catch(err){}
+      var tag=actionLabel[e.action]||e.action||'';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0">'
+        +'<span style="flex:1">'+when+' · 【'+(e.itemName||e.itemId||'？')+'】x'+(e.qty||1)+' · '+(e.reason||'（未说明原因）')+'</span>'
+        +'<span style="white-space:nowrap;color:#2e7d32;font-weight:600">'+tag+'</span>'
+        +'</div>';
+    }).join('');
+    if(entries.length>shown.length){
+      list.innerHTML+='<div style="color:#999;padding:6px 0;text-align:center">（只显示最近'+shown.length+'条，共'+entries.length+'条）</div>';
+    }
+  }).catch(function(){
+    label.textContent='📦 「'+childName+'」道具消费明细';
     list.innerHTML='<div style="color:#e53935;padding:6px 0">加载失败，检查网络后重新点一次</div>';
   });
 }
@@ -6317,7 +6571,11 @@ function petStageFloorLevel(level){
 }
 // 48小时倒计时真的到点了、还没人来安抚，才会调用这个——把宠物经验值直接压回"当前所在阶段
 // 最低一级"对应的经验值（比如21级掉到19级，30级掉到25级），顺便清掉PK对战小buff、扣点心情，
-// 但绝不触碰 pet.injured/pet.exp归零 那一套，不会变回蛋
+// 但绝不触碰 pet.injured/pet.exp归零 那一套，不会变回蛋。
+// 2026-10新增设计要求：等级下调【只】允许改经验值/等级本身（以及由等级连带算出来的攻防等数值），
+// 绝不能顺手清掉/动到装备(state.equipmentBag、pet.equipment)或背包材料/用品——这里以及未来任何
+// "降级/扣经验"的新代码，都不准往这个函数（或任何类似函数）里加一行碰装备/背包的代码，发现有
+// 这种改动要当场打回去重写。这个函数当前确实没有碰任何装备/背包字段，故意只调 setPetExp。
 function revertPetLevelForPkInjury(pet){
   if(!pet) return;
   var info=petLevelInfo(pet);
@@ -7201,6 +7459,109 @@ function resetPetClocksOnAdopt(s){
     }
   });
 }
+/* ========== 2026-10新增：云同步采用整份快照时，顺手保住"今天的打卡勾选状态" ==========
+   背景：家长反馈"上午打卡完成，下午打卡获得的东西突然全部消失了"——根子是下面cloudSyncOnLoad()/
+   trySyncFromCloud()/forceFreshLoadFromCloud()这几个"对比云端跟本机谁更新、谁新就整份采用谁"的
+   同步逻辑：如果同一个孩子的存档同时在两台设备/两个标签页上开着，一台上午打过卡（存档更"完整"），
+   另一台从早上到现在一直没关、本机内存里还停留在打卡前的旧数据——这台"旧"设备只要在下午做了任意
+   一个会触发保存的动作（哪怕只是打开一次页面、做了件别的事），就会把自己这份其实更旧、但时间戳更晚
+   的整份存档推上云端，之后不管哪台设备（包括原来那台正确打过卡的设备）再对一次云端，都会被这份
+   "时间戳更新但内容更旧"的数据整份覆盖掉——打卡标记看起来就是"凭空消失"了。
+   这里加一层保险：真正要用云端这份数据之前，先把本机内存里当前这份"今天的day对象"记下来，
+   云端数据采用之后，如果是同一个孩子、同一天，就把两份day对象做"只升不降"的合并（布尔取或、
+   数字取较大值、数组按内容去重合并），而不是让云端那份直接整份覆盖——这样不管谁的时间戳更新，
+   当天已经打过的卡都不会被"冲没"。注意：这个合并只处理"打卡勾选状态"这一层（state.day），
+   不处理金币余额/宠物经验——那些有"正常花钱/升级"之类合法的减少，用"取较大值"合并不安全
+   （会把合法花掉的钱错误地"恢复"回来），这里不碰，只专门堵住"打卡标记消失"这一类最容易被
+   孩子直接看到、影响体验最大的问题。更完整的金币/经验也不冲突的方案需要按操作流水重放，
+   是更大的架构改动，不在这次修复范围内。 */
+function mergeDayMonotonic(a,b){
+  if(a==null) return b;
+  if(b==null) return a;
+  if(typeof a==='boolean' || typeof b==='boolean') return !!a || !!b; // 布尔：只要有一边完成过就是完成
+  if(typeof a==='number' && typeof b==='number') return Math.max(a,b); // 数字：打卡计数/进度只会变大，取较大值
+  if(Array.isArray(a) && Array.isArray(b)){
+    var seen={}, out=[];
+    a.concat(b).forEach(function(it){
+      var k=JSON.stringify(it);
+      if(!seen[k]){ seen[k]=true; out.push(it); }
+    });
+    return out; // 数组：按内容去重合并（比如自定义加分项的文字记录数组）
+  }
+  if(typeof a==='object' && typeof b==='object'){
+    var out={}, keys={};
+    Object.keys(a).forEach(function(k){keys[k]=true;});
+    Object.keys(b).forEach(function(k){keys[k]=true;});
+    Object.keys(keys).forEach(function(k){ out[k]=mergeDayMonotonic(a[k], b[k]); });
+    return out;
+  }
+  return (b!==undefined)?b:a; // 类型不匹配/都是没法比大小的字符串等——保留云端这份（维持原来"云端为准"的默认行为）
+}
+// 在"即将用一份新拉到的云端store整份替换本机store"之前调用，把当前小朋友、当前这份day对象先存个快照，
+// 供下面applyLocalDayMergeIfSameChildAndDay()在替换完成之后，跟云端那份"今天的day"合并
+// 2026-10新增：数字map（装备合成材料精铁/云锦/星辉晶、背包日常用品存货）按key取较大值合并——
+// 跟mergeDayMonotonic是同一个思路（只信"更多"，不信"更少"），详见下面applyLocalDayMergeIfSameChildAndDay
+// 开头那段关于"为什么连装备/材料也要这样合并"的说明
+function mergeNumberMapMax(a,b){
+  var out={}, keys={};
+  if(a) Object.keys(a).forEach(function(k){keys[k]=true;});
+  if(b) Object.keys(b).forEach(function(k){keys[k]=true;});
+  Object.keys(keys).forEach(function(k){
+    var av=(a&&typeof a[k]==='number'&&isFinite(a[k]))?a[k]:0;
+    var bv=(b&&typeof b[k]==='number'&&isFinite(b[k]))?b[k]:0;
+    out[k]=Math.max(av,bv);
+  });
+  return out;
+}
+// 装备仓库（state.equipmentBag，每件装备有唯一instanceId）按instanceId取并集合并——两边只要有一边
+// 还留着这一件，合并结果就留着它，不会因为对方那份没有就被删掉
+function mergeEquipmentBagUnion(a,b){
+  var out=Array.isArray(b)?b.slice():[];
+  var seen={};
+  out.forEach(function(it){ if(it&&it.instanceId) seen[it.instanceId]=true; });
+  (Array.isArray(a)?a:[]).forEach(function(it){
+    if(it && it.instanceId && !seen[it.instanceId]){ seen[it.instanceId]=true; out.push(it); }
+  });
+  return out;
+}
+function captureLocalDaySnapshotForMerge(){
+  if(state && state.day && store && store.currentChildId){
+    return {
+      childId:store.currentChildId,
+      day:state.day,
+      equipmentBag:Array.isArray(state.equipmentBag)?state.equipmentBag:null,
+      materials:(state.backpack&&state.backpack.materials)?state.backpack.materials:null,
+      supplies:(state.backpack&&state.backpack.supplies)?state.backpack.supplies:null
+    };
+  }
+  return null;
+}
+// 云端store替换完成、state已经指向"新store里当前小朋友的state"之后调用：只有确认是同一个孩子、
+// 且日期对得上（都还是同一天，没跨天）才合并；孩子换了/已经跨天到新的一天，直接用云端这份，不合并。
+// 2026-10新增：除了"今天的打卡勾选状态"，这次家长反馈的实际事故里还丢了装备和合成材料——
+// 装备仓库/合成材料/背包日常用品库存，正常情况下也只会越用越"有方向性"地变化（装备只会越打越多，
+// 材料/用品会增加也会被消耗），但绝大多数时候"新获得"比"同一时间窗口内又被消耗掉"常见得多，
+// 用跟state.day一样的"只信更多、不信更少"合并，能避免云端那份旧快照把这段时间里新到手的装备/
+// 材料覆盖掉。代价（坦白说清楚，不藏着）：如果孩子真的在这段时间窗口里"消耗"过材料/分解过装备
+// （比如合成升星），合并后可能会把这次消耗"撤销"、让材料数量看起来比实际消耗后更多——
+// 跟金币/经验故意不做这层合并是同一个权衡：两害相权，"宁可多算一点材料"也好过"真实拥有的装备/
+// 材料凭空消失"。只要配合上面新增的"10分钟闲置自动登出"，触发这个边界情况的概率已经很低。 */
+function applyLocalDayMergeIfSameChildAndDay(snap){
+  if(!snap) return;
+  if(!store || store.currentChildId!==snap.childId) return;
+  if(!state || !state.day || !snap.day) return;
+  if(state.day.key!==snap.day.key) return;
+  state.day=mergeDayMonotonic(snap.day, state.day);
+  if(snap.equipmentBag){
+    if(!Array.isArray(state.equipmentBag)) state.equipmentBag=[];
+    state.equipmentBag=mergeEquipmentBagUnion(snap.equipmentBag, state.equipmentBag);
+  }
+  if(snap.materials || snap.supplies){
+    if(!state.backpack) state.backpack={};
+    if(snap.materials) state.backpack.materials=mergeNumberMapMax(snap.materials, state.backpack.materials);
+    if(snap.supplies) state.backpack.supplies=mergeNumberMapMax(snap.supplies, state.backpack.supplies);
+  }
+}
 function cloudPull(){
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(SUPA_ROW_ID)+'&select=data,updated_at';
   return supaFetch(url,{method:'GET',headers:supaHeaders()},7000)
@@ -7315,12 +7676,14 @@ function cloudSyncOnLoad(){
       var localIds=Object.keys((store&&store.accounts)||{});
       var sameFamily=(cloudIds.length===0)||localIds.some(function(id){ return cloudIds.indexOf(id)!==-1; });
       if(!sameFamily || cloudTime>localTime+1000){ // 认不出是同一份家庭数据，或云端确实更新（留1秒余量防止设备间时钟误差导致误判），才采用云端数据
+        var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来
         store=row.data;
         resetPetClocksOnAdopt(store);
         if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
         if(store.currentChildId && store.accounts[store.currentChildId]){
           state=store.accounts[store.currentChildId].state||defaultState();
           migrateState(state);
+          applyLocalDayMergeIfSameChildAndDay(_localDaySnap); // 同一个孩子、同一天的话，把本机刚才打过的卡合并回来，不让云端这份覆盖掉
           applyRealTimeDecay();
           onNewDay();
           cleanDiscounts();
@@ -7353,12 +7716,14 @@ function trySyncFromCloud(){
     var cloudTime=new Date(row.updated_at).getTime();
     var localTime=(store&&store.updatedAt)?store.updatedAt:0;
     if(cloudTime<=localTime+1000) return; // 云端没有比本机更新，本机已经是最新，不用做任何事
+    var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来
     store=row.data;
     resetPetClocksOnAdopt(store);
     if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
     if(store.currentChildId && store.accounts[store.currentChildId]){
       state=store.accounts[store.currentChildId].state||defaultState();
       migrateState(state);
+      applyLocalDayMergeIfSameChildAndDay(_localDaySnap); // 同一个孩子、同一天的话，把本机刚才打过的卡合并回来，不让云端这份覆盖掉
       applyRealTimeDecay();
       onNewDay();
       cleanDiscounts();
@@ -7371,7 +7736,14 @@ function trySyncFromCloud(){
   });
 }
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible'){ trySyncFromCloud(); }
+  if(document.visibilityState==='visible'){
+    // 2026-10新增：标签页在后台闲置时，浏览器通常会把petMinuteTick这类js定时器降频/暂停，
+    // 不能指望挂机检查一定能及时发现"已经闲置超过10分钟"——切回前台这一刻必须立刻再查一次，
+    // 查到确实超时就直接登出，不能让它先跟云端同步一轮之后才发现已经超时了
+    checkIdleAutoLogout();
+    if(_idleLoggedOut) return;
+    trySyncFromCloud();
+  }
 });
 setInterval(trySyncFromCloud, 120000); // 留在前台不切走时，每2分钟兜底对一次云端
 
@@ -7448,6 +7820,7 @@ function load(){
    刻意让 _cloudSyncReady 在 saveStore() 之后才置true：这次的 saveStore() 只是把刚拉到的云端数据
    原样存本地，不该、也不需要再顺手推一次云端。 */
 function forceFreshLoadFromCloud(){
+  var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来（正常情况下这里还没加载过本机state，会是null，不影响）
   cloudPull().then(function(row){
     if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
       store=row.data;
@@ -7456,6 +7829,7 @@ function forceFreshLoadFromCloud(){
       bgmEnabled=store.musicOn!==false;
       state=store.accounts[store.currentChildId].state||defaultState();
       migrateState(state);
+      applyLocalDayMergeIfSameChildAndDay(_localDaySnap); // 同一个孩子、同一天的话，把本机刚才打过的卡合并回来，不让云端这份覆盖掉
       applyRealTimeDecay();
       onNewDay();
       cleanDiscounts();
@@ -10495,6 +10869,7 @@ function migrateState(s){
   if(!s.boardMilestoneLog) s.boardMilestoneLog={};
   if(typeof s.hoardDripLastAt==='undefined') s.hoardDripLastAt=null; // 老存档没有这个字段，补上，第一次调用时会从"现在"开始算，不会倒推历史
   if(!Array.isArray(s.coinLedger)) s.coinLedger=[]; // 老存档没有金币流水账字段，补一个空的，从这次之后的变化开始记录
+  if(!Array.isArray(s.itemLedger)) s.itemLedger=[]; // 老存档没有道具流水账字段，补一个空的，从这次之后的购买/使用开始记录
   ensureWishState(s);
   if(!s.day.comm) s.day.comm={grandpa:false,inlaw:false,hello:0};
   if(!s.day.dungeon) s.day.dungeon={count:0};
@@ -11211,6 +11586,10 @@ var PET_NEGLECT_REVERT_HOURS = 72;
    跟"长期没人照顾"共用同一个 revertPetToEgg()，用 reason 参数区分变回蛋的文案，
    两个计时器彼此独立（受伤计时更短、更紧急，不影响原来72小时的忽略计时）。 */
 var PET_INJURY_REVERT_HOURS = 3;
+// 2026-10新增设计要求：变回蛋（也是一种"降级"，而且是最彻底的一种）同样只允许重置hatched/exp/
+// 四维状态/伤势这些"宠物自身"的字段，绝不能碰state.equipmentBag/pet.equipment或背包材料/用品——
+// 装备/材料是孩子的财产，不会因为宠物变回蛋就应该凭空消失，等孩子重新把它养大、装备还能接着穿。
+// 这个函数当前确实没有碰任何装备/背包字段。
 function revertPetToEgg(pet, reason){
   var isActive=(pet===state.pet);
   var name=pet.name||'宠物';
@@ -12963,6 +13342,7 @@ function buyItem(id){
     addCoinChange(-item.price, '商店购买（存入背包）：'+L(item.name,item.nameEn||item.name));
     if(!state.backpack.supplies) state.backpack.supplies={food:0,water:0,milk:0,out:0,bath:0};
     state.backpack.supplies[id]=(state.backpack.supplies[id]||0)+1;
+    addItemLedgerEntry(id, item.name, 1, 'buy', '商店购买（存入背包），花费'+item.price+'金币');
     addLog(L('🛒购入【'+item.name+'】x1（-'+item.price+'金币），存进了背包','🛒Bought 【'+(item.nameEn||item.name)+'】x1 (-'+item.price+' coins), stored in backpack'));
     save();
     renderShop();
@@ -12971,6 +13351,7 @@ function buyItem(id){
     return;
   }
   addCoinChange(-item.price, '商店购买：'+L(item.name,item.nameEn||item.name));
+  addItemLedgerEntry(id, item.name, 1, 'buy_use', '商店购买并直接使用，花费'+item.price+'金币');
   item.fx(pet);
   if(isTraining){
     // 训练/锻炼会让宠物变得又累又饿又渴又脏——除了加经验，也要顺带消耗吃饱饱/水汪汪/香喷喷
@@ -13023,6 +13404,7 @@ function useSupply(id){
     return;
   }
   state.backpack.supplies[id]=stock-1;
+  addItemLedgerEntry(id, item.name, 1, 'use', '从背包取出使用');
   // 长大后（Lv4+）还能吃/喝基础食物，只是几乎没用还会惹它生气——不再是"不能吃"，
   // 而是"能吃但吃了不划算"，让孩子自己感受到该换高级餐点了
   var isAgedBasicFood=BASIC_FOOD_SUPPLY_IDS.indexOf(id)>=0 && petLevelInfo().level>=PREMIUM_FOOD_UNLOCK_LEVEL;
@@ -14172,7 +14554,11 @@ function dungeon2RandInt(min, max){ return Math.floor(Math.random()*(max-min+1))
 function dungeon2PrereqMissing(){
   var d=state.day||{};
   var studyDone=!!(d.study&&d.study.word);
-  var sportDone=!!(d.sport&&d.sport.burpee>0);
+  // 2026-10fix：正常流程下，"今天免打卡波比跳"会由onNewDay()在新的一天开始时就把d.sport.burpee置成1，
+  // 这里再加一层保险——哪怕burpee因为某种边界情况（比如用户数据是从更早版本迁移过来、这一步被跳过了）
+  // 没被正确置1，只要当前真实需要做的波比跳数量(targets().burpee)已经降到0或以下（免打卡），
+  // 也直接当作"今天波比跳打卡"已经完成，不应该卡住副本入口。
+  var sportDone=!!(d.sport&&d.sport.burpee>0) || targets().burpee<=0;
   var missing=[];
   if(!studyDone) missing.push(L('📖 背单词打卡','📖 Vocabulary check-in'));
   if(!sportDone) missing.push(L('💪 波比跳打卡','💪 Burpees check-in'));
@@ -14839,6 +15225,31 @@ function setCoinBalance(newVal,reason){
 function addCoinLedgerEntryToRaw(childState,delta,reason){
   if(!childState || typeof delta!=='number' || !isFinite(delta) || delta===0) return;
   _pushCoinLedgerEntry(childState, delta, reason);
+}
+
+/* ========== 道具（商店物品/背包用品）消费明细账本 ==========
+   2026-10新增：家长反馈"上午打卡完成,结果下午东西消失了"，顺手一起回答另一个问题——
+   "在哪里能查看当日的道具消费记录"。商店购买本身一直都会走上面的 addCoinChange()（会记进coinLedger），
+   也会写进 state.log（"📝打卡日志"），但那两个地方要么混在所有金币变化里不好单独看"买了什么"，
+   要么受"打卡日志"展示条数限制、不方便回溯。这里单独给"道具"本身开一本账
+   （state.itemLedger：{t时间戳,itemId,itemName,qty数量,action类型(buy买进背包/buy_use购买并直接使用/use从背包取出使用),
+   reason说明}），覆盖买进背包、购买直接使用、从背包取出使用三种场景，管理后台能直接翻这本账看"今天用了哪些道具"。
+   只保留最近ITEM_LEDGER_MAX条，避免存档无限膨胀——跟金币/等级流水账一样，这是排查/查阅用的账本，
+   不需要保留从出生到现在的全部历史。 */
+var ITEM_LEDGER_MAX=300;
+function addItemLedgerEntry(itemId,itemName,qty,action,reason){
+  if(!state) return;
+  if(!Array.isArray(state.itemLedger)) state.itemLedger=[];
+  state.itemLedger.push({t:Date.now(), itemId:itemId||'', itemName:itemName||'', qty:(typeof qty==='number'&&isFinite(qty))?qty:1, action:action||'', reason:reason||'（未说明原因）'});
+  if(state.itemLedger.length>ITEM_LEDGER_MAX) state.itemLedger.splice(0, state.itemLedger.length-ITEM_LEDGER_MAX);
+}
+// 管理后台直接改"别人"存档专用，跟addCoinLedgerEntryToRaw同理——操作的是从云端fetchRowData
+// 现读出来的一份原始JSON（childState），不是本机全局state，不能走上面那个函数
+function addItemLedgerEntryToRaw(childState,itemId,itemName,qty,action,reason){
+  if(!childState) return;
+  if(!Array.isArray(childState.itemLedger)) childState.itemLedger=[];
+  childState.itemLedger.push({t:Date.now(), itemId:itemId||'', itemName:itemName||'', qty:(typeof qty==='number'&&isFinite(qty))?qty:1, action:action||'', reason:reason||'（未说明原因）'});
+  if(childState.itemLedger.length>ITEM_LEDGER_MAX) childState.itemLedger.splice(0, childState.itemLedger.length-ITEM_LEDGER_MAX);
 }
 
 /* ========== 宠物等级变化明细账本 ==========
@@ -15929,6 +16340,8 @@ familyGateAndLoad();
 /* ========== 自动跨天刷新：页面开着过了0点也能自动更新任务/宠物状态 ========== */
 function petMinuteTick(){
   if(!state) return;
+  checkIdleAutoLogout(); // 每分钟顺手检查一下是不是已经闲置超过10分钟了，是的话直接登出、不再往下跑
+  if(_idleLoggedOut) return; // 已经登出了，剩下这些挂机逻辑没有意义，也不该再碰云同步
   if(state.day.key!==todayKey()){
     onNewDay();
     cleanDiscounts();
@@ -15941,6 +16354,7 @@ function petMinuteTick(){
   renderPetNeglectBadge(); // "护体灵光"倒计时也跟着每分钟刷新一次数字，挂机看着它也会一点点往下走
   renderPetInjuryBadge(); // 受伤倒计时同理，挂机时也要能看着它一分钟一分钟地往下走
   renderPetPkInjuryBadge(); // PK轻伤倒计时（48小时）同理，也要能每分钟跟着刷新
+  maybeShowCriticalWarning(); // 倒计时进入最后几小时的危急状态时，主动弹一次大提示，不只是被动显示小徽章
   ['readEn','readCn','storyEn','storyCn'].forEach(renderReadingCard); // 阅读3分钟冷却的倒计时文字，同理每分钟刷新一下
   maybeShowIdleNag(); // 上线闲置够久、还没打今天最喜欢那类的卡，宠物就念叨一句提醒小朋友
   /* 2026-09fix：只有这一分钟真的发生了"宠物变回蛋"这种大事，才走会刷新 updatedAt、触发云端推送的
