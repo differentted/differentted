@@ -414,7 +414,6 @@ body.pet-fs-active #page-pet{display:none !important}
    现在整屏沉浸模式下把这几条都明确隐藏掉，不再靠"背景恰好盖住"这种偶然情况 */
 body.pet-fs-active .topbar{display:none !important}
 body.pet-fs-active #wechatWarnBar{display:none !important}
-body.pet-fs-active #backupReminderBar{display:none !important}
 #petBubble{
   position:absolute; left:50%; bottom:100%; transform:translateX(-50%) scale(.85);
   background:#fff; color:#4a3423; padding:5px 11px; border-radius:13px;
@@ -936,14 +935,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <span>⚠️ 你正在用微信内打开，存档容易丢/更新不及时。点右上角「<b>···</b>」选择「<b>在浏览器打开</b>」最稳妥～</span>
   <button onclick="document.getElementById('wechatWarnBar').style.display='none'">✕</button>
 </div>
-<!-- 好几天没导出过备份文件的提醒条：手机浏览器（尤其"添加到主屏幕"的图标）存档有时会被系统悄悄清掉，
-     这是苹果系统自己的行为，网页没法完全防住。真正稳妥的办法不是"阻止它被清掉"（做不到），而是"万一被清掉，
-     手头随时有一份新鲜的备份文件，2下就能恢复"——所以定期提醒导出一次，把"存档丢了很麻烦"变成"点一下就好" -->
-<div class="wechat-warn-bar" id="backupReminderBar" style="display:none;background:linear-gradient(135deg,#e3f2fd,#e0f7ef);border-color:rgba(76,175,142,.4);color:#1a7a5e">
-  <span>💾 好几天没导出备份文件了，建议现在点一下存一份最新的，以防手机存储被系统清掉。</span>
-  <button onclick="downloadBackup();document.getElementById('backupReminderBar').style.display='none'" style="font-size:12px;padding:2px 8px;border-radius:10px;background:#1a7a5e;color:#fff">现在备份</button>
-  <button onclick="dismissBackupReminder()">✕</button>
-</div>
+
+
 
 <!-- 音量设置弹窗：背景音乐 / 朗读语音各自独立调节大小 -->
 <div class="modal-mask" id="ttsDiagModal">
@@ -1270,21 +1263,16 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
   <div class="card">
     <h2>💾 数据备份</h2>
+    <!-- 2026-10fix：家长反馈既然已经有自动备份+云端同步，这里面向日常使用的手动导出/导入
+         （下载备份文件/从文件导入/导出备份文本/粘贴导入）就不需要了，全部拿掉，只留"自动备份"
+         查看/恢复 和 "多设备同步诊断"这两个真正常用的功能。downloadBackup()这个函数本身没有删，
+         改成只在saveStore()发现本机存储彻底写不进去这种极端情况下，由代码自动触发一次紧急下载
+         兜底，不再放在页面上当成日常手动操作的入口。 -->
     <div class="small" id="autoBackupStatus" style="text-align:center;color:#7b1fa2;font-weight:600">📦 自动备份：暂无</div>
     <div style="text-align:center;margin:4px 0 6px">
       <button class="btn btn-gray btn-sm" onclick="openBackupHistory()">📜 查看/恢复自动备份</button>
     </div>
-    <div class="small" style="text-align:center;margin-bottom:6px">每次打开本页面都会自动在本设备浏览器里存一份快照（最近8份），万一误删任务或数据异常，可以在这里恢复。注意：清除浏览器数据、换手机/换设备时这份自动备份不会跟着走，重要数据仍建议定期用下面的方式导出保存一份</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-      <button class="btn btn-primary" onclick="downloadBackup()">📥 下载备份文件</button>
-      <button class="btn btn-info" onclick="document.getElementById('backupFile').click()">📂 从文件导入</button>
-    </div>
-    <input type="file" id="backupFile" accept=".txt,.json,text/plain,application/json" style="display:none" onchange="importFromFile(this)" />
-    <div class="small" style="margin:6px 0">—— 或复制粘贴（手机不方便选文件时用）——</div>
-    <button class="btn btn-warning btn-sm" onclick="exportData()">导出备份文本</button>
-    <textarea id="importText" rows="3" placeholder="把备份粘贴到这里，用于恢复"></textarea>
-    <button class="btn btn-success btn-sm" onclick="importData()">导入恢复数据</button>
-    <div class="small" style="margin-top:5px">备份包含所有小朋友的档案数据；下载的文件换设备后「从文件导入」即可恢复</div>
+    <div class="small" style="text-align:center;margin-bottom:6px">每次打开本页面都会自动在本设备浏览器里存一份快照（最近8份），万一误删任务或数据异常，可以在这里恢复；日常使用还会持续自动同步到云端，换设备登录同一个账号就能看到最新数据。</div>
     <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
       <button class="btn btn-gray btn-sm" onclick="cloudDiagnose()">🔍 多设备同步诊断</button>
       <div class="small" style="margin-top:4px;color:#999">怀疑几台设备数据对不齐时点这里，会显示这台设备连云端的详细情况（不会自动消失，方便截图发给我排查）</div>
@@ -1292,15 +1280,17 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
       <!-- 2026-10fix：家长反馈这里把家庭码明晃晃显示出来不太合适（相当于把"登录密码"直接露在屏幕上，
            家里小朋友或者路过的人一眼就能看到/截图），改成默认隐藏，只有主动点"👁️查看我的登录码"才短暂显示；
-           同时把这块的措辞从"家庭空间码"这种偏技术的说法，换成更好理解的"账号登录"框架——
-           下面"🔑登录/申请账号"这一个按钮本来就同时覆盖"登录已有账号"和"没有账号就去申请"两种情况
-           （submitFamilyCode里会自动判断这个码有没有被批准过，没批准就自动转去申请流程），
-           不用拆成两个按钮，文案上点出来就够了 -->
+           同时把这块的措辞从"家庭空间码"这种偏技术的说法，换成更好理解的"账号登录"框架。
+           2026-10fix第二版：登录和申请不能是同一个路径——之前"登录/申请账号"是一个合并按钮，
+           输入的码查不到批准记录就自动悄悄转去申请，家长反馈这样不对：已经申请过、已经有账号的人，
+           以后应该"只能"点登录、输入家庭码登录，不应该还跟"申请"混在一起。现在拆成两个独立按钮，
+           各自对应完全独立的路径（见familyGateModal/familyApplyModal和submitFamilyCode()的改动）。 -->
       <div class="small" style="font-weight:600;color:#7b1fa2" data-i18n="db_family_label">🔑 账号登录</div>
       <div class="small" style="margin:4px 0 6px" data-i18n="db_family_desc">同一个账号的设备才会同步到同一批小朋友档案；不同账号之间完全看不到彼此的数据</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
         <button class="btn btn-gray btn-sm" id="familyCodeRenameBtn" style="display:none" onclick="openFamilyCodeRename()" data-i18n="db_family_rename_btn">✏️ 给当前账号改名</button>
-        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()" data-i18n="db_family_switch_btn">🔑 登录 / 申请账号</button>
+        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()" data-i18n="db_family_switch_btn">🔑 登录</button>
+        <button class="btn btn-gray btn-sm" onclick="_familyGateMode='change';openFamilyApplyDirect()" data-i18n="db_family_apply_btn">📝 申请新账号</button>
         <button class="btn btn-gray btn-sm" id="familyCodeRevealBtn" onclick="toggleFamilyCodeReveal()" data-i18n="db_family_reveal_btn">👁️ 查看我的登录码</button>
       </div>
       <div class="small" id="familyCodeRevealLine" style="display:none;margin-top:6px;color:#7b1fa2">
@@ -1625,22 +1615,32 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" id="familyGateDesc" style="text-align:left;margin-bottom:10px;line-height:1.7" data-i18n="family_gate_desc">
       这台设备是第一次打开这个页面，需要先输入"家庭码"才能进入对应的家庭空间——不同家庭码之间的小朋友档案完全看不到彼此。家庭码找给你这个网址链接的人要一下。
     </div>
-    <input type="text" id="familyGateInput" placeholder="请输入家庭码" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_gate_input_ph" oninput="filterFamilyCodeInput(this)" />
-    <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()" data-i18n="family_gate_confirm_btn">✅ 确认进入</button>
+    <!-- 2026-10fix：家长反馈这个框不该有"记忆"功能——浏览器会把这里以前输入过的所有家庭码都记下来，
+         点一下框就弹出一整串下拉提示，相当于谁都能看到这台设备上用过的所有家庭码（包括别人的），
+         跟"家庭码要隐藏、不能被人顺手看到"这条原则正好矛盾。autocomplete="off"关掉这个记忆功能。 -->
+    <input type="text" id="familyGateInput" placeholder="请输入家庭码" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_gate_input_ph" oninput="filterFamilyCodeInput(this)" />
+    <button class="btn btn-primary btn-block" id="familyGateConfirmBtn" onclick="submitFamilyCode()" data-i18n="family_gate_confirm_btn">🔑 登录</button>
+    <!-- 2026-10fix：家长反馈"登录"和"申请"不能混在同一个路径里——以前是同一个输入框+同一个按钮，
+         查到这个码没被批准过就自动悄悄跳转去申请，容易让人以为申请是登录流程的一部分、或者
+         登录失败了却不知道该怎么办。现在拆成两个完全独立的按钮/路径：上面这个按钮"只管登录"，
+         查不到批准记录就老老实实报错、留在这个页面，不会自动帮你跳去申请；真要申请新账号，
+         必须自己点下面这个按钮，单独走一个专门的申请表单（见openFamilyApplyDirect()） -->
+    <button class="btn btn-gray btn-block" id="familyGateApplyBtn" style="margin-top:6px" onclick="openFamilyApplyDirect()" data-i18n="family_gate_apply_btn">📝 还没有账号？申请新账号</button>
   </div>
 </div>
 
-<!-- 新用户申请：输入的家庭码还没被批准过，需要留下孩子姓名等待审核 -->
+<!-- 2026-10fix：改成独立的"申请新账号"表单——不再依赖"刚才在登录框里输入过什么码"这件事，
+     家庭码改成自己在这里直接填（想好一个新的码），跟登录彻底分开成两条路 -->
 <div class="modal-mask" id="familyApplyModal">
   <div class="modal">
-    <h3 style="text-align:center" data-i18n="family_apply_title">📝 申请开通</h3>
+    <h3 style="text-align:center" data-i18n="family_apply_title">📝 申请新账号</h3>
     <div class="small" style="text-align:left;margin-bottom:10px;line-height:1.7" data-i18n="family_apply_desc">
-      你刚才输入的家庭码「<b id="familyApplyCodeLabel"></b>」还没被批准过。<br><br>
-      这个家庭码以后就是你自己的登录密码，<b>请自己记住它</b>；再填一下孩子的姓名，提交后等管理员审核通过就能开始用了。
+      给自己家想一个新的家庭码（以后登录就用这个码，<b>请自己记住它</b>），再填一下孩子的姓名，提交后等管理员审核通过，再回到"🔑登录"输入这个码就能开始用了。
     </div>
+    <input type="text" id="familyApplyCodeInput" placeholder="想好的新家庭码" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_apply_code_ph" oninput="filterFamilyCodeInput(this)" />
     <input type="text" id="familyApplyNameInput" placeholder="孩子的姓名" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:16px" data-i18n-placeholder="family_apply_name_ph" />
     <button class="btn btn-primary btn-block" id="familyApplyConfirmBtn" onclick="confirmFamilyApply()" data-i18n="family_apply_submit_btn">📮 提交申请</button>
-    <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal('familyApplyModal');_familyGateMode='initial';showModal('familyGateModal');" data-i18n="family_apply_back_btn">⬅️ 换一个家庭码</button>
+    <button class="btn btn-gray btn-block" style="margin-top:6px" onclick="backToFamilyLogin()" data-i18n="family_apply_back_btn">⬅️ 返回登录</button>
   </div>
 </div>
 
@@ -3600,6 +3600,7 @@ var I18N_EN_TITLE = {
 var I18N_EN_PH = {
   family_gate_input_ph: 'Enter Family Code',
   family_apply_name_ph: "Child's name",
+  family_apply_code_ph: 'The new Family Code you picked',
   child_name_ph_default: "Enter child's name"
 };
 var I18N_EN = {
@@ -3624,18 +3625,20 @@ var I18N_EN = {
   db_family_label: '🔑 Account Login',
   db_family_desc: "Devices logged into the same account sync to the same child profiles; different accounts never see each other's data",
   db_family_rename_btn: '✏️ Rename current account',
-  db_family_switch_btn: '🔑 Login / Apply for an account',
+  db_family_switch_btn: '🔑 Login',
+  db_family_apply_btn: '📝 Apply for a new account',
   db_family_reveal_btn: '👁️ Show my login code',
   db_family_reveal_label: 'Login code: ',
   db_family_reveal_warn: '⚠️Don\'t share this with strangers; you only need it to log in on a new device, or to tell another family member',
-  db_family_rename_hint: '✏️Renaming is admin-only (this is the feature that once accidentally overwrote someone else\'s Family Code, "vanishing" their account) — unlock "🛠️Admin Panel" below first to see it; to just log in / switch to another account, use "🔑Login/Apply for an account" above',
+  db_family_rename_hint: '✏️Renaming is admin-only (this is the feature that once accidentally overwrote someone else\'s Family Code, "vanishing" their account) — unlock "🛠️Admin Panel" below first to see it; to just log in to another account, use "🔑Login" above',
   family_gate_title: '🔑 Enter Family Code',
   family_gate_desc: 'This device is opening this page for the first time and needs a "Family Code" to enter its Family Space — different Family Codes never see each other\'s child profiles. Ask whoever sent you this link for the code.',
-  family_gate_confirm_btn: '✅ Confirm & Enter',
-  family_apply_title: '📝 Apply for Access',
-  family_apply_desc: '\n      The Family Code you just entered「<b id="familyApplyCodeLabel"></b>」hasn\'t been approved yet.<br><br>\n      This Family Code will be your login password from now on, <b>please remember it yourself</b>; fill in your child\'s name below and you can start once the admin approves your request.\n    ',
+  family_gate_confirm_btn: '🔑 Log In',
+  family_gate_apply_btn: "📝 Don't have an account? Apply for one",
+  family_apply_title: '📝 Apply for a New Account',
+  family_apply_desc: 'Pick a new Family Code for your family (you\'ll use it to log in from now on, so <b>remember it</b>), then fill in your child\'s name. Once the admin approves it, come back and tap "🔑Log In" with this code to start.',
   family_apply_submit_btn: '📮 Submit Application',
-  family_apply_back_btn: '⬅️ Try a different code',
+  family_apply_back_btn: '⬅️ Back to Login',
   family_pending_title: '⏳ Application Under Review',
   family_pending_recheck_btn: '🔄 Check again',
   family_pending_restart_btn: '✏️ Try a different code',
@@ -4871,7 +4874,16 @@ function saveStore(){
   }catch(e){
     if(!storageWarned){
       storageWarned=true;
-      ttsToast('⚠️ 数据无法保存到本机（可能是无痕/隐私模式，或存储空间已满）。请尽快点击「背包」页的「下载备份文件」保存进度，否则刷新页面后打卡记录会丢失！', 8000);
+      // 2026-10fix：页面上日常用的"手动导出"按钮已经拿掉了（家长反馈有自动备份+云端同步就够用），
+      // 但本机存储彻底写不进去（无痕模式/存储已满）这种极端情况下，自动备份本身也一样存不进去，
+      // 这是唯一一种连云端同步都可能来不及保住这一刻数据的场景（下面scheduleCloudPush()要等联网成功
+      // 才有用）——所以改成不靠家长自己找按钮，代码直接自动触发一次紧急下载兜底
+      downloadBackup().then(function(ok){
+        ttsToast(ok
+          ? '⚠️ 数据无法保存到本机（可能是无痕/隐私模式，或存储空间已满），已经自动帮你下载了一份备份文件，请找到这个文件妥善保存，否则刷新页面后打卡记录会丢失！'
+          : '⚠️ 数据无法保存到本机（可能是无痕/隐私模式，或存储空间已满），自动下载备份也没成功。请尽快换一个正常模式的浏览器再继续，否则刷新页面后打卡记录会丢失！',
+          9000);
+      });
     }
   }
   scheduleCloudPush();
@@ -5199,7 +5211,7 @@ function openFamilyCodeChange(){
   var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
   var curLabel=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
   if(titleEl) titleEl.textContent=L('🔄 更换家庭空间','🔄 Switch Family Space');
-  if(descEl) descEl.innerHTML=L('输入新的家庭码后，这台设备会切换到那个家庭码对应的空间（现在这台设备本机存的数据会被替换成新家庭码那边的数据）。如果现在这份数据还没导出备份，建议先点上面「导出备份文本」保存一份，再切换。<br><br>当前家庭码：<b>'+curLabel+'</b>','Enter a new Family Code and this device will switch to that Family Space (the data stored on this device will be replaced with that Family Code\'s data). If you haven\'t exported a backup of the current data yet, tap "Export Backup Text" above first, then switch.<br><br>Current Family Code: <b>'+curLabel+'</b>');
+  if(descEl) descEl.innerHTML=L('输入家庭码登录后，这台设备会切换到那个家庭码对应的空间（现在这台设备本机缓存的数据会被替换成那个家庭码云端已经保存的最新数据，云端数据本身不会丢）。<br><br>当前家庭码：<b>'+curLabel+'</b>','Enter a Family Code to log in, and this device will switch to that Family Space (the data cached on this device will be replaced with that Family Code\'s latest data from the cloud — nothing in the cloud is lost).<br><br>Current Family Code: <b>'+curLabel+'</b>');
   if(closeBtn) closeBtn.style.display='';
   if(input) input.value='';
   showModal('familyGateModal');
@@ -5284,18 +5296,15 @@ function submitFamilyCode(){
     return;
   }
   if(_familyGateMode==='initial' || _familyGateMode==='change'){
-    // 2026-09fix：以前"第一次进来"和"中途换一个家庭空间"走的是两条不一样的路——第一次进来会先查
-    // 这个码是不是已经被批准过，查不到就转去申请、等管理员审核；但"换一个家庭空间"当时走的是
-    // 更早期的老逻辑，查不到指针就直接顺手当场自己建一个全新的家庭空间，完全不用经过任何审批。
-    // 这就是明明已经把"陌生人申请家庭码"这道关卡做好了，串门列表里还是会莫名其妙冒出一个
-    // 谁都没批准过的新家庭/新小朋友的真正原因——审批这道关卡只挡住了"第一次进来"，"换一个
-    // 家庭空间"这扇后门完全没锁，谁都能在设置里点一下、随便编个码就凭空建出一个新家庭。
-    // 现在统一成同一条路：不管是第一次进来还是中途换家庭，只要这个码之前没被批准过，
-    // 一律转去"填孩子姓名+提交申请"，必须等管理员在后台批准了才能真正进入/切换过去
-    var isChange=(_familyGateMode==='change');
+    // 2026-10fix【登录和申请拆成两条独立路径】：以前这里查到这个码没被批准过，会自动悄悄把人
+    // 转去"申请"流程——家长反馈这样不对：已经申请过、已经有账号的人，以后应该"只能"走登录这一条路
+    // （输入家庭码→登录），不应该因为手滑打错一个字，就被悄悄带去创建一个新的重复申请。
+    // 现在这个按钮"只管登录"：查到批准记录就正常登录，查不到就老实报错、留在这个页面，
+    // 不会自动做任何跳转。真要申请新账号，必须自己去点"📝申请新账号"那个完全独立的按钮
+    // （openFamilyApplyDirect()/confirmFamilyApply()，见下面），两条路从UI到逻辑都彻底分开。
     if(btn){ btn.disabled=true; btn.textContent=L('查询中…','Checking…'); }
     checkFamilyCodeApproved(code).then(function(rowId){
-      if(btn){ btn.disabled=false; btn.textContent=L('✅ 确认进入','✅ Confirm & Enter'); }
+      if(btn){ btn.disabled=false; btn.textContent=L('🔑 登录','🔑 Log In'); }
       if(rowId){
         try{
           // 2026-10fix【关键安全修复】：原来只有isChange("🔄更换家庭空间")才会清本机缓存的STORE_KEY，
@@ -5319,13 +5328,10 @@ function submitFamilyCode(){
         claimActiveSessionAndReload(rowId); // 声明本机是这个家庭码当前唯一有效的会话（顺带触发刷新），把之前登录的地方顶下线
         return;
       }
-      hideModal('familyGateModal');
-      _pendingApplyCode=code;
-      var lbl=document.getElementById('familyApplyCodeLabel');
-      if(lbl) lbl.textContent=code;
-      var nameInput=document.getElementById('familyApplyNameInput');
-      if(nameInput) nameInput.value='';
-      showModal('familyApplyModal');
+      ttsToast(L('❌ 没有找到这个家庭码，请检查有没有输入错误；如果你还没有账号，请点下面"📝申请新账号"','❌ Family Code not found — please check for typos; if you don\'t have an account yet, tap "📝Apply for a new account" below'), 6000);
+    }).catch(function(){
+      if(btn){ btn.disabled=false; btn.textContent=L('🔑 登录','🔑 Log In'); }
+      ttsToast(L('❌ 没连上云端，查询失败，检查网络再试一次','❌ Could not reach the cloud, lookup failed — check your network and try again'), 5000);
     });
     return;
   }
@@ -5369,26 +5375,58 @@ function fetchApplicationStatus(pointerId){
     return res.json();
   }).then(function(rows){ return (rows&&rows[0]&&rows[0].data)?rows[0].data:null; }).catch(function(){ return null; });
 }
+// 2026-10fix：以前这个码是"刚才在登录框里输错的那个码"顺手带过来的（_pendingApplyCode），
+// 现在申请改成完全独立的路径，这里的码是家长在申请表单里自己重新填的——不再读_pendingApplyCode
 function confirmFamilyApply(){
-  var code=_pendingApplyCode;
+  var codeInput=document.getElementById('familyApplyCodeInput');
+  var code=normalizeFamilyCode(codeInput&&codeInput.value);
   var nameInput=document.getElementById('familyApplyNameInput');
   var name=(nameInput&&nameInput.value||'').trim();
-  if(!code){ hideModal('familyApplyModal'); _familyGateMode='initial'; showModal('familyGateModal'); return; }
+  if(!code){ ttsToast(L('请先想一个家庭码，再填进去','Please pick a Family Code first'), 4000); return; }
   if(!name){ ttsToast(L('请填一下孩子的姓名',"Please fill in the child's name"), 4000); return; }
   var btn=document.getElementById('familyApplyConfirmBtn');
-  if(btn){ btn.disabled=true; btn.textContent=L('提交中…','Submitting…'); }
-  submitFamilyApplication(code,name).then(function(pointerId){
-    try{
-      localStorage.setItem(PENDING_APPLY_CODE_KEY,code);
-      localStorage.setItem(PENDING_APPLY_ID_KEY,pointerId);
-    }catch(e){}
-    if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
-    hideModal('familyApplyModal');
-    showFamilyPendingModal(code,L('申请已经提交啦，等管理员审核通过后再打开这个页面、点下面的按钮重新检查一下就能进入了。','Application submitted! Once the admin approves it, reopen this page and tap the button below to check again.'));
+  if(btn){ btn.disabled=true; btn.textContent=L('查询中…','Checking…'); }
+  // 2026-10新增：提交前先查一下这个码是不是已经被别人占用/批准过了——申请和登录现在是两条独立的路，
+  // 不会再像以前那样"查到就自动登录"，所以这里得自己把关，避免递交一个其实已经有主的码
+  checkFamilyCodeApproved(code).then(function(existingRowId){
+    if(existingRowId){
+      if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
+      ttsToast(L('❌ 这个家庭码已经有人在用了，换一个试试（如果这就是你自己的账号，请改用"🔑登录"输入这个码）','❌ This Family Code is already taken, try another one (if it\'s your own account, use "🔑Log In" with this code instead)'), 6500);
+      return;
+    }
+    if(btn){ btn.disabled=true; btn.textContent=L('提交中…','Submitting…'); }
+    submitFamilyApplication(code,name).then(function(pointerId){
+      try{
+        localStorage.setItem(PENDING_APPLY_CODE_KEY,code);
+        localStorage.setItem(PENDING_APPLY_ID_KEY,pointerId);
+      }catch(e){}
+      if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
+      hideModal('familyApplyModal');
+      showFamilyPendingModal(code,L('申请已经提交啦，等管理员审核通过后，回到这个页面点"🔑登录"、输入这个家庭码就能进入了。','Application submitted! Once the admin approves it, come back and tap "🔑Log In" with this Family Code.'));
+    }).catch(function(){
+      if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
+      ttsToast(L('❌ 没连上云端，提交没成功，检查网络再试一次','❌ Could not reach the cloud, submission failed — check your network and try again'), 5000);
+    });
   }).catch(function(){
     if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
-    ttsToast(L('❌ 没连上云端，提交没成功，检查网络再试一次','❌ Could not reach the cloud, submission failed — check your network and try again'), 5000);
+    ttsToast(L('❌ 没连上云端，查询失败，检查网络再试一次','❌ Could not reach the cloud, lookup failed — check your network and try again'), 5000);
   });
+}
+// 2026-10新增：独立的"申请新账号"入口——不依赖登录框里刚才输入过什么，表单清空成空白状态，
+// 让家长自己想一个新的家庭码填进去。openFamilyCodeChange()/familyGateAndLoad()等地方调用这个
+// 之前可以顺手设置好_familyGateMode（'initial'或'change'），决定"返回登录"按钮回到哪个登录界面
+function openFamilyApplyDirect(){
+  hideModal('familyGateModal');
+  var codeInput=document.getElementById('familyApplyCodeInput'); if(codeInput) codeInput.value='';
+  var nameInput=document.getElementById('familyApplyNameInput'); if(nameInput) nameInput.value='';
+  showModal('familyApplyModal');
+}
+// 申请表单里"⬅️返回登录"按钮用：回到进入申请表单之前的那个登录界面（'change'模式走更换账号的
+// 登录界面，其它情况一律回到最基础的首次登录界面），而不是一律写死回到初始界面
+function backToFamilyLogin(){
+  hideModal('familyApplyModal');
+  if(_familyGateMode==='change'){ openFamilyCodeChange(); }
+  else{ _familyGateMode='initial'; showModal('familyGateModal'); }
 }
 function showFamilyPendingModal(code,desc){
   var descEl=document.getElementById('familyPendingDesc');
@@ -8093,7 +8131,6 @@ function finishLoadRender(){
   maybeShowWishResetPrompt();
   maybeShowOfflineNotice();
   scheduleAppEntranceGreeting();
-  checkBackupReminder();
   refreshFamilyCodeDisplay();
   ensurePetHomeRegistry();
   refreshAdminEntryVisibility();
@@ -11075,7 +11112,7 @@ function restoreAutoBackup(idx){
   var list=getAutoBackups();
   var entry=list[idx];
   if(!entry) return;
-  if(!confirm('确定要恢复到 '+fmtBackupTime(entry.time)+' 这份自动备份吗？当前数据会被覆盖（建议先用"导出备份文本"存一份现在的数据再恢复）')) return;
+  if(!confirm('确定要恢复到 '+fmtBackupTime(entry.time)+' 这份自动备份吗？当前数据会被覆盖（如果恢复错了，可以联系管理员用后台的"回档至前一天"找回更早的数据）')) return;
   try{
     var restored=JSON.parse(entry.data); // 校验一下这份备份数据本身没有损坏
     resetPetClocksOnAdopt(restored); // 避免"这份自动备份存了一段时间才被恢复"被误判成宠物长期没人照顾而变回蛋
@@ -16445,55 +16482,26 @@ function renderBackpack(){
 }
 
 /* ========== 备份（所有档案） ========== */
-function exportData(){
-  saveStore();
-  var text=JSON.stringify(store,null,2);
-  /* 2026-09fix：这里原来用 prompt() 弹一个原生对话框显示备份文本，让家长自己全选复制。排查发现家长
-     反馈"导入失败/没有数据"，其实是从这个 prompt() 对话框里复制的时候，内容比较长（包含所有小朋友的
-     完整打卡历史），在某些浏览器/设备上全选复制会不完整（复制少了、被截断），导致粘贴去导入的时候
-     JSON 格式是坏的、解析失败——表现出来就是"导入失败，文件或文本格式不对"甚至误以为"没有数据"。
-     而且跟 alert()/confirm() 一样，prompt() 这种原生弹窗在部分受限浏览器/App内置浏览器里也可能被
-     直接拦掉。这里改成把文本直接写进页面上"把备份粘贴到这里"这个文本框里（不用原生弹窗，更不容易被拦），
-     并且自动帮忙全选、尝试直接写入系统剪贴板（写剪贴板这步不一定每个浏览器都支持/允许，所以就算失败
-     也没关系，文本本来就已经显示在框里了，手动长按/双击选中再复制一样能用，比之前的 prompt() 弹窗更
-     不容易复制不全）。 */
-  var box=document.getElementById('importText');
-  if(!box){ return; }
-  box.value=text;
-  box.focus();
-  box.select();
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(function(){
-      ttsToast('✅ 备份文本已生成，并已自动复制到剪贴板，可以直接去新设备粘贴恢复了', 6000);
-    }).catch(function(){
-      ttsToast('✅ 备份文本已生成，就在下面这个框里（已帮你全选），长按/双击后点"复制"即可', 6000);
-    });
-  }else{
-    ttsToast('✅ 备份文本已生成，就在下面这个框里（已帮你全选），长按/双击后点"复制"即可', 6000);
-  }
-}
 function backupFileName(){
   var d=new Date();
   function p(n){return n<10?'0'+n:''+n;}
   return '库洛米打卡备份-'+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'.txt';
 }
+/* 2026-10fix：页面上手动备份/手动导入那一整块UI已经按家长要求取消了（有了自动备份+云同步，
+   手动备份这个"隐藏的输入框还留着浏览器记忆"的东西没必要再留）。downloadBackup()现在只在
+   saveStore()往本机存储写入失败（比如隐私/无痕模式、存储空间已满——这是即使有自动备份和云同步
+   也救不回来的唯一场景）时，作为最后一道应急保险被自动调用一次，尝试把这次的数据下载成一个文件，
+   不再有任何"写进文本框/复制到剪贴板"的界面依赖，因为那块UI已经不存在了。 */
 async function downloadBackup(){
-  saveStore();
   var text=JSON.stringify(store,null,2);
   var fname=backupFileName();
-  /* 2026-09fix：实测发现——这个页面是 Claude"托管网页"（Artifact）功能发布出来的公开分享链接，
-     孩子的设备是匿名访问、没有登录 Claude 账号打开的。不管是 Claude 平台提供的"文件下载"能力，
-     还是普通浏览器的 Blob 下载链接，在这种匿名未登录的情况下都提示"仅限该机构成员使用"/根本不生效，
-     没法真的把文件存到孩子设备上——这条路在孩子的设备上基本走不通。下面还是先都尝试一下（万一在
-     某些已登录的设备上能用，就当是多一次机会），但不管这两种下载方式有没有成功，都一定会把内容
-     直接显示在页面上"导出备份文本"那个文本框里、自动全选、尝试复制到剪贴板——保证不管在哪种设备上，
-     点这个按钮之后手上一定能拿到这份备份内容，不会因为下载没反应就真的拿不到数据。 */
+  var ok=false;
   try{
     if(window.claude&&typeof window.claude.use==='function'){
       var dl=await window.claude.use('downloads');
-      if(dl){ await dl.save({filename:fname,data:text}); }
+      if(dl){ await dl.save({filename:fname,data:text}); ok=true; }
     }
-  }catch(e){/* 下载能力不可用/被拒绝，忽略，继续走下面一定生效的文本框方案 */}
+  }catch(e){/* 下载能力不可用/被拒绝，忽略，继续尝试下面的浏览器下载方式 */}
   try{
     var blob=new Blob([text],{type:'text/plain;charset=utf-8'});
     var a=document.createElement('a');
@@ -16502,27 +16510,9 @@ async function downloadBackup(){
     document.body.appendChild(a);
     a.click();
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); },100);
-  }catch(e){/* 同样忽略，继续走下面一定生效的文本框方案 */}
-  var box=document.getElementById('importText');
-  if(box){ box.value=text; box.focus(); box.select(); }
-  markBackupDone();
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(function(){
-      ttsToast('✅ 备份内容已生成，并已自动复制到剪贴板（如果刚才还弹出了文件保存提示，也可以选择保存文件）。复制的内容可以发给自己（比如微信"文件传输助手"）保存，或直接粘贴到别的设备恢复', 8000);
-    }).catch(function(){
-      ttsToast('✅ 备份内容已经显示在下面的文本框里（已帮你全选），长按/双击后点"复制"，发给自己保存或粘贴到别的设备恢复即可', 8000);
-    });
-  }else{
-    ttsToast('✅ 备份内容已经显示在下面的文本框里（已帮你全选），长按/双击后点"复制"，发给自己保存或粘贴到别的设备恢复即可', 8000);
-  }
-}
-function importFromFile(input){
-  var file=input.files&&input.files[0];
-  if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(){ importFromText(String(reader.result)); };
-  reader.readAsText(file,'utf-8');
-  input.value='';
+    ok=true;
+  }catch(e){/* 同样忽略 */}
+  return ok;
 }
 function importFromText(t){
   try{
@@ -16566,10 +16556,6 @@ function importFromText(t){
     maybeShowOfflineNotice();
   }catch(e){ ttsToast('❌ 导入失败，文件或文本格式不对', 6000); }
 }
-function importData(){
-  importFromText(document.getElementById('importText').value);
-}
-
 /* ========== 首次打开/换了新版本文件时的"欢迎回来"备份恢复提示 ========== */
 function importFreshDataFromFile(input){
   var file=input.files&&input.files[0];
@@ -16614,35 +16600,6 @@ function checkWechatWarnBar(){
   if(hint) hint.style.display='block';
 }
 checkWechatWarnBar();
-
-/* 定期提醒导出备份文件：手机浏览器（尤其"添加到主屏幕"的图标）存档有时会被系统悄悄清掉，这是iOS自己的
-   行为，网页代码没法从根上防住。与其假装能"防住"，不如换个思路——只要手头随时有一份新鲜的备份文件，
-   真被清掉了也只是点两下就能恢复，不算大事。这里超过4天没导出过就提醒一次，点"✕"最多消停1天，
-   过了还没备份又会再提醒 */
-var BACKUP_REMINDER_KEY='kuroCheckinLastBackupAt';
-var BACKUP_REMINDER_DISMISS_KEY='kuroCheckinBackupReminderDismissAt';
-var BACKUP_REMINDER_DAYS=4;
-function markBackupDone(){
-  try{ localStorage.setItem(BACKUP_REMINDER_KEY, String(Date.now())); }catch(e){}
-  var bar=document.getElementById('backupReminderBar');
-  if(bar) bar.style.display='none';
-}
-function dismissBackupReminder(){
-  try{ localStorage.setItem(BACKUP_REMINDER_DISMISS_KEY, String(Date.now())); }catch(e){}
-  var bar=document.getElementById('backupReminderBar');
-  if(bar) bar.style.display='none';
-}
-function checkBackupReminder(){
-  if(!store || !store.accounts || Object.keys(store.accounts).length===0) return; // 还没创建档案，不用提醒
-  var now=Date.now(), dayMs=86400000;
-  var lastBackup=0, lastDismiss=0;
-  try{ lastBackup=parseInt(localStorage.getItem(BACKUP_REMINDER_KEY)||'0',10)||0; }catch(e){}
-  try{ lastDismiss=parseInt(localStorage.getItem(BACKUP_REMINDER_DISMISS_KEY)||'0',10)||0; }catch(e){}
-  if((now-lastBackup)>BACKUP_REMINDER_DAYS*dayMs && (now-lastDismiss)>dayMs){
-    var bar=document.getElementById('backupReminderBar');
-    if(bar) bar.style.display='flex';
-  }
-}
 
 applyStaticI18n();
 renderUiLangBtn();
