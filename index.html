@@ -1458,6 +1458,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 宠物每日金币消耗预测弹窗 -->
+<div class="modal-mask" id="coinForecastModal">
+  <div class="modal" style="max-width:340px;text-align:left">
+    <button class="modal-close" onclick="hideModal('coinForecastModal')">✕</button>
+    <h3 style="text-align:center">💰 今日金币预测</h3>
+    <div class="small" style="line-height:1.7" id="coinForecastDetailBody"></div>
+  </div>
+</div>
+
 <!-- 副本挑战弹窗 -->
 <div class="modal-mask" id="dungeonModal">
   <div class="modal" style="max-width:420px">
@@ -1655,6 +1664,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div id="adminCoinLedgerList" class="small" style="max-height:280px;overflow-y:auto;margin-top:6px"></div>
       <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminCoinLedgerBox').style.display='none'">收起明细</button>
     </div>
+    <div id="adminPetLedgerBox" style="display:none;margin-top:8px;background:#f0f8ff;border-radius:8px;padding:8px">
+      <div class="small" style="font-weight:600" id="adminPetLedgerLabel"></div>
+      <div id="adminPetLedgerList" class="small" style="max-height:280px;overflow-y:auto;margin-top:6px"></div>
+      <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminPetLedgerBox').style.display='none'">收起明细</button>
+    </div>
     <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复/回档用）</h4>
     <div id="adminFamilyList" class="small">加载中…</div>
     <div id="adminFamilyEditBox" style="display:none;margin-top:10px;border-top:1px dashed #e1bee7;padding-top:10px">
@@ -1837,12 +1851,14 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <div id="petStatsDetail">
     <div class="pet-stage" id="petStage">🥚 宠物蛋 · 攒经验孵化中</div>
     <div class="small" id="petDungeonTitle" style="display:none;color:#7b1fa2;font-weight:700;margin:-2px 0 2px">🎖️ ——</div>
+    <div id="petPersonalityTags" style="display:none;margin:-2px 0 4px"></div>
     <div class="exp-line" title="经验值：用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升，也可以靠每日打卡获得"><span>📈Lv<span id="petLevel">0</span></span><div class="progress-wrap"><div class="progress-bar yellow" id="expBar"></div></div><span id="expText" class="val">0/50</span></div>
     <div id="eggTip" class="small">完成每日打卡任务可获得经验，攒满 50 经验破壳！</div>
     <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升" data-i18n-title="tt_stat_food"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
     <div class="stat-line" title="水汪汪：用💧饮用水（+18）可以提升" data-i18n-title="tt_stat_thirst"><span class="ico">💧</span><div class="progress-wrap"><div class="progress-bar blue" id="thirstBar"></div></div><span class="val" id="thirstVal">100</span></div>
     <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心" data-i18n-title="tt_stat_happy"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
     <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦" data-i18n-title="tt_stat_clean"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
+    <div class="small" id="coinForecastLine" style="display:none;margin-top:4px;cursor:pointer" onclick="showCoinForecastDetail()" title="点击查看今日金币预测说明">💰 今日预计花费 <b id="coinForecastNet">0</b> 金币 · 已赚 <b id="coinForecastEarned">0</b> <span id="coinForecastIcon"></span></div>
     <div class="mood" id="moodText">😊 状态不错！</div>
     <div class="hud-care" id="hudCareCount" style="display:none">💖 今日照顾 0/5</div>
     <div id="petHouseLine" class="small" style="margin-top:5px;display:none"><span data-i18n="pet_house_label">🏠 当前小窝：</span><span id="houseName">温馨小屋</span></div>
@@ -2004,8 +2020,8 @@ const CONFIG = {
     {id:'wagyu', name:'日式和牛', nameEn:'Japanese Wagyu', emoji:'🥩', price:7, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'吃饱饱 +38', descEn:'Fills belly +38', fx:function(p){p.food+=38}},
     {id:'matcha', name:'抹茶拿铁', nameEn:'Matcha Latte', emoji:'🍵', price:4, lv:PREMIUM_FOOD_UNLOCK_LEVEL, desc:'水汪汪 +26，开心 +8', descEn:'Thirst +26, Happiness +8', fx:function(p){p.thirst+=26;p.happy+=8}},
     {id:'out', name:'外出游玩券', nameEn:'Outing Ticket', emoji:'🎡', price:5, lv:1, desc:'开心 +32', descEn:'Happiness +32', fx:function(p){p.happy+=32}},
-    {id:'train', name:'训练道具', nameEn:'Training Kit', emoji:'🎯', price:3, lv:1, desc:'经验 +30（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', descEn:'EXP +30 (costs -'+TRAIN_STAT_COST+' each from Food/Thirst/Clean)', fx:function(p){gainExp(30)}},
-    {id:'train2', name:'高级训练道具', nameEn:'Advanced Training Kit', emoji:'🏆', price:8, lv:10, desc:'经验 +60（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', descEn:'EXP +60 (costs -'+TRAIN_STAT_COST+' each from Food/Thirst/Clean)', fx:function(p){gainExp(60)}},
+    {id:'train', name:'训练道具', nameEn:'Training Kit', emoji:'🎯', price:3, lv:1, desc:'经验 +30（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', descEn:'EXP +30 (costs -'+TRAIN_STAT_COST+' each from Food/Thirst/Clean)', fx:function(p){gainExp(30,'使用【训练道具】')}},
+    {id:'train2', name:'高级训练道具', nameEn:'Advanced Training Kit', emoji:'🏆', price:8, lv:10, desc:'经验 +60（消耗吃饱饱/水汪汪/香喷喷各-'+TRAIN_STAT_COST+'）', descEn:'EXP +60 (costs -'+TRAIN_STAT_COST+' each from Food/Thirst/Clean)', fx:function(p){gainExp(60,'使用【高级训练道具】')}},
     {id:'bath', name:'美容洗护', nameEn:'Grooming & Bath', emoji:'🛁', price:5, lv:1, desc:'香喷喷 +22', descEn:'Clean +22', fx:function(p){p.clean+=22}},
     {id:'medicine', name:'特效药', nameEn:'Medicine', emoji:'💊', price:15, lv:1, desc:'立刻治好轻伤，避免变回蛋（对重伤无效）', descEn:'Instantly cures a light injury, preventing it from reverting to an egg (no effect on severe injuries)', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
     {id:'medicine2', name:'高级特效药', nameEn:'Advanced Medicine', emoji:'✨💊', price:40, lv:1, desc:'轻伤/重伤都能立刻治好，避免变回蛋', descEn:'Instantly cures either light or severe injuries, preventing it from reverting to an egg', fx:function(p){p.injured=false;p.injuredAt=null;p.injurySeverity=null;}},
@@ -5330,6 +5346,11 @@ function loadAdminCoinOverview(){
           ledgerBtn.textContent='📜 明细';
           ledgerBtn.onclick=(function(rid1,cid1,name1){ return function(){ showCoinLedgerDetail(rid1,cid1,name1); }; })(it.rowId,it.cid,it.childName);
           right.appendChild(ledgerBtn);
+          var petLedgerBtn=document.createElement('button');
+          petLedgerBtn.className='btn btn-gray btn-sm';
+          petLedgerBtn.textContent='🐾 等级明细';
+          petLedgerBtn.onclick=(function(rid3,cid3,name3){ return function(){ showPetLevelLedgerDetail(rid3,cid3,name3); }; })(it.rowId,it.cid,it.childName);
+          right.appendChild(petLedgerBtn);
           var adjBtn=document.createElement('button');
           adjBtn.className='btn btn-warning btn-sm';
           adjBtn.textContent='✏️ 调整金币';
@@ -5408,6 +5429,58 @@ function showCoinLedgerDetail(rowId,cid,childName){
     }
   }).catch(function(){
     label.textContent='📜 「'+childName+'」金币变化明细';
+    list.innerHTML='<div style="color:#e53935;padding:6px 0">加载失败，检查网络后重新点一次</div>';
+  });
+}
+/* 2026-10新增：宠物等级变化明细——翻这个孩子档案里每一只宠物各自的 levelLedger 流水账，
+   一眼看出宠物等级是什么时候、因为什么原因变化的（比如"PK轻伤超过48小时没人安抚，自动掉级"），
+   不用再去硬猜。家里可能同时养好几只宠物，这里把所有宠物的记录合并在一起按时间倒序显示，
+   每一条前面标出是哪只宠物。最新的排在最上面，最多显示最近80条。 */
+function showPetLevelLedgerDetail(rowId,cid,childName){
+  var box=document.getElementById('adminPetLedgerBox');
+  var label=document.getElementById('adminPetLedgerLabel');
+  var list=document.getElementById('adminPetLedgerList');
+  if(!box||!label||!list) return;
+  box.style.display='block';
+  label.textContent='🐾 「'+childName+'」宠物等级变化明细（加载中…）';
+  list.innerHTML='';
+  fetchRowData(rowId).then(function(row){
+    var d=row&&row.data;
+    var st=d&&d.accounts&&d.accounts[cid]&&d.accounts[cid].state;
+    var pets=(st&&Array.isArray(st.pets)&&st.pets.length)?st.pets:((st&&st.pet&&st.pet.chosen)?[st.pet]:[]);
+    label.textContent='🐾 「'+childName+'」宠物等级变化明细（共'+pets.length+'只宠物）';
+    var entries=[];
+    pets.forEach(function(p){
+      var petName=(p&&p.name)||'宠物';
+      ((p&&Array.isArray(p.levelLedger))?p.levelLedger:[]).forEach(function(e){
+        entries.push({t:e.t, expDelta:e.expDelta, levelBefore:e.levelBefore, levelAfter:e.levelAfter, exp:e.exp, reason:e.reason, petName:petName});
+      });
+    });
+    if(!entries.length){
+      list.innerHTML='<div style="color:#999;padding:6px 0">这个孩子档案暂时还没有宠物等级变化记录（老存档在这次更新之后才会开始记录，之前发生的变化没法追溯）</div>';
+      return;
+    }
+    entries.sort(function(a,b){ return (b.t||0)-(a.t||0); }); // 最新的排最上面
+    var shown=entries.slice(0,80);
+    list.innerHTML=shown.map(function(e){
+      var when=''; try{ when=new Date(e.t).toLocaleString(); }catch(err){}
+      var expDelta=(typeof e.expDelta==='number')?e.expDelta:0;
+      var deltaText=(expDelta>0?'+':'')+expDelta+'经验';
+      var deltaColor=expDelta>0?'#43a047':(expDelta<0?'#e53935':'#999');
+      var lvChanged=(typeof e.levelBefore==='number'&&typeof e.levelAfter==='number'&&e.levelBefore!==e.levelAfter);
+      var lvText=lvChanged?('Lv.'+e.levelBefore+' → Lv.'+e.levelAfter):'';
+      var lvColor=lvChanged?(e.levelAfter>e.levelBefore?'#43a047':'#e53935'):'#999';
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #f0f0f0">'
+        +'<span style="flex:1">'+when+' · ['+e.petName+'] '+(e.reason||'（未说明原因）')+'</span>'
+        +'<span style="white-space:nowrap;color:'+deltaColor+';font-weight:600">'+deltaText+'</span>'
+        +'<span style="white-space:nowrap;color:'+lvColor+';font-weight:'+(lvChanged?'600':'400')+'">'+lvText+'</span>'
+        +'</div>';
+    }).join('');
+    if(entries.length>shown.length){
+      list.innerHTML+='<div style="color:#999;padding:6px 0;text-align:center">（只显示最近'+shown.length+'条，共'+entries.length+'条）</div>';
+    }
+  }).catch(function(){
+    label.textContent='🐾 「'+childName+'」宠物等级变化明细';
     list.innerHTML='<div style="color:#e53935;padding:6px 0">加载失败，检查网络后重新点一次</div>';
   });
 }
@@ -6250,7 +6323,7 @@ function revertPetLevelForPkInjury(pet){
   var info=petLevelInfo(pet);
   var floorLv=petStageFloorLevel(info.level);
   if(floorLv<info.level){
-    pet.exp=petExpForLevel(floorLv);
+    setPetExp(pet, petExpForLevel(floorLv), 'PK战败受轻伤，超过48小时没人安抚（买"住院治疗"或买药治好即可避免），自动掉级到本阶段下限');
   }
   pet.pkInjured=false; pet.pkInjuredAt=null;
   pet.pkNextBattleBuff=null;
@@ -8745,7 +8818,7 @@ function resolveQuiz(key,isCorrect,extra,label,opts){
     var msg='✍️'+(label||'小测验')+'答对啦，+'+bonus+'金币奖励'+(coinMult>1?'（难度较高，双倍奖励）':'');
     var expBonus=opts.expBonus||0;
     if(expBonus>0&&state.pet&&state.pet.chosen){
-      gainExp(expBonus);
+      gainExp(expBonus,(label||'小测验')+'答对奖励');
       msg+='，+'+expBonus+'经验';
     }
     addLog(msg);
@@ -9424,7 +9497,7 @@ function maybeFinishWeeklyQuiz(){
       var bonus=Math.round(10+pct*30); // 一次性大奖励：10~40金币之间，按正确率给，参加就有基础奖励
       earnCoins(bonus,'每周复习测验');
       var expBonus=Math.round(pct*20);
-      if(expBonus>0 && state.pet && state.pet.chosen) gainExp(expBonus);
+      if(expBonus>0 && state.pet && state.pet.chosen) gainExp(expBonus,'每周复习测验奖励');
       addLog('🏆本周复习测验完成！答对'+correctCount+'/'+wq.items.length+'题，获得一次性奖励 +'+bonus+'金币'+(expBonus>0?('，+'+expBonus+'经验'):''));
       petCelebrateSmartAnswer();
     }
@@ -10209,7 +10282,7 @@ function completeReadingTask(cat){
   d[cat].lastAt=Date.now();
   var coin=specialCoin(cat);
   earnCoins(coin, cfg.log);
-  if(state.pet&&state.pet.chosen) gainTaskExp();
+  if(state.pet&&state.pet.chosen) gainTaskExp(1,cfg.log);
   gainAbilityPoint('study'); // 中英文阅读/名著故事都算"学习"类，累加智力值
   addLog(cfg.log+'，+'+coin+'金币');
   // 记一笔"已读记录"（标题+完成时间），只记这次刚打卡完成的这篇，供家长核实小朋友是不是真的一篇篇读过来的，
@@ -10308,7 +10381,7 @@ function handleMathLevelCleared(level){
   if(isFirstEver) state.mathLevelsEverCleared.push(level);
   if(isFirstToday) state.day.math.rewardedLevels.push(level);
   earnCoins(coins,'守卫家园通关第'+level+'关');
-  gainExp(mathExp);
+  gainExp(mathExp,'守卫家园数学小游戏通关第'+level+'关');
   addLog('🏰守卫家园通关第'+level+'关，+'+coins+'金币，+'+mathExp+'经验');
   save();
   render(); // 立刻刷新页面（宠物蛋孵化进度条/经验条/金币等），不然要等切换别的页面才会看到变化
@@ -10510,6 +10583,7 @@ function migrateState(s){
     ensurePetEquipment(_onePet); // 2026-09新增：9部位装备槽位，老存档的宠物统一补齐空槽位
     if(typeof _onePet.pkInjured==='undefined') _onePet.pkInjured=false; // 2026-09新增：PK战败专用的48小时倒计时，跟原有injured字段（3小时变蛋那套）完全独立
     if(typeof _onePet.pkInjuredAt==='undefined') _onePet.pkInjuredAt=null;
+    if(!Array.isArray(_onePet.levelLedger)) _onePet.levelLedger=[]; // 老存档没有宠物等级变化流水账字段，补一个空的，从这次之后的变化开始记录
   }
   s.pet = s.pets.length ? s.pets[s.activePetIdx] : {chosen:false};
   if(!s.pvpFriends) s.pvpFriends=[];
@@ -11141,7 +11215,7 @@ function revertPetToEgg(pet, reason){
   var isActive=(pet===state.pet);
   var name=pet.name||'宠物';
   pet.hatched=false;
-  pet.exp=0;
+  setPetExp(pet, 0, reason==='injury' ? '受伤后一直没吃到药，伤心地变回了蛋' : '长期无人照顾（吃饱饱/水汪汪/笑眯眯/香喷喷同时归零太久），伤心地变回了蛋');
   pet.food=100; pet.thirst=100; pet.happy=100; pet.clean=100;
   pet.neglectHours=0;
   pet.injured=false; pet.injuredAt=null; pet.injurySeverity=null;
@@ -11184,6 +11258,57 @@ function petPersonality(){
   if(sc.study>=ABILITY_HIGH) return 'good';
   if(sc.house>=ABILITY_HIGH) return 'worker';
   return 'neutral';
+}
+/* ========== 宠物多维度性格标签（纯展示，不影响上面petPersonality()驱动的乱花钱/打工经济机制）==========
+   2026-10新增：家长反馈小朋友搞不清楚自己宠物到底是什么性格——上面 petPersonality() 只会给出
+   乖巧/叛逆/勤劳/中性这四选一的判定（且只看study和house两个维度），没法看出宠物在运动/创造力/
+   共情爱心/音律这些方面各自表现怎么样。这里新增一套完全独立的"标签"系统：7个能力维度里，
+   除了courage（勇气探险，绑在副本系统上，副本目前还没开放，永远是0——加进来的话每只宠物都会
+   被扣一个永远甩不掉的"缺点"标签，不公平，等副本正式开放再加回来），剩下6个维度各自独立判定：
+   分数够高（>=ABILITY_TAG_HIGH）贴一个"优点"标签，分数明显偏低（<ABILITY_TAG_LOW）贴一个
+   偏调皮/待加强的"缺点"标签，中间地带不贴标签（避免每个维度都硬贴一个、看起来太满）。
+   因为6个维度各自独立判定，一只宠物身上可以同时挂好几个标签（比如同时是"运动健将"+"小小艺术家"+
+   "调皮捣蛋"），这就是"多性格类型"——跟petPersonality()的四选一完全不冲突，是另外一层展示信息，
+   纯粹用来让小朋友一眼看出"我的宠物现在哪里做得好、哪里还能再努力"，不会影响实际花钱/赚钱的游戏数值。 */
+var ABILITY_TAG_HIGH=ABILITY_HIGH; // 跟petPersonality()判定"乖巧/勤劳"共用同一个"够高"门槛(60)，标准统一
+var ABILITY_TAG_LOW=20; // 低于这个分数，判定为这个维度还比较薄弱，给一个俏皮的"缺点"标签提醒一下
+var ABILITY_TAG_DIMS=['sport','study','house','creativity','empathy','music']; // 不含courage，原因见上面大段注释
+var ABILITY_TAG_DEFS={
+  sport:      {high:{emoji:'🏃',name:'运动健将',desc:'很爱运动，精力充沛，运动打卡从来不含糊！'},      low:{emoji:'😴',name:'小懒虫',  desc:'不太爱动，运动打卡总是能拖就拖，多带它运动运动吧～'}},
+  study:      {high:{emoji:'📚',name:'好学乖巧',desc:'很爱学习，听话懂事，离线时也不会乱来。'},        low:{emoji:'😈',name:'调皮捣蛋',desc:'学习上有点落后，离线时偶尔会偷偷乱花钱/搞点小破坏，多陪它学习吧～'}},
+  house:      {high:{emoji:'🧹',name:'勤劳持家',desc:'很爱做家务，离线时还会自己出门打工赚钱贴补家用！'},low:{emoji:'🛋️',name:'小懒猫', desc:'不太爱做家务，家务打卡总是能拖就拖。'}},
+  creativity: {high:{emoji:'🎨',name:'小小艺术家',desc:'脑洞大开，很喜欢自己动手创造新花样！'},        low:{emoji:'🤷',name:'想法不多',desc:'不太爱自己想点子，多鼓励它发挥创造力吧～'}},
+  empathy:    {high:{emoji:'💗',name:'温柔暖心',desc:'很会关心别人，主动问候、写日记都很上心。'},      low:{emoji:'🙅',name:'有点冷淡',desc:'不太主动关心别人，多带它问候家人、写写日记吧～'}},
+  music:      {high:{emoji:'🎵',name:'音乐达人',desc:'很爱唱歌跳舞，是个闪亮的小舞台担当！'},          low:{emoji:'🤐',name:'文静内敛',desc:'不太爱唱歌跳舞，比较安静害羞。'}}
+};
+function computePetPersonalityTags(pet){
+  if(!pet||!pet.chosen||!pet.hatched) return []; // 还是蛋的话还没开始发展各项能力，不贴标签
+  var sc=petAbilityScores();
+  var tags=[];
+  ABILITY_TAG_DIMS.forEach(function(key){
+    var def=ABILITY_TAG_DEFS[key];
+    if(!def) return;
+    var score=sc[key]||0;
+    if(score>=ABILITY_TAG_HIGH){
+      tags.push({dim:key, kind:'high', emoji:def.high.emoji, name:def.high.name, desc:def.high.desc});
+    }else if(score<ABILITY_TAG_LOW){
+      tags.push({dim:key, kind:'low', emoji:def.low.emoji, name:def.low.name, desc:def.low.desc});
+    }
+  });
+  return tags;
+}
+function renderPetPersonalityTags(pet){
+  var box=document.getElementById('petPersonalityTags');
+  if(!box) return;
+  var tags=computePetPersonalityTags(pet);
+  if(!tags.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='block';
+  box.innerHTML=tags.map(function(t){
+    var bg=t.kind==='high'?'#e8f5e9':'#fff3e0';
+    var color=t.kind==='high'?'#2e7d32':'#9a6b00';
+    var safeDesc=String(t.desc).replace(/"/g,'&quot;');
+    return '<span title="'+safeDesc+'" style="display:inline-block;background:'+bg+';color:'+color+';border-radius:12px;padding:2px 8px;margin:2px 4px 2px 0;font-size:11px;white-space:nowrap">'+t.emoji+' '+t.name+'</span>';
+  }).join('');
 }
 var OFFLINE_EVENT_MIN_HOURS=0.5; // 2026-09：从2小时改成半小时——离线只要够半小时，一上线就会有描述"宠物做了什么"的提示，让小朋友更有惦记着要上线看看的动力
 /* 2026-09新增："金币攒太多"会让宠物乱花钱的概率大幅提高——注意这个机制是按"账号金币余额"判定的，
@@ -11510,6 +11635,83 @@ function maybeTriggerCoinWipe(today){
     state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
   }
 }
+/* ========== 宠物每日金币消耗预测 ==========
+   2026-10新增：家长反馈"小朋友搞不清楚宠物每天大概要花多少钱"——不同性格的宠物花钱习惯不一样：
+   叛逆型离线时偶尔会偷偷乱花钱/浪费食物（见上面 rollRebelEvent），勤劳型离线时会自己打工赚点钱
+   贴补家用（见 rollWorkerEvent），乖巧/中性型基本不受影响。这里按宠物当前等级算出一个
+   "今天大概要花多少金币才能让宠物吃饱喝足洗干净"的基础预测值（口径跟 applyRealTimeDecay() 里
+   真实掉状态用的 decayForLevel() 完全一致，等级越高饭量越大），再叠加性格带来的加成/减项，
+   方便小朋友一眼看出"今天赚的钱够不够养宠物"，提前有个心理准备，而不是等真的饿肚子才知道。
+   注意：这只是一个按平均情况估算出来的提醒，不是精确账单——真实游玩中具体会不会触发"乱花钱/
+   打工"这些离线小剧情还是要看运气，这里只是帮小朋友建立"攒钱要够用"的概念，不代表100%精确。 */
+var PET_COST_PER_POINT={
+  food: 1/18,   // 最便宜的回复手段：🍖宠物粮食，1金币回18点吃饱饱（CONFIG.shop id='food'）
+  thirst: 1/18, // 💧饮用水，1金币回18点水汪汪（CONFIG.shop id='water'）
+  clean: 5/22   // 🛁美容洗护，5金币回22点香喷喷（CONFIG.shop id='bath'，香喷喷没有比这更便宜的补充道具）
+};
+function computeDailyPetCostForecast(pet){
+  if(!pet||!pet.chosen||!pet.hatched) return null; // 还是蛋的话还不需要日常饲养，不预测
+  var level=petLevelInfo(pet).level;
+  var foodDecay=decayForLevel('food',level), thirstDecay=decayForLevel('thirst',level), cleanDecay=decayForLevel('clean',level);
+  var baseCost=foodDecay*PET_COST_PER_POINT.food + thirstDecay*PET_COST_PER_POINT.thirst + cleanDecay*PET_COST_PER_POINT.clean;
+  var personality=petPersonality();
+  var tier=petMaturityTier(level);
+  var scale=REBEL_PUNISH_SCALE[tier]||1;
+  var rebelExtra=0, workerEarn=0;
+  if(personality==='rebel'){
+    // 跟 rollRebelEvent() 的"偷花钱"分支用同一套公式估算：pct取(0.1~0.3)*scale的中点0.2*scale，
+    // 封顶80*scale、不少于5，按当前余额算出"平均大概会被花掉多少"，只用来估算，不会真的扣钱
+    var avgPct=0.2*scale;
+    var cap=Math.round(80*scale);
+    rebelExtra=Math.max(5,Math.min(cap,Math.round((state.moneyBalance||0)*avgPct)));
+  }else if(personality==='worker'){
+    workerEarn=14; // 跟 rollWorkerEvent() 的8~20金币随机范围取中点估算
+  }
+  var net=Math.max(0,Math.round(baseCost+rebelExtra-workerEarn));
+  return {level:level, personality:personality, baseCost:Math.round(baseCost), rebelExtra:rebelExtra, workerEarn:workerEarn, net:net};
+}
+function updateCoinForecastUI(){
+  var line=document.getElementById('coinForecastLine');
+  if(!line) return;
+  var fc=computeDailyPetCostForecast(state.pet);
+  if(!fc){ line.style.display='none'; return; }
+  line.style.display='block';
+  var earned=(state.day&&typeof state.day.earned==='number')?state.day.earned:0;
+  var netEl=document.getElementById('coinForecastNet'); if(netEl) netEl.innerText=fc.net;
+  var earnedEl=document.getElementById('coinForecastEarned'); if(earnedEl) earnedEl.innerText=earned;
+  var icon=document.getElementById('coinForecastIcon');
+  var short=fc.net-earned;
+  if(icon) icon.textContent=short>0?'⚠️':'✅';
+  line.style.color=short>0?'#e65100':'#2e7d32';
+}
+var PET_PERSONALITY_LABEL_ZH={good:'😇 乖巧型',rebel:'😈 叛逆型',worker:'💼 勤劳型',neutral:'🙂 中性型'};
+var PET_PERSONALITY_FORECAST_NOTE_ZH={
+  good:'性格乖巧稳重，离线时不会乱花钱，基本不影响预测金额。',
+  rebel:'性格有点叛逆，离线时偶尔会偷偷乱花钱/浪费食物，预测里已经多算了一些预留金额。',
+  worker:'性格很勤劳，离线时会自己出门打工赚钱，预测里已经帮忙扣掉了一部分，所以需要你赚的钱会比基础饲养成本少一些。',
+  neutral:'性格比较中性，花钱习惯比较稳定，基本跟基础饲养成本差不多。'
+};
+function showCoinForecastDetail(){
+  var fc=computeDailyPetCostForecast(state.pet);
+  var body=document.getElementById('coinForecastDetailBody');
+  if(!fc||!body) return;
+  var earned=(state.day&&typeof state.day.earned==='number')?state.day.earned:0;
+  var short=fc.net-earned;
+  var personalityLabel=PET_PERSONALITY_LABEL_ZH[fc.personality]||PET_PERSONALITY_LABEL_ZH.neutral;
+  var personalityNote=PET_PERSONALITY_FORECAST_NOTE_ZH[fc.personality]||PET_PERSONALITY_FORECAST_NOTE_ZH.neutral;
+  var html='<p>🐾 当前性格：<b>'+personalityLabel+'</b>（Lv'+fc.level+'）</p>'
+    +'<p>'+personalityNote+'</p>'
+    +'<p>🍖💧✨ 基础饲养成本（吃饱饱+水汪汪+香喷喷，等级越高越贵）：约 <b>'+fc.baseCost+'</b> 金币</p>'
+    +(fc.rebelExtra>0?('<p>😈 叛逆性格预留的"乱花钱"额外预算：约 <b>'+fc.rebelExtra+'</b> 金币</p>'):'')
+    +(fc.workerEarn>0?('<p>💼 勤劳性格预计能自己打工赚回：约 <b>'+fc.workerEarn+'</b> 金币</p>'):'')
+    +'<p style="margin-top:6px;font-weight:700">今天预计总共需要赚到约 <b>'+fc.net+'</b> 金币，目前已经赚了 <b>'+earned+'</b> 金币。</p>'
+    +(short>0
+      ?('<p style="padding:8px;background:#fff3e0;border-radius:10px;color:#9a6b00">⚠️ 还差 '+short+' 金币，赶紧去打卡/完成任务赚钱吧，不然宠物今天可能会吃不饱哦！</p>')
+      :('<p style="padding:8px;background:#e8f5e9;border-radius:10px;color:#2e7d32">✅ 已经赚够啦，宠物今天可以吃饱喝足、干干净净啦～</p>'))
+    +'<p style="margin-top:8px;color:#999;font-size:11px">💡 这只是根据宠物等级和性格估算出来的大概数字，不是精确账单——实际花多花少还是要看你怎么安排哦！</p>';
+  body.innerHTML=html;
+  showModal('coinForecastModal');
+}
 /* 2026-09fix：这个函数原来不返回任何东西，调用方（尤其是 petMinuteTick 每分钟挂机自动调用的那次）
    不知道这一次到底有没有发生"值得跟其它设备同步"的真事件，只能笼统地每次都当成"有变化"去 saveStore()。
    现在让它老实汇报"这次是不是真的发生了宠物变回蛋这种大事"（返回true/false），配合下面 petMinuteTick
@@ -11760,7 +11962,7 @@ function completeBurpee(mode){
      跟以前"分组完成→次日-20"的规则不一样了——分组完成今天照样能拿到金币/经验，只是没有次日优惠 */
   if(mode==='once') state.nextBurpeeBonus=60;
   earnCoins(specialCoin('burpee'),'波比跳');
-  gainTaskExp();
+  gainTaskExp(1,'波比跳打卡');
   gainAbilityPoint('sport',{highQuality:mode==='once'}); // 一次性做完60个难度更高，算"优质完成"
   addLog('✅波比跳完成（'+(mode==='once'?'1次做完，明日免做':'分组完成，明日无优惠')+'），+'+specialCoin('burpee')+'金币');
   afterTask('sport');
@@ -11963,7 +12165,7 @@ function markDone(cat,key,viaFree){
   else { state.day[cat][key]=true; }
   var mult=studyRewardMultiplier(cat,key);
   var coins=taskCoinsOf(cat,key)*mult;
-  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult);gainAbilityPoint(cat,{highQuality:mult>1});}
+  if(!viaFree){earnCoins(coins,taskLabel(cat,key));gainTaskExp(mult,taskLabel(cat,key));gainAbilityPoint(cat,{highQuality:mult>1});}
   else{markDayActive();}
   addLog('✅完成：'+taskLabel(cat,key)+(viaFree?'（免做卡豁免）':'')+(viaFree?'':'，+'+coins+'金币'+(mult>1?'（难度较高，双倍奖励）':'')));
   afterTask(cat);
@@ -11978,7 +12180,7 @@ function completeSentenceRepeat(){
   var cap=9; // 第一次"完成"+最多9次"再练一次"＝每天最多10次，对应"说+写1句英文句子每日可以打10次"
   if(d.sentenceRepeatCount>=cap){ alert('今天已经练习10次啦，明天再来吧！'); return; }
   d.sentenceRepeatCount++;
-  gainTaskExp();
+  gainTaskExp(1,'每日句子重复练习');
   gainAbilityPoint('study');
   addLog('💬重复练习今日句子，+经验');
   save();
@@ -12048,7 +12250,7 @@ function applyBoardDailyBonus(){
     var expGain=Math.max(1,Math.round(BOARD_BONUS_BASE_EXP*factor));
     var coinGain=Math.max(1,Math.round(BOARD_BONUS_BASE_COIN*factor));
     totalCoin+=coinGain;
-    gainExpForPet(p,expGain);
+    gainExpForPet(p,expGain,'棋盘每日奖励');
   }
   if(petCount>0&&totalCoin>0){
     state.day.earned+=totalCoin;
@@ -12078,7 +12280,7 @@ function markDayActive(){
     }
   }
 }
-function gainTaskExp(mult){if(state.pet&&state.pet.chosen) gainExp(CONFIG.taskExp*(mult||1));}
+function gainTaskExp(mult,reason){if(state.pet&&state.pet.chosen) gainExp(CONFIG.taskExp*(mult||1),reason||'完成打卡任务');}
 /* ========== 七大能力维度（2026-09 大改版）==========
    旧版是"三维能力值"(体力/智力/生活)后来扩展到7维(+才艺/情感/社交/品格)，用的是次数->0~100的固定
    渐进曲线，100封顶。新版按照"仙侠灵宠"设定文档重做成：运动/学习/家务/创造力/共情爱心/音律/勇气探险，
@@ -12431,7 +12633,7 @@ function completeCustomTask(){
   d.custom.count++;
   d.custom.log.push(text);
   earnCoins(specialCoin('custom'),'自定义：'+text);
-  gainTaskExp();
+  gainTaskExp(1,'自定义加分项：'+text);
   gainAbilityPoint('custom');
   addLog('⭐完成自定义加分项【'+text+'】，+'+specialCoin('custom')+'金币');
   if(input) input.value='';
@@ -12447,7 +12649,7 @@ function completeHelloTask(){
   if(d.comm.hello>=10){ alert('今天打招呼次数已经满10次啦，明天继续加油！'); return; }
   d.comm.hello++;
   earnCoins(specialCoin('hello'),'主动打招呼');
-  gainTaskExp();
+  gainTaskExp(1,'主动打招呼');
   gainAbilityPoint('comm');
   addLog('🙋完成一次主动打招呼，+'+specialCoin('hello')+'金币（今日'+d.comm.hello+'/10次）');
   afterTask('comm');
@@ -12523,10 +12725,10 @@ function makeUpMiss(){
   if(!confirm('确认执行漏打卡补做（波比跳90、仰卧起坐60、平板/平衡各多1组）？完成后将自动帮你勾选今日运动打卡并发放金币。本周还剩 '+(1-state.makeUpUsed)+' 次机会')) return;
   state.makeUpUsed++;
   var d=state.day;
-  if(!(d.sport.burpee>0)){ d.sport.burpee=1; earnCoins(specialCoin('burpee'),'波比跳(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
-  if(!d.sport.plank){ d.sport.plank=true; earnCoins(taskCoinsOf('sport','plank'),'平板支撑(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
-  if(!d.sport.balance){ d.sport.balance=true; earnCoins(taskCoinsOf('sport','balance'),'单腿平衡(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
-  if(!d.sport.situp){ d.sport.situp=true; earnCoins(taskCoinsOf('sport','situp'),'仰卧起坐(补卡)'); gainTaskExp(); gainAbilityPoint('sport'); }
+  if(!(d.sport.burpee>0)){ d.sport.burpee=1; earnCoins(specialCoin('burpee'),'波比跳(补卡)'); gainTaskExp(1,'波比跳(补卡)'); gainAbilityPoint('sport'); }
+  if(!d.sport.plank){ d.sport.plank=true; earnCoins(taskCoinsOf('sport','plank'),'平板支撑(补卡)'); gainTaskExp(1,'平板支撑(补卡)'); gainAbilityPoint('sport'); }
+  if(!d.sport.balance){ d.sport.balance=true; earnCoins(taskCoinsOf('sport','balance'),'单腿平衡(补卡)'); gainTaskExp(1,'单腿平衡(补卡)'); gainAbilityPoint('sport'); }
+  if(!d.sport.situp){ d.sport.situp=true; earnCoins(taskCoinsOf('sport','situp'),'仰卧起坐(补卡)'); gainTaskExp(1,'仰卧起坐(补卡)'); gainAbilityPoint('sport'); }
   addLog('⚠️漏打卡补卡执行：波比跳90，仰卧起坐60，平板/平衡训练多1组，今日运动打卡已全部补齐');
   afterTask('sport');
   save();
@@ -12612,7 +12814,7 @@ function confirmName(){
   var lib=PET_LIBRARY[type]||PET_LIBRARY.xiaojinlin;
   if(!name) name=lib.name;
   var isAdditional=!!(state.pets && state.pets.length>0);
-  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},dungeon2ClearedDate:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,injurySeverity:null,idleNagDayKey:null,bathRequestPending:false,equipment:{},pkInjured:false,pkInjuredAt:null};
+  var newPet={chosen:true,type:type,name:name,hatched:false,exp:0,food:100,thirst:100,happy:100,clean:100,house:0,accessories:[],equippedAccessory:null,dungeonBestTier:-1,dungeon2Tried:{},dungeon2Cleared:{},dungeon2ClearedDate:{},lastTickAt:Date.now(),neglectHours:0,injured:false,injuredAt:null,injurySeverity:null,idleNagDayKey:null,bathRequestPending:false,equipment:{},pkInjured:false,pkInjuredAt:null,levelLedger:[]};
   ensurePetEquipment(newPet); // 9部位装备槽位统一置空
   if(!state.pets) state.pets=[];
   state.pets.push(newPet);
@@ -12711,21 +12913,21 @@ function maturityTierIndex(tier){
 /* 通用版本：可以指定给"哪一只"宠物加经验（不一定是当前出战展示的那只），
    棋盘每日奖励要给家里每一只宠物各自加经验时会用到这个；gainExp(amt)仍然保留，
    专门用来给当前出战的宠物加经验，内部就是调用这个通用版本 */
-function gainExpForPet(pet,amt){
+function gainExpForPet(pet,amt,reason){
   if(!pet||!pet.chosen) return;
   var isActive=(pet===state.pet);
   var before=petLevelInfo(pet).level;
-  pet.exp+=amt;
+  addPetExpChange(pet, amt, reason||'获得经验');
   var after=petLevelInfo(pet).level;
   if(after>before) addLog('🎉'+(pet.name||'宠物')+' 升到 '+after+' 级！');
   if(!pet.hatched&&pet.exp>=CONFIG.eggHatchExp){
     pet.hatched=true;
-    if(petLevelInfo(pet).level<1) pet.exp=CONFIG.eggHatchExp;
+    if(petLevelInfo(pet).level<1) setPetExp(pet, CONFIG.eggHatchExp, '破壳保底（经验不足却已满足破壳条件，兜底修正）');
     addLog('🥚破壳啦！！'+(pet.name||'宠物')+' 出生了！');
     if(isActive) showReward('🐣 破壳啦！','<b>'+pet.name+'</b> 从蛋里钻出来啦！<br>现在起每天需要照顾它：喂食、喝水、陪玩、美容～');
   }
 }
-function gainExp(amt){ gainExpForPet(state.pet,amt); }
+function gainExp(amt,reason){ gainExpForPet(state.pet,amt,reason); }
 
 /* ========== 商店购买 + 每日照顾任务 ==========
    宠物日常照顾用品（吃的/喝的/玩的/洗的这5样）现在改成"先在商店买、囤进背包，宠物页面再用背包里的存货喂"，
@@ -13901,7 +14103,7 @@ function dungeonEnd(win){
     addCoinChange(st.coin, '副本挑战通关奖励（第'+(dg.idx+1)+'层）');
     state.day.earned+=st.coin;
     var dgExp=st.exp||(10+dg.idx*8); // 通关层数（idx）越高，奖励经验越多；老配置万一没写 exp 字段时兜底按层数算
-    gainExp(dgExp);
+    gainExp(dgExp,'副本挑战通关奖励（第'+(dg.idx+1)+'层）');
     var isFinale=(isNewProgress && dg.idx===CONFIG.dungeon.length-1);
     gainAbilityPoint('dungeon',{highQuality:isNewProgress||isFinale}); // 打通副本累加"勇气探险"维度；这个功能目前是关闭状态(CONFIG.dungeonEnabled=false)，等以后开放了自动生效
     dgLog('🎉 打败了 '+st.monster+'！');
@@ -14136,7 +14338,7 @@ function dungeonEnd2(win){
     var mat=rewardSt.materialPool[dungeon2RandInt(0,rewardSt.materialPool.length-1)];
     state.backpack.materials[mat.id]=(state.backpack.materials[mat.id]||0)+1;
     var dgExp=rewardSt.exp||15;
-    gainExp(dgExp);
+    gainExp(dgExp,'新版副本挑战通关奖励（第'+(idx+1)+'关）');
     if(!pet.dungeon2ClearedDate) pet.dungeon2ClearedDate={};
     pet.dungeon2ClearedDate[idx]=todayKey(); // 每一关每天只能成功通关一次，明天才能再挑战这关
     var firstClear=!pet.dungeon2Cleared[idx];
@@ -14639,6 +14841,54 @@ function addCoinLedgerEntryToRaw(childState,delta,reason){
   _pushCoinLedgerEntry(childState, delta, reason);
 }
 
+/* ========== 宠物等级变化明细账本 ==========
+   2026-10新增：家长反馈"宠物等级莫名其妙掉了，不知道是什么原因"。跟上面的金币流水账完全同一套思路，
+   给每一只宠物（pet对象本身）加一本"等级流水账"（pet.levelLedger：{t时间戳,expDelta经验变化量,
+   levelBefore变化前等级,levelAfter变化后等级,exp变化后的经验总值,reason原因}）。以后任何地方要改
+   pet.exp，一律改成调用下面的 addPetExpChange()/setPetExp()，不要再直接写 pet.exp+=/-=/=，
+   这样升级/掉级每一笔都会自动留痕。只保留最近PET_LEVEL_LEDGER_MAX条，避免存档无限膨胀。
+   注意：这本账记在"宠物对象自己身上"而不是state上——因为家里可能同时养好几只宠物（state.pets[]），
+   每一只的升级/掉级历史要分开记，不能混在一起。 */
+var PET_LEVEL_LEDGER_MAX=150;
+function _pushPetLevelLedgerEntry(pet,expDelta,levelBefore,levelAfter,reason){
+  if(!pet) return;
+  if(!Array.isArray(pet.levelLedger)) pet.levelLedger=[];
+  pet.levelLedger.push({t:Date.now(), expDelta:expDelta, levelBefore:levelBefore, levelAfter:levelAfter, exp:(typeof pet.exp==='number')?pet.exp:null, reason:reason||'（未说明原因）'});
+  if(pet.levelLedger.length>PET_LEVEL_LEDGER_MAX) pet.levelLedger.splice(0, pet.levelLedger.length-PET_LEVEL_LEDGER_MAX);
+}
+// 宠物经验增/减一个数额（可以是负数），同时自动记一笔明细——日常绝大多数"打卡/训练/副本得经验"场景都该用这个，
+// 而不是直接改 pet.exp。delta为0或者不是有效数字时，什么都不做、也不记流水（避免刷一堆噪音）
+function addPetExpChange(pet,delta,reason){
+  if(!pet) return;
+  if(typeof delta!=='number' || !isFinite(delta) || delta===0) return;
+  var levelBefore=petLevelInfo(pet).level;
+  if(typeof pet.exp!=='number' || !isFinite(pet.exp)) pet.exp=0;
+  pet.exp+=delta;
+  if(pet.exp<0) pet.exp=0;
+  var levelAfter=petLevelInfo(pet).level;
+  _pushPetLevelLedgerEntry(pet, delta, levelBefore, levelAfter, reason);
+}
+// 直接把宠物经验"设成"某个具体数值（而不是增量）时用这个——比如PK轻伤拖太久掉级、变回蛋、管理员修复工具，
+// 会自动按"改之前 vs 改之后"算出delta记进明细，调用方不用自己再算一遍差值
+function setPetExp(pet,newVal,reason){
+  if(!pet) return;
+  var before=(typeof pet.exp==='number' && isFinite(pet.exp))?pet.exp:0;
+  var nv=(typeof newVal==='number' && isFinite(newVal))?Math.max(0,newVal):0;
+  var levelBefore=petLevelInfo(pet).level;
+  pet.exp=nv;
+  var levelAfter=petLevelInfo(pet).level;
+  if(nv!==before) _pushPetLevelLedgerEntry(pet, nv-before, levelBefore, levelAfter, reason);
+}
+// 管理后台直接改"别人"存档里某只宠物的经验时专用——操作的是从云端fetchRowData现读出来的一份原始JSON，
+// 不是当前设备本机的全局state变量，所以不能走上面两个函数，直接往目标宠物对象上记一笔。
+// 调用方必须先把 petObjInRaw.exp 改成新值，再调用这个函数记账（levelBefore/levelAfter需要调用方传入，
+// 因为petLevelInfo默认查的是state.pet，这里petObjInRaw不是当前设备的state.pet，不能直接调用petLevelInfo拿默认值，
+// 但传入的是普通宠物对象，用 petLevelInfo(petObjInRaw) 显式传参查询完全没问题）
+function addPetLevelLedgerEntryToRaw(petObjInRaw,expDelta,levelBefore,levelAfter,reason){
+  if(!petObjInRaw || typeof expDelta!=='number' || !isFinite(expDelta) || expDelta===0) return;
+  _pushPetLevelLedgerEntry(petObjInRaw, expDelta, levelBefore, levelAfter, reason);
+}
+
 /* ========== 撤销副本挑战奖励（只影响当前选中的小朋友）==========
    通过扫描当前小朋友的打卡日志，把"副本挑战成功"记录里发的金币/经验，
    以及副本关闭前用金币买【训练道具】/【高级训练道具】换来的额外经验，
@@ -14694,7 +14944,7 @@ function revertDungeonRewards(){
     +'\n\n操作前会自动先存一份快照备份，如果数字不对可以去"查看/恢复自动备份"里找回。确定要继续吗？';
   if(!confirm(msg)) return;
   try{ autoBackupOnLoad(); }catch(e){}
-  state.pet.exp=newExp;
+  setPetExp(state.pet, newExp, '管理员修复工具：撤销副本挑战重复奖励');
   setCoinBalance(newCoin, '管理员修复工具：撤销副本挑战重复奖励');
   // 把已经算进这次撤销的日志条目去掉，避免以后重复计算、重复撤销
   var keepLog=[];
@@ -15076,6 +15326,10 @@ function renderPet(){
     document.getElementById('petActions').style.display='none';
     closePetActionsPanel(); // 宠物还是蛋的时候没有互动按钮可点，展开的面板（如果有）也一起收起来
     document.getElementById('petHouseLine').style.display='none';
+    var cfLineEgg=document.getElementById('coinForecastLine');
+    if(cfLineEgg) cfLineEgg.style.display='none'; // 还是蛋的话还不需要日常饲养，不显示金币预测
+    var ptagsEgg=document.getElementById('petPersonalityTags');
+    if(ptagsEgg){ ptagsEgg.style.display='none'; ptagsEgg.innerHTML=''; } // 还是蛋的话还没开始发展各项能力，不显示性格标签
     main.style.background='linear-gradient(135deg,#f3e5f5,#fce4ec)';
   }else{
     var eggVideoEl2=document.getElementById('petEggVideo');
@@ -15099,6 +15353,7 @@ function renderPet(){
     else if(stage==='teen') st=L('🌟 成长期（Lv'+info.level+'）【长大了！】','🌟 Growing Stage (Lv'+info.level+') [Grew Up!]');
     else if(stage==='adult') st=L('👑 成熟期（Lv'+info.level+'）完全形态','👑 Adult Stage (Lv'+info.level+') Full Form');
     document.getElementById('petStage').innerText=st;
+    renderPetPersonalityTags(pet);
     var dgTitleEl=document.getElementById('petDungeonTitle');
     var dgTitle=dungeonTitleFor(pet.dungeonBestTier);
     if(dgTitleEl){
@@ -15112,6 +15367,7 @@ function renderPet(){
     setBar('thirstBar','thirstVal',pet.thirst,'blue');
     setBar('happyBar','happyVal',pet.happy,'pink');
     setBar('cleanBar','cleanVal',pet.clean,'purple');
+    updateCoinForecastUI();
     document.getElementById('moodText').innerHTML=petMoodText(petMood);
     document.getElementById('houseName').innerText=L(HOUSES[pet.house||0].name,HOUSES[pet.house||0].nameEn||HOUSES[pet.house||0].name)+' '+(HOUSES[pet.house||0].emoji);
     var houseInfo=HOUSES[pet.house||0];
