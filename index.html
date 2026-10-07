@@ -4935,6 +4935,81 @@ function checkIdleAutoLogout(){
   if(millisSinceLastInteraction()>=IDLE_LOGOUT_MS) idleAutoLogout();
 }
 
+/* ========== 2026-10新增：同一个家庭码在别处重新登录后，把之前登录的地方踢下线 ==========
+   背景：上面的"10分钟闲置自动登出"只能防住"闲置太久"这一种情况——如果家长就是在手机和平板上
+   同时、持续都在用同一个孩子的账号（两边都没闲置），光靠闲置登出完全防不住，还是会出现两份
+   数据互相覆盖的风险。这里加一道更直接的锁：每次真正重新输入家庭码登录成功，就在云端"声明"一次
+   "这是当前唯一有效的登录会话"，之前任何别的地方（哪怕正在用、没有闲置）一旦下次跟云端对一次话，
+   发现云端这个"当前有效会话"已经不是自己了，就直接老实下线、要求重新登录——跟手机银行APP
+   "在新设备登录，旧设备自动登出"是同一个思路。
+   故意用一行单独的、跟"真正的存档数据(SUPA_ROW_ID这一行)"完全分开的小记录来存这个"当前会话是谁"
+   （'session:'+rowId），而不是顺手塞进store里一起用整份覆盖式upsert推送——如果跟存档数据写在一起，
+   登录这一刻如果正好跟"另一边当时正在保存打卡进度"撞在一起，就会变成我们这一整个会话里反复在修
+   的那种"整份覆盖，覆盖掉对方更新的数据"问题，专门分开一行，登录这个动作就不会有任何机会碰到/
+   覆盖到真正的游戏存档。
+   没有本机从没声明过会话（老登录状态，这个功能刚上线时就已经登录着的设备）：不参与这项判定，
+   既不会被判定为"踢下线"，也不会去抢别人的位置——等它之后哪天因为"10分钟闲置"或手动切换家庭码
+   走了一次真正的重新登录，才会第一次声明会话、从那以后才开始参与这项保护。 */
+var ACTIVE_SESSION_KEY='kuroActiveSessionIdV1';
+function newSessionId(){ return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); }
+function activeSessionRowId(rowId){ return 'session:'+rowId; }
+// 真正输入家庭码登录成功、即将location.reload()之前调用：声明"这台设备现在是唯一有效会话"，
+// 不管声明有没有写成功（离线/网络问题），都会照常继续reload，不能因为这一步失败就卡住正常登录
+function claimActiveSessionAndReload(rowId){
+  var sid=newSessionId();
+  try{ localStorage.setItem(ACTIVE_SESSION_KEY, sid); }catch(e){}
+  var body=JSON.stringify({id:activeSessionRowId(rowId), data:{sessionId:sid, at:Date.now()}, updated_at:new Date().toISOString()});
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
+  supaFetch(url,{method:'POST',headers:supaHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:body},9000)
+    .catch(function(){})
+    .then(function(){ location.reload(); });
+}
+function fetchActiveSessionRow(rowId){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(activeSessionRowId(rowId))+'&select=data';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000)
+    .then(function(res){ if(!res.ok) throw new Error('http '+res.status); return res.json(); })
+    .then(function(rows){ return (rows&&rows[0]&&rows[0].data)?rows[0].data:null; })
+    .catch(function(){ return null; });
+}
+// 返回一个Promise<boolean>：true表示本机已经被别的地方顶下线了，该登出了
+function checkActiveSessionKicked(){
+  var mySid=null;
+  try{ mySid=localStorage.getItem(ACTIVE_SESSION_KEY); }catch(e){}
+  if(!mySid) return Promise.resolve(false); // 本机从没声明过会话，不参与这项判定（见上面大段注释）
+  if(!store || !store.currentChildId) return Promise.resolve(false); // 本来就没登录，不用查
+  return fetchActiveSessionRow(SUPA_ROW_ID).then(function(d){
+    if(!d || !d.sessionId) return false; // 云端这行还没有任何声明记录，不判定踢人
+    return d.sessionId!==mySid;
+  });
+}
+function kickedAutoLogout(){
+  if(_idleLoggedOut) return; // 复用同一个"已经处理过、不重复弹"的开关，踢下线跟闲置登出互斥，谁先触发都行
+  _idleLoggedOut=true;
+  try{
+    localStorage.removeItem(FAMILY_CODE_KEY);
+    localStorage.removeItem(FAMILY_ROW_ID_KEY);
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+  }catch(e){}
+  clearTimeout(_cloudPushTimer);
+  _cloudSyncReady=false;
+  try{
+    var title=document.getElementById('familyGateTitle');
+    var desc=document.getElementById('familyGateDesc');
+    var closeBtn=document.getElementById('familyGateCloseBtn');
+    if(title) title.textContent=L('📵 已在其他设备登录，这边已自动登出','📵 Logged in elsewhere — logged out here');
+    if(desc) desc.textContent=L('检测到这个账号刚刚在另一个设备/标签页重新登录了，为了避免两边的数据互相覆盖，这边已经自动登出。重新输入一次家庭码即可继续（云端已保存的进度不会丢失）。','This account was just logged in from another device/tab. To prevent the two from overwriting each other, you\'ve been logged out here. Re-enter your Family Code to continue (nothing saved to the cloud is lost).');
+    if(closeBtn) closeBtn.style.display='none';
+  }catch(e){}
+  _familyGateMode='initial';
+  showModal('familyGateModal');
+}
+function checkActiveSessionKickedAndLogout(){
+  return checkActiveSessionKicked().then(function(kicked){
+    if(kicked) kickedAutoLogout();
+    return kicked;
+  });
+}
+
 /* ========== 2026-09新增：多家庭隔离（"家庭码"），+自助改名，+可以互相"串门"只看不改 ==========
    背景：这个网址是公开的，任何拿到链接的人打开后都会连上同一份云端数据——之前只有"茜茜/嫣嫣"
    这一家在用没问题，但现在要陆续给其他不相关的人也用这同一个网址，必须让"茜茜嫣嫣家"和"别人家"
@@ -5171,7 +5246,7 @@ function submitFamilyCode(){
           localStorage.setItem(FAMILY_ROW_ID_KEY,rowId);
           localStorage.removeItem(PENDING_APPLY_CODE_KEY);
         }catch(e){}
-        location.reload();
+        claimActiveSessionAndReload(rowId); // 声明本机是这个家庭码当前唯一有效的会话（顺带触发刷新），把之前登录的地方顶下线
         return;
       }
       hideModal('familyGateModal');
@@ -5270,7 +5345,7 @@ function recheckFamilyApplication(){
         localStorage.removeItem(PENDING_APPLY_CODE_KEY);
         localStorage.removeItem(PENDING_APPLY_ID_KEY);
       }catch(e){}
-      location.reload();
+      claimActiveSessionAndReload(rowId); // 声明本机是这个家庭码当前唯一有效的会话（顺带触发刷新），把之前登录的地方顶下线
       return;
     }
     if(btn){ btn.disabled=false; btn.textContent='🔄 重新检查是否已通过'; }
@@ -7742,13 +7817,16 @@ document.addEventListener('visibilitychange', function(){
     // 查到确实超时就直接登出，不能让它先跟云端同步一轮之后才发现已经超时了
     checkIdleAutoLogout();
     if(_idleLoggedOut) return;
-    trySyncFromCloud();
+    checkActiveSessionKickedAndLogout().then(function(kicked){
+      if(!kicked) trySyncFromCloud();
+    });
   }
 });
 setInterval(trySyncFromCloud, 120000); // 留在前台不切走时，每2分钟兜底对一次云端
 
 function load(){
   loadStore();
+  checkActiveSessionKickedAndLogout(); // 每次打开/刷新页面都顺手查一下：这段时间里是不是已经在别的地方重新登录过、把这边顶下线了
   // 尝试迁移 v2 数据（旧版单档案）
   if(Object.keys(store.accounts).length===0){
     var old=null;
@@ -16342,6 +16420,7 @@ function petMinuteTick(){
   if(!state) return;
   checkIdleAutoLogout(); // 每分钟顺手检查一下是不是已经闲置超过10分钟了，是的话直接登出、不再往下跑
   if(_idleLoggedOut) return; // 已经登出了，剩下这些挂机逻辑没有意义，也不该再碰云同步
+  checkActiveSessionKickedAndLogout(); // 顺手查一下是不是被别的地方顶下线了——不等它，查到了会自己处理登出/弹窗，不拖慢这一分钟剩下的挂机逻辑
   if(state.day.key!==todayKey()){
     onNewDay();
     cleanDiscounts();
