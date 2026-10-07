@@ -1473,6 +1473,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-10新增：学习能力驱动的"零花钱理财罐"弹窗 -->
+<div class="modal-mask" id="investmentModal">
+  <div class="modal" style="max-width:340px;text-align:left">
+    <button class="modal-close" onclick="hideModal('investmentModal')">✕</button>
+    <h3 style="text-align:center">📈 零花钱理财罐</h3>
+    <div class="small" style="line-height:1.7" id="investmentDetailBody"></div>
+  </div>
+</div>
+
 <!-- 副本挑战弹窗 -->
 <div class="modal-mask" id="dungeonModal">
   <div class="modal" style="max-width:420px">
@@ -1918,6 +1927,11 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="stat-line" title="笑眯眯：用🥛牛奶（+7）或🎡外出游玩券（+32）可以提升，摸一摸宠物也会让它更开心" data-i18n-title="tt_stat_happy"><span class="ico">😊</span><div class="progress-wrap"><div class="progress-bar pink" id="happyBar"></div></div><span class="val" id="happyVal">100</span></div>
     <div class="stat-line" title="香喷喷：用🛁美容洗护（+22）可以提升，太脏的话宠物会不愿意被摸哦" data-i18n-title="tt_stat_clean"><span class="ico">✨</span><div class="progress-wrap"><div class="progress-bar purple" id="cleanBar"></div></div><span class="val" id="cleanVal">100</span></div>
     <div class="small" id="coinForecastLine" style="display:none;margin-top:4px;cursor:pointer" onclick="showCoinForecastDetail()" title="点击查看今日金币预测说明">💰 今日预计花费 <b id="coinForecastNet">0</b> 金币 · 已赚 <b id="coinForecastEarned">0</b> <span id="coinForecastIcon"></span></div>
+    <!-- 2026-10新增：学习能力驱动的"零花钱理财罐"——家长提议"学习能力强能够提高金币获取能力，
+         也会做一些相应的投资"，这里做成稳健型理财：存进去的钱24小时后连本带利自动还回来，
+         学习分数越高利率越高，不会提前支取、也不会出现任何"投资亏本"的风险，侧重教小朋友
+         "钱放着不动会慢慢变多"这个概念，而不是刺激/博彩那一套 -->
+    <div class="small" id="investmentLine" style="display:none;margin-top:4px;cursor:pointer" onclick="showInvestmentModal()" title="点击查看零花钱理财罐">📈 零花钱理财罐</div>
     <div class="mood" id="moodText">😊 状态不错！</div>
     <div class="hud-care" id="hudCareCount" style="display:none">💖 今日照顾 0/5</div>
     <div id="petHouseLine" class="small" style="margin-top:5px;display:none"><span data-i18n="pet_house_label">🏠 当前小窝：</span><span id="houseName">温馨小屋</span></div>
@@ -4857,6 +4871,7 @@ function defaultState(){
     pkRewardToday:{dateKey:null,count:0}, // 当天已经从PK获胜领取过几次奖励，超过每日上限后只记胜场不再发奖励
     pkWinCount:0, // 2026-09新增：PK累计胜场，只用来展示荣誉徽章，不受每日奖励上限影响、永远累加
     hoardDripLastAt:null, // 2026-09新增："金币手滑乱花"账号级独立计时器，记录上次结算到哪个时间点了，见 processHoardDripSpend()
+    investment:null, // 2026-10新增：学习能力驱动的"零花钱理财罐"，{amount,startAt,matureAt,rate}，见startInvestment()/maybeSettleInvestment()
     version:4
   };
 }
@@ -11230,6 +11245,7 @@ function migrateState(s){
   if(typeof s.hoardDripLastAt==='undefined') s.hoardDripLastAt=null; // 老存档没有这个字段，补上，第一次调用时会从"现在"开始算，不会倒推历史
   if(!Array.isArray(s.coinLedger)) s.coinLedger=[]; // 老存档没有金币流水账字段，补一个空的，从这次之后的变化开始记录
   if(!Array.isArray(s.itemLedger)) s.itemLedger=[]; // 老存档没有道具流水账字段，补一个空的，从这次之后的购买/使用开始记录
+  if(typeof s.investment==='undefined') s.investment=null; // 老存档没有"零花钱理财罐"这个字段，补上，默认没有进行中的理财
   ensureWishState(s);
   if(!s.day.comm) s.day.comm={grandpa:false,inlaw:false,hello:0};
   if(!s.day.dungeon) s.day.dungeon={count:0};
@@ -12363,6 +12379,136 @@ function rollOfflineAbilityIncome(pet){
   addLog('🧧'+petName+L(' 趁你不在，凭自己擅长的本事各自赚了点零花钱：','  earned some pocket money on its own while you were away, from its strong areas: ')+detail+L('，一共 ','; a total of ')+total+L(' 金币',' coins'));
   return '🧧 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 凭自己擅长的本事分别攒了点零花钱：',' earned a bit of pocket money on its own from its strong areas: ')+'<b>'+detail+'</b>'+L('，一共 ',', totaling ')+'<b>'+total+L(' 金币',' coins')+'</b>！';
 }
+/* ========== 2026-10新增：七维能力驱动的"风险类"离线事件 ==========
+   家长的设计原话："勇气值高,外出尝试危险工作几率高,运动能力不够高,就容易受伤,音律不高,也会去
+   尝试接受音乐方面工作,但失败率提高,共情爱心低,容易和别人吵架,导致打架受伤,或者把别人弄伤会赔偿
+   大额金币给别人看病,创作力容易有发明,但如果共情不够,创造出来的东西容易伤到别人,也要赔偿,
+   家务能力能够弥补造成破坏后的补救情况,学习能力强能够提高金币获取能力,也会做一些相应的投资"——
+   "学习提高赚钱能力"已经由上面rollOfflineAbilityIncome()覆盖（学习也是能独立赚零花钱的6个维度之一），
+   "投资"是下面单独的"理财罐"玩法，这里实现剩下的5个互相关联的"风险类"子事件：
+   1) 勇气→外出尝试有风险的工作：勇气分数够高才会去尝试，分数越高去尝试的概率越高；
+      尝试之后，运动分数越低，受伤概率越高（运动好的孩子动作协调、不容易出事）。
+   2) 音律→接音乐演出的零工：不挑分数，一直有基础概率去尝试，但音律分数越低，演砸(没收入)的概率越高。
+   3) 共情→明显偏低（<ABILITY_TAG_LOW）时，容易跟人起冲突：要么自己被打伤，要么把对方弄伤，
+      需要赔一笔"看病钱"给一个纯虚构的NPC（街坊/路人，不是好友PK系统里的真实好友）。
+   4) 创造力→足够高(>=ABILITY_HIGH)但共情又偏低时，"发明"有概率伤到别人，同样需要赔一笔NPC医药费。
+   5) 家务→不是独立触发的事件，而是给以上几个负面结果当"减震器"：家务分数越高，受伤概率/赔偿金额
+      都会被打折，对应"家务能力能够弥补造成破坏后的补救情况"。
+   根据用户确认：①风险要真实生效（真的进入受伤倒计时、真的扣钱，不是纯文字），且频率/金额保持克制；
+   ②赔偿对象是纯虚构NPC，明确不复用/不关联现有的好友PK系统(pkInjured等)；③受伤统一按"轻伤"算
+   （跟rollRebelEvent()的既有约定一致，重伤只留给副本挑战失败）。
+   同一次离线检查最多只触发以上1个子事件（见下面rollOfflineAbilityRiskEvents的优先级分发），
+   避免好几条坏消息一次性砸给孩子，这套机制完全独立于上面的性格小剧情/七维零花钱，互不覆盖。 */
+function offlineHouseMitigation(house){
+  // 家务分数越高，"善后"能力越强，能把负面结果打个折扣：0分时没有减免，100分时最多减免60%
+  var ratio=Math.max(0,Math.min(1,(house||0)/100));
+  return ratio*0.6;
+}
+// 赔偿金额的共用算法：跟rollRebelEvent()里"乱花钱"那套"按等级阶段放大破坏力"的风格保持一致，
+// 用REBEL_PUNISH_SCALE复用同一套"等级越高、牵扯的金额也越大"的缩放规则；家务分数能帮忙打折；
+// 最终金额不会超过孩子当前的余额（没钱赔的话，调用方会判断amt<=0直接跳过这次事件，不会出现"赔了0金币"的怪异文案）
+function offlineCompensationAmount(pet){
+  var level=petLevelInfo(pet).level;
+  var tier=petMaturityTier(level);
+  var scale=REBEL_PUNISH_SCALE[tier]||1;
+  var house=petAbilityScores().house||0;
+  var mitigation=offlineHouseMitigation(house);
+  var base=18+Math.floor(Math.random()*18); // 18~35的基础赔偿区间
+  var amt=Math.round(base*scale*(1-mitigation));
+  amt=Math.max(0,amt);
+  var bal=(typeof state.moneyBalance==='number')?state.moneyBalance:0;
+  return Math.min(amt,bal);
+}
+var RISK_COURAGE_MIN=ABILITY_HIGH; // 勇气分数要达到"够高"门槛(60)，才会主动去外面尝试有风险的打工，标准跟七维零花钱统一
+function riskyWorkAttemptChance(courage){
+  if(courage<RISK_COURAGE_MIN) return 0;
+  var ratio=(courage-RISK_COURAGE_MIN)/(100-RISK_COURAGE_MIN);
+  return 0.12+ratio*0.28; // 60分时12%概率去尝试，100分(满勇气)时40%概率去尝试
+}
+function riskyWorkInjuryChance(sport){
+  // 运动分数越低，受伤概率越高：0分时60%，满分(100)时5%——运动再好也留一点点风险，不是完全零风险
+  var ratio=Math.max(0,Math.min(1,(sport||0)/100));
+  return 0.6-ratio*0.55;
+}
+function maybeRiskyWorkEvent(pet){
+  var sc=petAbilityScores();
+  var attemptChance=riskyWorkAttemptChance(sc.courage||0);
+  if(attemptChance<=0 || Math.random()>=attemptChance) return null; // 勇气不够高，或者这次没有去尝试
+  var petName=pet.name||L('宠物','the pet');
+  var mitigation=offlineHouseMitigation(sc.house||0);
+  var injuryChance=riskyWorkInjuryChance(sc.sport||0)*(1-mitigation*0.4); // 家务高也能让它干活时收着点，但主要还是看运动能力
+  if(!pet.injured && Math.random()<injuryChance){
+    pet.injured=true; pet.injuredAt=Date.now(); pet.injurySeverity='light'; // 风险事件触发的都是轻伤，重伤只留给副本挑战失败
+    addLog('🤕'+petName+L(' 仗着一身勇气跑去干了些有风险的活儿，结果没躲开，受伤了！要在'+PET_INJURY_REVERT_HOURS+'小时内买【特效药】给它治好',' bravely took on some risky work but could not avoid getting hurt! Buy it [Medicine] within '+PET_INJURY_REVERT_HOURS+' hours to heal it'));
+    return '🤕 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 仗着勇气十足跑去尝试了有风险的工作，结果没躲开，受伤了！<br>要赶紧去商城买【特效药】给它治疗，不然'+PET_INJURY_REVERT_HOURS+'小时内没治好，它会伤心地变回蛋哦！',' bravely took on some risky work and ended up getting hurt!<br>Hurry to the shop and buy [Medicine] to treat it - if it is not healed within '+PET_INJURY_REVERT_HOURS+' hours, it will sadly turn back into an egg!');
+  }
+  var gain=10+Math.floor(Math.random()*21); // 10~30金币
+  addCoinChange(gain, '勇气探险离线打工：外出尝试有风险的工作');
+  addLog('💪'+petName+L(' 仗着一身勇气跑去干了些有风险的活儿，顺利赚了 ',', while you were away, bravely took on some risky work and successfully earned ')+gain+L(' 金币，还好有惊无险',' coins - a bit of a scare, but no harm done'));
+  return '💪 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 仗着勇气十足跑去尝试了有风险的工作，还好有惊无险，顺利赚了 ',' bravely took on some risky work - a bit of a scare, but it came back safe and earned ')+'<b>'+gain+L(' 金币',' coins')+'</b>！';
+}
+var MUSIC_GIG_BASE_CHANCE=0.25; // 不管音律分数高低，都有25%基础概率去尝试接音乐类的零工
+function musicGigSuccessChance(music){
+  var ratio=Math.max(0,Math.min(1,(music||0)/100));
+  return 0.2+ratio*0.6; // 音律0分时20%成功率，满分时80%成功率——音律不高也会去尝试，但失败率明显更高
+}
+function maybeMusicGigEvent(pet){
+  if(Math.random()>=MUSIC_GIG_BASE_CHANCE) return null;
+  var sc=petAbilityScores();
+  var petName=pet.name||L('宠物','the pet');
+  if(Math.random()<musicGigSuccessChance(sc.music||0)){
+    var gain=8+Math.floor(Math.random()*15); // 8~22金币
+    addCoinChange(gain, '音乐演出离线打工');
+    addLog('🎤'+petName+L(' 趁你不在跑去接了个音乐演出的零工，表现不错，赚了 ',', while you were away, took a gig as a music performer, did well and earned ')+gain+L(' 金币',' coins'));
+    return '🎤 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 跑去接了个音乐演出的零工，表现不错，赚了 ',' took a gig as a music performer, did well and earned ')+'<b>'+gain+L(' 金币',' coins')+'</b>！';
+  }
+  addLog('🎤'+petName+L(' 趁你不在跑去试了个音乐演出的零工，可惜发挥得不太好，没能拿到报酬',', while you were away, tried out for a music gig, but did not perform well enough to get paid'));
+  return '🎤 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 跑去试了个音乐演出的零工，可惜发挥得不太好，这次没能拿到报酬，下次再接再厉吧。',' tried out for a music gig, but did not perform well enough this time to get paid - better luck next time.');
+}
+function maybeEmpathyConflictEvent(pet){
+  var sc=petAbilityScores();
+  if((sc.empathy||0)>=ABILITY_TAG_LOW) return null; // 共情没有"明显偏低"，不会无缘无故去跟人吵架
+  if(Math.random()>=0.35) return null; // 共情偏低也不是每次离线都会吵架，控制在35%概率，不要太频繁
+  var petName=pet.name||L('宠物','the pet');
+  var mitigation=offlineHouseMitigation(sc.house||0);
+  var hurtSelfChance=0.5*(1-mitigation*0.6); // 家务分数高能把"动手打架"压低一些，更容易体面收场
+  if(!pet.injured && Math.random()<hurtSelfChance){
+    pet.injured=true; pet.injuredAt=Date.now(); pet.injurySeverity='light';
+    addLog('🤕'+petName+L(' 趁你不在跟邻居小伙伴吵架吵得动了手，结果自己也受了点伤，要在'+PET_INJURY_REVERT_HOURS+'小时内买【特效药】给它治好',' got into a scuffle with a neighbor while you were away and got a little hurt itself - buy it [Medicine] within '+PET_INJURY_REVERT_HOURS+' hours to heal it'));
+    return '🤕 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 跟邻居小伙伴吵架吵得动了手，自己也受了点伤！<br>要赶紧去商城买【特效药】给它治疗，不然'+PET_INJURY_REVERT_HOURS+'小时内没治好，它会伤心地变回蛋哦！',' got into a scuffle with a neighbor and got a little hurt itself!<br>Hurry to the shop and buy [Medicine] to treat it - if it is not healed within '+PET_INJURY_REVERT_HOURS+' hours, it will sadly turn back into an egg!');
+  }
+  var amt=offlineCompensationAmount(pet);
+  if(amt<=0) return null; // 没钱可赔，这次事件就当没发生，避免出现"赔了0金币"的怪异文案
+  addCoinChange(-amt, '共情不足离线闯祸：和邻居吵架弄伤了对方，赔偿医药费');
+  addLog('😣'+petName+L(' 趁你不在跟邻居吵架吵得动了手，把对方弄伤了，赔了 ',', while you were away, got into a scuffle with a neighbor and hurt them, paying ')+amt+L(' 金币的医药费',' coins in medical compensation'));
+  return '😣 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 跟邻居小伙伴吵架吵得动了手，不小心把对方弄伤了，赔了 ',' got into a scuffle with a neighbor and accidentally hurt them, paying ')+'<b>'+amt+L(' 金币',' coins')+'</b>'+L(' 的医药费，下次要多控制一下脾气哦。','  in medical compensation - try to keep a better temper next time.');
+}
+function maybeInventionBackfireEvent(pet){
+  var sc=petAbilityScores();
+  if((sc.creativity||0)<ABILITY_HIGH) return null; // 创造力不够高，没有"自己捣鼓发明"这回事
+  if((sc.empathy||0)>=ABILITY_TAG_LOW) return null; // 共情没有明显偏低，发明顶多很棒，不会伤到别人
+  if(Math.random()>=0.3) return null; // 创造力高、共情又偏低时，才有30%概率"翻车"伤到别人
+  var petName=pet.name||L('宠物','the pet');
+  var amt=offlineCompensationAmount(pet);
+  if(amt<=0) return null;
+  addCoinChange(-amt, '创造力爆棚但共情不足离线闯祸：发明的东西不小心伤到了路人，赔偿医药费');
+  addLog('🔧'+petName+L(' 趁你不在又捣鼓出了个新发明，可惜没考虑到别人的感受，不小心伤到了路人，赔了 ',', while you were away, tinkered up another invention, but without thinking of others, accidentally hurt a passerby and paid ')+amt+L(' 金币的医药费',' coins in medical compensation'));
+  return '🔧 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 又捣鼓出了个新发明，脑洞是挺大的，可惜没考虑到别人的感受，不小心伤到了路人，赔了 ',' tinkered up another clever invention, but without thinking of others, accidentally hurt a passerby, paying ')+'<b>'+amt+L(' 金币',' coins')+'</b>'+L(' 的医药费，下次发明之前要多为别人想想哦。','  in medical compensation - next time, think a bit more about others before inventing.');
+}
+// 统一分发入口：同一次离线检查最多只触发以上1个子事件（优先级：共情冲突 > 发明闯祸 > 勇气历险 > 音乐演出），
+// 避免好几条坏消息同时砸给孩子——前两个偏"负面/需要家长注意"，排在前面优先判定；后两个是"可能赚钱"的
+// 正常尝试，排在后面。只要前面某一项真的触发了（返回非null），后面的就不会再判定。
+function rollOfflineAbilityRiskEvents(pet){
+  var notice=maybeEmpathyConflictEvent(pet);
+  if(notice) return notice;
+  notice=maybeInventionBackfireEvent(pet);
+  if(notice) return notice;
+  notice=maybeRiskyWorkEvent(pet);
+  if(notice) return notice;
+  notice=maybeMusicGigEvent(pet);
+  if(notice) return notice;
+  return null;
+}
 /* ========== 防刷金币兜底：连续2天完全零打卡，自动清空全部金币 ==========
    不管攒了多少金币（几百～上万），只要连续2整天一次真的打卡都没有，系统就会自动把金币清零，
    不需要家长手动干预、不需要排查是不是有漏洞被利用。清空这件事本身对孩子来说会比较有冲击力，
@@ -12461,6 +12607,110 @@ function estimateOfflineAbilityIncome(){
     total+=3+Math.round(ratio*7)+1; // +1 约等于offlineDimIncomeAmount()里0~2随机浮动的期望值
   });
   return total;
+}
+/* ========== 2026-10新增：学习能力驱动的"零花钱理财罐"（稳健型，零风险） ==========
+   家长提议"学习能力强能够提高金币获取能力，也会做一些相应的投资"——"提高金币获取能力"这部分
+   已经体现在上面 rollOfflineAbilityIncome() 里（学习分数够高，本身就是6个能打零花钱的维度之一），
+   这里单独做"投资"这个新玩法：存一笔零花钱进去，固定 INVESTMENT_DURATION_HOURS 小时后连本带利
+   自动还回来，学习分数越高利率越高——刻意做成"稳健型"：没有任何"亏本"的可能，不是博彩/风险投资，
+   侧重教小朋友"钱放着不动、靠利息会慢慢变多"这个朴素概念。为了简单好懂，一次只能有一笔理财在途
+   （不能像银行那样开好几笔定期），到期前不能提前取出，到期后不需要手动领取——下次脚本检查到
+   到期了就自动结算，跟"自动打工赚钱"体验保持一致，不会出现"忘记去银行取钱"这种情况。 */
+var INVESTMENT_DURATION_HOURS=24; // 存入后24小时到期，跟"打卡"的每日节奏对得上，每天都有新进展感
+var INVESTMENT_MIN_DEPOSIT=20; // 最低存入金额，太少意义不大
+var INVESTMENT_MAX_DEPOSIT_RATIO=0.5; // 最多只能存入当前余额的一半，必须留一半应急，不会因为全存进去导致没钱喂宠物
+var INVESTMENT_BASE_RATE=0.05; // 学习0分时的最低利率(5%)
+var INVESTMENT_STUDY_BONUS_RATE=0.15; // 学习满分(100分)时再加到的利率，所以满分时利率是5%+15%=20%
+function investmentRateForStudy(){
+  var study=petAbilityScores().study||0;
+  return INVESTMENT_BASE_RATE+(study/100)*INVESTMENT_STUDY_BONUS_RATE;
+}
+function hasActiveInvestment(){
+  return !!(state.investment && state.investment.amount>0);
+}
+// 存入一笔理财。amount是家长/孩子在弹窗输入框里填的数字，这里做校验——校验不通过时返回
+// {ok:false,msg:'...'}给调用方（submitInvestmentDeposit()）直接拿去toast，不在这个纯函数里直接碰DOM/弹toast，
+// 方便单独测试
+function startInvestment(amount){
+  amount=Math.round(Number(amount)||0);
+  if(hasActiveInvestment()) return {ok:false, msg:L('已经有一笔理财正在进行中了，等到期自动还回来之后才能再存新的','There is already an investment in progress — wait for it to mature before starting a new one')};
+  if(!isFinite(amount)||amount<INVESTMENT_MIN_DEPOSIT) return {ok:false, msg:L('最少要存 '+INVESTMENT_MIN_DEPOSIT+' 金币','Minimum deposit is '+INVESTMENT_MIN_DEPOSIT+' coins')};
+  var bal=(typeof state.moneyBalance==='number')?state.moneyBalance:0;
+  var maxAmt=Math.floor(bal*INVESTMENT_MAX_DEPOSIT_RATIO);
+  if(amount>maxAmt) return {ok:false, msg:L('最多只能存入当前金币的一半（留一半应急），现在最多能存 '+maxAmt+' 金币','You can deposit at most half of your current coins (keep the rest for emergencies) — the max right now is '+maxAmt+' coins')};
+  if(amount>bal) return {ok:false, msg:L('金币不够','Not enough coins')};
+  var rate=investmentRateForStudy();
+  addCoinChange(-amount, L('零花钱理财：存入','Pocket-money savings: deposit'));
+  state.investment={amount:amount, startAt:Date.now(), matureAt:Date.now()+INVESTMENT_DURATION_HOURS*3600000, rate:rate};
+  addLog(L('📈 把 '+amount+' 金币存进了理财罐（利率'+Math.round(rate*100)+'%），'+INVESTMENT_DURATION_HOURS+'小时后自动连本带利还回来','📈 Deposited '+amount+' coins into the savings jar (rate '+Math.round(rate*100)+'%) — principal plus interest will be returned automatically after '+INVESTMENT_DURATION_HOURS+' hours'));
+  return {ok:true};
+}
+// 账号级独立结算，不需要"当前出战宠物/离线够半小时"这些限制——每次 applyRealTimeDecay() 被调用时
+// （不管在不在线，APP开着的话每分钟也会调一次）都检查一下到期没有，到期了就自动结算，不需要孩子自己
+// 记得去"领取"，避免出现"忘记去银行取钱"这种体验
+function maybeSettleInvestment(){
+  if(!hasActiveInvestment()) return null;
+  var inv=state.investment;
+  if(Date.now()<inv.matureAt) return null;
+  var interest=Math.round(inv.amount*inv.rate);
+  var total=inv.amount+interest;
+  addCoinChange(total, L('零花钱理财：到期还本付息','Pocket-money savings: matured, principal + interest returned'));
+  state.investment=null;
+  addLog(L('📈 理财罐到期啦！本金 '+inv.amount+' + 利息 '+interest+' = '+total+' 金币已经自动还给你了','📈 Your savings matured! Principal '+inv.amount+' + interest '+interest+' = '+total+' coins have been automatically returned'));
+  return L('📈 你不在的这段时间，存进理财罐的零花钱到期啦，自动连本带利还给你 <b>'+total+'</b> 金币（本金'+inv.amount+'+利息'+interest+'）！','📈 While you were away, your savings jar matured and automatically returned <b>'+total+'</b> coins (principal '+inv.amount+' + interest '+interest+')!');
+}
+function updateInvestmentUI(){
+  var line=document.getElementById('investmentLine');
+  if(!line) return;
+  // 理财罐依赖"学习能力"这个数值，还是蛋的时候宠物还没开始培养各项能力，这里跟coinForecastLine
+  // 一样，用"有没有饲养成本预测"这个现成的标志位判断宠物是不是已经孵化，没孵化就先隐藏不展示
+  if(!computeDailyPetCostForecast(state.pet)){ line.style.display='none'; return; }
+  line.style.display='block';
+  if(hasActiveInvestment()){
+    var inv=state.investment;
+    var remainHours=Math.max(0,Math.ceil((inv.matureAt-Date.now())/3600000));
+    line.innerHTML=L('📈 理财中：存入 <b>'+inv.amount+'</b> 金币，约 <b>'+remainHours+'</b> 小时后到期','📈 Investing: <b>'+inv.amount+'</b> coins deposited, matures in about <b>'+remainHours+'</b> hours');
+  }else{
+    line.innerHTML=L('📈 零花钱理财罐（学习分数越高利率越高）','📈 Pocket-money savings jar (higher Study score = higher rate)');
+  }
+}
+function showInvestmentModal(){
+  var body=document.getElementById('investmentDetailBody');
+  if(!body) return;
+  var html='';
+  if(hasActiveInvestment()){
+    var inv=state.investment;
+    var remainHours=Math.max(0,((inv.matureAt-Date.now())/3600000)).toFixed(1);
+    var interest=Math.round(inv.amount*inv.rate);
+    html+='<p>📈 当前有一笔理财正在进行中</p>'
+      +'<p>存入本金：<b>'+inv.amount+'</b> 金币（利率 '+Math.round(inv.rate*100)+'%）</p>'
+      +'<p>到期能拿回：<b>'+(inv.amount+interest)+'</b> 金币（本金 '+inv.amount+' + 利息 '+interest+'）</p>'
+      +'<p>预计还要 <b>'+remainHours+'</b> 小时到期，到时候会自动连本带利还给你，不用自己来领取。</p>';
+  }else{
+    var rate=investmentRateForStudy();
+    var ratePct=Math.round(rate*100);
+    var bal=(typeof state.moneyBalance==='number')?state.moneyBalance:0;
+    var maxAmt=Math.floor(bal*INVESTMENT_MAX_DEPOSIT_RATIO);
+    html+='<p>📖 学习能力越强，宠物就越会打理钱——现在的利率是 <b>'+ratePct+'%</b>（学习分数越高利率越高）</p>'
+      +'<p>存进去的钱，'+INVESTMENT_DURATION_HOURS+'小时后会自动连本带利还给你；到期前不能提前取出，同一时间只能有一笔理财在进行中。</p>'
+      +'<p>最少存 <b>'+INVESTMENT_MIN_DEPOSIT+'</b> 金币，最多只能存当前金币的一半（留一半应急），现在最多能存 <b>'+maxAmt+'</b> 金币。</p>'
+      +'<div style="margin-top:8px">'
+      +'<input type="number" id="investmentDepositInput" placeholder="输入要存入的金币数" min="'+INVESTMENT_MIN_DEPOSIT+'" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:8px;font-size:15px"/>'
+      +'<button class="btn btn-primary btn-block" onclick="submitInvestmentDeposit()">💰 存入理财</button>'
+      +'</div>';
+  }
+  body.innerHTML=html;
+  showModal('investmentModal');
+}
+function submitInvestmentDeposit(){
+  var input=document.getElementById('investmentDepositInput');
+  var amt=input?input.value:0;
+  var result=startInvestment(amt);
+  if(!result.ok){ ttsToast('❌ '+result.msg, 4500); return; }
+  ttsToast(L('✅ 已经存入理财啦，到期会自动连本带利还给你','✅ Deposited into savings — principal and interest will be returned automatically on maturity'), 4000);
+  save();
+  updateInvestmentUI();
+  showInvestmentModal(); // 刷新弹窗内容，从"可以存入"切换成"理财中"状态展示
 }
 function updateCoinForecastUI(){
   var line=document.getElementById('coinForecastLine');
@@ -12579,6 +12829,10 @@ function applyRealTimeDecay(){
   if(!state.pets || !state.pets.length) return revertedAny;
   var now=Date.now();
   processHoardDripSpend(now); // 金币"手滑乱花"账号级独立结算，按自己的10分钟节奏走，跟下面按宠物遍历的性格小剧情互不干扰
+  // 2026-10新增："零花钱理财罐"到期结算也是账号级的，跟当前展示的是哪只宠物无关，所以放在这里
+  // 跟processHoardDripSpend一样每次都检查一次，不需要孩子自己记得"去银行取钱"
+  var _investNotice=maybeSettleInvestment();
+  if(_investNotice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_investNotice):_investNotice;
   for(var i=0;i<state.pets.length;i++){
     var pet=state.pets[i];
     if(!pet||!pet.chosen||pet.hatched===false) continue;
@@ -12614,6 +12868,11 @@ function applyRealTimeDecay(){
       // 两者完全并行结算，互不覆盖——哪个维度分数够高，就各自单独再赚一笔，可以跟性格小剧情同时发生
       var _abilityNotice=rollOfflineAbilityIncome(pet);
       if(_abilityNotice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_abilityNotice):_abilityNotice;
+      // 2026-10新增：勇气/运动/音律/共情/创造力/家务 这几个维度联动的"风险类"离线事件（外出打工受伤、
+      // 音乐演出、跟人吵架、发明闯祸等），同一批次最多只触发一个子事件（见rollOfflineAbilityRiskEvents
+      // 内部的优先级分发），避免好几条坏消息同时砸给孩子，文案同样拼接进pendingOfflineNotice
+      var _riskNotice=rollOfflineAbilityRiskEvents(pet);
+      if(_riskNotice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_riskNotice):_riskNotice;
     }
 
     /* 倒推出"这一段时间里，四项状态是从什么时候开始全部同时归零的"，而不是简单地把整段离线时长都当成
@@ -16235,6 +16494,8 @@ function renderPet(){
     document.getElementById('petHouseLine').style.display='none';
     var cfLineEgg=document.getElementById('coinForecastLine');
     if(cfLineEgg) cfLineEgg.style.display='none'; // 还是蛋的话还不需要日常饲养，不显示金币预测
+    var invLineEgg=document.getElementById('investmentLine');
+    if(invLineEgg) invLineEgg.style.display='none'; // 还是蛋的话还没开始发展学习能力，理财罐也先不显示
     var ptagsEgg=document.getElementById('petPersonalityTags');
     if(ptagsEgg){ ptagsEgg.style.display='none'; ptagsEgg.innerHTML=''; } // 还是蛋的话还没开始发展各项能力，不显示性格标签
     main.style.background='linear-gradient(135deg,#f3e5f5,#fce4ec)';
@@ -16275,6 +16536,7 @@ function renderPet(){
     setBar('happyBar','happyVal',pet.happy,'pink');
     setBar('cleanBar','cleanVal',pet.clean,'purple');
     updateCoinForecastUI();
+    updateInvestmentUI();
     document.getElementById('moodText').innerHTML=petMoodText(petMood);
     document.getElementById('houseName').innerText=L(HOUSES[pet.house||0].name,HOUSES[pet.house||0].nameEn||HOUSES[pet.house||0].name)+' '+(HOUSES[pet.house||0].emoji);
     var houseInfo=HOUSES[pet.house||0];
