@@ -12327,6 +12327,42 @@ function rollWorkerEvent(pet){
   var moneyLabelWork=L(gain+' 金币', gain+' coins');
   return '💼 '+L('你不在的这段时间，你的宠物出门打工啦，赚了 ','While you were away, your pet went out to work and earned ')+'<b>'+moneyLabelWork+'</b>'+L(' 给自己买食物哦！',' to buy itself some food!')+petTierTail(WORKER_TAIL_BY_TIER, level);
 }
+/* ========== 2026-10新增：七维能力各自独立的"离线零花钱" ==========
+   家长反馈"之前设置了宠物会去赚零花钱，但是没有看到"——查下来是因为上面这套"打工赚钱"只绑定在
+   petPersonality()判定出的单一性格上，而petPersonality()是"学习/家务二选一"：学习分数只要够高
+   （>=ABILITY_HIGH）就会优先判定成"乖巧型"，哪怕家务分数也很高，也会被"乖巧型"盖过去，完全拿不到
+   "勤劳型"才有的打工收入——结果就是"学习家务都很棒"的孩子反而一分钱都赚不到，这不符合家长的直觉。
+   这里新增一套完全独立、不互斥的机制：学习/家务/运动/创造力/共情爱心/音律 这6个维度（不含courage，
+   原因见petPersonality()上面那段大注释——副本系统还没开放，这个维度永远是0，算进来对孩子不公平），
+   每个维度各自独立判断自己够不够高、够的话各自单独赚一笔零花钱，分数越高赚得越多，多个维度可以
+   同时赚、叠加累加——不再是"只能挑一种性格、赚钱的机会被其它维度抢走"。这套机制跟上面petPersonality()
+   驱动的乖巧/叛逆/中性/勤劳离线小剧情完全并行、互不影响：性格小剧情(连带原有的"勤劳型"打工收入)
+   照常弹，这里另外再单独结算一笔"各展所长"的零花钱，两份收入互不冲突、可以同时拿到。 */
+var OFFLINE_DIM_INCOME_DIMS=ABILITY_TAG_DIMS; // 复用"性格标签"那套6个有效维度清单，跟标签系统保持统一口径，以后加新维度两处一起改
+function offlineDimIncomeAmount(score){
+  if(score<ABILITY_HIGH) return 0; // 门槛统一用ABILITY_HIGH(60分)，跟"乖巧/勤劳"性格判定、标签点亮用的是同一个标准，家长容易对得上
+  var ratio=(score-ABILITY_HIGH)/(100-ABILITY_HIGH); // 60分→0，100分→1，分数越高这个维度能赚的越多
+  return 3+Math.round(ratio*7)+Math.floor(Math.random()*3); // 60分左右约3~5金币，100分左右约10~12金币，带一点随机浮动，不会每次都一模一样
+}
+function rollOfflineAbilityIncome(pet){
+  var sc=petAbilityScores();
+  var lines=[], total=0;
+  OFFLINE_DIM_INCOME_DIMS.forEach(function(key){
+    var amt=offlineDimIncomeAmount(sc[key]||0);
+    if(amt<=0) return;
+    total+=amt;
+    var def=ABILITY_TAG_DEFS[key];
+    var emoji=def?def.high.emoji:'⭐';
+    var name=def?def.high.name:key; // 2026-10说明：ABILITY_TAG_DEFS里的标签名只有中文，没有英文对照，
+    lines.push(emoji+name+' +'+amt);          // 这里直接复用中文名——跟computePetPersonalityTags()里的既有用法一致，不是新问题
+  });
+  if(total<=0) return null; // 这次离线期间，6个维度都没有一个够高，这笔"各展所长"的零花钱就没有，不影响上面性格小剧情照常弹
+  var petName=pet.name||L('宠物','the pet');
+  var detail=lines.join('、');
+  addCoinChange(total, '七维能力离线零花钱（'+detail+'）');
+  addLog('🧧'+petName+L(' 趁你不在，凭自己擅长的本事各自赚了点零花钱：','  earned some pocket money on its own while you were away, from its strong areas: ')+detail+L('，一共 ','; a total of ')+total+L(' 金币',' coins'));
+  return '🧧 '+L('你不在的这段时间，','While you were away, ')+petName+L(' 凭自己擅长的本事分别攒了点零花钱：',' earned a bit of pocket money on its own from its strong areas: ')+'<b>'+detail+'</b>'+L('，一共 ',', totaling ')+'<b>'+total+L(' 金币',' coins')+'</b>！';
+}
 /* ========== 防刷金币兜底：连续2天完全零打卡，自动清空全部金币 ==========
    不管攒了多少金币（几百～上万），只要连续2整天一次真的打卡都没有，系统就会自动把金币清零，
    不需要家长手动干预、不需要排查是不是有漏洞被利用。清空这件事本身对孩子来说会比较有冲击力，
@@ -12406,8 +12442,25 @@ function computeDailyPetCostForecast(pet){
   }else if(personality==='worker'){
     workerEarn=14; // 跟 rollWorkerEvent() 的8~20金币随机范围取中点估算
   }
-  var net=Math.max(0,Math.round(baseCost+rebelExtra-workerEarn));
-  return {level:level, personality:personality, baseCost:Math.round(baseCost), rebelExtra:rebelExtra, workerEarn:workerEarn, net:net};
+  // 2026-10新增：七维能力各自独立的"离线零花钱"（见rollOfflineAbilityIncome），不管当前是什么性格，
+  // 只要某个维度分数够高，都会单独再多赚一点，这里用期望值(非随机)估算进预测里，不然这笔新收入
+  // 预测页面完全看不到，家长会一直以为"没有这笔钱"，预测金额也会偏高、吓到小朋友
+  var abilityIncomeEarn=estimateOfflineAbilityIncome();
+  var net=Math.max(0,Math.round(baseCost+rebelExtra-workerEarn-abilityIncomeEarn));
+  return {level:level, personality:personality, baseCost:Math.round(baseCost), rebelExtra:rebelExtra, workerEarn:workerEarn, abilityIncomeEarn:abilityIncomeEarn, net:net};
+}
+// offlineDimIncomeAmount()的"期望值"版本：不带随机浮动，专门给预测页面用，保证同样的能力值每次
+// 算出来的预测数字是稳定的，不会因为Math.random()而一会儿多一会儿少，看着像是算错了
+function estimateOfflineAbilityIncome(){
+  var sc=petAbilityScores();
+  var total=0;
+  OFFLINE_DIM_INCOME_DIMS.forEach(function(key){
+    var score=sc[key]||0;
+    if(score<ABILITY_HIGH) return;
+    var ratio=(score-ABILITY_HIGH)/(100-ABILITY_HIGH);
+    total+=3+Math.round(ratio*7)+1; // +1 约等于offlineDimIncomeAmount()里0~2随机浮动的期望值
+  });
+  return total;
 }
 function updateCoinForecastUI(){
   var line=document.getElementById('coinForecastLine');
@@ -12443,6 +12496,7 @@ function showCoinForecastDetail(){
     +'<p>🍖💧✨ 基础饲养成本（吃饱饱+水汪汪+香喷喷，等级越高越贵）：约 <b>'+fc.baseCost+'</b> 金币</p>'
     +(fc.rebelExtra>0?('<p>😈 叛逆性格预留的"乱花钱"额外预算：约 <b>'+fc.rebelExtra+'</b> 金币</p>'):'')
     +(fc.workerEarn>0?('<p>💼 勤劳性格预计能自己打工赚回：约 <b>'+fc.workerEarn+'</b> 金币</p>'):'')
+    +(fc.abilityIncomeEarn>0?('<p>🧧 七维能力里表现突出的维度，预计还能各自赚回零花钱：约 <b>'+fc.abilityIncomeEarn+'</b> 金币</p>'):'')
     +'<p style="margin-top:6px;font-weight:700">今天预计总共需要赚到约 <b>'+fc.net+'</b> 金币，目前已经赚了 <b>'+earned+'</b> 金币。</p>'
     +(short>0
       ?('<p style="padding:8px;background:#fff3e0;border-radius:10px;color:#9a6b00">⚠️ 还差 '+short+' 金币，赶紧去打卡/完成任务赚钱吧，不然宠物今天可能会吃不饱哦！</p>')
@@ -12556,6 +12610,10 @@ function applyRealTimeDecay(){
       // 结算，可能在这个性格小剧情判定之前就已经往 pendingOfflineNotice 里写过一条提示了，改成覆盖会把
       // 那条提示平白丢掉。这里改成"有就拼接、没有就直接用"，跟其它地方追加提示的写法保持一致。
       if(_notice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_notice):_notice;
+      // 2026-10新增：七维能力各自独立的"离线零花钱"，跟上面性格小剧情同一个触发时机、同一只宠物，
+      // 两者完全并行结算，互不覆盖——哪个维度分数够高，就各自单独再赚一笔，可以跟性格小剧情同时发生
+      var _abilityNotice=rollOfflineAbilityIncome(pet);
+      if(_abilityNotice) state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+_abilityNotice):_abilityNotice;
     }
 
     /* 倒推出"这一段时间里，四项状态是从什么时候开始全部同时归零的"，而不是简单地把整段离线时长都当成
