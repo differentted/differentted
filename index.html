@@ -1290,13 +1290,24 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="margin-top:4px;color:#999">怀疑几台设备数据对不齐时点这里，会显示这台设备连云端的详细情况（不会自动消失，方便截图发给我排查）</div>
     </div>
     <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
-      <div class="small" style="font-weight:600;color:#7b1fa2" data-i18n="db_family_label">🔑 当前家庭空间码：<span id="familyCodeDisplay">—</span></div>
-      <div class="small" style="margin:4px 0 6px" data-i18n="db_family_desc">同一个家庭码的设备才会同步到同一批小朋友档案；不同家庭码之间完全看不到彼此的数据</div>
+      <!-- 2026-10fix：家长反馈这里把家庭码明晃晃显示出来不太合适（相当于把"登录密码"直接露在屏幕上，
+           家里小朋友或者路过的人一眼就能看到/截图），改成默认隐藏，只有主动点"👁️查看我的登录码"才短暂显示；
+           同时把这块的措辞从"家庭空间码"这种偏技术的说法，换成更好理解的"账号登录"框架——
+           下面"🔑登录/申请账号"这一个按钮本来就同时覆盖"登录已有账号"和"没有账号就去申请"两种情况
+           （submitFamilyCode里会自动判断这个码有没有被批准过，没批准就自动转去申请流程），
+           不用拆成两个按钮，文案上点出来就够了 -->
+      <div class="small" style="font-weight:600;color:#7b1fa2" data-i18n="db_family_label">🔑 账号登录</div>
+      <div class="small" style="margin:4px 0 6px" data-i18n="db_family_desc">同一个账号的设备才会同步到同一批小朋友档案；不同账号之间完全看不到彼此的数据</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-        <button class="btn btn-gray btn-sm" id="familyCodeRenameBtn" style="display:none" onclick="openFamilyCodeRename()" data-i18n="db_family_rename_btn">✏️ 给当前家庭码改名</button>
-        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()" data-i18n="db_family_switch_btn">🔄 更换/加入其他家庭空间</button>
+        <button class="btn btn-gray btn-sm" id="familyCodeRenameBtn" style="display:none" onclick="openFamilyCodeRename()" data-i18n="db_family_rename_btn">✏️ 给当前账号改名</button>
+        <button class="btn btn-gray btn-sm" onclick="openFamilyCodeChange()" data-i18n="db_family_switch_btn">🔑 登录 / 申请账号</button>
+        <button class="btn btn-gray btn-sm" id="familyCodeRevealBtn" onclick="toggleFamilyCodeReveal()" data-i18n="db_family_reveal_btn">👁️ 查看我的登录码</button>
       </div>
-      <div class="small" id="familyCodeRenameHint" style="margin-top:4px;color:#999" data-i18n="db_family_rename_hint">✏️改名功能只有管理员能用（这就是之前误把别人家庭码改成自己的、导致对方账号"消失"的那个功能），需要先在下面解锁"🛠️管理后台"才会出现；平时想换到另一个家庭码，用"🔄更换/加入其他家庭空间"就够了</div>
+      <div class="small" id="familyCodeRevealLine" style="display:none;margin-top:6px;color:#7b1fa2">
+        <span data-i18n="db_family_reveal_label">登录码：</span><b id="familyCodeDisplay">—</b>
+        <div style="color:#999;margin-top:2px" data-i18n="db_family_reveal_warn">⚠️请不要告诉陌生人；只有换新设备登录、或者要告诉自己家里其他人时才需要用到</div>
+      </div>
+      <div class="small" id="familyCodeRenameHint" style="margin-top:4px;color:#999" data-i18n="db_family_rename_hint">✏️改名功能只有管理员能用（这就是之前误把别人家庭码改成自己的、导致对方账号"消失"的那个功能），需要先在下面解锁"🛠️管理后台"才会出现；平时想登录/换到另一个账号，用上面"🔑登录/申请账号"就够了</div>
     </div>
     <div id="adminEntryWrap" style="display:none;margin-top:10px;border-top:1px solid #eee;padding-top:10px;text-align:center">
       <button class="btn btn-danger btn-sm" onclick="openAdminEntry()">🛠️ 管理后台（审批新申请 / 修数据）</button>
@@ -1687,6 +1698,36 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="color:#e65100;margin-bottom:6px">⚠️ 这里改的是原始数据，格式必须还是合法的JSON，改错了这家数据可能打不开，没把握就别乱改</div>
       <button class="btn btn-danger btn-block" id="adminFamilySaveBtn" onclick="adminSaveFamilyData()">💾 保存修改</button>
     </div>
+  </div>
+</div>
+
+<!-- 2026-10新增："补偿/补发"工具改成一个真正的表单弹窗，不再是一连串window.prompt()小框
+     （家长反馈填完第一个"金币"的框、点了确定之后，以为就结束了，没留意到后面还会接着弹出
+     星辉晶/腰带/等级这些框——弹窗一个接一个地出，确实很容易让人误以为只有第一个在起作用）。
+     现在所有要填的项目一次性摆在同一个页面上，更不容易漏填/漏看 -->
+<div class="modal-mask" id="adminCompensationModal">
+  <div class="modal" style="text-align:left">
+    <button class="modal-close" onclick="hideModal('adminCompensationModal')">✕</button>
+    <h3 style="text-align:center">🎁 给「<span id="adminCompNameLabel"></span>」补偿/补发</h3>
+    <div class="small" style="color:#999;margin-bottom:10px">下面每一项都可以留空/填0/不勾，不想补的东西不会被动到；全部填好之后，点最下面的"✅确认补发"一次性生效。</div>
+    <div class="small" style="font-weight:600;margin-bottom:4px">💰 金币</div>
+    <input type="number" id="adminCompCoinInput" value="0" min="0" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px" />
+    <div class="small" style="font-weight:600;margin-bottom:4px">💎 星辉晶</div>
+    <input type="number" id="adminCompCrystalInput" value="0" min="0" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px" />
+    <div class="small" style="font-weight:600;margin-bottom:4px">🎗️ 腰带装备</div>
+    <select id="adminCompBeltSelect" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:10px;font-size:15px">
+      <option value="">不补</option>
+      <option value="belt_white">白色·麻绳腰带（需Lv3）</option>
+      <option value="belt_blue">蓝色·鞣皮腰带（需Lv13）</option>
+      <option value="belt_purple">紫色·灵纹束带（需Lv24）</option>
+    </select>
+    <label class="small" style="display:flex;align-items:center;gap:6px;margin-bottom:10px;cursor:pointer">
+      <input type="checkbox" id="adminCompResetDungeonCheckbox" style="width:16px;height:16px" />
+      🏰 把今天所有副本关卡的"今日已通关"标记清掉，让TA今天可以重新挑战
+    </label>
+    <div class="small" style="font-weight:600;margin-bottom:4px">🐾 当前出战宠物直接设置为几级（留空不改）</div>
+    <input type="number" id="adminCompLevelInput" placeholder="留空表示不改等级" min="1" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #e0c3f0;margin-bottom:12px;font-size:15px" />
+    <button class="btn btn-primary btn-block" id="adminCompConfirmBtn" onclick="submitAdminCompensation()">✅ 确认补发</button>
   </div>
 </div>
 
@@ -3580,11 +3621,14 @@ var I18N_EN = {
   pg_visit_title: '🚪 Visit',
   pg_visit_intro: "See other kids who already have pets here — no code needed, just tap in to view read-only; you can't check in or change anything for them. You can pet theirs to boost closeness (once per person per day), send coins (up to 3 times per person per day), or start a Battle PK.",
   pg_visit_inbox_btn: '📬 Inbox',
-  db_family_label: '🔑 Current Family Space Code:',
-  db_family_desc: "Devices sharing the same Family Code sync to the same child profiles; different Family Codes never see each other's data",
-  db_family_rename_btn: '✏️ Rename current Family Code',
-  db_family_switch_btn: '🔄 Switch / Join another Family Space',
-  db_family_rename_hint: '✏️Renaming is admin-only (this is the feature that once accidentally overwrote someone else\'s Family Code, "vanishing" their account) — unlock "🛠️Admin Panel" below first to see it; to just switch to another Family Code, use "🔄Switch/Join another Family Space" instead',
+  db_family_label: '🔑 Account Login',
+  db_family_desc: "Devices logged into the same account sync to the same child profiles; different accounts never see each other's data",
+  db_family_rename_btn: '✏️ Rename current account',
+  db_family_switch_btn: '🔑 Login / Apply for an account',
+  db_family_reveal_btn: '👁️ Show my login code',
+  db_family_reveal_label: 'Login code: ',
+  db_family_reveal_warn: '⚠️Don\'t share this with strangers; you only need it to log in on a new device, or to tell another family member',
+  db_family_rename_hint: '✏️Renaming is admin-only (this is the feature that once accidentally overwrote someone else\'s Family Code, "vanishing" their account) — unlock "🛠️Admin Panel" below first to see it; to just log in / switch to another account, use "🔑Login/Apply for an account" above',
   family_gate_title: '🔑 Enter Family Code',
   family_gate_desc: 'This device is opening this page for the first time and needs a "Family Code" to enter its Family Space — different Family Codes never see each other\'s child profiles. Ask whoever sent you this link for the code.',
   family_gate_confirm_btn: '✅ Confirm & Enter',
@@ -5129,6 +5173,22 @@ function refreshFamilyCodeDisplay(){
   if(!el) return;
   var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
   el.textContent=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+  // 2026-10fix：每次刷新这块显示（比如刚登录完、刚改完名），顺手把"查看我的登录码"收起来，
+  // 避免换了账号之后，之前那次顺手点开忘记收起的登录码一直露在屏幕上
+  var line=document.getElementById('familyCodeRevealLine');
+  var btn=document.getElementById('familyCodeRevealBtn');
+  if(line) line.style.display='none';
+  if(btn) btn.textContent=L('👁️ 查看我的登录码','👁️ Show my login code');
+}
+// 2026-10新增：家庭登录码相当于这个账号的"密码"，默认不直接显示在页面上（避免小朋友/路过的人
+// 一眼就看到甚至截图分享出去），只有主动点这个按钮才短暂显示出来，再点一次可以收起去
+function toggleFamilyCodeReveal(){
+  var line=document.getElementById('familyCodeRevealLine');
+  var btn=document.getElementById('familyCodeRevealBtn');
+  if(!line) return;
+  var showing=(line.style.display!=='none');
+  line.style.display=showing?'none':'block';
+  if(btn) btn.textContent=showing?L('👁️ 查看我的登录码','👁️ Show my login code'):L('🙈 隐藏登录码','🙈 Hide login code');
 }
 function openFamilyCodeChange(){
   _familyGateMode='change';
@@ -5622,41 +5682,51 @@ function adminAdjustCoinBalance(rowId,cid,childName,currentBalance){
    管理员用这个工具一次性把东西补回去，比"✏️调整金币"（只能改金币）更全面；顺便还能在发生过
    "副本今天打不开"这类bug时，把这个孩子今天各个副本关卡的"已通关"标记清掉，让TA今天能重新挑战。
    每一项都可以留空/填0/点取消跳过，不想补的东西不会被动到。 */
+// 2026-10fix：以前这里是一连串window.prompt()小框（金币→星辉晶→腰带→副本重置→等级，一个接一个弹出来），
+// 家长反馈填完第一个"金币"的框、点了确定之后，以为流程就结束了，没注意到后面还会接着弹出好几个框，
+// 结果星辉晶/腰带/等级这些都没真正补到。现在改成一个真正的表单弹窗（adminCompensationModal，
+// 见上面HTML），所有要填的项目一次性摆在同一屏幕上，不会再有"后面还有框"这种容易被忽略的情况。
+// adminGrantCompensation()只负责"打开这个弹窗、把表单重置成空白默认值"；真正读表单、校验、
+// 写入云端的逻辑拆到下面 submitAdminCompensation() / performAdminCompensation() 里。
+var _adminCompTarget=null;
 function adminGrantCompensation(rowId,cid,childName){
-  var coinInput=window.prompt('要给「'+childName+'」补发多少金币？（不用补就留空或填0）', '0');
-  if(coinInput===null) return;
-  var coinAmt=Math.round(Number(coinInput));
+  _adminCompTarget={rowId:rowId, cid:cid, childName:childName};
+  var nameEl=document.getElementById('adminCompNameLabel'); if(nameEl) nameEl.textContent=childName;
+  var coinEl=document.getElementById('adminCompCoinInput'); if(coinEl) coinEl.value='0';
+  var crystalEl=document.getElementById('adminCompCrystalInput'); if(crystalEl) crystalEl.value='0';
+  var beltEl=document.getElementById('adminCompBeltSelect'); if(beltEl) beltEl.value='';
+  var dungeonEl=document.getElementById('adminCompResetDungeonCheckbox'); if(dungeonEl) dungeonEl.checked=false;
+  var levelEl=document.getElementById('adminCompLevelInput'); if(levelEl) levelEl.value='';
+  var btn=document.getElementById('adminCompConfirmBtn'); if(btn){ btn.disabled=false; btn.textContent='✅ 确认补发'; }
+  showModal('adminCompensationModal');
+}
+// 读取表单、校验、最后弹一次汇总确认——跟以前prompt链条的校验规则完全一致，只是从"一个个弹框"
+// 改成"一次性读整个表单"，校验失败时的提示文案也保持不变，家长看到的报错信息不会变得陌生
+function submitAdminCompensation(){
+  if(!_adminCompTarget) return;
+  var t=_adminCompTarget;
+  var coinEl=document.getElementById('adminCompCoinInput');
+  var crystalEl=document.getElementById('adminCompCrystalInput');
+  var beltEl=document.getElementById('adminCompBeltSelect');
+  var dungeonEl=document.getElementById('adminCompResetDungeonCheckbox');
+  var levelEl=document.getElementById('adminCompLevelInput');
+
+  var coinAmt=Math.round(Number((coinEl&&coinEl.value)||0));
   if(!isFinite(coinAmt)||coinAmt<0){ ttsToast('❌ 金币数量请输入不小于0的数字', 4000); return; }
-
-  var crystalInput=window.prompt('要给「'+childName+'」补发多少颗星辉晶💎？（不用补就留空或填0）', '0');
-  if(crystalInput===null) return;
-  var crystalAmt=Math.round(Number(crystalInput));
+  var crystalAmt=Math.round(Number((crystalEl&&crystalEl.value)||0));
   if(!isFinite(crystalAmt)||crystalAmt<0){ ttsToast('❌ 星辉晶数量请输入不小于0的数字', 4000); return; }
-
-  var beltInput=window.prompt('要给「'+childName+'」补发一件腰带装备吗？输入 白/蓝/紫 其中一个品质，不用补就留空：\n（白=麻绳腰带·需Lv3，蓝=鞣皮腰带·需Lv13，紫=灵纹束带·需Lv24）', '');
-  if(beltInput===null) return;
-  var beltMap={'白':'belt_white','白色':'belt_white','white':'belt_white','蓝':'belt_blue','蓝色':'belt_blue','blue':'belt_blue','紫':'belt_purple','紫色':'belt_purple','purple':'belt_purple'};
-  var beltKey=(beltInput||'').trim();
-  var beltDefId=beltKey?(beltMap[beltKey]||null):null;
-  if(beltKey && !beltDefId){ ttsToast('❌ 没看懂这个品质，请输入 白/蓝/紫 其中一个（或者留空不补）', 5000); return; }
-
-  var resetDungeon=window.confirm('要不要把「'+childName+'」今天所有副本关卡的"今日已通关"标记清掉，让TA今天可以把每一关都重新挑战一次？\n\n（点"取消"就不会动副本记录，其它补发项照常生效）');
-
-  // 2026-10新增：补偿功能里顺带加上"直接改等级"，不用再单独走另一套工具——
-  // 只改"当前出战宠物"(state.pet)，按目标等级反推出对应exp(用expForLevelFloor，跟正常升级
-  // 用的是同一套算法，改完之后看起来跟"正常升上来的"没有区别)，改之前/改之后都会记进这只宠物
-  // 自己的levelLedger，方便以后万一又出问题能查到"是管理员手动改的，什么时候改的"
-  var levelInput=window.prompt('要把「'+childName+'」当前出战的这只宠物，等级直接改成多少级？（这是在直接设置等级，不是增量；不用改就留空）', '');
-  if(levelInput===null) return;
+  var beltDefId=(beltEl&&beltEl.value)?beltEl.value:null;
+  var resetDungeon=!!(dungeonEl&&dungeonEl.checked);
+  var levelInput=(levelEl&&levelEl.value!=null)?String(levelEl.value):'';
   var levelAmt=null;
-  if(levelInput && levelInput.trim()!==''){
+  if(levelInput.trim()!==''){
     levelAmt=Math.round(Number(levelInput));
     if(!isFinite(levelAmt)||levelAmt<1){ ttsToast('❌ 等级请输入1以上的整数', 4000); return; }
   }
 
   if(coinAmt<=0 && crystalAmt<=0 && !beltDefId && !resetDungeon && !levelAmt){ ttsToast('没有要补发的东西，已取消', 4000); return; }
 
-  var summary='确定要给「'+childName+'」补发：\n'
+  var summary='确定要给「'+t.childName+'」补发：\n'
     +(coinAmt>0?('· 金币 +'+coinAmt+'\n'):'')
     +(crystalAmt>0?('· 星辉晶💎 +'+crystalAmt+'\n'):'')
     +(beltDefId?('· 腰带装备【'+EQUIP_ITEMS[beltDefId].name+'】x1\n'):'')
@@ -5665,6 +5735,19 @@ function adminGrantCompensation(rowId,cid,childName){
     +'\n⚠️这会直接写入云端数据，且没法撤销，确定吗？';
   if(!window.confirm(summary)) return;
 
+  var btn=document.getElementById('adminCompConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='处理中…'; }
+  return performAdminCompensation(t.rowId,t.cid,t.childName,coinAmt,crystalAmt,beltDefId,resetDungeon,levelAmt).then(function(){
+    if(btn){ btn.disabled=false; btn.textContent='✅ 确认补发'; }
+    hideModal('adminCompensationModal');
+  }).catch(function(){
+    if(btn){ btn.disabled=false; btn.textContent='✅ 确认补发'; }
+    ttsToast('❌ 没连上云端，补发没成功，检查网络再试一次', 5000);
+  });
+}
+// 真正读云端数据、写入补发内容的核心逻辑——不碰任何prompt/confirm/DOM，方便单独测试，
+// 也方便以后万一还要在别的地方（比如批量补偿）复用这同一套写入逻辑
+function performAdminCompensation(rowId,cid,childName,coinAmt,crystalAmt,beltDefId,resetDungeon,levelAmt){
   return fetchRowData(rowId).then(function(row){
     var d=row&&row.data;
     if(!d||!d.accounts||!d.accounts[cid]){ ttsToast('❌ 没找到这个孩子的存档数据，可能数据结构有问题，先用"查看/修复"确认一下', 6000); return; }
@@ -5713,8 +5796,6 @@ function adminGrantCompensation(rowId,cid,childName){
       ttsToast('✅ 已经给「'+childName+'」补发完成', 4500);
       loadAdminCoinOverview();
     });
-  }).catch(function(){
-    ttsToast('❌ 没连上云端，补发没成功，检查网络再试一次', 5000);
   });
 }
 /* 2026-10新增：金币变化明细——翻这个孩子档案的 state.coinLedger 流水账，一眼看出最近每一笔
