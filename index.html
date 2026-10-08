@@ -11344,7 +11344,7 @@ function buildMathDailyLinkPayload(){
     phrases:phrases,
     themeName:theme.name
   };
-  return '<script>window.__DAILY_LINK__='+scriptSafeJson(data)+';window.__ALREADY_CLEARED_TODAY__='+scriptSafeJson(cleared)+';<\/script>';
+  return '<script>window.__DAILY_LINK__='+scriptSafeJson(data)+';window.__ALREADY_CLEARED_TODAY__='+scriptSafeJson(cleared)+';window.__UI_LANG__='+scriptSafeJson(getUiLang())+';<\/script>';
 }
 function openMathChallenge(){
   var frame=document.getElementById('mathChallengeFrame');
@@ -18133,31 +18133,31 @@ document.addEventListener('visibilitychange', function(){
 <div id="menuScreen" class="screen">
   <div class="bg-white/95 rounded-3xl p-5 md:p-7 max-w-md md:max-w-4xl w-full text-center shadow-2xl pop-in" style="max-height:94vh;overflow-y:auto">
     <div class="text-5xl md:text-6xl mb-2">🧟‍♂️🌻👹</div>
-    <h1 class="text-3xl md:text-4xl font-black title-text mb-1">守卫家园</h1>
-    <p class="text-sm md:text-base text-gray-600 mb-3 md:mb-4 font-bold">无限挑战版</p>
+    <h1 id="menuTitle" class="text-3xl md:text-4xl font-black title-text mb-1">守卫家园</h1>
+    <p id="menuSubtitle" class="text-sm md:text-base text-gray-600 mb-3 md:mb-4 font-bold">无限挑战版</p>
     <!-- 宽屏下左右两栏平铺展示说明，不用再上下拖动才能看完；窄屏（手机竖屏）才退回单列+滚动 -->
     <div class="md:grid md:grid-cols-2 md:gap-4 md:items-start">
       <div class="bg-amber-50 rounded-xl p-3 md:p-4 mb-3 md:mb-0 text-left text-xs md:text-sm text-gray-700 space-y-1 md:space-y-1.5">
-        <p>🎯 <b>怎么才能通关：</b></p>
-        <p>1️⃣ 僵尸会从右边一直往你的基地（左边的小房子）走过来，你要在它们到达之前把它们统统消灭掉</p>
-        <p>2️⃣ 想打死僵尸，只能靠"答对题目"：算式题直接输入数字答案，句子/选择题点A或B，答对了会射出一颗超级豌豆🌟，一颗就能秒杀一个僵尸</p>
-        <p>3️⃣ 光种植物是打不死僵尸的——植物子弹只能慢慢磨血，磨到一定程度就磨不动了，必须靠答题才能补上最后一下</p>
-        <p>4️⃣ 答得越快，奖励的阳光☀️越多，阳光可以拿去种更多植物</p>
-        <p>5️⃣ 答错或超时不答，僵尸会加速冲过来，连续错太多次还会开火打你的植物，要小心</p>
-        <p>6️⃣ 僵尸（或者推土机Boss）冲到最左边，基地就会掉血，血量归零挑战就失败了</p>
-        <p>7️⃣ 每一关都会有"僵尸潮"来袭，出现前会有提示，看到提示要抓紧连续多答对几题</p>
-        <p>8️⃣ 关卡越往后僵尸越来越快、越来越强、也越来越多——看你能闯到第几关！</p>
-        <p>9️⃣ 题目会和你今天"学习打卡""沟通打卡"里的内容有关联，先认真完成今天的学习/沟通打卡，闯关会更容易哦！（已经通关过的关卡重新挑战，题目还是完全随机的）</p>
+        <p id="instrHead1">🎯 <b>怎么才能通关：</b></p>
+        <p id="instr1">1️⃣ 僵尸会从右边一直往你的基地（左边的小房子）走过来，你要在它们到达之前把它们统统消灭掉</p>
+        <p id="instr2">2️⃣ 想打死僵尸，只能靠"答对题目"：算式题直接输入数字答案，句子/选择题点A或B，答对了会射出一颗超级豌豆🌟，一颗就能秒杀一个僵尸</p>
+        <p id="instr3">3️⃣ 光种植物是打不死僵尸的——植物子弹只能慢慢磨血，磨到一定程度就磨不动了，必须靠答题才能补上最后一下</p>
+        <p id="instr4">4️⃣ 答得越快，奖励的阳光☀️越多，阳光可以拿去种更多植物</p>
+        <p id="instr5">5️⃣ 答错或超时不答，僵尸会加速冲过来，连续错太多次还会开火打你的植物，要小心</p>
+        <p id="instr6">6️⃣ 僵尸（或者推土机Boss）冲到最左边，基地就会掉血，血量归零挑战就失败了</p>
+        <p id="instr7">7️⃣ 每一关都会有"僵尸潮"来袭，出现前会有提示，看到提示要抓紧连续多答对几题</p>
+        <p id="instr8">8️⃣ 关卡越往后僵尸越来越快、越来越强、也越来越多——看你能闯到第几关！</p>
+        <p id="instr9">9️⃣ 题目会和你今天"学习打卡""沟通打卡"里的内容有关联，先认真完成今天的学习/沟通打卡，闯关会更容易哦！（已经通关过的关卡重新挑战，题目还是完全随机的）</p>
       </div>
       <div class="bg-blue-50 rounded-xl p-3 md:p-4 mb-3 md:mb-0 text-left text-xs md:text-sm text-gray-700 space-y-1 md:space-y-1.5">
-        <p>🧰 <b>道具说明：</b></p>
-        <p>🌻 向日葵 — 定期产生阳光，阳光越多能种的植物越多</p>
-        <p>🌱 豌豆射手 — 发射豆子慢慢消耗僵尸的血（打不死）</p>
-        <p>❄️ 寒冰射手 — 和豌豆射手一样，还能让僵尸变慢</p>
-        <p>🥜 坚果墙 — 血量超厚，专门用来挡住僵尸拖延时间</p>
-        <p>🌿 双发射手 — 一次发射两颗豆子，火力更猛</p>
-        <p>🌺 生命之花 — 价格很贵、只有1点血，一碰就会死，但只要她还活着就能慢慢帮基地回血，要种在别的植物身后小心保护她</p>
-        <p>🚀 超级原子弹 — 连续答对4题开始充能，最多充满8格；随时点一下就能把当前全部能量一次性引爆，消灭一大片僵尸，能量越多威力越大</p>
+        <p id="instrHead2">🧰 <b>道具说明：</b></p>
+        <p id="item1">🌻 向日葵 — 定期产生阳光，阳光越多能种的植物越多</p>
+        <p id="item2">🌱 豌豆射手 — 发射豆子慢慢消耗僵尸的血（打不死）</p>
+        <p id="item3">❄️ 寒冰射手 — 和豌豆射手一样，还能让僵尸变慢</p>
+        <p id="item4">🥜 坚果墙 — 血量超厚，专门用来挡住僵尸拖延时间</p>
+        <p id="item5">🌿 双发射手 — 一次发射两颗豆子，火力更猛</p>
+        <p id="item6">🌺 生命之花 — 价格很贵、只有1点血，一碰就会死，但只要她还活着就能慢慢帮基地回血，要种在别的植物身后小心保护她</p>
+        <p id="item7">🚀 超级原子弹 — 连续答对4题开始充能，最多充满8格；随时点一下就能把当前全部能量一次性引爆，消灭一大片僵尸，能量越多威力越大</p>
       </div>
     </div>
     <div class="flex flex-col gap-2 md:gap-3 mt-3 md:mt-4">
@@ -18170,15 +18170,15 @@ document.addEventListener('visibilitychange', function(){
 <!-- 排行榜界面 -->
 <div id="rankScreen" class="screen hidden">
   <div class="bg-white/95 rounded-3xl p-6 max-w-lg w-full shadow-2xl pop-in">
-    <h2 class="text-2xl font-black text-center mb-4 text-amber-600">🏆 排行榜 TOP 10</h2>
+    <h2 id="rankTitle" class="text-2xl font-black text-center mb-4 text-amber-600">🏆 排行榜 TOP 10</h2>
     <div class="scroll-y">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-gray-500 border-b-2 border-gray-200">
-            <th class="py-2 text-left pl-2 w-14">排名</th>
-            <th class="py-2 text-left">玩家</th>
-            <th class="py-2 text-right">分数</th>
-            <th class="py-2 text-right pr-2 w-16">关卡</th>
+            <th id="rankColRank" class="py-2 text-left pl-2 w-14">排名</th>
+            <th id="rankColPlayer" class="py-2 text-left">玩家</th>
+            <th id="rankColScore" class="py-2 text-right">分数</th>
+            <th id="rankColLevel" class="py-2 text-right pr-2 w-16">关卡</th>
           </tr>
         </thead>
         <tbody id="rankBody"></tbody>
@@ -18197,10 +18197,10 @@ document.addEventListener('visibilitychange', function(){
 <div id="nameScreen" class="screen hidden">
   <div class="bg-white/95 rounded-3xl p-7 max-w-sm w-full text-center shadow-2xl pop-in">
     <div class="text-5xl mb-3">📝</div>
-    <h2 class="text-xl font-black text-gray-800 mb-2">留下你的名字</h2>
+    <h2 id="nameScreenTitle" class="text-xl font-black text-gray-800 mb-2">留下你的名字</h2>
     <p class="text-sm text-gray-500 mb-4">
-      本局得分：<span id="nameScore" class="font-bold text-amber-600 text-lg">0</span> 分
-      <br>到达第 <span id="nameLevel" class="font-bold text-purple-600">1</span> 关
+      <span id="nameScoreLabel">本局得分：</span><span id="nameScore" class="font-bold text-amber-600 text-lg">0</span><span id="nameScoreUnit"> 分</span>
+      <br><span id="nameLevelLabel">到达第 </span><span id="nameLevel" class="font-bold text-purple-600">1</span><span id="nameLevelUnit"> 关</span>
     </p>
     <input
       id="nameInput"
@@ -18220,12 +18220,12 @@ document.addEventListener('visibilitychange', function(){
 <div id="loseScreen" class="screen hidden">
   <div class="bg-white/95 rounded-3xl p-7 max-w-md w-full text-center shadow-2xl pop-in">
     <div class="text-6xl mb-3">💀👹😱</div>
-    <h2 class="text-3xl font-black text-red-600 mb-2">挑战结束</h2>
-    <p class="text-gray-600 mb-4">僵尸攻破了你的防线！</p>
+    <h2 id="loseTitle" class="text-3xl font-black text-red-600 mb-2">挑战结束</h2>
+    <p id="loseSubtitle" class="text-gray-600 mb-4">僵尸攻破了你的防线！</p>
     <div class="bg-red-50 rounded-xl p-4 mb-5">
-      <p class="text-gray-600 text-sm">最高到达</p>
-      <p class="text-2xl font-black text-purple-600 mb-2">第 <span id="loseLevel">1</span> 关</p>
-      <p class="text-gray-600 text-sm">最终得分</p>
+      <p id="loseReachedLabel" class="text-gray-600 text-sm">最高到达</p>
+      <p class="text-2xl font-black text-purple-600 mb-2"><span id="loseLevelPre">第 </span><span id="loseLevel">1</span><span id="loseLevelPost"> 关</span></p>
+      <p id="loseScoreLabel" class="text-gray-600 text-sm">最终得分</p>
       <p class="text-3xl font-black text-red-600"><span id="loseScore">0</span></p>
     </div>
     <div class="flex flex-col gap-3">
@@ -18245,15 +18245,15 @@ document.addEventListener('visibilitychange', function(){
         <span id="sunDisplay" class="min-w-[3ch] text-center tabular-nums">50</span>
       </div>
       <div class="stat-pill stat-pill-level">
-        第 <span id="levelDisplay">1</span> 关
+        <span id="levelPre">第 </span><span id="levelDisplay">1</span><span id="levelPost"> 关</span>
       </div>
     </div>
     <div class="flex items-center gap-2">
       <div class="stat-pill stat-pill-score">
-        分数：<span id="scoreDisplay" class="tabular-nums">0</span>
+        <span id="scoreLabel">分数：</span><span id="scoreDisplay" class="tabular-nums">0</span>
       </div>
       <div class="stat-pill stat-pill-zombie text-xs">
-        僵尸：<span id="zombieProgress" class="tabular-nums">0/10</span>
+        <span id="zombieLabel">僵尸：</span><span id="zombieProgress" class="tabular-nums">0/10</span>
       </div>
     </div>
   </div>
@@ -18326,6 +18326,92 @@ document.addEventListener('visibilitychange', function(){
 
 <script>
 // ============================================================
+//  中英文切换：GAME_LANG 由外层主页面通过 window.__UI_LANG__ 注入（iframe是独立执行环境，
+//  只能这样接收数据，见外层 buildMathDailyLinkPayload()）。T(zh,en) 跟外层主页面的 L(zh,en)
+//  是同一个思路：GAME_LANG==='en' 时返回英文，否则返回中文（兜底，没传英文参数时还是中文）。
+//  家长反馈：切到英文版时，游戏里所有内容（界面文字+题目）都要是英文，不能再混中文；
+//  "语文"/"脑筋急转弯"这两类纯中文专属题型英文版直接取消，空出来的比例全部补给NAPLAN内容；
+//  "数学应用题"英文版换成专门写的英文应用题模板，归入NAPLAN Numeracy。
+// ============================================================
+var GAME_LANG = (typeof window !== 'undefined' && window.__UI_LANG__ === 'en') ? 'en' : 'zh';
+function T(zh, en) { return GAME_LANG === 'en' ? (en != null ? en : zh) : zh; }
+if (GAME_LANG === 'en') {
+  try {
+    document.documentElement.lang = 'en';
+    document.title = 'Guard Your Home - Infinite Challenge';
+    var STATIC_EN_EL = {
+      menuTitle: 'Guard Your Home',
+      menuSubtitle: 'Infinite Challenge',
+      instrHead1: '🎯 <b>How to clear a level:</b>',
+      instr1: "1️⃣ Zombies keep walking from the right towards your base (the little house on the left) - wipe them all out before they get there",
+      instr2: '2️⃣ The only way to kill a zombie is to "answer a question correctly": type the number for a calculation question, tap A or B for a sentence/choice question - a correct answer fires a Super Pea 🌟 that instantly kills one zombie',
+      instr3: "3️⃣ Plants alone can't kill zombies - plant bullets only wear down health slowly and stop working past a point, so you must answer questions to land the final blow",
+      instr4: '4️⃣ The faster you answer, the more bonus Sun ☀️ you earn - Sun lets you plant more plants',
+      instr5: '5️⃣ A wrong answer or running out of time makes zombies speed up - too many mistakes in a row and they will even open fire on your plants, so be careful',
+      instr6: '6️⃣ If a zombie (or the Bulldozer Boss) reaches the far left, your base loses health - if health hits zero, the challenge ends',
+      instr7: '7️⃣ Every level has a "Zombie Tide" - you will get a warning first, so get ready to answer several questions correctly in a row',
+      instr8: '8️⃣ Later levels bring faster, stronger and more numerous zombies - how far can you get?',
+      instr9: '9️⃣ Questions are linked to what you did in today\'s "Study" and "Communication" check-ins - do those carefully first and the level gets easier! (Levels you have already cleared today still use fully random questions on a replay)',
+      instrHead2: '🧰 <b>Plant guide:</b>',
+      item1: '🌻 Sunflower — produces Sun regularly; more Sun means more plants',
+      item2: '🌱 Peashooter — fires peas to slowly wear down zombie health (can\'t finish them off)',
+      item3: '❄️ Snow Pea — like the Peashooter, but also slows zombies down',
+      item4: '🥜 Wall-nut — very high health, used to block zombies and buy time',
+      item5: '🌿 Repeater — fires two peas at once for more firepower',
+      item6: '🌺 Lifeflower — expensive and only has 1 HP, dying to any single hit, but while alive she slowly heals your base - plant her safely behind other plants',
+      item7: '🚀 Super Bomb — charges up after 4 correct answers in a row, up to 8 bars; tap any time to detonate all current energy at once and wipe out a swath of zombies - more energy means more power',
+      startBtn: 'Start Challenge 🚀',
+      menuRankBtn: '🏆 Leaderboard',
+      rankTitle: '🏆 Leaderboard TOP 10',
+      rankColRank: 'Rank',
+      rankColPlayer: 'Player',
+      rankColScore: 'Score',
+      rankColLevel: 'Level',
+      rankEmpty: 'No records yet - go take on the challenge!',
+      rankBackBtn: '← Back to Menu',
+      nameScreenTitle: 'Leave your name',
+      nameScoreLabel: 'Score this run: ',
+      nameScoreUnit: '',
+      nameLevelLabel: 'Reached level ',
+      nameLevelUnit: '',
+      nameInput_placeholder: 'Enter your name',
+      nameSkipBtn: 'Skip',
+      nameSubmitBtn: 'Submit',
+      loseTitle: 'Challenge Over',
+      loseSubtitle: 'The zombies broke through your defences!',
+      loseReachedLabel: 'Highest level reached',
+      loseLevelPre: 'Level ',
+      loseLevelPost: '',
+      loseScoreLabel: 'Final score',
+      loseRestartBtn: 'Try Again 💪',
+      loseRankBtn: '🏆 View Leaderboard',
+      loseMenuBtn: 'Back to Menu',
+      levelPre: 'Level ',
+      levelPost: '',
+      scoreLabel: 'Score: ',
+      zombieLabel: 'Zombies: ',
+      speedWarning: '⚡Speeding up',
+      bombTriggerBtn_title: 'Charges up after 4 correct answers in a row - detonate as soon as you have 1 bar, no need to wait for a full charge',
+      bossWarning: '⚠️ BOSS INCOMING! ⚠️',
+      tideWarning: '🌊 Zombie tide incoming! Answer fast to clear them! 🌊',
+      categoryBadge: '📝 Math',
+      speedBadge: '1x',
+      answerInput_placeholder: 'Enter answer',
+      submitBtn: 'Submit',
+    };
+    Object.keys(STATIC_EN_EL).forEach(function (key) {
+      var isAttr = key.indexOf('_placeholder') !== -1 || key.indexOf('_title') !== -1;
+      var id = isAttr ? key.replace(/_placeholder$|_title$/, '') : key;
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (key.indexOf('_placeholder') !== -1) el.setAttribute('placeholder', STATIC_EN_EL[key]);
+      else if (key.indexOf('_title') !== -1) el.setAttribute('title', STATIC_EN_EL[key]);
+      else el.innerHTML = STATIC_EN_EL[key];
+    });
+  } catch (e) { /* 静默降级：就算翻译这一步出意外，也不能让整个游戏打不开 */ }
+}
+
+// ============================================================
 //  游戏配置
 // ============================================================
 const COLS = 9;
@@ -18346,14 +18432,14 @@ const ZOMBIE_VOLLEY_DAMAGE = 25; // 僵尸开火，每颗子弹对植物造成�
 const BOMB_STREAK_GATE = 4; // 必须连续答对满4题，才开始为原子弹充能（前3题不充能）
 const BOMB_ENERGY_MAX = 8; // 能量格上限
 const BOMB_TIERS = { // 引爆时消耗当前全部能量，威力按引爆时的格数决定
-  1: { rows: 1, damage: 200, bossHits: 0, sunBonus: 0,  healBonus: 0,  label: '小型原子弹' },
-  2: { rows: 2, damage: 220, bossHits: 0, sunBonus: 0,  healBonus: 0,  label: '强化原子弹' },
-  3: { rows: 3, damage: 260, bossHits: 1, sunBonus: 0,  healBonus: 0,  label: '冲击波原子弹' },
-  4: { rows: 4, damage: 320, bossHits: 1, sunBonus: 10, healBonus: 0,  label: '烈焰原子弹' },
-  5: { rows: 5, damage: 420, bossHits: 2, sunBonus: 20, healBonus: 5,  label: '全场原子弹' },
-  6: { rows: 5, damage: 600, bossHits: 2, sunBonus: 30, healBonus: 10, label: '超级原子弹' },
-  7: { rows: 5, damage: 900, bossHits: 3, sunBonus: 45, healBonus: 15, label: '毁灭级原子弹' },
-  8: { rows: 5, damage: 9999, bossHits: 5, sunBonus: 60, healBonus: 20, label: '终极满能原子弹' },
+  1: { rows: 1, damage: 200, bossHits: 0, sunBonus: 0,  healBonus: 0,  label: T('小型原子弹','Small Bomb') },
+  2: { rows: 2, damage: 220, bossHits: 0, sunBonus: 0,  healBonus: 0,  label: T('强化原子弹','Boosted Bomb') },
+  3: { rows: 3, damage: 260, bossHits: 1, sunBonus: 0,  healBonus: 0,  label: T('冲击波原子弹','Shockwave Bomb') },
+  4: { rows: 4, damage: 320, bossHits: 1, sunBonus: 10, healBonus: 0,  label: T('烈焰原子弹','Blazing Bomb') },
+  5: { rows: 5, damage: 420, bossHits: 2, sunBonus: 20, healBonus: 5,  label: T('全场原子弹','Field-Wide Bomb') },
+  6: { rows: 5, damage: 600, bossHits: 2, sunBonus: 30, healBonus: 10, label: T('超级原子弹','Super Bomb') },
+  7: { rows: 5, damage: 900, bossHits: 3, sunBonus: 45, healBonus: 15, label: T('毁灭级原子弹','Devastator Bomb') },
+  8: { rows: 5, damage: 9999, bossHits: 5, sunBonus: 60, healBonus: 20, label: T('终极满能原子弹','Ultimate Bomb') },
 };
 const MIN_ANSWER_RATIO = 0.3; // 这一关至少要自己答对"僵尸总数×30%"道题，这关才算数、才给孵化/升级奖励；
                                // 防止前面攒的植物/超级豌豆自动打怪，靠躺赢混过高级别关卡骗经验金币
@@ -18362,14 +18448,14 @@ const MIN_ANSWER_RATIO = 0.3; // 这一关至少要自己答对"僵尸总数×30
    真正有杀伤力的是答对题目产生的"超级豌豆"（伤害是普通植物的8倍，见下方 SUPER_PEA_DAMAGE），
    逼着孩子必须不停认真答题，而不是攒够植物后就可以不再做题 */
 const PLANT_TYPES = {
-  sunflower: { name: '向日葵', emoji: '🌻', cost: 50, hp: 100, sunInterval: 8000, sunAmount: 25 },
-  peashooter: { name: '豌豆射手', emoji: '🌱', cost: 100, hp: 100, shootInterval: 1500, damage: 8 },
-  snowpea: { name: '寒冰射手', emoji: '❄️', cost: 175, hp: 100, shootInterval: 1800, damage: 8, ice: true },
-  walnut: { name: '坚果墙', emoji: '🥜', cost: 50, hp: 400 },
-  repeater: { name: '双发射手', emoji: '🌿', cost: 200, hp: 100, shootInterval: 1500, damage: 8, double: true },
+  sunflower: { name: T('向日葵','Sunflower'), emoji: '🌻', cost: 50, hp: 100, sunInterval: 8000, sunAmount: 25 },
+  peashooter: { name: T('豌豆射手','Peashooter'), emoji: '🌱', cost: 100, hp: 100, shootInterval: 1500, damage: 8 },
+  snowpea: { name: T('寒冰射手','Snow Pea'), emoji: '❄️', cost: 175, hp: 100, shootInterval: 1800, damage: 8, ice: true },
+  walnut: { name: T('坚果墙','Wall-nut'), emoji: '🥜', cost: 50, hp: 400 },
+  repeater: { name: T('双发射手','Repeater'), emoji: '🌿', cost: 200, hp: 100, shootInterval: 1500, damage: 8, double: true },
   // 生命之花：价格非常贵（是普通植物的3-12倍），血量只有1点，任何一次攻击（僵尸啃食/僵尸开火/Boss碾压）
   // 都会瞬间把她打死，必须种在其他植物身后小心保护；活着的每一小段时间会慢慢回复一点基地血量
-  healer: { name: '生命之花', emoji: '🌺', cost: 600, hp: 1, healInterval: 5000, healAmount: 3 },
+  healer: { name: T('生命之花','Lifeflower'), emoji: '🌺', cost: 600, hp: 1, healInterval: 5000, healAmount: 3 },
 };
 const SUPER_PEA_DAMAGE = 9999; // 答对一题产生的超级豌豆伤害极高，足以一击秒杀任意僵尸（哪怕是刚出现、还没被植物磨过血的铁桶僵尸）——
                                 // 真正的杀伤力必须靠答对题目，普通植物子弹只能慢慢磨血、磨不死（见下方 PLANT_KILL_FLOOR_FRACTION）
@@ -18378,13 +18464,13 @@ const SUPER_PEA_DAMAGE = 9999; // 答对一题产生的超级豌豆伤害极高�
 const PLANT_KILL_FLOOR_FRACTION = 0.12;
 
 const ZOMBIE_TYPES = {
-  normal: { name: '普通僵尸', emoji: '🧟', hp: 100, speed: 0.3, damage: 10 },
-  cone:   { name: '路障僵尸', emoji: '🧟‍♂️', hp: 200, speed: 0.4, damage: 10 },
-  bucket: { name: '铁桶僵尸', emoji: '🧟‍♀️', hp: 350, speed: 0.25, damage: 15 },
+  normal: { name: T('普通僵尸','Normal Zombie'), emoji: '🧟', hp: 100, speed: 0.3, damage: 10 },
+  cone:   { name: T('路障僵尸','Cone Zombie'), emoji: '🧟‍♂️', hp: 200, speed: 0.4, damage: 10 },
+  bucket: { name: T('铁桶僵尸','Bucket Zombie'), emoji: '🧟‍♀️', hp: 350, speed: 0.25, damage: 15 },
 };
 
 const BOSS_TYPE = {
-  name: '推土机Boss',
+  name: T('推土机Boss','Bulldozer Boss'),
   emoji: '👹',
   hp: 5, // 需要5道题打死
   speed: 0.15,
@@ -18434,7 +18520,7 @@ function getLevelConfig(level) {
     bossCount,
     tideSize,
     tideTriggerCounts,
-    title: `第${level}关`,
+    title: T(`第${level}关`, `Level ${level}`),
   };
 }
 
@@ -18462,10 +18548,62 @@ function mathGameGradeForLevel(level) {
 function mathDifficultyBoost(level) {
   return level > 6 ? Math.min(2.2, 1 + (level - 6) * 0.12) : 1;
 }
+// 2026-10新增：1~2年级的NAPLAN内容——NAPLAN正式只考3/5/7/9年级，这里1~2年级按主应用里
+// MATH_EN_TEMPLATES同样的思路，做成"NAPLAN 3年级考前的基础铺垫"（简单数感/认图形/认时间/
+// 简单句子规范），风格和3~6年级保持一致，这样英文模式下低年级也有NAPLAN内容可用，
+// 不会像以前一样1~2年级的naplanLC/naplanNumWord/naplanNumCalc完全是空的。
 const QUESTION_BANK = {
   1: {
+    naplanLC: [
+      ['Which word is spelled correctly?', 'kat', 'cat', 'B'],
+      ['Which is a complete sentence?', 'The dog runs.', 'The dog', 'A'],
+      ['Choose the correct word: "I ___ a dog."', 'have', 'has', 'A'],
+      ['Which word means the same as "big"?', 'large', 'small', 'A'],
+      ['Which sentence starts with a capital letter correctly?', 'the cat is black.', 'The cat is black.', 'B'],
+      ['Choose the correct word: "She ___ happy."', 'is', 'am', 'A'],
+    ],
+    naplanNumWord: [
+      ['Tom has 2 apples and gets 3 more. How many apples does he have?', '5', '4', 'A'],
+      ['There are 5 ducks. 2 swim away. How many ducks are left?', '3', '4', 'A'],
+      ['Which number is bigger?', '7', '4', 'A'],
+      ['What number comes after 9?', '10', '8', 'A'],
+      ['A shape has 3 sides. What shape is it?', 'triangle', 'square', 'A'],
+      ["It is 3 o'clock. Where does the short hand point to?", '3', '6', 'A'],
+    ],
+    naplanNumCalc: [
+      ['2 + 3 = ?', 5],
+      ['9 - 4 = ?', 5],
+      ['What number comes after 7?', 8],
+      ['5 + 5 = ?', 10],
+      ['10 - 6 = ?', 4],
+      ['What number comes before 10?', 9],
+    ],
   },
   2: {
+    naplanLC: [
+      ['Which word is spelled correctly?', 'frend', 'friend', 'B'],
+      ['Which sentence has correct punctuation?', 'I like dogs', 'I like dogs.', 'B'],
+      ['Choose the correct word: "There ___ two cats."', 'are', 'is', 'A'],
+      ['Which word means the opposite of "hot"?', 'cold', 'warm', 'A'],
+      ['Choose the correct word: "He ___ to school every day."', 'walks', 'walk', 'A'],
+      ['Which sentence is written correctly?', 'My dog name is Max.', "My dog's name is Max.", 'B'],
+    ],
+    naplanNumWord: [
+      ['Sam has 2 bags of 5 marbles. How many marbles does he have in total?', '10', '12', 'A'],
+      ['A book has 20 pages. Mia has read 12 pages. How many pages are left?', '8', '10', 'A'],
+      ['There are 3 rows of 4 chairs. How many chairs are there?', '12', '10', 'A'],
+      ['Which number is the largest?', '84', '48', 'A'],
+      ['What is half of 20?', '10', '12', 'A'],
+      ['A pizza is cut into 4 equal slices. Tom eats 1 slice. How many slices are left?', '3', '2', 'A'],
+    ],
+    naplanNumCalc: [
+      ['34 + 25 = ?', 59],
+      ['50 - 23 = ?', 27],
+      ['4 × 3 = ?', 12],
+      ['12 ÷ 2 = ?', 6],
+      ['What is 10 more than 45?', 55],
+      ['What number comes next: 2, 4, 6, 8, ___?', 10],
+    ],
   },
   3: {
     naplanLC: [
@@ -18631,7 +18769,7 @@ function genMathCalcQuestion(level) {
     }
   }
 
-  return { type: 'input', text, answer: ans, category: '数学计算' };
+  return { type: 'input', text, answer: ans, category: T('数学计算','Math') };
 }
 
 // ============================================================
@@ -18903,13 +19041,15 @@ function genThemeLinkedEnglishRaw(){
 }
 const EN_GENERATORS = {1:genEnglishQ1,2:genEnglishQ2,3:genEnglishQ3,4:genEnglishQ4,5:genEnglishQ5,6:genEnglishQ6};
 function genEnglishQuestion(level){
-  if(!levelAlreadyClearedToday(level) && Math.random() < THEME_LINK_PROB){
+  // 英文模式下，"今日打卡关联"英语题问的是英文单词的中文意思，在纯英文体验里没有意义，
+  // 所以英文模式直接跳过这个分支，始终走下面纯英文语法题生成器（GAME_LANG==='en'时恒为false）
+  if(GAME_LANG!=='en' && !levelAlreadyClearedToday(level) && Math.random() < THEME_LINK_PROB){
     const tq = genThemeLinkedEnglishRaw();
     if(tq) return { type:'choice', text:tq.text, optA:tq.optA, optB:tq.optB, answer:tq.answer, category:'英语·今日打卡' };
   }
   const lv = mathGameGradeForLevel(level);
   const q = EN_GENERATORS[lv]();
-  return { type:'choice', text:q.text, optA:q.optA, optB:q.optB, answer:q.answer, category:'英语' };
+  return { type:'choice', text:q.text, optA:q.optA, optB:q.optB, answer:q.answer, category:T('英语','English') };
 }
 
 
@@ -19371,16 +19511,136 @@ function genWordProblem6() {
   return t();
 }
 const WORD_PROBLEM_GENERATORS = { 1: genWordProblem1, 2: genWordProblem2, 3: genWordProblem3, 4: genWordProblem4, 5: genWordProblem5, 6: genWordProblem6 };
+
+// ============================================================
+//  英文版数学应用题生成器（NAPLAN Numeracy 风格）——家长要求英文版不能用上面那套纯中文模板，
+//  这里仿照中文版genWordProblem1-6的运算结构/数字范围，重新写一套场景、人名都换成英文的模板，
+//  跟中文版一样可以近乎无限组合，不是固定写死的几道题。英文模式下genWordProblem()会调这一套，
+//  题目分类标成"NAPLAN Numeracy"，呼应"增加NAPLAN内容"的要求。
+// ============================================================
+function genWordProblemEN1() {
+  const t = randChoice([
+    () => { const a = randInt(1, 8), b = randInt(1, 8); const n = randChoice(EN_NAMES); return wordChoiceQ(`${n} has ${a} apples. Mum gives ${n} ${b} more. How many apples does ${n} have now?`, a + b, ''); },
+    () => { const a = randInt(4, 10), b = randInt(1, a - 1); return wordChoiceQ(`There are ${a} birds in a tree. ${b} fly away. How many birds are left?`, a - b, ''); },
+    () => { const a = randInt(1, 8), b = randInt(1, 8); const n = randChoice(EN_NAMES); return wordChoiceQ(`${n} has ${a} pencils. A friend gives ${n} ${b} more. How many pencils does ${n} have now?`, a + b, ''); },
+    () => { const a = randInt(4, 10), b = randInt(1, a - 1); return wordChoiceQ(`There are ${a} balls in a box. ${b} are taken out. How many balls are left?`, a - b, ''); },
+    () => { const a = randInt(1, 8), b = randInt(1, 8); return wordChoiceQ(`A cat ate ${a} fish, then ate ${b} more fish. How many fish did it eat in total?`, a + b, ''); },
+    () => { const a = randInt(4, 10), b = randInt(1, a - 1); return wordChoiceQ(`There are ${a} balloons. ${b} of them pop. How many balloons are left?`, a - b, ''); },
+  ]);
+  return t();
+}
+function genWordProblemEN2() {
+  const t = randChoice([
+    () => { const a = randInt(12, 40), b = randInt(1, a - 3); const n = randChoice(EN_NAMES); return wordChoiceQ(`${n} has ${a} lollies and eats ${b} of them. How many lollies are left?`, a - b, ''); },
+    () => { const a = randInt(10, 30), b = randInt(10, 30); return wordChoiceQ(`A class has ${a} boys and ${b} girls. How many students are there in total?`, a + b, ''); },
+    () => { const a = randInt(2, 6), b = randInt(5, 10); return wordChoiceQ(`Mum buys ${a} boxes of eggs, with ${b} eggs in each box. How many eggs in total?`, a * b, ''); },
+    () => { const a = randInt(15, 40), b = randInt(1, a - 5); const n = randChoice(EN_NAMES); return wordChoiceQ(`${n} has $${a}. ${n} spends $${b} on a book. How much money is left?`, a - b, ''); },
+    () => { const a = randInt(2, 8), b = randInt(4, 9); return wordChoiceQ(`Each car can seat ${b} people. How many people can ${a} cars seat?`, a * b, ''); },
+    () => { const a = randInt(15, 40), b = randInt(1, a - 5); return wordChoiceQ(`There are ${a} birds in a tree. ${b} fly away. How many are left?`, a - b, ''); },
+  ]);
+  return t();
+}
+function genWordProblemEN3() {
+  const t = randChoice([
+    () => { const a = randInt(15, 30), b = randInt(3, 8); return wordChoiceQ(`A box has ${a} apples. How many apples are there in ${b} boxes?`, a * b, ''); },
+    () => { const a = randInt(8, 20); const n = randChoice(EN_NAMES); return wordChoiceQ(`${n} reads ${a} pages of a book every day. How many pages does ${n} read in a week?`, a * 7, ''); },
+    () => { const a = randInt(30, 60), b = randInt(10, a - 10); return wordChoiceQ(`A car park has ${a} cars. ${b} cars leave. How many cars are left?`, a - b, ''); },
+    () => { const b = randInt(4, 9); return wordChoiceQ(`A football team has 11 players. How many players are there in ${b} teams?`, 11 * b, ''); },
+    () => { const b = randInt(6, 12), q = randInt(8, 15); const a = b * q; return wordChoiceQ(`Mum spends $${a} on ${b} notebooks. How much does each notebook cost?`, q, ''); },
+    () => { const a = randInt(200, 500), b = randInt(50, 150); return wordChoiceQ(`A library has ${a} books. ${b} books are borrowed. How many books are left?`, a - b, ''); },
+  ]);
+  return t();
+}
+function genWordProblemEN4() {
+  const t = randChoice([
+    () => { const total = randInt(4, 15) * 4; const n = randChoice(EN_NAMES); return wordChoiceQ(`A book has ${total} pages. ${n} has read 3/4 of it. How many pages does ${n} still have left to read?`, total / 4, ''); },
+    () => { const price = randInt(5, 25) * 10; return wordChoiceQ(`A jacket costs $${price}. What is the price after a 20% discount?`, price * 0.8, ''); },
+    () => { const l = randInt(5, 20), w = randInt(3, 15); return wordChoiceQ(`A rectangle is ${l} cm long and ${w} cm wide. What is its area in square centimetres?`, l * w, ''); },
+    () => { const people = randInt(2, 9), each = randInt(10, 30); const total = people * each; return wordChoiceQ(`${total} lollies are shared equally among ${people} people. How many lollies does each person get?`, each, ''); },
+    () => { const a10 = randInt(10, 60), b10 = randInt(10, 60); return wordChoiceQ(`Decimal addition: ${fmtNum(a10 / 10)} + ${fmtNum(b10 / 10)} = ?`, (a10 + b10) / 10, ''); },
+    () => { const speed = randInt(40, 90), h10 = randInt(10, 60); return wordChoiceQ(`A car travels at ${speed} km/h. How far does it travel in ${fmtNum(h10 / 10)} hours?`, speed * h10 / 10, ' km'); },
+  ]);
+  return t();
+}
+function genWordProblemEN5() {
+  const t = randChoice([
+    () => { const total = randInt(2, 6) * 20, pct = randChoice([10, 20, 25, 50, 75]); return wordChoiceQ(`A class has ${total} students, and ${pct}% of them are girls. How many girls are there?`, total * pct / 100, ''); },
+    () => {
+      const denom = 5, a = randInt(1, 2), b = randInt(1, denom - a - 1) + 1;
+      const sumNum = a + b;
+      return wordChoiceRaw(`A rope uses ${a}/${denom} m, then another ${b}/${denom} m. How much rope was used in total?`, `${sumNum}/${denom} m`, `${denom - sumNum}/${denom} m`);
+    },
+    () => { const discountTenths = randChoice([5, 6, 7, 8, 9]), original = randInt(4, 20) * 10; const sale = original * discountTenths / 10; return wordChoiceQ(`An item is on sale at ${discountTenths * 10}% of its original price, now costing $${sale}. What was the original price?`, original, ''); },
+    () => { const total = randInt(4, 20) * 25, pct = randChoice([20, 24, 28, 32, 36, 40, 44, 48]); return wordChoiceQ(`A shipment has ${total} items. ${pct}% of them have been sent out. How many items are left?`, total - total * pct / 100, ''); },
+    () => { const ratioK = randChoice([2, 3, 4]), b = randInt(5, 40); return wordChoiceQ(`Number A is ${ratioK} times Number B. If Number B is ${b}, what is Number A?`, ratioK * b, ''); },
+    () => { const l = randInt(3, 10), w = randInt(2, 8), h = randInt(2, 8); return wordChoiceQ(`A rectangular prism is ${l} m long, ${w} m wide and ${h} m high. What is its volume in cubic metres?`, l * w * h, ''); },
+  ]);
+  return t();
+}
+function genWordProblemEN6() {
+  const t = randChoice([
+    () => {
+      const dens = [3, 4, 5, 6];
+      const d1 = randChoice(dens), d2 = randChoice(dens);
+      const lcm = d1 * d2 / gcdNum(d1, d2);
+      const n1 = randInt(1, d1 - 1), n2 = randInt(1, d2 - 1);
+      const sum = n1 * (lcm / d1) + n2 * (lcm / d2);
+      if (sum >= lcm) return genWordProblemEN6();
+      const remainNum = lcm - sum;
+      const g = gcdNum(remainNum, lcm);
+      const rn = remainNum / g, rd = lcm / g;
+      let wn = rn - 1;
+      if (wn <= 0 || wn === rn) wn = rn + 1;
+      return wordChoiceRaw(`A batch of parts: Workshop A completed ${n1}/${d1} of them, and Workshop B completed ${n2}/${d2}. What fraction is still unfinished?`, `${rn}/${rd}`, `${wn}/${rd}`);
+    },
+    () => { const pct = randChoice([10, 20, 25, 50]); const denom = { 10: 10, 20: 5, 25: 4, 50: 2 }[pct]; const k = randInt(2, 30); const original = k * denom; const known = original * pct / 100; return wordChoiceQ(`${pct}% of a number is ${known}. What is the number?`, original, ''); },
+    () => { const r = 7 * randInt(1, 5); return wordChoiceQ(`A circle has a radius of ${r} m. What is its circumference (use π = 22/7)?`, 44 * r / 7, ' m'); },
+    () => { const hours = randInt(2, 6), speed = randInt(40, 100); const dist = speed * hours; return wordChoiceQ(`Town A and Town B are ${dist} km apart. A car takes ${hours} hours to travel between them. What is its average speed in km/h?`, speed, ''); },
+    () => { const discountTenths = randChoice([4, 5, 6, 7, 8, 9]), original = randInt(5, 20) * 10; const sale = original * discountTenths / 10; return wordChoiceQ(`An item is on sale at ${discountTenths * 10}% of its original price, now costing $${sale}. What was the original price?`, original, ''); },
+    () => { const pair = randChoice([[3, 4], [2, 3], [5, 7], [4, 5], [3, 5]]), k = randInt(2, 10); const big = Math.max(...pair) * k, small = Math.min(...pair) * k; return wordChoiceQ(`The ratio of two numbers is ${pair[0]}:${pair[1]}. The larger number is ${big}. What is the smaller number?`, small, ''); },
+  ]);
+  return t();
+}
+const WORD_PROBLEM_GENERATORS_EN = { 1: genWordProblemEN1, 2: genWordProblemEN2, 3: genWordProblemEN3, 4: genWordProblemEN4, 5: genWordProblemEN5, 6: genWordProblemEN6 };
+
 function genWordProblem(level) {
   const lv = mathGameGradeForLevel(level);
+  if (GAME_LANG === 'en') {
+    const q = WORD_PROBLEM_GENERATORS_EN[lv]();
+    return { type: 'choice', text: q.text, optA: q.optA, optB: q.optB, answer: q.answer, category: 'NAPLAN Numeracy' };
+  }
   const q = WORD_PROBLEM_GENERATORS[lv]();
   return { type: 'choice', text: q.text, optA: q.optA, optB: q.optB, answer: q.answer, category: '数学应用题' };
 }
 
 // ============================================================
 //  各关卡的题型比例：2-4关多一些英语和脑筋急转弯，7关起 NAPLAN/计算比重逐步提高
+//  2026-10新增：英文模式(GAME_LANG==='en')下，"语文"(考汉字)和"脑筋急转弯"(中文谐音/文字游戏)
+//  这两类纯中文专属题型完全没有意义，直接取消(比例不配置这两个key，genQuestions()里会整类跳过，
+//  不再像中文模式那样强制至少出1道)；空出来的比例全部补给NAPLAN语言/数学类内容，响应
+//  "增加NAPLAN内容"的要求——所以英文模式下NAPLAN类的占比明显比中文模式下7关前的占比要高。
 // ============================================================
 function ratioForLevel(level) {
+  if (GAME_LANG === 'en') {
+    if (level <= 1) {
+      return { calc: 6, word: 4, english: 4, naplanLC: 3, naplanNumWord: 2, naplanNumCalc: 1 };
+    }
+    if (level >= 2 && level <= 4) {
+      if (level >= 3) {
+        return { calc: 4, word: 3, english: 4, naplanLC: 4, naplanNumWord: 3, naplanNumCalc: 3 };
+      }
+      return { calc: 5, word: 4, english: 5, naplanLC: 3, naplanNumWord: 2, naplanNumCalc: 2 };
+    }
+    const hardLean = Math.min(2, 1 + Math.max(0, level - 6) * 0.15);
+    return {
+      calc: 4,
+      word: 3,
+      english: 2,
+      naplanLC: Math.round(4 * hardLean),
+      naplanNumWord: Math.round(3 * hardLean),
+      naplanNumCalc: Math.round(3 * hardLean),
+    };
+  }
   if (level <= 1) {
     return { calc: 8, word: 4, english: 3, chinese: 3, brain: 2 };
   }
@@ -19406,6 +19666,9 @@ function ratioForLevel(level) {
 // ============================================================
 //  题库生成器：按比例混合数学计算、数学应用题、英语、语文、脑筋急转弯
 //  第3关起加入 NAPLAN 历年真题风格（Language Conventions + Numeracy）
+//  2026-10fix：以前"语文"/"脑筋急转弯"就算比例是0也会用Math.max(1,...)强制至少出1道，
+//  英文模式下ratioForLevel()根本不配置这两个key(undefined)，所以改成"没配置/比例为0就整类跳过"，
+//  不再强制出题，这样英文模式下才能真正做到完全没有这两类纯中文题目。
 // ============================================================
 function genQuestions(level, count = 20) {
   const bank = getQuestionBankForLevel(level);
@@ -19414,22 +19677,24 @@ function genQuestions(level, count = 20) {
   const scale = count / total;
 
   let qs = [];
-  const wordCount = Math.max(1, Math.round(ratio.word * scale));
-  for (let i = 0; i < wordCount; i++) qs.push(genWordProblem(level));
-  const englishCount = Math.max(1, Math.round(ratio.english * scale));
-  for (let i = 0; i < englishCount; i++) qs.push(genEnglishQuestion(level));
-  const chineseCount = Math.max(1, Math.round(ratio.chinese * scale));
-  for (let i = 0; i < chineseCount; i++) qs.push(genChineseQuestion(level));
-  const brainCount = Math.max(1, Math.round(ratio.brain * scale));
-  for (let i = 0; i < brainCount; i++) qs.push(genBrainQuestion(level));
+  function addFromRatio(key, genFn) {
+    const r = ratio[key];
+    if (!r) return; // 没配置这个类型或者比例是0，整类跳过，不再强制至少出1道
+    const n = Math.max(1, Math.round(r * scale));
+    for (let i = 0; i < n; i++) qs.push(genFn());
+  }
+  addFromRatio('word', () => genWordProblem(level));
+  addFromRatio('english', () => genEnglishQuestion(level));
+  addFromRatio('chinese', () => genChineseQuestion(level));
+  addFromRatio('brain', () => genBrainQuestion(level));
   if (ratio.naplanLC) {
-    qs.push(...pickFromBank(bank.naplanLC, Math.max(1, Math.round(ratio.naplanLC * scale)), 'NAPLAN语言'));
+    qs.push(...pickFromBank(bank.naplanLC, Math.max(1, Math.round(ratio.naplanLC * scale)), T('NAPLAN语言','NAPLAN Language')));
   }
   if (ratio.naplanNumWord) {
-    qs.push(...pickFromBank(bank.naplanNumWord, Math.max(1, Math.round(ratio.naplanNumWord * scale)), 'NAPLAN数学'));
+    qs.push(...pickFromBank(bank.naplanNumWord, Math.max(1, Math.round(ratio.naplanNumWord * scale)), T('NAPLAN数学','NAPLAN Numeracy')));
   }
   if (ratio.naplanNumCalc) {
-    qs.push(...pickInputFromBank(bank.naplanNumCalc, Math.max(1, Math.round(ratio.naplanNumCalc * scale)), 'NAPLAN数学'));
+    qs.push(...pickInputFromBank(bank.naplanNumCalc, Math.max(1, Math.round(ratio.naplanNumCalc * scale)), T('NAPLAN数学','NAPLAN Numeracy')));
   }
   const calcCount = Math.max(1, count - qs.length);
   for (let i = 0; i < calcCount; i++) qs.push(genMathCalcQuestion(level));
@@ -19459,7 +19724,7 @@ function saveRankList(list) {
 function addRankEntry(name, score, level) {
   const list = getRankList();
   const entry = {
-    name: name || '匿名玩家',
+    name: name || T('匿名玩家','Anonymous'),
     score,
     level,
     date: new Date().toLocaleDateString('zh-CN'),
@@ -19506,7 +19771,7 @@ function renderRankList(highlightScore) {
       <td class="py-2.5 pl-2"><span class="${medalClass}">${medalText}</span></td>
       <td class="py-2.5 font-bold text-gray-800">${escapeHtml(item.name)}</td>
       <td class="py-2.5 text-right font-bold text-amber-600 tabular-nums">${item.score}</td>
-      <td class="py-2.5 text-right pr-2 text-gray-500 text-xs">第${item.level}关<br>${item.date}</td>
+      <td class="py-2.5 text-right pr-2 text-gray-500 text-xs">${T(`第${item.level}关`,`Level ${item.level}`)}<br>${item.date}</td>
     `;
     body.appendChild(tr);
   });
@@ -19636,7 +19901,7 @@ function buildPlantBar() {
 function selectPlant(type) {
   const cfg = PLANT_TYPES[type];
   if (state.sun < cfg.cost) {
-    flashFeedback('阳光不够！', 'red');
+    flashFeedback(T('阳光不够！','Not enough sun!'), 'red');
     return;
   }
   state.selectedPlant = state.selectedPlant === type ? null : type;
@@ -19695,26 +19960,26 @@ function updateTimerUI() {
 }
 
 function getSpeedMultiplier(elapsedMs) {
-  if (elapsedMs <= 2000) return { mult: 2, label: '2倍', class: 'speed-2x' };
-  if (elapsedMs <= 5000) return { mult: 1.5, label: '1.5倍', class: 'speed-15x' };
-  return { mult: 1, label: '1倍', class: 'speed-1x' };
+  if (elapsedMs <= 2000) return { mult: 2, label: T('2倍','2x'), class: 'speed-2x' };
+  if (elapsedMs <= 5000) return { mult: 1.5, label: T('1.5倍','1.5x'), class: 'speed-15x' };
+  return { mult: 1, label: T('1倍','1x'), class: 'speed-1x' };
 }
 
 function checkAnswer() {
   const raw = answerInput.value.trim();
   if (!raw) {
-    flashFeedback('请输入答案！', 'red');
+    flashFeedback(T('请输入答案！','Please enter an answer!'), 'red');
     shakeInput();
     return;
   }
   if (!/^-?\d+$/.test(raw)) {
-    flashFeedback('请输入整数数字！', 'red');
+    flashFeedback(T('请输入整数数字！','Please enter a whole number!'), 'red');
     shakeInput();
     return;
   }
   const userAns = parseInt(raw, 10);
   if (isNaN(userAns)) {
-    flashFeedback('请输入有效数字！', 'red');
+    flashFeedback(T('请输入有效数字！','Please enter a valid number!'), 'red');
     shakeInput();
     return;
   }
@@ -19757,14 +20022,14 @@ function handleCorrectAnswer(elapsedMs) {
   state.correctStreak++;
   if (state.correctStreak >= BOMB_STREAK_GATE && state.bombEnergy < BOMB_ENERGY_MAX) {
     state.bombEnergy++;
-    spawnEffect(CANVAS_W - 30, CANVAS_H - 20, `💣+1能量(${state.bombEnergy}/${BOMB_ENERGY_MAX})`, 900, '#f97316');
+    spawnEffect(CANVAS_W - 30, CANVAS_H - 20, T(`💣+1能量(${state.bombEnergy}/${BOMB_ENERGY_MAX})`, `💣+1 energy (${state.bombEnergy}/${BOMB_ENERGY_MAX})`), 900, '#f97316');
   }
 
   speedBadge.textContent = speed.label;
   speedBadge.className = 'speed-badge ' + speed.class;
   speedBadge.classList.remove('hidden');
 
-  flashFeedback(`答对了！+${sunGain}阳光 +${scoreGain}分 ${speed.label} 🌟`, 'green');
+  flashFeedback(T(`答对了！+${sunGain}阳光 +${scoreGain}分 ${speed.label} 🌟`, `Correct! +${sunGain} sun +${scoreGain} pts ${speed.label} 🌟`), 'green');
   pulseSun();
   superPeaAttack();
   pickQuestion();
@@ -19784,7 +20049,7 @@ function registerMiss(baseIncrement) {
 }
 
 function handleWrongAnswer() {
-  flashFeedback('答错了，僵尸加速了！💪', 'red');
+  flashFeedback(T('答错了，僵尸加速了！💪','Wrong! The zombies sped up! 💪'), 'red');
   shakeInput();
   state.score = Math.max(0, state.score - 5);
   registerMiss(0.2);
@@ -19795,7 +20060,7 @@ function handleTimeout() {
   const sunLoss = 10;
   state.sun = Math.max(0, state.sun - sunLoss);
   registerMiss(0.35);
-  flashFeedback(`时间到！-${sunLoss}阳光，僵尸加速了！⏰`, 'red');
+  flashFeedback(T(`时间到！-${sunLoss}阳光，僵尸加速了！⏰`, `Time's up! -${sunLoss} sun, zombies sped up! ⏰`), 'red');
   shakeInput();
   pickQuestion();
   updateHUD();
@@ -19824,8 +20089,8 @@ function zombieVolleyAttack() {
     }
   }
   if (hasPlant) {
-    flashFeedback('⚠️连续答错/超时' + ZOMBIE_VOLLEY_EVERY + '次，僵尸开火攻击植物了！', 'red');
-    spawnEffect(CANVAS_W - 40, 16, '🔫僵尸开火！', 1000, '#dc2626');
+    flashFeedback(T('⚠️连续答错/超时' + ZOMBIE_VOLLEY_EVERY + '次，僵尸开火攻击植物了！', '⚠️' + ZOMBIE_VOLLEY_EVERY + ' wrong answers/timeouts in a row - zombies are firing at your plants!'), 'red');
+    spawnEffect(CANVAS_W - 40, 16, T('🔫僵尸开火！','🔫 Zombies are firing!'), 1000, '#dc2626');
   }
 }
 
@@ -19861,8 +20126,8 @@ function triggerAtomicBomb() {
   if (tier.sunBonus) state.sun += tier.sunBonus;
   if (tier.healBonus) state.baseHp = Math.min(state.baseMaxHp, state.baseHp + tier.healBonus);
 
-  spawnEffect(CANVAS_W / 2, CANVAS_H / 2, `💥${tier.label}！`, 1600, '#dc2626');
-  flashFeedback(`💣引爆${tier.label}（消耗${n}格能量），命中${hitCount}只僵尸！`, 'green');
+  spawnEffect(CANVAS_W / 2, CANVAS_H / 2, T(`💥${tier.label}！`, `💥${tier.label}!`), 1600, '#dc2626');
+  flashFeedback(T(`💣引爆${tier.label}（消耗${n}格能量），命中${hitCount}只僵尸！`, `💣 Detonated ${tier.label} (used ${n} energy), hit ${hitCount} zombies!`), 'green');
   updateHUD();
 }
 
@@ -19949,12 +20214,12 @@ function pulseSun() {
 function plantAt(row, col) {
   if (!state.selectedPlant) return;
   if (state.grid[row][col]) {
-    flashFeedback('这里已经有植物了！', 'red');
+    flashFeedback(T('这里已经有植物了！','There is already a plant here!'), 'red');
     return;
   }
   const cfg = PLANT_TYPES[state.selectedPlant];
   if (state.sun < cfg.cost) {
-    flashFeedback('阳光不够！', 'red');
+    flashFeedback(T('阳光不够！','Not enough sun!'), 'red');
     return;
   }
   state.sun -= cfg.cost;
@@ -20111,7 +20376,7 @@ function updateZombies(dt, now) {
       z._leaked = true;
       const dmg = z.damage * 2;
       state.baseHp = Math.max(0, state.baseHp - dmg);
-      spawnEffect(20, z.row * CELL_H + CELL_H / 2, `💥基地-${dmg}`, 900, '#ef4444');
+      spawnEffect(20, z.row * CELL_H + CELL_H / 2, `💥${T('基地','Base')}-${dmg}`, 900, '#ef4444');
       triggerShake(5, 220);
       z.hp = 0;
       updateHUD();
@@ -20204,8 +20469,8 @@ function spawnZombieTide(size) {
     spawned++;
   }
   if (spawned > 0) {
-    flashFeedback('🌊僵尸潮来了，快答对题目消灭它们！', 'red');
-    spawnEffect(CANVAS_W / 2, CANVAS_H / 2, '🌊 僵尸潮来袭！', 1400, '#ea580c');
+    flashFeedback(T('🌊僵尸潮来了，快答对题目消灭它们！','🌊 A zombie tide is here - answer correctly to wipe them out!'), 'red');
+    spawnEffect(CANVAS_W / 2, CANVAS_H / 2, T('🌊 僵尸潮来袭！','🌊 Zombie tide incoming!'), 1400, '#ea580c');
   }
 }
 
@@ -20230,7 +20495,7 @@ function updateBosses(dt, now) {
       boss._leaked = true;
       const dmg = 40;
       state.baseHp = Math.max(0, state.baseHp - dmg);
-      spawnEffect(20, boss.row * CELL_H + CELL_H / 2, `💥基地-${dmg}`, 1000, '#ef4444');
+      spawnEffect(20, boss.row * CELL_H + CELL_H / 2, `💥${T('基地','Base')}-${dmg}`, 1000, '#ef4444');
       triggerShake(7, 260);
       boss.hp = 0;
       updateHUD();
@@ -20248,7 +20513,7 @@ function updateBosses(dt, now) {
       if (!b._leaked) {
         state.score += 100; // 击杀Boss奖励100分
         state.sun += 50; // 击杀Boss奖励50阳光
-        spawnEffect(b.x, b.row * CELL_H + CELL_H/2, '🎉 击败Boss! +50☀️', 1500, '#f59e0b');
+        spawnEffect(b.x, b.row * CELL_H + CELL_H/2, T('🎉 击败Boss! +50☀️','🎉 Boss defeated! +50☀️'), 1500, '#f59e0b');
         spawnParticles(b.x, b.row * CELL_H + CELL_H/2, 26, ['#fbbf24','#f59e0b','#dc2626','#fff'], {minSpeed:2,maxSpeed:5,minSize:3,maxSize:6,minLife:500,lifeVar:400});
         triggerShake(6, 260);
       }
@@ -20734,8 +20999,8 @@ function drawBosses() {
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
-    ctx.strokeText(`${boss.hp}/${boss.maxHp} 题`, boss.x, by - 4);
-    ctx.fillText(`${boss.hp}/${boss.maxHp} 题`, boss.x, by - 4);
+    ctx.strokeText(T(`${boss.hp}/${boss.maxHp} 题`, `${boss.hp}/${boss.maxHp} Qs`), boss.x, by - 4);
+    ctx.fillText(T(`${boss.hp}/${boss.maxHp} 题`, `${boss.hp}/${boss.maxHp} Qs`), boss.x, by - 4);
   }
 }
 
@@ -20936,7 +21201,7 @@ function nextLevel() {
   state.sun += 50;
   state.score += 100;
 
-  spawnEffect(CANVAS_W / 2, CANVAS_H / 2, `🎉 第${state.level}关！`, 2500, '#fbbf24');
+  spawnEffect(CANVAS_W / 2, CANVAS_H / 2, T(`🎉 第${state.level}关！`, `🎉 Level ${state.level}!`), 2500, '#fbbf24');
 
   updateHUD();
 }
@@ -21021,7 +21286,7 @@ function updateHUD() {
 
   if (state.speedMultiplier > 1.05) {
     speedWarning.classList.remove('hidden');
-    speedWarning.textContent = `⚡加速中 x${state.speedMultiplier.toFixed(1)}`;
+    speedWarning.textContent = T(`⚡加速中 x${state.speedMultiplier.toFixed(1)}`, `⚡Speeding up x${state.speedMultiplier.toFixed(1)}`);
   } else {
     speedWarning.classList.add('hidden');
   }
@@ -21048,8 +21313,8 @@ function renderBombEnergyBar() {
   }
   bombTriggerBtn.disabled = state.bombEnergy < 1;
   bombTriggerBtn.title = state.bombEnergy < 1
-    ? '连续答对4题后开始为超级原子弹充能，攒够1格就能引爆，不用等攒满'
-    : `引爆${BOMB_TIERS[state.bombEnergy].label}（消耗${state.bombEnergy}格能量）`;
+    ? T('连续答对4题后开始为超级原子弹充能，攒够1格就能引爆，不用等攒满', 'Charges up after 4 correct answers in a row - detonate as soon as you have 1 bar, no need to wait for a full charge')
+    : T(`引爆${BOMB_TIERS[state.bombEnergy].label}（消耗${state.bombEnergy}格能量）`, `Detonate ${BOMB_TIERS[state.bombEnergy].label} (uses ${state.bombEnergy} energy)`);
 }
 
 // ============================================================
@@ -21134,7 +21399,7 @@ function gameOver(won) {
 }
 
 function submitNameAndShowResult() {
-  const name = $('nameInput').value.trim() || '匿名玩家';
+  const name = $('nameInput').value.trim() || T('匿名玩家','Anonymous');
   addRankEntry(name, state.pendingScore, state.pendingLevel);
 
   nameScreen.classList.add('hidden');
