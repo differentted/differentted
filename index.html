@@ -1413,6 +1413,38 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-10新增："零花钱"——记录家长实际给的真实现金收支，跟游戏里的金币完全独立；
+     花费分类家长自定义；小朋友之间可以比"赚取零花钱"排行榜(本周/本月/历史总计)。 -->
+<div class="page" id="page-allowance">
+  <div class="card">
+    <h2 style="margin:0 0 6px">💰 零花钱</h2>
+    <div class="small" style="text-align:center;color:#999;margin-bottom:4px">这里记的是真实现金零花钱，跟App里的游戏金币是两回事</div>
+    <div style="text-align:center;margin:6px 0">
+      <div class="small">当前结余</div>
+      <div style="font-size:30px;font-weight:800;color:#7b1fa2" id="allowanceBalanceText">¥0</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:6px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="openAllowanceEntry('earn')">➕ 记一笔收入</button>
+      <button class="btn btn-gray btn-sm" onclick="openAllowanceEntry('spend')">➖ 记一笔支出</button>
+      <button class="btn btn-gray btn-sm" onclick="openAllowanceCategoryManager()">⚙️ 管理花费分类</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 6px">📊 花费去哪了</h3>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;flex-wrap:wrap" id="allowanceSpendRangeBar"></div>
+    <div id="allowanceSpendBreakdownBox" class="small"></div>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 6px">🏆 赚取零花钱排行榜</h3>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;flex-wrap:wrap" id="allowanceBoardRangeBar"></div>
+    <div id="allowanceLeaderboardBox"></div>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 6px">📒 收支记录</h3>
+    <div id="allowanceLedgerBox" class="small"></div>
+  </div>
+</div>
+
 <!-- 2026-09新增：仙宅小屋——纯观赏收集向，投入灵木/灵石/龙鳞瓦解锁外观阶段 -->
 <div class="page" id="page-cottage">
   <div class="card">
@@ -1436,6 +1468,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')" data-i18n="tab_shop"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')" data-i18n="tab_bag"><span class="t-emoji">🎒</span>背包</button>
   <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();markPkInboxRead();"><span data-i18n="tab_visit"><span class="t-emoji">🚪</span>串门</span><span class="tab-badge" id="visitTabBadge">0</span></button>
+  <button class="tab-btn" data-page="allowance" onclick="showPage('allowance')" data-i18n="tab_allowance"><span class="t-emoji">💰</span>零花钱</button>
   <button class="tab-btn" data-page="profile" onclick="showPage('profile')" data-i18n="tab_profile"><span class="t-emoji">👤</span>角色管理</button>
 </nav>
 
@@ -1900,6 +1933,38 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div id="taskTabBar" style="display:flex;flex-wrap:wrap;justify-content:center;margin-bottom:8px"></div>
     <div id="taskSettingsBody"></div>
     <div class="small" style="margin-top:8px;text-align:center">改动会立刻生效，今天已经完成的任务不会受影响</div>
+  </div>
+</div>
+
+<!-- 零花钱：记一笔收入/支出 -->
+<div class="modal-mask" id="allowanceEntryModal">
+  <div class="modal" style="text-align:left;max-width:360px">
+    <button class="modal-close" onclick="hideModal('allowanceEntryModal')">✕</button>
+    <h3 style="text-align:center" id="allowanceEntryTitle">➕ 记一笔收入</h3>
+    <div class="item" style="align-items:center">
+      <div class="label">金额</div>
+      <input type="number" min="0.01" step="0.1" id="allowanceEntryAmount" placeholder="比如 10" style="flex:1;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:14px" />
+      <span class="small">元</span>
+    </div>
+    <div class="item" id="allowanceEntryCategoryRow" style="align-items:center;display:none">
+      <div class="label">分类</div>
+      <select id="allowanceEntryCategory" style="flex:1;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:14px"></select>
+    </div>
+    <div class="item" style="align-items:center">
+      <div class="label">备注</div>
+      <input type="text" id="allowanceEntryNote" placeholder="比如：奶奶给的红包 / 买了一支笔" style="flex:1;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:14px" />
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="submitAllowanceEntry()">✅ 保存</button>
+  </div>
+</div>
+
+<!-- 零花钱：花费分类管理（家长自定义） -->
+<div class="modal-mask" id="allowanceCategoryModal">
+  <div class="modal" style="text-align:left;max-width:380px">
+    <button class="modal-close" onclick="hideModal('allowanceCategoryModal')">✕</button>
+    <h3 style="text-align:center">⚙️ 花费分类管理</h3>
+    <div class="small" style="margin:-4px 0 8px;text-align:center">家长自己定义支出分类，小朋友记一笔支出时从这里面选</div>
+    <div id="allowanceCategoryBody"></div>
   </div>
 </div>
 
@@ -3672,6 +3737,7 @@ var I18N_EN = {
   tab_shop: '<span class="t-emoji">🛒</span>Shop',
   tab_bag: '<span class="t-emoji">🎒</span>Bag',
   tab_visit: '<span class="t-emoji">🚪</span>Visit',
+  tab_allowance: '<span class="t-emoji">💰</span>Allowance',
   tab_profile: '<span class="t-emoji">👤</span>Profile',
   pg_pet_title: '🐾 My Virtual Pet',
   pg_shop_title: '🛒 Pet Shop (buy with coins)',
@@ -4761,6 +4827,22 @@ function ensureTaskDefs(){
   if(typeof store.specialCoins.quiz!=='number') store.specialCoins.quiz=CONFIG.coins.quiz;
   ensureStudyThemes();
 }
+/* 2026-10新增："零花钱"真实现金记账——花费分类是家长自定义的，按家庭码（store）共享，
+   所有小朋友档案记支出时都从这同一份分类列表里选，排行榜/分类统计才能对得上。
+   这里给一套看着就能用的默认分类，家长可以在"⚙️管理花费分类"里随便改名/增删。 */
+var DEFAULT_ALLOWANCE_CATEGORIES=[
+  {id:'snack',label:'零食'},
+  {id:'toy',label:'玩具'},
+  {id:'stationery',label:'文具'},
+  {id:'book',label:'图书'},
+  {id:'fun',label:'娱乐'},
+  {id:'other',label:'其他'}
+];
+function ensureAllowanceCategories(){
+  if(!Array.isArray(store.allowanceCategories) || !store.allowanceCategories.length){
+    store.allowanceCategories=DEFAULT_ALLOWANCE_CATEGORIES.map(function(c){ return {id:c.id,label:c.label}; });
+  }
+}
 /* 2026-09新增：学习打卡内容（单词/汉字/句子/阅读短文，即"题库"）按家庭码独立——
    跟 taskDefs 一样的思路：把默认的 THEMES 深拷贝一份存进 store.studyThemes，
    之后所有增删改都只改这一份存档专属的拷贝，不会碰到全局默认内容，
@@ -4921,6 +5003,10 @@ function defaultState(){
     pkWinCount:0, // 2026-09新增：PK累计胜场，只用来展示荣誉徽章，不受每日奖励上限影响、永远累加
     hoardDripLastAt:null, // 2026-09新增："金币手滑乱花"账号级独立计时器，记录上次结算到哪个时间点了，见 processHoardDripSpend()
     investment:null, // 2026-10新增：学习能力驱动的"零花钱理财罐"，{amount,startAt,matureAt,rate}，见startInvestment()/maybeSettleInvestment()
+    // 2026-10新增："零花钱"记账——家长实际给的真实现金，跟游戏里的金币(moneyBalance/coinLedger)完全
+    // 是两套独立的东西，需要手动记一笔。ledger里每条是{id,t,type:'earn'|'spend',amount,note,category}，
+    // category只有type==='spend'时才有意义，取自家长自定义的store.allowanceCategories
+    allowance:{ledger:[]},
     version:4
   };
 }
@@ -4934,6 +5020,7 @@ function loadStore(){
   if(typeof store.ttsVolumePct!=='number') store.ttsVolumePct=100;
   if(store.checkinTab===undefined) store.checkinTab='sport';
   ensureTaskDefs();
+  ensureAllowanceCategories();
 }
 var storageWarned=false;
 function saveStore(){
@@ -11477,6 +11564,9 @@ function migrateState(s){
     }
   }
   if(!s.backpack.jackpotRestCards) s.backpack.jackpotRestCards=[]; // 2026-10新增：转盘大奖"大奖·休息一天"卡，跟库洛米休息卡是两种不同的卡
+  // 2026-10新增："零花钱"真实现金记账——老存档没有这个字段，补一个空流水账，不倒推历史
+  if(!s.allowance) s.allowance={ledger:[]};
+  if(!Array.isArray(s.allowance.ledger)) s.allowance.ledger=[];
   delete s.restCard;
   delete s.houseWeek;
   delete s.houseWeekKey;
@@ -11770,7 +11860,7 @@ function currentChild(){ return store.accounts[store.currentChildId]; }
 
 /* ========== 页面切换 ========== */
 function showPage(name){
-  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage','profile'].forEach(function(p){
+  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage','profile','allowance'].forEach(function(p){
     var el=document.getElementById('page-'+p);
     el.classList.toggle('active', p===name);
   });
@@ -11783,6 +11873,7 @@ function showPage(name){
   if(name==='board') renderWish();
   if(name==='weekly') renderWeeklyPage();
   if(name==='cottage') renderCottagePage();
+  if(name==='allowance') renderAllowancePage();
 }
 
 /* 打卡页：运动/学习/数学闯关/娱乐/日记/沟通/加分项/家务/补卡 这几个卡片一次只显示一个，
@@ -16789,6 +16880,251 @@ function removeTaskDef(cat,id){
   saveStore(); save();
   renderTaskSettings();
   render();
+}
+
+/* ========================================================================
+   2026-10新增："零花钱"记账——家长实际给的真实现金，独立于游戏里的金币
+   (moneyBalance/coinLedger)，需要手动记一笔。家长反馈的三点需求：
+   ①真实现金，跟游戏金币完全分开；②花费分类家长自定义；③小朋友之间比"赚取
+   零花钱"排行榜，本周/本月/历史总计都能看。
+   ======================================================================== */
+var ALLOWANCE_LEDGER_MAX=500;
+function escapeHtmlSafe(s){ // 这个文件里真正的escapeHtml定义在后面(familyGateAndLoad()之后)，
+  // 这里的零花钱渲染函数要尽量靠前放，就不依赖它，自己拉一个等价的小工具出来用
+  return (s==null?'':(''+s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function allowanceBalance(){
+  var ledger=(state.allowance&&state.allowance.ledger)||[];
+  var bal=0;
+  for(var i=0;i<ledger.length;i++){ bal += ledger[i].type==='earn'? ledger[i].amount : -ledger[i].amount; }
+  return Math.round(bal*100)/100;
+}
+function addAllowanceEntry(type,amount,note,categoryId){
+  var amt=Math.round(Number(amount)*100)/100;
+  if(!amt || !isFinite(amt) || amt<=0) return false;
+  if(type!=='earn' && type!=='spend') return false;
+  if(!state.allowance) state.allowance={ledger:[]};
+  if(!Array.isArray(state.allowance.ledger)) state.allowance.ledger=[];
+  var entry={ id:'al'+Date.now()+Math.floor(Math.random()*1000), t:Date.now(), type:type, amount:amt, note:(note||'').trim() };
+  if(type==='spend') entry.category=categoryId||null;
+  state.allowance.ledger.push(entry);
+  if(state.allowance.ledger.length>ALLOWANCE_LEDGER_MAX) state.allowance.ledger.splice(0, state.allowance.ledger.length-ALLOWANCE_LEDGER_MAX);
+  saveStore(); save();
+  return true;
+}
+function removeAllowanceEntry(id){
+  if(!confirm(L('确定删除这条记录吗？','Delete this entry?'))) return;
+  if(!state.allowance || !Array.isArray(state.allowance.ledger)) return;
+  state.allowance.ledger=state.allowance.ledger.filter(function(e){ return e.id!==id; });
+  saveStore(); save();
+  renderAllowancePage();
+}
+function startOfWeekTs(){ var d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-d.getDay()); return d.getTime(); }
+function startOfMonthTs(){ var d=new Date(); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
+function allowanceRangeSinceTs(r){ return r==='week'? startOfWeekTs() : (r==='month'? startOfMonthTs() : 0); }
+function allowanceRangeLabel(r){ return r==='week'? L('本周','This Week') : (r==='month'? L('本月','This Month') : L('历史总计','All Time')); }
+function allowanceEarnedTotalFor(ledger,sinceTs){
+  var total=0;
+  for(var i=0;i<ledger.length;i++){ var e=ledger[i]; if(e.type==='earn' && (!sinceTs||e.t>=sinceTs)) total+=e.amount; }
+  return Math.round(total*100)/100;
+}
+// 花费去哪了——按家长自定义分类统计这一段时间（sinceTs=0表示历史总计）里支出的占比
+function allowanceSpendByCategory(sinceTs){
+  var ledger=(state.allowance&&state.allowance.ledger)||[];
+  var cats=store.allowanceCategories||[];
+  var byCat={}, total=0;
+  ledger.forEach(function(e){
+    if(e.type!=='spend') return;
+    if(sinceTs && e.t<sinceTs) return;
+    var cat=cats.find(function(c){ return c.id===e.category; });
+    var cid=cat? cat.id : '__none'; // 分类已经被家长删掉了/从来没分类，统一归到"未分类"，不会按id各算一份
+    byCat[cid]=(byCat[cid]||0)+e.amount;
+    total+=e.amount;
+  });
+  var rows=Object.keys(byCat).map(function(cid){
+    var cat=cats.find(function(c){ return c.id===cid; });
+    return { id:cid, label: cat? cat.label : L('未分类','Uncategorized'), amount:Math.round(byCat[cid]*100)/100, pct: total>0? (byCat[cid]/total*100):0 };
+  });
+  rows.sort(function(a,b){ return b.amount-a.amount; });
+  return { total: Math.round(total*100)/100, rows: rows };
+}
+// 小朋友之间比"赚取零花钱"排行榜——只统计同一个账号(store.accounts)下的所有小朋友档案，
+// 当前选中的孩子要读live的state（还没saveStore()回存到store.accounts里），其他孩子读各自存档里的state
+function allowanceLeaderboard(range){
+  var sinceTs=allowanceRangeSinceTs(range);
+  var ids=Object.keys(store.accounts||{});
+  var list=ids.map(function(cid){
+    var acc=store.accounts[cid];
+    var st=(cid===store.currentChildId)? state : (acc&&acc.state);
+    var ledger=(st&&st.allowance&&st.allowance.ledger)||[];
+    return { cid:cid, name:(acc&&acc.name)||'？', avatar:(acc&&acc.avatar)||'🐱', total: allowanceEarnedTotalFor(ledger,sinceTs) };
+  });
+  list.sort(function(a,b){ return b.total-a.total; });
+  return list;
+}
+function formatMoney(n){
+  n=Math.round((n||0)*100)/100;
+  return (Math.abs(n-Math.round(n))<0.001) ? (''+Math.round(n)) : n.toFixed(2);
+}
+var allowanceEntryType='earn';
+function openAllowanceEntry(type){
+  ensureAllowanceCategories();
+  allowanceEntryType=(type==='spend')?'spend':'earn';
+  document.getElementById('allowanceEntryTitle').innerText = allowanceEntryType==='earn' ? L('➕ 记一笔收入','➕ Add Income') : L('➖ 记一笔支出','➖ Add Spending');
+  document.getElementById('allowanceEntryAmount').value='';
+  document.getElementById('allowanceEntryNote').value='';
+  var catRow=document.getElementById('allowanceEntryCategoryRow');
+  var catSel=document.getElementById('allowanceEntryCategory');
+  if(allowanceEntryType==='spend'){
+    catRow.style.display='flex';
+    var cats=store.allowanceCategories||[];
+    catSel.innerHTML=cats.map(function(c){ return '<option value="'+escapeAttr(c.id)+'">'+escapeHtmlSafe(c.label)+'</option>'; }).join('');
+  } else {
+    catRow.style.display='none';
+  }
+  showModal('allowanceEntryModal');
+}
+function submitAllowanceEntry(){
+  var amtInput=document.getElementById('allowanceEntryAmount');
+  var noteInput=document.getElementById('allowanceEntryNote');
+  var amt=parseFloat(amtInput.value);
+  if(!amt || !isFinite(amt) || amt<=0){ alert(L('请输入大于0的金额','Please enter an amount greater than 0')); return; }
+  var note=(noteInput.value||'').trim();
+  var catId=null;
+  if(allowanceEntryType==='spend'){
+    var catSel=document.getElementById('allowanceEntryCategory');
+    catId=catSel.value||null;
+  }
+  addAllowanceEntry(allowanceEntryType, amt, note, catId);
+  hideModal('allowanceEntryModal');
+  renderAllowancePage();
+}
+function openAllowanceCategoryManager(){
+  ensureAllowanceCategories();
+  renderAllowanceCategoryManager();
+  showModal('allowanceCategoryModal');
+}
+function renderAllowanceCategoryManager(){
+  var box=document.getElementById('allowanceCategoryBody');
+  if(!box) return;
+  var cats=store.allowanceCategories||[];
+  var html='';
+  for(var i=0;i<cats.length;i++){
+    var c=cats[i];
+    html+='<div class="item" style="align-items:center;flex-wrap:wrap">'
+      +'<input type="text" value="'+escapeAttr(c.label)+'" onchange="updateAllowanceCategoryLabel(\''+c.id+'\',this.value)" style="flex:1;min-width:120px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+      +'<button class="btn btn-danger btn-sm" onclick="removeAllowanceCategory(\''+c.id+'\')">'+L('删除','Delete')+'</button>'
+      +'</div>';
+  }
+  html+='<div class="item" style="margin-top:8px;background:#f3e5f5;flex-wrap:wrap">'
+    +'<input type="text" id="newAllowanceCategoryLabel" placeholder="'+L('新分类名称，比如 文具','New category, e.g. Stationery')+'" style="flex:1;min-width:120px;padding:6px 8px;border:1px solid #e1bee7;border-radius:8px;font-size:13px" />'
+    +'<button class="btn btn-primary btn-sm" onclick="addAllowanceCategory()">+ '+L('添加','Add')+'</button>'
+    +'</div>';
+  box.innerHTML=html;
+}
+function addAllowanceCategory(){
+  var input=document.getElementById('newAllowanceCategoryLabel');
+  var label=(input&&input.value||'').trim();
+  if(!label){ alert(L('请输入分类名称','Please enter a category name')); return; }
+  if(!Array.isArray(store.allowanceCategories)) store.allowanceCategories=[];
+  var id='ac'+Date.now()+Math.floor(Math.random()*1000);
+  store.allowanceCategories.push({id:id,label:label});
+  saveStore();
+  renderAllowanceCategoryManager();
+  renderAllowancePage();
+}
+function updateAllowanceCategoryLabel(id,val){
+  var c=(store.allowanceCategories||[]).find(function(x){ return x.id===id; });
+  var label=(val||'').trim();
+  if(c && label){ c.label=label; saveStore(); renderAllowancePage(); }
+  else { renderAllowanceCategoryManager(); } // 清空/只填空格就不改，重新渲染回填原值
+}
+function removeAllowanceCategory(id){
+  if(!confirm(L('删除这个分类吗？已经用这个分类记过的支出不会被删除，只是会变成"未分类"','Delete this category? Past entries tagged with it will show as Uncategorized, not be deleted'))) return;
+  store.allowanceCategories=(store.allowanceCategories||[]).filter(function(c){ return c.id!==id; });
+  saveStore();
+  renderAllowanceCategoryManager();
+  renderAllowancePage();
+}
+var allowanceSpendRange='week';
+var allowanceBoardRange='week';
+var ALLOWANCE_BAR_COLORS=['purple','pink','blue','yellow','green','orange'];
+function switchAllowanceSpendRange(r){ allowanceSpendRange=r; renderAllowancePage(); }
+function switchAllowanceBoardRange(r){ allowanceBoardRange=r; renderAllowancePage(); }
+function allowanceRangeBarHtml(cur,onClickFn){
+  return ['week','month','all'].map(function(r){
+    return '<button class="btn btn-sm '+(cur===r?'btn-primary':'btn-gray')+'" onclick="'+onClickFn+'(\''+r+'\')">'+allowanceRangeLabel(r)+'</button>';
+  }).join('');
+}
+function renderAllowancePage(){
+  ensureAllowanceCategories();
+  if(!state.allowance) state.allowance={ledger:[]};
+  if(!Array.isArray(state.allowance.ledger)) state.allowance.ledger=[];
+  var balEl=document.getElementById('allowanceBalanceText');
+  if(!balEl) return; // 页面DOM还没准备好（比如还没切到这一页过），先不渲染
+  balEl.innerText='¥'+formatMoney(allowanceBalance());
+
+  document.getElementById('allowanceSpendRangeBar').innerHTML=allowanceRangeBarHtml(allowanceSpendRange,'switchAllowanceSpendRange');
+  var brk=allowanceSpendByCategory(allowanceRangeSinceTs(allowanceSpendRange));
+  var bbox=document.getElementById('allowanceSpendBreakdownBox');
+  if(!brk.rows.length){
+    bbox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+allowanceRangeLabel(allowanceSpendRange)+L('还没有支出记录','：No spending yet')+'</div>';
+  } else {
+    var html='<div style="margin-bottom:6px">'+allowanceRangeLabel(allowanceSpendRange)+L('一共花了 ¥','：Total spent ¥')+formatMoney(brk.total)+'</div>';
+    brk.rows.forEach(function(r,i){
+      var color=ALLOWANCE_BAR_COLORS[i%ALLOWANCE_BAR_COLORS.length];
+      html+='<div style="margin-bottom:6px">'
+        +'<div class="row-between" style="font-size:12px"><span>'+escapeHtmlSafe(r.label)+'</span><span>¥'+formatMoney(r.amount)+'（'+r.pct.toFixed(0)+'%）</span></div>'
+        +'<div class="progress-wrap"><div class="progress-bar '+color+'" style="width:'+Math.max(2,r.pct)+'%"></div></div>'
+        +'</div>';
+    });
+    bbox.innerHTML=html;
+  }
+
+  document.getElementById('allowanceBoardRangeBar').innerHTML=allowanceRangeBarHtml(allowanceBoardRange,'switchAllowanceBoardRange');
+  var board=allowanceLeaderboard(allowanceBoardRange);
+  var lbox=document.getElementById('allowanceLeaderboardBox');
+  if(!board.length){
+    lbox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+L('还没有小朋友档案','No child profiles yet')+'</div>';
+  } else {
+    var medalArr=['🥇','🥈','🥉'];
+    var lhtml='';
+    board.forEach(function(it,i){
+      var isCur=it.cid===store.currentChildId;
+      lhtml+='<div style="display:flex;align-items:center;gap:6px;background:'+(isCur?'#f3e5f5':'#faf7fb')+';border-radius:8px;padding:6px 8px;margin-bottom:4px">'
+        +'<span style="width:22px;text-align:center">'+(medalArr[i]||('#'+(i+1)))+'</span>'
+        +'<span>'+avatarHtml(it.avatar,20)+'</span>'
+        +'<span style="flex:1">'+escapeHtmlSafe(it.name)+(isCur?L('（我）',' (me)'):'')+'</span>'
+        +'<b style="color:#7b1fa2">¥'+formatMoney(it.total)+'</b>'
+        +'</div>';
+    });
+    lbox.innerHTML=lhtml;
+  }
+
+  var ledger=(state.allowance.ledger||[]).slice().reverse().slice(0,50);
+  var cats=store.allowanceCategories||[];
+  var ebox=document.getElementById('allowanceLedgerBox');
+  if(!ledger.length){
+    ebox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+L('还没有记录，点上面的按钮记一笔吧','No entries yet - tap the buttons above to add one')+'</div>';
+  } else {
+    var ehtml='';
+    ledger.forEach(function(e){
+      var d=new Date(e.t);
+      var dateStr=(d.getMonth()+1)+'/'+d.getDate();
+      var catLabel='';
+      if(e.type==='spend'){
+        var cat=cats.find(function(c){ return c.id===e.category; });
+        catLabel=cat? ('【'+escapeHtmlSafe(cat.label)+'】') : (e.category? L('【未分类】','[Uncategorized] ') : '');
+      }
+      ehtml+='<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px dashed #eee">'
+        +'<span style="color:#999;font-size:11px;width:34px">'+dateStr+'</span>'
+        +'<span style="flex:1">'+catLabel+escapeHtmlSafe(e.note||(e.type==='earn'?L('收入','Earned'):L('支出','Spent')))+'</span>'
+        +'<b style="color:'+(e.type==='earn'?'#2e7d32':'#c62828')+'">'+(e.type==='earn'?'+':'-')+'¥'+formatMoney(e.amount)+'</b>'
+        +'<button class="btn btn-gray btn-sm" style="padding:2px 6px;font-size:11px" onclick="removeAllowanceEntry(\''+e.id+'\')">'+L('删除','Del')+'</button>'
+        +'</div>';
+    });
+    ebox.innerHTML=ehtml;
+  }
 }
 function updateTaskCoins(cat,id,val){
   var n=parseInt(val,10);
