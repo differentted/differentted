@@ -628,7 +628,7 @@ body.pet-fs-active #wechatWarnBar{display:none !important}
 .wheel-box{display:flex;flex-direction:column;align-items:center;gap:9px}
 .wheel-wrap{position:relative;width:260px;height:260px}
 #wheelCanvas{width:260px;height:260px}
-.pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);font-size:32px;z-index:5;color:#7b1fa2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+/* 2026-10改版：指针现在画在canvas里并跟着转动，不再需要这个固定在转盘外面不转的▼了 */
 .wheel-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#7b1fa2;font-size:15px;box-shadow:0 2px 6px rgba(0,0,0,.2);pointer-events:none}
 /* 背包 */
 .bag-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
@@ -1216,17 +1216,28 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" data-i18n="wheel_rules1">运动全完成+1次｜家务全做完+1次｜学习全完成+1次｜娱乐全完成+1次｜日记完成+1次｜沟通打卡全完成+1次｜自定义加分满5次+1次（仅当日有效）</div>
     <div class="small" data-i18n="wheel_rules2">🎁 运动+学习连续10天全勤后，转盘才会出现休息卡；每自然月限中1次，抽中后12天内有效，逾期不用自动作废</div>
     <div class="small" data-i18n="wheel_rules3">🧱 转盘现在也能抽到装备合成/升星材料（精铁/云锦/星辉晶）和仙宅建材（灵木/灵石/龙鳞瓦），越稀有的材料抽中概率越低、数量也越少</div>
+    <div class="small" data-i18n="wheel_rules4">👑 转盘上金光闪闪的两格是隐藏大奖：【1000金币】和【大奖·休息一天】（5天内使用，当天学习+运动打卡直接全部补齐并照常发金币/经验），概率不高但人人都有机会抽到，抽不到"谢谢参与"——没中奖只会"再来一次"，不占用今日次数</div>
     <div class="wheel-box" style="margin-top:9px">
       <div class="wheel-wrap">
-        <div class="pointer">▼</div>
         <canvas id="wheelCanvas" width="260" height="260"></canvas>
         <div class="wheel-center">GO</div>
       </div>
       <button class="btn btn-danger" id="btnSpin" onclick="spinWheel()"><span data-i18n="wheel_spin_btn_prefix">🎲 开始抽奖（剩余 </span><span id="spinRemain">0</span><span data-i18n="wheel_spin_btn_suffix"> 次）</span></button>
     </div>
-    <!-- 2026-10新增：免费次数用完了，也可以花金币额外抽——不限次数，但越抽越贵，且保底不会抽到"谢谢参与" -->
+    <!-- 2026-10新增：大奖保底能量条——累计抽奖(免费+金币)满100次保底必中一次大奖，鼠标悬停/点击看剩余次数 -->
+    <div class="wheel-pity-wrap" id="wheelPityWrap" style="margin-top:10px;cursor:pointer" onclick="showWheelPityInfo()" title="">
+      <div class="row-between small" style="margin-bottom:3px">
+        <span data-i18n="wheel_pity_label">⚡ 大奖保底能量条</span>
+        <span id="wheelPityText">0/100</span>
+      </div>
+      <div style="background:#eee;border-radius:8px;height:10px;overflow:hidden">
+        <div id="wheelPityBar" style="background:linear-gradient(90deg,#ffd700,#ff4081);height:100%;width:0%;transition:width .3s"></div>
+      </div>
+      <div class="small" style="color:#999;margin-top:2px" data-i18n="wheel_pity_hint">鼠标悬停或点一下能量条，看还差几次保底必中大奖</div>
+    </div>
+    <!-- 2026-10新增：免费次数用完了，也可以花金币额外抽——不限次数，但越抽越贵，且保底不会抽到"再来一次" -->
     <div style="text-align:center;margin-top:10px;border-top:1px solid #eee;padding-top:10px">
-      <div class="small" style="margin-bottom:6px" data-i18n="wheel_paid_desc">💰 免费次数用完了也可以花金币抽——不限次数，但每抽一次下一次要花的金币都会翻倍；金币抽奖保底不会抽到"谢谢参与"</div>
+      <div class="small" style="margin-bottom:6px" data-i18n="wheel_paid_desc">💰 免费次数用完了也可以花金币抽——不限次数，但每抽一次下一次要花的金币都会翻倍；金币抽奖保底不会抽到"再来一次"</div>
       <button class="btn btn-gray btn-sm" id="btnSpinPaid" onclick="spinWheelPaid()"><span data-i18n="wheel_paid_btn_prefix">💰 花 </span><b id="wheelPaidCost">5</b><span data-i18n="wheel_paid_btn_suffix"> 金币抽一次</span></button>
     </div>
   </div>
@@ -1247,7 +1258,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h2 data-i18n="bag_title">🎒 我的奖品背包</h2>
     <div id="bagGrid" class="bag-grid"></div>
     <div class="bag-hint" id="freeSelectHint" data-i18n="bag_free_card_hint">🎫 免做卡已选中！回打卡页点想跳过的任务即可豁免（今日限用1张）</div>
-    <div class="small" style="margin-top:6px" data-i18n="bag_card_desc">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。这几种卡目前都只有转盘才能抽到，商店不卖；用不上的话也可以拿去🏛️拍卖行换给别的小朋友。</div>
+    <div class="small" style="margin-top:6px" data-i18n="bag_card_desc">免做卡：每日最多得1张，抽到第2张换10金币；同日只用1张。折扣卡：次日生效、次日不用过期；7折/8折二选一，作用于波比跳。休息卡：转盘抽中获得，需运动+学习连续10天全勤解锁，每自然月限中1次，12天内不用自动过期。大奖·休息一天：转盘隐藏大奖，概率很低，抽中后5天内随时可以使用，使用后直接把当天学习+运动打卡全部补齐并照常发金币/经验奖励（这张不能拍卖，专属抽中的小朋友使用）。这几种卡目前都只有转盘才能抽到，商店不卖；除大奖卡以外，用不上的话也可以拿去🏛️拍卖行换给别的小朋友。</div>
   </div>
   <div class="card">
     <h2 data-i18n="bag_materials_title">🧱 副本建材</h2>
@@ -1390,6 +1401,12 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <button class="btn btn-gray btn-sm" onclick="showPage('home');showCheckinCategory('study')">⬅ 返回打卡</button>
     </div>
     <div id="weeklyStatsBox" class="small" style="margin-top:4px"></div>
+  </div>
+  <div class="card">
+    <div class="row-between">
+      <h3 style="margin:0">📚 本周学了哪些</h3>
+    </div>
+    <div id="weeklyLearnedBox" class="small" style="margin-top:4px"></div>
   </div>
   <div class="card">
     <div id="weeklyQuizBox"></div>
@@ -3694,10 +3711,11 @@ var I18N_EN = {
   wheel_rules1: 'Full Sport +1 spin | Full Chores +1 spin | Full Study +1 spin | Full Fun +1 spin | Diary done +1 spin | Full Communication check-in +1 spin | 5 Custom bonus items +1 spin (today only)',
   wheel_rules2: '🎁 After 10 consecutive days of full Sport + Study check-ins, Rest Cards start appearing on the wheel; limited to 1 win per calendar month, valid for 12 days after winning, no need to use it — it never auto-expires early',
   wheel_rules3: '🧱 The wheel can now also award equipment synthesis/star-up materials (Iron/Silk/Starlight Crystal) and Fae Cottage building materials (Spirit Wood/Spirit Stone/Dragon Tile) — the rarer the material, the lower the odds and the smaller the amount',
+  wheel_rules4: '👑 The two gold-glowing wedges are hidden JACKPOTS: [1000 Coins] and [JACKPOT: Rest Day] (usable within 5 days - instantly completes today\'s study + sport check-ins and grants the usual coins/exp). Odds are low but everyone has a shot; you\'ll never land on "Thanks for Playing" anymore - a miss is now "Spin Again" and doesn\'t use up today\'s spin count',
   shop_lock_hint: '🔒 Premium items unlock as the pet levels up; basic items are available right after the pet is born (Lv1)',
   bag_title: '🎒 My Prize Bag',
   bag_free_card_hint: 'Free-Pass Card selected! Go back to the check-in page and tap the task you want to skip (limited to 1 use per day)',
-  bag_card_desc: 'Free-Pass Card: up to 1 per day; a 2nd one converts to 10 coins; only 1 usable per day. Discount Card: takes effect the next day, expires if unused that day; 7%-off/8%-off — pick one, applies to Bobby Jumps. Rest Card: won from the Lucky Wheel, requires 10 consecutive full days of Sport+Study check-ins to unlock, limited to 1 win per calendar month, valid 12 days, no need to use it. These cards can currently only be won from the wheel — not sold in the shop; if you don\'t need one, trade it to another kid via 🏛️Auction House.',
+  bag_card_desc: 'Free-Pass Card: up to 1 per day; a 2nd one converts to 10 coins; only 1 usable per day. Discount Card: takes effect the next day, expires if unused that day; 7%-off/8%-off — pick one, applies to Bobby Jumps. Rest Card: won from the Lucky Wheel, requires 10 consecutive full days of Sport+Study check-ins to unlock, limited to 1 win per calendar month, valid 12 days, no need to use it. JACKPOT Rest Day: a rare hidden jackpot from the wheel - usable anytime within 5 days of winning it, and instantly completes today\'s study + sport check-ins while granting the usual coin/exp rewards (not tradeable - for the winner only). These cards can currently only be won from the wheel — not sold in the shop; other than the jackpot card, trade an unneeded one to another kid via 🏛️Auction House.',
   bag_materials_title: '🧱 Dungeon Materials',
   bag_materials_desc: 'Iron⚙️/Silk🧵/Starlight Crystal💎 are used in "🛡️Equipment Panel" for equipment synthesis and star-ups; Spirit Wood🪵/Spirit Stone🪨/Dragon Tile🐉 are used to build the "Fae Cottage"~',
   wheel_remain_label: 'Spins left today: ',
@@ -3706,9 +3724,11 @@ var I18N_EN = {
   wheel_rest_unlock_label: '🎁 Rest Card unlock: ',
   wheel_spin_btn_prefix: '🎲 Spin (',
   wheel_spin_btn_suffix: ' left)',
-  wheel_paid_desc: '💰 Out of free spins? You can also pay coins for more - unlimited spins, but the cost doubles each time you use one; a paid spin is guaranteed to never land on "Thanks for Playing"',
+  wheel_paid_desc: '💰 Out of free spins? You can also pay coins for more - unlimited spins, but the cost doubles each time you use one; a paid spin is guaranteed to never land on "Spin Again"',
   wheel_paid_btn_prefix: '💰 Spin for ',
   wheel_paid_btn_suffix: ' coins',
+  wheel_pity_label: '⚡ Jackpot Pity Meter',
+  wheel_pity_hint: 'Hover or tap the meter to see how many more spins until a guaranteed jackpot',
   checkin_settings_title: '📅 Today\'s Settings',
   checkin_mode_label: 'Check-in Mode',
   btn_morning: 'Morning',
@@ -4817,7 +4837,8 @@ function freshDay(key){
     studyViewed:{word:{},hanzi:{},sentence:{}}, // 2026-09新增：今天点开看过（或听过发音）的单词/汉字/句子，"换一批"要求本批全部点开过才解锁
     wheel:{sport:false,house:false,study:false,fun:false,diary:false,custom:false,comm:false},
     wheelUsed:0,
-    wheelPaidCount:0, // 2026-10新增：今天已经用金币额外抽过几次奖——每抽一次，下一次要花的金币翻倍，每天从0重新开始
+    // 2026-10变更：金币抽奖的翻倍计数(wheelPaidCount)搬到顶层state了（按凌晨1点重置，不跟这里的
+    // 自然日0点绑定），这里不再需要
     gotFreeCard:false,
     freeCardUsed:false,
     discountActive:null,
@@ -4849,10 +4870,17 @@ function defaultState(){
     freeStudyCard:0,
     restCardMonthKey:getMonthKey(),
     restCardMonthGranted:false,
+    // 2026-10新增：金币抽奖"越抽越贵"的翻倍计数，从state.day搬到顶层——家长要求这个计数按凌晨1点
+    // 重置，不能再跟着state.day一样卡在自然日0点，所以要单独存、单独算周期key，见wheelPaidCostPeriodKey()
+    wheelPaidCount:0,
+    wheelPaidCostKey:null,
+    // 2026-10新增：幸运转盘大奖保底——累计抽奖次数（免费+金币都算）满100次，保底必中一次大奖；
+    // 提前凭真实概率抽中大奖的话，这个计数也会跟着清零重新开始攒，见pickWheelResult()
+    wheelPityCount:0,
     moneyBalance:0,
     coinLedger:[], // 金币变化流水账：每一笔+/-都记一条{t,delta,reason,bal}，方便排查"钱为什么变了"
     itemLedger:[], // 2026-10新增：道具（商店物品/背包用品）购买&使用流水账，每一条记一次{t,itemId,itemName,qty,action,reason}
-    backpack:{freeCard:0,d7:[],d8:[],restCards:[],supplies:{food:0,water:0,milk:0,out:0,bath:0}},
+    backpack:{freeCard:0,d7:[],d8:[],restCards:[],jackpotRestCards:[],supplies:{food:0,water:0,milk:0,out:0,bath:0}},
     log:[],
     pet:{chosen:false},
     pets:[], // 多宠物系统：所有养过的宠物都在这个数组里，state.pet 始终指向其中"当前出战/展示"的那一只
@@ -8743,183 +8771,183 @@ function genMathEnMixedQuestions(count, themeNoun){
 function studyDayOfYear(d){ var start=new Date(d.getFullYear(),0,0); return Math.floor((d-start)/86400000); }
 var THEMES=[
   {id:'animals',name:'动物',icon:'🐾',
-    words:[{en:'lion',ph:'/ˈlaɪən/',cn:'狮子'},{en:'elephant',ph:'/ˈelɪfənt/',cn:'大象'},{en:'rabbit',ph:'/ˈræbɪt/',cn:'兔子'},{en:'monkey',ph:'/ˈmʌŋki/',cn:'猴子'},{en:'panda',ph:'/ˈpændə/',cn:'熊猫'},{en:'tiger',ph:'/ˈtaɪɡər/',cn:'老虎'},{en:'giraffe',ph:'/dʒəˈræf/',cn:'长颈鹿'},{en:'zebra',ph:'/ˈziːbrə/',cn:'斑马'},{en:'bear',ph:'/ber/',cn:'熊'},{en:'wolf',ph:'/wʊlf/',cn:'狼'},{en:'fox',ph:'/fɑːks/',cn:'狐狸'},{en:'deer',ph:'/dɪr/',cn:'鹿'},{en:'kangaroo',ph:'/ˌkæŋɡəˈruː/',cn:'袋鼠'},{en:'koala',ph:'/koʊˈɑːlə/',cn:'考拉'},{en:'hippo',ph:'/ˈhɪpoʊ/',cn:'河马'}],
-    hanzi:[{zi:'狮子',py:'shī zi',cn:'一种猛兽'},{zi:'大象',py:'dà xiàng',cn:'体型很大的动物'},{zi:'兔子',py:'tù zi',cn:'耳朵长的小动物'},{zi:'猴子',py:'hóu zi',cn:'很聪明会爬树的动物'},{zi:'熊猫',py:'xióng māo',cn:'中国的国宝'},{zi:'老虎',py:'lǎo hǔ',cn:'森林之王，很凶猛'},{zi:'长颈鹿',py:'cháng jǐng lù',cn:'脖子很长的动物'},{zi:'斑马',py:'bān mǎ',cn:'身上有黑白条纹的马'}],
-    sentences:[{en:'The lion is the king of the jungle.',cn:'狮子是丛林之王。'},{en:'An elephant has a long nose.',cn:'大象有一个长长的鼻子。'},{en:'The rabbit has two long ears.',cn:'兔子有两只长长的耳朵。'},{en:'Monkeys like to climb trees.',cn:'猴子喜欢爬树。'},{en:'The panda eats bamboo every day.',cn:'熊猫每天吃竹子。'},{en:'Tigers have stripes on their body.',cn:'老虎身上有条纹。'},{en:'The giraffe has a very long neck.',cn:'长颈鹿的脖子很长。'},{en:'Zebras look like striped horses.',cn:'斑马看起来像有条纹的马。'}],
+    words:[{en:'lion',ph:'/ˈlaɪən/',cn:'狮子'},{en:'elephant',ph:'/ˈelɪfənt/',cn:'大象'},{en:'rabbit',ph:'/ˈræbɪt/',cn:'兔子'},{en:'monkey',ph:'/ˈmʌŋki/',cn:'猴子'},{en:'panda',ph:'/ˈpændə/',cn:'熊猫'},{en:'tiger',ph:'/ˈtaɪɡər/',cn:'老虎'},{en:'giraffe',ph:'/dʒəˈræf/',cn:'长颈鹿'},{en:'zebra',ph:'/ˈziːbrə/',cn:'斑马'},{en:'bear',ph:'/ber/',cn:'熊'},{en:'wolf',ph:'/wʊlf/',cn:'狼'},{en:'fox',ph:'/fɑːks/',cn:'狐狸'},{en:'deer',ph:'/dɪr/',cn:'鹿'},{en:'kangaroo',ph:'/ˌkæŋɡəˈruː/',cn:'袋鼠'},{en:'koala',ph:'/koʊˈɑːlə/',cn:'考拉'},{en:'hippo',ph:'/ˈhɪpoʊ/',cn:'河马'},{en:'cat',ph:'/kæt/',cn:'猫'},{en:'dog',ph:'/dɔːg/',cn:'狗'},{en:'horse',ph:'/hɔːrs/',cn:'马'},{en:'pig',ph:'/pɪg/',cn:'猪'},{en:'sheep',ph:'/ʃiːp/',cn:'绵羊'},{en:'duck',ph:'/dʌk/',cn:'鸭子'},{en:'chicken',ph:'/ˈtʃɪkɪn/',cn:'鸡'},{en:'cow',ph:'/kaʊ/',cn:'奶牛'},{en:'goat',ph:'/goʊt/',cn:'山羊'},{en:'mouse',ph:'/maʊs/',cn:'老鼠'},{en:'squirrel',ph:'/ˈskwɜːrəl/',cn:'松鼠'},{en:'owl',ph:'/aʊl/',cn:'猫头鹰'},{en:'eagle',ph:'/ˈiːgl/',cn:'老鹰'},{en:'penguin',ph:'/ˈpeŋgwɪn/',cn:'企鹅'},{en:'dolphin',ph:'/ˈdɒlfɪn/',cn:'海豚'},{en:'whale',ph:'/weɪl/',cn:'鲸鱼'},{en:'shark',ph:'/ʃɑːrk/',cn:'鲨鱼'},{en:'turtle',ph:'/ˈtɜːrtl/',cn:'乌龟'},{en:'frog',ph:'/frɔːg/',cn:'青蛙'},{en:'snake',ph:'/sneɪk/',cn:'蛇'}],
+    hanzi:[{zi:'狮子',py:'shī zi',cn:'一种猛兽'},{zi:'大象',py:'dà xiàng',cn:'体型很大的动物'},{zi:'兔子',py:'tù zi',cn:'耳朵长的小动物'},{zi:'猴子',py:'hóu zi',cn:'很聪明会爬树的动物'},{zi:'熊猫',py:'xióng māo',cn:'中国的国宝'},{zi:'老虎',py:'lǎo hǔ',cn:'森林之王，很凶猛'},{zi:'长颈鹿',py:'cháng jǐng lù',cn:'脖子很长的动物'},{zi:'斑马',py:'bān mǎ',cn:'身上有黑白条纹的马'},{zi:'小猫',py:'xiǎo māo',cn:'猫是一种可爱的小动物。'},{zi:'小狗',py:'xiǎo gǒu',cn:'小狗是人类的好朋友。'},{zi:'骏马',py:'jùn mǎ',cn:'骏马跑得非常快。'},{zi:'小猪',py:'xiǎo zhū',cn:'小猪喜欢在泥地里打滚。'},{zi:'绵羊',py:'mián yáng',cn:'绵羊的毛可以用来做衣服。'},{zi:'鸭子',py:'yā zi',cn:'鸭子喜欢在水里游泳。'},{zi:'小鸡',py:'xiǎo jī',cn:'小鸡是鸡妈妈的孩子。'},{zi:'奶牛',py:'nǎi niú',cn:'奶牛每天给我们提供牛奶。'},{zi:'山羊',py:'shān yáng',cn:'山羊喜欢吃草和树叶。'},{zi:'猫头鹰',py:'māo tóu yīng',cn:'猫头鹰喜欢在晚上捕食。'},{zi:'企鹅',py:'qǐ é',cn:'企鹅生活在寒冷的南极。'},{zi:'海豚',py:'hǎi tún',cn:'海豚是非常聪明的海洋动物。'}],
+    sentences:[{en:'The lion is the king of the jungle.',cn:'狮子是丛林之王。'},{en:'An elephant has a long nose.',cn:'大象有一个长长的鼻子。'},{en:'The rabbit has two long ears.',cn:'兔子有两只长长的耳朵。'},{en:'Monkeys like to climb trees.',cn:'猴子喜欢爬树。'},{en:'The panda eats bamboo every day.',cn:'熊猫每天吃竹子。'},{en:'Tigers have stripes on their body.',cn:'老虎身上有条纹。'},{en:'The giraffe has a very long neck.',cn:'长颈鹿的脖子很长。'},{en:'Zebras look like striped horses.',cn:'斑马看起来像有条纹的马。'},{en:'The cat likes to sleep on the sofa.',cn:'猫喜欢睡在沙发上。'},{en:'My dog runs fast in the park.',cn:'我的狗在公园里跑得很快。'},{en:'The horse can run very fast.',cn:'马跑得非常快。'},{en:'The pig lives on the farm.',cn:'猪生活在农场里。'},{en:'Sheep give us soft wool.',cn:'绵羊给我们柔软的羊毛。'},{en:'The duck swims in the pond.',cn:'鸭子在池塘里游泳。'},{en:'The chicken lays eggs every day.',cn:'鸡每天都下蛋。'},{en:'The cow gives us fresh milk.',cn:'奶牛给我们提供新鲜牛奶。'},{en:'The owl sleeps during the day.',cn:'猫头鹰白天睡觉。'},{en:'Penguins live in cold places.',cn:'企鹅生活在寒冷的地方。'},{en:'The dolphin is a smart animal.',cn:'海豚是一种聪明的动物。'},{en:'The turtle walks very slowly.',cn:'乌龟走得很慢。'}],
     mathNoun:'lions',
     reading:{title:'动物园里的朋友们',text:'周末，小明和爸爸妈妈去动物园玩。他们看到了大大的大象，还有可爱的熊猫在吃竹子。小猴子在树上跳来跳去，逗得大家哈哈大笑。',question:'小猴子在做什么？',optA:'在树上跳来跳去',optB:'在睡觉',answer:'A'}},
   {id:'family',name:'家庭',icon:'👨‍👩‍👧',
-    words:[{en:'mother',ph:'/ˈmʌðər/',cn:'妈妈'},{en:'father',ph:'/ˈfɑːðər/',cn:'爸爸'},{en:'brother',ph:'/ˈbrʌðər/',cn:'兄弟'},{en:'sister',ph:'/ˈsɪstər/',cn:'姐妹'},{en:'grandmother',ph:'/ˈɡrænmʌðər/',cn:'奶奶/姥姥'},{en:'grandfather',ph:'/ˈɡrænfɑːðər/',cn:'爷爷/姥爷'},{en:'son',ph:'/sʌn/',cn:'儿子'},{en:'daughter',ph:'/ˈdɔːtər/',cn:'女儿'},{en:'aunt',ph:'/ænt/',cn:'阿姨/姑姑'},{en:'uncle',ph:'/ˈʌŋkl/',cn:'叔叔/舅舅'},{en:'cousin',ph:'/ˈkʌzn/',cn:'表哥/表姐'},{en:'baby',ph:'/ˈbeɪbi/',cn:'婴儿'},{en:'parents',ph:'/ˈperənts/',cn:'父母'},{en:'husband',ph:'/ˈhʌzbənd/',cn:'丈夫'},{en:'wife',ph:'/waɪf/',cn:'妻子'}],
-    hanzi:[{zi:'家庭',py:'jiā tíng',cn:'一家人组成的集体'},{zi:'父母',py:'fù mǔ',cn:'爸爸和妈妈'},{zi:'兄弟',py:'xiōng dì',cn:'哥哥和弟弟'},{zi:'姐妹',py:'jiě mèi',cn:'姐姐和妹妹'},{zi:'团圆',py:'tuán yuán',cn:'家人聚在一起'},{zi:'爷爷',py:'yé ye',cn:'爸爸的爸爸'},{zi:'奶奶',py:'nǎi nai',cn:'爸爸的妈妈'},{zi:'亲戚',py:'qīn qi',cn:'有血缘关系的人'}],
-    sentences:[{en:'My mother cooks dinner every evening.',cn:'我妈妈每天晚上做晚饭。'},{en:'My father goes to work by bus.',cn:'我爸爸坐公交车去上班。'},{en:'I have one brother and one sister.',cn:'我有一个哥哥和一个姐姐。'},{en:'My grandmother tells me stories.',cn:'奶奶给我讲故事。'},{en:'We have dinner together every night.',cn:'我们每晚一起吃晚饭。'},{en:'My grandfather likes to read newspapers.',cn:'爷爷喜欢看报纸。'},{en:'The baby is sleeping in the room.',cn:'婴儿在房间里睡觉。'},{en:'I love my whole family very much.',cn:'我非常爱我的全家人。'}],
+    words:[{en:'mother',ph:'/ˈmʌðər/',cn:'妈妈'},{en:'father',ph:'/ˈfɑːðər/',cn:'爸爸'},{en:'brother',ph:'/ˈbrʌðər/',cn:'兄弟'},{en:'sister',ph:'/ˈsɪstər/',cn:'姐妹'},{en:'grandmother',ph:'/ˈɡrænmʌðər/',cn:'奶奶/姥姥'},{en:'grandfather',ph:'/ˈɡrænfɑːðər/',cn:'爷爷/姥爷'},{en:'son',ph:'/sʌn/',cn:'儿子'},{en:'daughter',ph:'/ˈdɔːtər/',cn:'女儿'},{en:'aunt',ph:'/ænt/',cn:'阿姨/姑姑'},{en:'uncle',ph:'/ˈʌŋkl/',cn:'叔叔/舅舅'},{en:'cousin',ph:'/ˈkʌzn/',cn:'表哥/表姐'},{en:'baby',ph:'/ˈbeɪbi/',cn:'婴儿'},{en:'parents',ph:'/ˈperənts/',cn:'父母'},{en:'husband',ph:'/ˈhʌzbənd/',cn:'丈夫'},{en:'wife',ph:'/waɪf/',cn:'妻子'},{en:'family',ph:'/ˈfæməli/',cn:'家庭'},{en:'home',ph:'/hoʊm/',cn:'家；住所'},{en:'love',ph:'/lʌv/',cn:'爱'},{en:'hug',ph:'/hʌg/',cn:'拥抱'},{en:'kiss',ph:'/kɪs/',cn:'亲吻'},{en:'smile',ph:'/smaɪl/',cn:'微笑'},{en:'grandparents',ph:'/ˈgrænpɛrənts/',cn:'祖父母；外祖父母'},{en:'nephew',ph:'/ˈnɛfjuː/',cn:'侄子；外甥'},{en:'niece',ph:'/niːs/',cn:'侄女；外甥女'},{en:'neighbor',ph:'/ˈneɪbər/',cn:'邻居'},{en:'relative',ph:'/ˈrɛlətɪv/',cn:'亲戚'},{en:'twin',ph:'/twɪn/',cn:'双胞胎'},{en:'children',ph:'/ˈtʃɪldrən/',cn:'孩子们'},{en:'adult',ph:'/əˈdʌlt/',cn:'成年人'},{en:'kid',ph:'/kɪd/',cn:'小孩'},{en:'pet',ph:'/pɛt/',cn:'宠物'},{en:'birthday',ph:'/ˈbɜːrθdeɪ/',cn:'生日'},{en:'photo',ph:'/ˈfoʊtoʊ/',cn:'照片'},{en:'picnic',ph:'/ˈpɪknɪk/',cn:'野餐'},{en:'holiday',ph:'/ˈhɒlədeɪ/',cn:'假期'}],
+    hanzi:[{zi:'家庭',py:'jiā tíng',cn:'一家人组成的集体'},{zi:'父母',py:'fù mǔ',cn:'爸爸和妈妈'},{zi:'兄弟',py:'xiōng dì',cn:'哥哥和弟弟'},{zi:'姐妹',py:'jiě mèi',cn:'姐姐和妹妹'},{zi:'团圆',py:'tuán yuán',cn:'家人聚在一起'},{zi:'爷爷',py:'yé ye',cn:'爸爸的爸爸'},{zi:'奶奶',py:'nǎi nai',cn:'爸爸的妈妈'},{zi:'亲戚',py:'qīn qi',cn:'有血缘关系的人'},{zi:'外公',py:'wài gōng',cn:'外公是妈妈的爸爸。'},{zi:'外婆',py:'wài pó',cn:'外婆是妈妈的妈妈。'},{zi:'表哥',py:'biǎo gē',cn:'表哥是亲戚家比我大的男孩。'},{zi:'表姐',py:'biǎo jiě',cn:'表姐是亲戚家比我大的女孩。'},{zi:'拥抱',py:'yōng bào',cn:'拥抱是一种表达爱的方式。'},{zi:'微笑',py:'wēi xiào',cn:'微笑让别人感到开心。'},{zi:'生日',py:'shēng rì',cn:'生日是每年庆祝出生的日子。'},{zi:'照片',py:'zhào piàn',cn:'照片可以记录美好的回忆。'},{zi:'野餐',py:'yě cān',cn:'野餐是在户外一起吃东西。'},{zi:'双胞胎',py:'shuāng bāo tāi',cn:'双胞胎是同时出生的两个孩子。'},{zi:'邻居',py:'lín jū',cn:'邻居是住在我们附近的人。'},{zi:'家人',py:'jiā rén',cn:'家人是和我们一起生活的人。'}],
+    sentences:[{en:'My mother cooks dinner every evening.',cn:'我妈妈每天晚上做晚饭。'},{en:'My father goes to work by bus.',cn:'我爸爸坐公交车去上班。'},{en:'I have one brother and one sister.',cn:'我有一个哥哥和一个姐姐。'},{en:'My grandmother tells me stories.',cn:'奶奶给我讲故事。'},{en:'We have dinner together every night.',cn:'我们每晚一起吃晚饭。'},{en:'My grandfather likes to read newspapers.',cn:'爷爷喜欢看报纸。'},{en:'The baby is sleeping in the room.',cn:'婴儿在房间里睡觉。'},{en:'I love my whole family very much.',cn:'我非常爱我的全家人。'},{en:'My grandparents live in a small village.',cn:'我的祖父母住在一个小村庄里。'},{en:'I give my mother a big hug every morning.',cn:'我每天早上都会给妈妈一个大大的拥抱。'},{en:'My cousin and I like to play together.',cn:'我和表哥喜欢一起玩。'},{en:'We take a family photo every year.',cn:'我们每年都会拍一张全家福。'},{en:'My little sister always smiles at me.',cn:'我的小妹妹总是对我微笑。'},{en:'We go on a picnic with our family on weekends.',cn:'我们周末和家人一起去野餐。'},{en:'My neighbor is very friendly to us.',cn:'我的邻居对我们很友好。'},{en:'I help my parents clean the house.',cn:'我帮父母打扫房子。'},{en:'My twin brother looks just like me.',cn:'我的双胞胎哥哥长得和我一模一样。'},{en:'We celebrate my grandmother\'s birthday every year.',cn:'我们每年都庆祝奶奶的生日。'},{en:'My aunt gave me a nice gift.',cn:'阿姨给了我一份很好的礼物。'},{en:'Our family likes to watch movies together.',cn:'我们一家人喜欢一起看电影。'}],
     mathNoun:'dinner plates',
     reading:{title:'温暖的一家',text:'今天是周末，全家人一起吃饭。爸爸做了好吃的菜，妈妈端来了汤，姐姐帮忙摆碗筷。大家一边吃饭一边聊天，非常开心。',question:'姐姐做了什么？',optA:'摆碗筷',optB:'做饭',answer:'A'}},
   {id:'school',name:'学校',icon:'🏫',
-    words:[{en:'teacher',ph:'/ˈtiːtʃər/',cn:'老师'},{en:'classroom',ph:'/ˈklæsruːm/',cn:'教室'},{en:'book',ph:'/bʊk/',cn:'书'},{en:'pencil',ph:'/ˈpensl/',cn:'铅笔'},{en:'homework',ph:'/ˈhoʊmwɜːrk/',cn:'作业'},{en:'student',ph:'/ˈstuːdnt/',cn:'学生'},{en:'desk',ph:'/desk/',cn:'课桌'},{en:'chair',ph:'/tʃer/',cn:'椅子'},{en:'bag',ph:'/bæɡ/',cn:'书包'},{en:'ruler',ph:'/ˈruːlər/',cn:'尺子'},{en:'eraser',ph:'/ɪˈreɪsər/',cn:'橡皮'},{en:'blackboard',ph:'/ˈblækbɔːrd/',cn:'黑板'},{en:'library',ph:'/ˈlaɪbreri/',cn:'图书馆'},{en:'playground',ph:'/ˈpleɪɡraʊnd/',cn:'操场'},{en:'friend',ph:'/frend/',cn:'朋友'}],
-    hanzi:[{zi:'学校',py:'xué xiào',cn:'学习的地方'},{zi:'老师',py:'lǎo shī',cn:'教学生的人'},{zi:'同学',py:'tóng xué',cn:'一起上学的人'},{zi:'课本',py:'kè běn',cn:'上课用的书'},{zi:'黑板',py:'hēi bǎn',cn:'老师写字的板子'},{zi:'图书馆',py:'tú shū guǎn',cn:'藏书借书的地方'},{zi:'操场',py:'cāo chǎng',cn:'做运动的场地'},{zi:'铅笔盒',py:'qiān bǐ hé',cn:'装铅笔的盒子'}],
-    sentences:[{en:'My teacher is very kind.',cn:'我的老师很和蔼。'},{en:'I put my books in my school bag.',cn:'我把书放进书包里。'},{en:'We do our homework after school.',cn:'我们放学后做作业。'},{en:'The classroom is clean and bright.',cn:'教室又干净又明亮。'},{en:'I like reading books in the library.',cn:'我喜欢在图书馆看书。'},{en:'I sit next to my best friend.',cn:'我坐在我最好的朋友旁边。'},{en:'We play games on the playground.',cn:'我们在操场上做游戏。'},{en:'Please erase the blackboard for me.',cn:'请帮我擦一下黑板。'}],
+    words:[{en:'teacher',ph:'/ˈtiːtʃər/',cn:'老师'},{en:'classroom',ph:'/ˈklæsruːm/',cn:'教室'},{en:'book',ph:'/bʊk/',cn:'书'},{en:'pencil',ph:'/ˈpensl/',cn:'铅笔'},{en:'homework',ph:'/ˈhoʊmwɜːrk/',cn:'作业'},{en:'student',ph:'/ˈstuːdnt/',cn:'学生'},{en:'desk',ph:'/desk/',cn:'课桌'},{en:'chair',ph:'/tʃer/',cn:'椅子'},{en:'bag',ph:'/bæɡ/',cn:'书包'},{en:'ruler',ph:'/ˈruːlər/',cn:'尺子'},{en:'eraser',ph:'/ɪˈreɪsər/',cn:'橡皮'},{en:'blackboard',ph:'/ˈblækbɔːrd/',cn:'黑板'},{en:'library',ph:'/ˈlaɪbreri/',cn:'图书馆'},{en:'playground',ph:'/ˈpleɪɡraʊnd/',cn:'操场'},{en:'friend',ph:'/frend/',cn:'朋友'},{en:'school',ph:'/skuːl/',cn:'学校'},{en:'lesson',ph:'/ˈlɛsən/',cn:'课程'},{en:'class',ph:'/klæs/',cn:'班级'},{en:'exam',ph:'/ɪgˈzæm/',cn:'考试'},{en:'test',ph:'/tɛst/',cn:'测验'},{en:'grade',ph:'/greɪd/',cn:'年级；成绩'},{en:'notebook',ph:'/ˈnoʊtbʊk/',cn:'笔记本'},{en:'crayon',ph:'/ˈkreɪɒn/',cn:'蜡笔'},{en:'scissors',ph:'/ˈsɪzərz/',cn:'剪刀'},{en:'glue',ph:'/gluː/',cn:'胶水'},{en:'paint',ph:'/peɪnt/',cn:'颜料；绘画'},{en:'map',ph:'/mæp/',cn:'地图'},{en:'computer',ph:'/kəmˈpjuːtər/',cn:'电脑'},{en:'subject',ph:'/ˈsʌbdʒɪkt/',cn:'科目'},{en:'math',ph:'/mæθ/',cn:'数学'},{en:'science',ph:'/ˈsaɪəns/',cn:'科学'},{en:'art',ph:'/ɑːrt/',cn:'艺术；美术'},{en:'music',ph:'/ˈmjuːzɪk/',cn:'音乐'},{en:'principal',ph:'/ˈprɪnsəpəl/',cn:'校长'},{en:'uniform',ph:'/ˈjuːnɪfɔːrm/',cn:'校服'}],
+    hanzi:[{zi:'学校',py:'xué xiào',cn:'学习的地方'},{zi:'老师',py:'lǎo shī',cn:'教学生的人'},{zi:'同学',py:'tóng xué',cn:'一起上学的人'},{zi:'课本',py:'kè běn',cn:'上课用的书'},{zi:'黑板',py:'hēi bǎn',cn:'老师写字的板子'},{zi:'图书馆',py:'tú shū guǎn',cn:'藏书借书的地方'},{zi:'操场',py:'cāo chǎng',cn:'做运动的场地'},{zi:'铅笔盒',py:'qiān bǐ hé',cn:'装铅笔的盒子'},{zi:'上课',py:'shàng kè',cn:'上课是老师教学生知识的时间。'},{zi:'下课',py:'xià kè',cn:'下课是一节课结束休息的时间。'},{zi:'考试',py:'kǎo shì',cn:'考试是检查学习情况的一种方式。'},{zi:'作业本',py:'zuò yè běn',cn:'作业本是用来写作业的本子。'},{zi:'文具盒',py:'wén jù hé',cn:'文具盒是用来装文具的盒子。'},{zi:'校长',py:'xiào zhǎng',cn:'校长是管理整个学校的人。'},{zi:'校服',py:'xiào fú',cn:'校服是学生在学校穿的衣服。'},{zi:'数学课',py:'shù xué kè',cn:'数学课是学习数字和计算的课。'},{zi:'美术课',py:'měi shù kè',cn:'美术课是学习画画的课。'},{zi:'音乐课',py:'yīn yuè kè',cn:'音乐课是学习唱歌和乐器的课。'},{zi:'书包',py:'shū bāo',cn:'书包是用来装书本的包。'},{zi:'班级',py:'bān jí',cn:'班级是一起上课的一群学生。'}],
+    sentences:[{en:'My teacher is very kind.',cn:'我的老师很和蔼。'},{en:'I put my books in my school bag.',cn:'我把书放进书包里。'},{en:'We do our homework after school.',cn:'我们放学后做作业。'},{en:'The classroom is clean and bright.',cn:'教室又干净又明亮。'},{en:'I like reading books in the library.',cn:'我喜欢在图书馆看书。'},{en:'I sit next to my best friend.',cn:'我坐在我最好的朋友旁边。'},{en:'We play games on the playground.',cn:'我们在操场上做游戏。'},{en:'Please erase the blackboard for me.',cn:'请帮我擦一下黑板。'},{en:'I study math every morning.',cn:'我每天早上学习数学。'},{en:'We have an art class on Friday.',cn:'我们星期五有一节美术课。'},{en:'The students take an exam this week.',cn:'学生们这周要参加考试。'},{en:'I use scissors to cut paper.',cn:'我用剪刀剪纸。'},{en:'My notebook is full of notes.',cn:'我的笔记本写满了笔记。'},{en:'We learn science in the classroom.',cn:'我们在教室里学习科学。'},{en:'I draw a picture with crayons.',cn:'我用蜡笔画了一幅画。'},{en:'The principal talks to us every Monday.',cn:'校长每周一都会和我们讲话。'},{en:'I wear my school uniform every day.',cn:'我每天都穿校服。'},{en:'We sing songs in music class.',cn:'我们在音乐课上唱歌。'},{en:'I use glue to make a card.',cn:'我用胶水做了一张卡片。'},{en:'Our class looks at a big map.',cn:'我们班看一张大地图。'}],
     mathNoun:'pencils',
     reading:{title:'认真的小华',text:'小华每天早上按时到学校，上课认真听讲，从不迟到。放学后，他会先做完作业，再和同学一起玩游戏。老师都很喜欢他。',question:'小华放学后先做什么？',optA:'先做作业',optB:'先玩游戏',answer:'A'}},
   {id:'food',name:'食物',icon:'🍎',
-    words:[{en:'apple',ph:'/ˈæpl/',cn:'苹果'},{en:'bread',ph:'/bred/',cn:'面包'},{en:'milk',ph:'/mɪlk/',cn:'牛奶'},{en:'rice',ph:'/raɪs/',cn:'米饭'},{en:'noodles',ph:'/ˈnuːdlz/',cn:'面条'},{en:'egg',ph:'/eɡ/',cn:'鸡蛋'},{en:'fish',ph:'/fɪʃ/',cn:'鱼'},{en:'meat',ph:'/miːt/',cn:'肉'},{en:'soup',ph:'/suːp/',cn:'汤'},{en:'cake',ph:'/keɪk/',cn:'蛋糕'},{en:'candy',ph:'/ˈkændi/',cn:'糖果'},{en:'juice',ph:'/dʒuːs/',cn:'果汁'},{en:'water',ph:'/ˈwɔːtər/',cn:'水'},{en:'tea',ph:'/tiː/',cn:'茶'},{en:'vegetable',ph:'/ˈvedʒtəbl/',cn:'蔬菜'}],
-    hanzi:[{zi:'苹果',py:'píng guǒ',cn:'一种水果'},{zi:'面包',py:'miàn bāo',cn:'用面粉做的食物'},{zi:'牛奶',py:'niú nǎi',cn:'奶牛产的奶'},{zi:'米饭',py:'mǐ fàn',cn:'用大米做成的饭'},{zi:'蔬菜',py:'shū cài',cn:'可以吃的植物'},{zi:'鸡蛋',py:'jī dàn',cn:'鸡下的蛋，可以吃'},{zi:'水果',py:'shuǐ guǒ',cn:'好吃又有营养的果实'},{zi:'蛋糕',py:'dàn gāo',cn:'过生日常吃的甜点'}],
-    sentences:[{en:'I eat an apple every day.',cn:'我每天吃一个苹果。'},{en:'She drinks a glass of milk in the morning.',cn:'她早上喝一杯牛奶。'},{en:'We have rice for lunch.',cn:'我们午饭吃米饭。'},{en:'He likes eating noodles.',cn:'他喜欢吃面条。'},{en:'Vegetables are good for our health.',cn:'蔬菜对我们的健康有好处。'},{en:'I like to eat eggs for breakfast.',cn:'我早餐喜欢吃鸡蛋。'},{en:'The soup smells very delicious.',cn:'这汤闻起来很香。'},{en:'She baked a cake for my birthday.',cn:'她为我的生日烤了一个蛋糕。'}],
+    words:[{en:'apple',ph:'/ˈæpl/',cn:'苹果'},{en:'bread',ph:'/bred/',cn:'面包'},{en:'milk',ph:'/mɪlk/',cn:'牛奶'},{en:'rice',ph:'/raɪs/',cn:'米饭'},{en:'noodles',ph:'/ˈnuːdlz/',cn:'面条'},{en:'egg',ph:'/eɡ/',cn:'鸡蛋'},{en:'fish',ph:'/fɪʃ/',cn:'鱼'},{en:'meat',ph:'/miːt/',cn:'肉'},{en:'soup',ph:'/suːp/',cn:'汤'},{en:'cake',ph:'/keɪk/',cn:'蛋糕'},{en:'candy',ph:'/ˈkændi/',cn:'糖果'},{en:'juice',ph:'/dʒuːs/',cn:'果汁'},{en:'water',ph:'/ˈwɔːtər/',cn:'水'},{en:'tea',ph:'/tiː/',cn:'茶'},{en:'vegetable',ph:'/ˈvedʒtəbl/',cn:'蔬菜'},{en:'banana',ph:'/bəˈnænə/',cn:'香蕉'},{en:'orange',ph:'/ˈɔːrɪndʒ/',cn:'橙子'},{en:'grape',ph:'/greɪp/',cn:'葡萄'},{en:'watermelon',ph:'/ˈwɔːtərmɛlən/',cn:'西瓜'},{en:'strawberry',ph:'/ˈstrɔːbɛri/',cn:'草莓'},{en:'potato',ph:'/pəˈteɪtoʊ/',cn:'土豆'},{en:'tomato',ph:'/təˈmeɪtoʊ/',cn:'西红柿'},{en:'carrot',ph:'/ˈkærət/',cn:'胡萝卜'},{en:'corn',ph:'/kɔːrn/',cn:'玉米'},{en:'chicken',ph:'/ˈtʃɪkɪn/',cn:'鸡肉'},{en:'beef',ph:'/biːf/',cn:'牛肉'},{en:'pork',ph:'/pɔːrk/',cn:'猪肉'},{en:'butter',ph:'/ˈbʌtər/',cn:'黄油'},{en:'cheese',ph:'/tʃiːz/',cn:'奶酪'},{en:'yogurt',ph:'/ˈjoʊgərt/',cn:'酸奶'},{en:'honey',ph:'/ˈhʌni/',cn:'蜂蜜'},{en:'soda',ph:'/ˈsoʊdə/',cn:'汽水'},{en:'sandwich',ph:'/ˈsænwɪtʃ/',cn:'三明治'},{en:'salad',ph:'/ˈsæləd/',cn:'沙拉'},{en:'ice cream',ph:'/ˈaɪs kriːm/',cn:'冰淇淋'}],
+    hanzi:[{zi:'苹果',py:'píng guǒ',cn:'一种水果'},{zi:'面包',py:'miàn bāo',cn:'用面粉做的食物'},{zi:'牛奶',py:'niú nǎi',cn:'奶牛产的奶'},{zi:'米饭',py:'mǐ fàn',cn:'用大米做成的饭'},{zi:'蔬菜',py:'shū cài',cn:'可以吃的植物'},{zi:'鸡蛋',py:'jī dàn',cn:'鸡下的蛋，可以吃'},{zi:'水果',py:'shuǐ guǒ',cn:'好吃又有营养的果实'},{zi:'蛋糕',py:'dàn gāo',cn:'过生日常吃的甜点'},{zi:'香蕉',py:'xiāng jiāo',cn:'香蕉是一种黄色的水果。'},{zi:'橙子',py:'chéng zi',cn:'橙子酸酸甜甜很好吃。'},{zi:'西瓜',py:'xī guā',cn:'西瓜是夏天常吃的水果。'},{zi:'草莓',py:'cǎo méi',cn:'草莓是红色的小水果。'},{zi:'土豆',py:'tǔ dòu',cn:'土豆可以做成很多种菜。'},{zi:'西红柿',py:'xī hóng shì',cn:'西红柿是红色的蔬菜。'},{zi:'胡萝卜',py:'hú luó bo',cn:'胡萝卜对眼睛很好。'},{zi:'玉米',py:'yù mǐ',cn:'玉米是黄色的粮食。'},{zi:'牛肉',py:'niú ròu',cn:'牛肉是一种常见的肉类。'},{zi:'奶酪',py:'nǎi lào',cn:'奶酪是用牛奶做成的食物。'},{zi:'三明治',py:'sān míng zhì',cn:'三明治是夹着食物的面包。'},{zi:'冰淇淋',py:'bīng qí lín',cn:'冰淇淋是一种冰凉的甜品。'}],
+    sentences:[{en:'I eat an apple every day.',cn:'我每天吃一个苹果。'},{en:'She drinks a glass of milk in the morning.',cn:'她早上喝一杯牛奶。'},{en:'We have rice for lunch.',cn:'我们午饭吃米饭。'},{en:'He likes eating noodles.',cn:'他喜欢吃面条。'},{en:'Vegetables are good for our health.',cn:'蔬菜对我们的健康有好处。'},{en:'I like to eat eggs for breakfast.',cn:'我早餐喜欢吃鸡蛋。'},{en:'The soup smells very delicious.',cn:'这汤闻起来很香。'},{en:'She baked a cake for my birthday.',cn:'她为我的生日烤了一个蛋糕。'},{en:'I like to eat bananas after lunch.',cn:'我喜欢在午饭后吃香蕉。'},{en:'She eats an orange every afternoon.',cn:'她每天下午吃一个橙子。'},{en:'We eat watermelon in summer.',cn:'我们夏天吃西瓜。'},{en:'I pick strawberries with my mother.',cn:'我和妈妈一起摘草莓。'},{en:'He likes potatoes very much.',cn:'他非常喜欢土豆。'},{en:'Carrots are good for your eyes.',cn:'胡萝卜对你的眼睛有好处。'},{en:'We grow corn on the farm.',cn:'我们在农场里种玉米。'},{en:'I have a sandwich for breakfast.',cn:'我早餐吃三明治。'},{en:'She makes a fresh salad for dinner.',cn:'她为晚餐做了一份新鲜沙拉。'},{en:'I love eating ice cream in summer.',cn:'我喜欢在夏天吃冰淇淋。'},{en:'He drinks a glass of soda at the party.',cn:'他在聚会上喝了一杯汽水。'},{en:'We put honey on our bread.',cn:'我们在面包上涂蜂蜜。'}],
     mathNoun:'apples',
     reading:{title:'健康的早餐',text:'早上，妈妈给小丽准备了牛奶和面包。小丽还吃了一个苹果。她高高兴兴地去上学了。',question:'小丽的早餐里有什么水果？',optA:'苹果',optB:'香蕉',answer:'A'}},
   {id:'weather',name:'天气与季节',icon:'⛅',
-    words:[{en:'sunny',ph:'/ˈsʌni/',cn:'晴天的'},{en:'rainy',ph:'/ˈreɪni/',cn:'下雨的'},{en:'windy',ph:'/ˈwɪndi/',cn:'有风的'},{en:'winter',ph:'/ˈwɪntər/',cn:'冬天'},{en:'summer',ph:'/ˈsʌmər/',cn:'夏天'},{en:'cloudy',ph:'/ˈklaʊdi/',cn:'多云的'},{en:'snowy',ph:'/ˈsnoʊi/',cn:'下雪的'},{en:'spring',ph:'/sprɪŋ/',cn:'春天'},{en:'autumn',ph:'/ˈɔːtəm/',cn:'秋天'},{en:'hot',ph:'/hɑːt/',cn:'热的'},{en:'cold',ph:'/koʊld/',cn:'冷的'},{en:'warm',ph:'/wɔːrm/',cn:'温暖的'},{en:'cool',ph:'/kuːl/',cn:'凉爽的'},{en:'storm',ph:'/stɔːrm/',cn:'暴风雨'},{en:'rainbow',ph:'/ˈreɪnboʊ/',cn:'彩虹'}],
-    hanzi:[{zi:'晴天',py:'qíng tiān',cn:'没有云的天气'},{zi:'下雨',py:'xià yǔ',cn:'天上落下雨水'},{zi:'刮风',py:'guā fēng',cn:'风在吹'},{zi:'冬天',py:'dōng tiān',cn:'一年中最冷的季节'},{zi:'夏天',py:'xià tiān',cn:'一年中最热的季节'},{zi:'春天',py:'chūn tiān',cn:'一年的第一个季节'},{zi:'秋天',py:'qiū tiān',cn:'树叶变黄的季节'},{zi:'下雪',py:'xià xuě',cn:'天上落下雪花'}],
-    sentences:[{en:'It is sunny today.',cn:'今天是晴天。'},{en:'It often rains in spring.',cn:'春天经常下雨。'},{en:'The wind is blowing hard.',cn:'风刮得很大。'},{en:'It is very cold in winter.',cn:'冬天很冷。'},{en:'We can swim in summer.',cn:'夏天我们可以游泳。'},{en:'It is snowy and cold in winter.',cn:'冬天下雪又寒冷。'},{en:'Autumn leaves turn yellow and red.',cn:'秋天的叶子变黄变红。'},{en:'I like the cool weather in autumn.',cn:'我喜欢秋天凉爽的天气。'}],
+    words:[{en:'sunny',ph:'/ˈsʌni/',cn:'晴天的'},{en:'rainy',ph:'/ˈreɪni/',cn:'下雨的'},{en:'windy',ph:'/ˈwɪndi/',cn:'有风的'},{en:'winter',ph:'/ˈwɪntər/',cn:'冬天'},{en:'summer',ph:'/ˈsʌmər/',cn:'夏天'},{en:'cloudy',ph:'/ˈklaʊdi/',cn:'多云的'},{en:'snowy',ph:'/ˈsnoʊi/',cn:'下雪的'},{en:'spring',ph:'/sprɪŋ/',cn:'春天'},{en:'autumn',ph:'/ˈɔːtəm/',cn:'秋天'},{en:'hot',ph:'/hɑːt/',cn:'热的'},{en:'cold',ph:'/koʊld/',cn:'冷的'},{en:'warm',ph:'/wɔːrm/',cn:'温暖的'},{en:'cool',ph:'/kuːl/',cn:'凉爽的'},{en:'storm',ph:'/stɔːrm/',cn:'暴风雨'},{en:'rainbow',ph:'/ˈreɪnboʊ/',cn:'彩虹'},{en:'foggy',ph:'/ˈfɔːgi/',cn:'多雾的'},{en:'thunder',ph:'/ˈθʌndər/',cn:'雷'},{en:'lightning',ph:'/ˈlaɪtnɪŋ/',cn:'闪电'},{en:'temperature',ph:'/ˈtɛmprətʃər/',cn:'温度'},{en:'season',ph:'/ˈsiːzn/',cn:'季节'},{en:'umbrella',ph:'/ʌmˈbrɛlə/',cn:'雨伞'},{en:'humid',ph:'/ˈhjuːmɪd/',cn:'潮湿的'},{en:'dry',ph:'/draɪ/',cn:'干燥的'},{en:'breeze',ph:'/briːz/',cn:'微风'},{en:'ice',ph:'/aɪs/',cn:'冰'},{en:'snowman',ph:'/ˈsnoʊmæn/',cn:'雪人'},{en:'cloud',ph:'/klaʊd/',cn:'云'},{en:'sky',ph:'/skaɪ/',cn:'天空'},{en:'sun',ph:'/sʌn/',cn:'太阳'},{en:'moon',ph:'/muːn/',cn:'月亮'},{en:'star',ph:'/stɑːr/',cn:'星星'},{en:'hail',ph:'/heɪl/',cn:'冰雹'},{en:'freezing',ph:'/ˈfriːzɪŋ/',cn:'冰冻的；极冷的'},{en:'mild',ph:'/maɪld/',cn:'温和的'},{en:'forecast',ph:'/ˈfɔːrkæst/',cn:'天气预报'}],
+    hanzi:[{zi:'晴天',py:'qíng tiān',cn:'没有云的天气'},{zi:'下雨',py:'xià yǔ',cn:'天上落下雨水'},{zi:'刮风',py:'guā fēng',cn:'风在吹'},{zi:'冬天',py:'dōng tiān',cn:'一年中最冷的季节'},{zi:'夏天',py:'xià tiān',cn:'一年中最热的季节'},{zi:'春天',py:'chūn tiān',cn:'一年的第一个季节'},{zi:'秋天',py:'qiū tiān',cn:'树叶变黄的季节'},{zi:'下雪',py:'xià xuě',cn:'天上落下雪花'},{zi:'打雷',py:'dǎ léi',cn:'打雷是下雨前天空发出的轰隆声。'},{zi:'闪电',py:'shǎn diàn',cn:'闪电是暴风雨时天空中出现的亮光。'},{zi:'大雾',py:'dà wù',cn:'大雾让我们看不清远处的东西。'},{zi:'彩虹',py:'cǎi hóng',cn:'彩虹是雨后天空出现的美丽弧形。'},{zi:'雨伞',py:'yǔ sǎn',cn:'雨伞可以帮助我们在下雨天挡雨。'},{zi:'雪人',py:'xuě rén',cn:'雪人是用雪堆成的可爱人形。'},{zi:'天气预报',py:'tiān qì yù bào',cn:'天气预报告诉我们明天会是什么天气。'},{zi:'温度',py:'wēn dù',cn:'温度表示天气是冷还是热。'},{zi:'冰雹',py:'bīng báo',cn:'冰雹是从天上掉下来的小冰块。'},{zi:'微风',py:'wēi fēng',cn:'微风是轻轻吹过脸颊的风。'},{zi:'多云',py:'duō yún',cn:'多云的时候天空中有很多云朵。'},{zi:'结冰',py:'jié bīng',cn:'天气非常冷的时候水会结冰。'}],
+    sentences:[{en:'It is sunny today.',cn:'今天是晴天。'},{en:'It often rains in spring.',cn:'春天经常下雨。'},{en:'The wind is blowing hard.',cn:'风刮得很大。'},{en:'It is very cold in winter.',cn:'冬天很冷。'},{en:'We can swim in summer.',cn:'夏天我们可以游泳。'},{en:'It is snowy and cold in winter.',cn:'冬天下雪又寒冷。'},{en:'Autumn leaves turn yellow and red.',cn:'秋天的叶子变黄变红。'},{en:'I like the cool weather in autumn.',cn:'我喜欢秋天凉爽的天气。'},{en:'I hear thunder before the rain starts.',cn:'下雨之前我听到了雷声。'},{en:'The lightning lit up the dark sky.',cn:'闪电照亮了黑暗的天空。'},{en:'I bring my umbrella on rainy days.',cn:'下雨天我会带上雨伞。'},{en:'We built a snowman in the garden.',cn:'我们在花园里堆了一个雪人。'},{en:'The weather forecast says it will rain tomorrow.',cn:'天气预报说明天会下雨。'},{en:'The morning breeze feels very nice.',cn:'早晨的微风感觉很舒服。'},{en:'It is foggy outside this morning.',cn:'今天早上外面有雾。'},{en:'The sky is full of white clouds.',cn:'天空中布满了白云。'},{en:'The sun is shining brightly today.',cn:'今天阳光明媚。'},{en:'We can see many stars at night.',cn:'晚上我们可以看到很多星星。'},{en:'The air feels dry in autumn.',cn:'秋天的空气感觉很干燥。'},{en:'The lake freezes when it is very cold.',cn:'天气很冷的时候湖水会结冰。'}],
     mathNoun:'umbrellas',
     reading:{title:'春天来了',text:'春天到了，天气渐渐暖和起来。小草变绿了，花儿也开了。有时候会下一点小雨，滋润着大地。',question:'春天的天气有什么变化？',optA:'渐渐暖和',optB:'越来越冷',answer:'A'}},
   {id:'colors',name:'颜色',icon:'🎨',
-    words:[{en:'red',ph:'/red/',cn:'红色'},{en:'blue',ph:'/bluː/',cn:'蓝色'},{en:'yellow',ph:'/ˈjeloʊ/',cn:'黄色'},{en:'green',ph:'/ɡriːn/',cn:'绿色'},{en:'purple',ph:'/ˈpɜːrpl/',cn:'紫色'},{en:'orange',ph:'/ˈɔːrɪndʒ/',cn:'橙色'},{en:'pink',ph:'/pɪŋk/',cn:'粉色'},{en:'black',ph:'/blæk/',cn:'黑色'},{en:'white',ph:'/waɪt/',cn:'白色'},{en:'brown',ph:'/braʊn/',cn:'棕色'},{en:'gray',ph:'/ɡreɪ/',cn:'灰色'},{en:'gold',ph:'/ɡoʊld/',cn:'金色'},{en:'silver',ph:'/ˈsɪlvər/',cn:'银色'},{en:'bright',ph:'/braɪt/',cn:'明亮的'},{en:'dark',ph:'/dɑːrk/',cn:'深色的'}],
-    hanzi:[{zi:'红色',py:'hóng sè',cn:'像太阳一样的颜色'},{zi:'蓝色',py:'lán sè',cn:'像天空一样的颜色'},{zi:'黄色',py:'huáng sè',cn:'像香蕉一样的颜色'},{zi:'绿色',py:'lǜ sè',cn:'像树叶一样的颜色'},{zi:'彩虹',py:'cǎi hóng',cn:'雨后天空的七彩桥'},{zi:'橙色',py:'chéng sè',cn:'像橙子一样的颜色'},{zi:'黑色',py:'hēi sè',cn:'像夜晚一样的颜色'},{zi:'白色',py:'bái sè',cn:'像雪一样的颜色'}],
-    sentences:[{en:'The sky is blue.',cn:'天空是蓝色的。'},{en:'The apple is red.',cn:'苹果是红色的。'},{en:'The banana is yellow.',cn:'香蕉是黄色的。'},{en:'The grass is green.',cn:'草是绿色的。'},{en:'I like the color purple.',cn:'我喜欢紫色。'},{en:'The orange is orange in color.',cn:'橙子是橙色的。'},{en:'My cat is black and white.',cn:'我的猫是黑白色的。'},{en:'Gold and silver are precious colors.',cn:'金色和银色是珍贵的颜色。'}],
+    words:[{en:'red',ph:'/red/',cn:'红色'},{en:'blue',ph:'/bluː/',cn:'蓝色'},{en:'yellow',ph:'/ˈjeloʊ/',cn:'黄色'},{en:'green',ph:'/ɡriːn/',cn:'绿色'},{en:'purple',ph:'/ˈpɜːrpl/',cn:'紫色'},{en:'orange',ph:'/ˈɔːrɪndʒ/',cn:'橙色'},{en:'pink',ph:'/pɪŋk/',cn:'粉色'},{en:'black',ph:'/blæk/',cn:'黑色'},{en:'white',ph:'/waɪt/',cn:'白色'},{en:'brown',ph:'/braʊn/',cn:'棕色'},{en:'gray',ph:'/ɡreɪ/',cn:'灰色'},{en:'gold',ph:'/ɡoʊld/',cn:'金色'},{en:'silver',ph:'/ˈsɪlvər/',cn:'银色'},{en:'bright',ph:'/braɪt/',cn:'明亮的'},{en:'dark',ph:'/dɑːrk/',cn:'深色的'},{en:'turquoise',ph:'/ˈtɜːrkwɔɪz/',cn:'青绿色'},{en:'violet',ph:'/ˈvaɪələt/',cn:'紫罗兰色'},{en:'indigo',ph:'/ˈɪndɪɡoʊ/',cn:'靛蓝色'},{en:'lavender',ph:'/ˈlævəndər/',cn:'淡紫色'},{en:'beige',ph:'/beɪʒ/',cn:'米色'},{en:'cream',ph:'/kriːm/',cn:'奶油色'},{en:'maroon',ph:'/məˈruːn/',cn:'栗色'},{en:'magenta',ph:'/məˈdʒɛntə/',cn:'洋红色'},{en:'navy',ph:'/ˈneɪvi/',cn:'藏青色'},{en:'olive',ph:'/ˈɑːlɪv/',cn:'橄榄色'},{en:'coral',ph:'/ˈkɔːrəl/',cn:'珊瑚色'},{en:'amber',ph:'/ˈæmbər/',cn:'琥珀色'},{en:'rainbow',ph:'/ˈreɪnboʊ/',cn:'彩虹'},{en:'crayon',ph:'/ˈkreɪɑːn/',cn:'蜡笔'},{en:'paint',ph:'/peɪnt/',cn:'颜料'},{en:'color',ph:'/ˈkʌlər/',cn:'颜色'},{en:'colorful',ph:'/ˈkʌlərfəl/',cn:'彩色的'},{en:'pale',ph:'/peɪl/',cn:'淡色的'},{en:'light blue',ph:'/ˈlaɪt ˈbluː/',cn:'浅蓝色'},{en:'sky blue',ph:'/ˈskaɪ ˈbluː/',cn:'天蓝色'}],
+    hanzi:[{zi:'红色',py:'hóng sè',cn:'像太阳一样的颜色'},{zi:'蓝色',py:'lán sè',cn:'像天空一样的颜色'},{zi:'黄色',py:'huáng sè',cn:'像香蕉一样的颜色'},{zi:'绿色',py:'lǜ sè',cn:'像树叶一样的颜色'},{zi:'彩虹',py:'cǎi hóng',cn:'雨后天空的七彩桥'},{zi:'橙色',py:'chéng sè',cn:'像橙子一样的颜色'},{zi:'黑色',py:'hēi sè',cn:'像夜晚一样的颜色'},{zi:'白色',py:'bái sè',cn:'像雪一样的颜色'},{zi:'紫色',py:'zǐ sè',cn:'紫色是红色和蓝色混合成的颜色。'},{zi:'棕色',py:'zōng sè',cn:'棕色是像巧克力一样的颜色。'},{zi:'灰色',py:'huī sè',cn:'灰色是黑色和白色混合成的颜色。'},{zi:'粉色',py:'fěn sè',cn:'粉色是浅浅的红色，很可爱。'},{zi:'金色',py:'jīn sè',cn:'金色像太阳一样闪闪发光。'},{zi:'银色',py:'yín sè',cn:'银色像月亮一样明亮。'},{zi:'天蓝色',py:'tiān lán sè',cn:'天蓝色是天空的颜色。'},{zi:'草绿色',py:'cǎo lǜ sè',cn:'草绿色是小草的颜色。'},{zi:'深色',py:'shēn sè',cn:'深色是比较暗的颜色。'},{zi:'浅色',py:'qiǎn sè',cn:'浅色是比较淡的颜色。'},{zi:'颜色',py:'yán sè',cn:'颜色让世界变得更美丽。'},{zi:'画画',py:'huà huà',cn:'画画的时候要用到很多颜色。'}],
+    sentences:[{en:'The sky is blue.',cn:'天空是蓝色的。'},{en:'The apple is red.',cn:'苹果是红色的。'},{en:'The banana is yellow.',cn:'香蕉是黄色的。'},{en:'The grass is green.',cn:'草是绿色的。'},{en:'I like the color purple.',cn:'我喜欢紫色。'},{en:'The orange is orange in color.',cn:'橙子是橙色的。'},{en:'My cat is black and white.',cn:'我的猫是黑白色的。'},{en:'Gold and silver are precious colors.',cn:'金色和银色是珍贵的颜色。'},{en:'The flowers are pink and white.',cn:'花朵是粉色和白色的。'},{en:'My new bag is brown.',cn:'我的新书包是棕色的。'},{en:'The elephant is gray.',cn:'大象是灰色的。'},{en:'I painted the sun in bright yellow.',cn:'我把太阳画成了明亮的黄色。'},{en:'The night sky is dark and full of stars.',cn:'夜空又黑又布满星星。'},{en:'She has a beautiful rainbow umbrella.',cn:'她有一把漂亮的彩虹伞。'},{en:'The lavender flowers smell very nice.',cn:'淡紫色的花闻起来很香。'},{en:'We mixed red and yellow to make orange.',cn:'我们把红色和黄色混合做成了橙色。'},{en:'His shoes are navy blue.',cn:'他的鞋子是藏青色的。'},{en:'The coral in the sea is very colorful.',cn:'海里的珊瑚非常多彩。'},{en:'I drew a picture with many bright colors.',cn:'我用很多鲜艳的颜色画了一幅画。'},{en:'The cream curtains make the room look warm.',cn:'奶油色的窗帘让房间看起来很温暖。'}],
     mathNoun:'crayons',
     reading:{title:'美丽的彩虹',text:'下雨后，天空出现了一道美丽的彩虹。彩虹有红色、黄色、绿色、蓝色等好多种颜色，小朋友们都开心地看着它。',question:'彩虹是什么时候出现的？',optA:'下雨后',optB:'下雪后',answer:'A'}},
   {id:'jobs',name:'职业',icon:'👩‍⚕️',
-    words:[{en:'doctor',ph:'/ˈdɑːktər/',cn:'医生'},{en:'nurse',ph:'/nɜːrs/',cn:'护士'},{en:'farmer',ph:'/ˈfɑːrmər/',cn:'农民'},{en:'police officer',ph:'/pəˈliːs/',cn:'警察'},{en:'driver',ph:'/ˈdraɪvər/',cn:'司机'},{en:'cook',ph:'/kʊk/',cn:'厨师'},{en:'singer',ph:'/ˈsɪŋər/',cn:'歌手'},{en:'artist',ph:'/ˈɑːrtɪst/',cn:'艺术家'},{en:'engineer',ph:'/ˌendʒɪˈnɪr/',cn:'工程师'},{en:'pilot',ph:'/ˈpaɪlət/',cn:'飞行员'},{en:'firefighter',ph:'/ˈfaɪərfaɪtər/',cn:'消防员'},{en:'scientist',ph:'/ˈsaɪəntɪst/',cn:'科学家'},{en:'writer',ph:'/ˈraɪtər/',cn:'作家'},{en:'dancer',ph:'/ˈdænsər/',cn:'舞蹈家'},{en:'cleaner',ph:'/ˈkliːnər/',cn:'清洁工'}],
-    hanzi:[{zi:'医生',py:'yī shēng',cn:'治病救人的人'},{zi:'护士',py:'hù shi',cn:'照顾病人的人'},{zi:'农民',py:'nóng mín',cn:'种田的人'},{zi:'警察',py:'jǐng chá',cn:'维护治安的人'},{zi:'司机',py:'sī jī',cn:'开车的人'},{zi:'消防员',py:'xiāo fáng yuán',cn:'救火的人'},{zi:'厨师',py:'chú shī',cn:'做饭的人'},{zi:'科学家',py:'kē xué jiā',cn:'做科学研究的人'}],
-    sentences:[{en:'The doctor helps sick people.',cn:'医生帮助生病的人。'},{en:'The nurse takes care of patients.',cn:'护士照顾病人。'},{en:'The farmer grows vegetables.',cn:'农民种蔬菜。'},{en:'The police officer keeps us safe.',cn:'警察保护我们的安全。'},{en:'The driver drives the bus carefully.',cn:'司机小心地开车。'},{en:'The firefighter puts out the fire bravely.',cn:'消防员勇敢地灭火。'},{en:'My uncle is a very good cook.',cn:'我叔叔是一位很棒的厨师。'},{en:'The scientist works hard in the lab.',cn:'科学家在实验室里努力工作。'}],
+    words:[{en:'doctor',ph:'/ˈdɑːktər/',cn:'医生'},{en:'nurse',ph:'/nɜːrs/',cn:'护士'},{en:'farmer',ph:'/ˈfɑːrmər/',cn:'农民'},{en:'police officer',ph:'/pəˈliːs/',cn:'警察'},{en:'driver',ph:'/ˈdraɪvər/',cn:'司机'},{en:'cook',ph:'/kʊk/',cn:'厨师'},{en:'singer',ph:'/ˈsɪŋər/',cn:'歌手'},{en:'artist',ph:'/ˈɑːrtɪst/',cn:'艺术家'},{en:'engineer',ph:'/ˌendʒɪˈnɪr/',cn:'工程师'},{en:'pilot',ph:'/ˈpaɪlət/',cn:'飞行员'},{en:'firefighter',ph:'/ˈfaɪərfaɪtər/',cn:'消防员'},{en:'scientist',ph:'/ˈsaɪəntɪst/',cn:'科学家'},{en:'writer',ph:'/ˈraɪtər/',cn:'作家'},{en:'dancer',ph:'/ˈdænsər/',cn:'舞蹈家'},{en:'cleaner',ph:'/ˈkliːnər/',cn:'清洁工'},{en:'teacher',ph:'/ˈtiːtʃər/',cn:'老师'},{en:'student',ph:'/ˈstuːdnt/',cn:'学生'},{en:'vet',ph:'/vɛt/',cn:'兽医'},{en:'dentist',ph:'/ˈdɛntɪst/',cn:'牙医'},{en:'librarian',ph:'/laɪˈbrɛriən/',cn:'图书管理员'},{en:'waiter',ph:'/ˈweɪtər/',cn:'服务员'},{en:'baker',ph:'/ˈbeɪkər/',cn:'面包师'},{en:'builder',ph:'/ˈbɪldər/',cn:'建筑工人'},{en:'carpenter',ph:'/ˈkɑːrpəntər/',cn:'木匠'},{en:'mechanic',ph:'/məˈkænɪk/',cn:'机械师'},{en:'electrician',ph:'/ɪˌlɛkˈtrɪʃən/',cn:'电工'},{en:'photographer',ph:'/fəˈtɑːɡrəfər/',cn:'摄影师'},{en:'musician',ph:'/mjuˈzɪʃən/',cn:'音乐家'},{en:'actor',ph:'/ˈæktər/',cn:'演员'},{en:'coach',ph:'/koʊtʃ/',cn:'教练'},{en:'guard',ph:'/ɡɑːrd/',cn:'保安'},{en:'postman',ph:'/ˈpoʊstmən/',cn:'邮递员'},{en:'judge',ph:'/dʒʌdʒ/',cn:'法官'},{en:'lawyer',ph:'/ˈlɔɪər/',cn:'律师'},{en:'astronaut',ph:'/ˈæstrəˌnɔːt/',cn:'宇航员'}],
+    hanzi:[{zi:'医生',py:'yī shēng',cn:'治病救人的人'},{zi:'护士',py:'hù shi',cn:'照顾病人的人'},{zi:'农民',py:'nóng mín',cn:'种田的人'},{zi:'警察',py:'jǐng chá',cn:'维护治安的人'},{zi:'司机',py:'sī jī',cn:'开车的人'},{zi:'消防员',py:'xiāo fáng yuán',cn:'救火的人'},{zi:'厨师',py:'chú shī',cn:'做饭的人'},{zi:'科学家',py:'kē xué jiā',cn:'做科学研究的人'},{zi:'老师',py:'lǎo shī',cn:'老师在学校教我们知识。'},{zi:'工程师',py:'gōng chéng shī',cn:'工程师会设计和建造东西。'},{zi:'飞行员',py:'fēi xíng yuán',cn:'飞行员开飞机送大家去很多地方。'},{zi:'歌手',py:'gē shǒu',cn:'歌手会在舞台上唱歌。'},{zi:'画家',py:'huà jiā',cn:'画家喜欢用颜色画出美丽的画。'},{zi:'作家',py:'zuò jiā',cn:'作家会写很多有趣的故事。'},{zi:'舞蹈家',py:'wǔ dǎo jiā',cn:'舞蹈家跳舞跳得非常好看。'},{zi:'牙医',py:'yá yī',cn:'牙医帮我们检查和保护牙齿。'},{zi:'兽医',py:'shòu yī',cn:'兽医专门给小动物看病。'},{zi:'面包师',py:'miàn bāo shī',cn:'面包师每天早上烤新鲜的面包。'},{zi:'邮递员',py:'yóu dì yuán',cn:'邮递员把信件送到我们家。'},{zi:'宇航员',py:'yǔ háng yuán',cn:'宇航员可以坐火箭飞到太空。'}],
+    sentences:[{en:'The doctor helps sick people.',cn:'医生帮助生病的人。'},{en:'The nurse takes care of patients.',cn:'护士照顾病人。'},{en:'The farmer grows vegetables.',cn:'农民种蔬菜。'},{en:'The police officer keeps us safe.',cn:'警察保护我们的安全。'},{en:'The driver drives the bus carefully.',cn:'司机小心地开车。'},{en:'The firefighter puts out the fire bravely.',cn:'消防员勇敢地灭火。'},{en:'My uncle is a very good cook.',cn:'我叔叔是一位很棒的厨师。'},{en:'The scientist works hard in the lab.',cn:'科学家在实验室里努力工作。'},{en:'The teacher reads a story to the class.',cn:'老师给全班同学读故事。'},{en:'The vet took good care of my puppy.',cn:'兽医把我的小狗照顾得很好。'},{en:'The dentist checks my teeth every year.',cn:'牙医每年都给我检查牙齿。'},{en:'The baker makes fresh bread every morning.',cn:'面包师每天早上做新鲜的面包。'},{en:'The pilot flies the plane high in the sky.',cn:'飞行员驾驶飞机飞上高高的天空。'},{en:'The artist painted a beautiful picture of the mountains.',cn:'画家画了一幅美丽的山景画。'},{en:'The engineer built a strong new bridge.',cn:'工程师建造了一座坚固的新桥。'},{en:'The singer sang a lovely song for us.',cn:'歌手为我们唱了一首动听的歌。'},{en:'The writer wrote a fun story for children.',cn:'作家为孩子们写了一个有趣的故事。'},{en:'The dancer practices every day after school.',cn:'舞蹈家每天放学后都练习跳舞。'},{en:'My grandmother was a teacher for many years.',cn:'我奶奶当了很多年的老师。'},{en:'The astronaut traveled to space in a rocket.',cn:'宇航员乘坐火箭去了太空。'}],
     mathNoun:'buses',
     reading:{title:'辛苦的警察叔叔',text:'警察叔叔每天都要在路口指挥交通，帮助迷路的小朋友找到回家的路。他工作很辛苦，大家都很尊敬他。',question:'警察叔叔在做什么？',optA:'指挥交通',optB:'看电视',answer:'A'}},
   {id:'transport',name:'交通工具',icon:'🚌',
-    words:[{en:'car',ph:'/kɑːr/',cn:'汽车'},{en:'bus',ph:'/bʌs/',cn:'公交车'},{en:'train',ph:'/treɪn/',cn:'火车'},{en:'bike',ph:'/baɪk/',cn:'自行车'},{en:'plane',ph:'/pleɪn/',cn:'飞机'},{en:'ship',ph:'/ʃɪp/',cn:'轮船'},{en:'boat',ph:'/boʊt/',cn:'小船'},{en:'taxi',ph:'/ˈtæksi/',cn:'出租车'},{en:'truck',ph:'/trʌk/',cn:'卡车'},{en:'subway',ph:'/ˈsʌbweɪ/',cn:'地铁'},{en:'motorcycle',ph:'/ˈmoʊtərsaɪkl/',cn:'摩托车'},{en:'helicopter',ph:'/ˈhelɪkɑːptər/',cn:'直升机'},{en:'scooter',ph:'/ˈskuːtər/',cn:'滑板车'},{en:'ferry',ph:'/ˈferi/',cn:'渡轮'},{en:'rocket',ph:'/ˈrɑːkɪt/',cn:'火箭'}],
-    hanzi:[{zi:'汽车',py:'qì chē',cn:'有轮子的交通工具'},{zi:'公交车',py:'gōng jiāo chē',cn:'载很多人的车'},{zi:'火车',py:'huǒ chē',cn:'在铁轨上跑的车'},{zi:'自行车',py:'zì xíng chē',cn:'用脚踩的车'},{zi:'飞机',py:'fēi jī',cn:'在天上飞的交通工具'},{zi:'地铁',py:'dì tiě',cn:'在地下跑的火车'},{zi:'轮船',py:'lún chuán',cn:'在水上航行的大船'},{zi:'摩托车',py:'mó tuō chē',cn:'两个轮子的机动车'}],
-    sentences:[{en:'I go to school by bus.',cn:'我坐公交车上学。'},{en:'The train is very fast.',cn:'火车很快。'},{en:'She rides her bike to the park.',cn:'她骑自行车去公园。'},{en:'We took a plane to Beijing.',cn:'我们坐飞机去北京。'},{en:'My father drives a car to work.',cn:'我爸爸开车上班。'},{en:'We take the subway to the city center.',cn:'我们坐地铁去市中心。'},{en:'The ship sails across the ocean.',cn:'轮船在海洋上航行。'},{en:'He rides a motorcycle to work.',cn:'他骑摩托车去上班。'}],
+    words:[{en:'car',ph:'/kɑːr/',cn:'汽车'},{en:'bus',ph:'/bʌs/',cn:'公交车'},{en:'train',ph:'/treɪn/',cn:'火车'},{en:'bike',ph:'/baɪk/',cn:'自行车'},{en:'plane',ph:'/pleɪn/',cn:'飞机'},{en:'ship',ph:'/ʃɪp/',cn:'轮船'},{en:'boat',ph:'/boʊt/',cn:'小船'},{en:'taxi',ph:'/ˈtæksi/',cn:'出租车'},{en:'truck',ph:'/trʌk/',cn:'卡车'},{en:'subway',ph:'/ˈsʌbweɪ/',cn:'地铁'},{en:'motorcycle',ph:'/ˈmoʊtərsaɪkl/',cn:'摩托车'},{en:'helicopter',ph:'/ˈhelɪkɑːptər/',cn:'直升机'},{en:'scooter',ph:'/ˈskuːtər/',cn:'滑板车'},{en:'ferry',ph:'/ˈferi/',cn:'渡轮'},{en:'rocket',ph:'/ˈrɑːkɪt/',cn:'火箭'},{en:'van',ph:'/væn/',cn:'面包车'},{en:'jeep',ph:'/dʒiːp/',cn:'吉普车'},{en:'tram',ph:'/træm/',cn:'有轨电车'},{en:'sailboat',ph:'/ˈseɪlboʊt/',cn:'帆船'},{en:'kayak',ph:'/ˈkaɪæk/',cn:'皮划艇'},{en:'skateboard',ph:'/ˈskeɪtbɔːrd/',cn:'滑板'},{en:'wheel',ph:'/wiːl/',cn:'轮子'},{en:'engine',ph:'/ˈɛndʒɪn/',cn:'发动机'},{en:'road',ph:'/roʊd/',cn:'道路'},{en:'bridge',ph:'/brɪdʒ/',cn:'桥'},{en:'airport',ph:'/ˈɛrpɔːrt/',cn:'机场'},{en:'station',ph:'/ˈsteɪʃən/',cn:'车站'},{en:'ticket',ph:'/ˈtɪkɪt/',cn:'车票'},{en:'traffic light',ph:'/ˈtræfɪk laɪt/',cn:'红绿灯'},{en:'passenger',ph:'/ˈpæsɪndʒər/',cn:'乘客'},{en:'speed',ph:'/spiːd/',cn:'速度'},{en:'cart',ph:'/kɑːrt/',cn:'手推车'},{en:'ambulance',ph:'/ˈæmbjələns/',cn:'救护车'},{en:'fire truck',ph:'/ˈfaɪər trʌk/',cn:'消防车'},{en:'cable car',ph:'/ˈkeɪbəl kɑːr/',cn:'缆车'}],
+    hanzi:[{zi:'汽车',py:'qì chē',cn:'有轮子的交通工具'},{zi:'公交车',py:'gōng jiāo chē',cn:'载很多人的车'},{zi:'火车',py:'huǒ chē',cn:'在铁轨上跑的车'},{zi:'自行车',py:'zì xíng chē',cn:'用脚踩的车'},{zi:'飞机',py:'fēi jī',cn:'在天上飞的交通工具'},{zi:'地铁',py:'dì tiě',cn:'在地下跑的火车'},{zi:'轮船',py:'lún chuán',cn:'在水上航行的大船'},{zi:'摩托车',py:'mó tuō chē',cn:'两个轮子的机动车'},{zi:'出租车',py:'chū zū chē',cn:'出租车可以载我们去想去的地方。'},{zi:'卡车',py:'kǎ chē',cn:'卡车可以装运很多货物。'},{zi:'直升机',py:'zhí shēng jī',cn:'直升机可以垂直起飞和降落。'},{zi:'滑板车',py:'huá bǎn chē',cn:'滑板车是一种很好玩的代步工具。'},{zi:'渡轮',py:'dù lún',cn:'渡轮载着乘客过河或过海。'},{zi:'火箭',py:'huǒ jiàn',cn:'火箭可以带宇航员飞上太空。'},{zi:'救护车',py:'jiù hù chē',cn:'救护车会快速送病人去医院。'},{zi:'消防车',py:'xiāo fáng chē',cn:'消防车会快速开去救火。'},{zi:'机场',py:'jī chǎng',cn:'机场是飞机起飞和降落的地方。'},{zi:'车站',py:'chē zhàn',cn:'车站是我们等车的地方。'},{zi:'红绿灯',py:'hóng lǜ dēng',cn:'红绿灯告诉我们什么时候可以走。'},{zi:'帆船',py:'fān chuán',cn:'帆船靠风的力量在水上行驶。'}],
+    sentences:[{en:'I go to school by bus.',cn:'我坐公交车上学。'},{en:'The train is very fast.',cn:'火车很快。'},{en:'She rides her bike to the park.',cn:'她骑自行车去公园。'},{en:'We took a plane to Beijing.',cn:'我们坐飞机去北京。'},{en:'My father drives a car to work.',cn:'我爸爸开车上班。'},{en:'We take the subway to the city center.',cn:'我们坐地铁去市中心。'},{en:'The ship sails across the ocean.',cn:'轮船在海洋上航行。'},{en:'He rides a motorcycle to work.',cn:'他骑摩托车去上班。'},{en:'The helicopter flies above the tall buildings.',cn:'直升机在高楼上空飞行。'},{en:'We waited for the bus at the station.',cn:'我们在车站等公交车。'},{en:'The ambulance rushed to help the patient.',cn:'救护车飞快地赶去帮助病人。'},{en:'My sister rides a scooter to school.',cn:'我妹妹骑滑板车去上学。'},{en:'The ferry carries people across the river.',cn:'渡轮载着人们过河。'},{en:'The rocket launched high into the sky.',cn:'火箭发射升上了高高的天空。'},{en:'We crossed the bridge to get to town.',cn:'我们过了桥才到城里。'},{en:'The taxi driver knows all the roads in the city.',cn:'出租车司机知道城里所有的路。'},{en:'The truck carries boxes to the store.',cn:'卡车把箱子运到商店。'},{en:'I bought a ticket before boarding the train.',cn:'我上火车前买了一张票。'},{en:'The airport was very busy this morning.',cn:'今天早上机场非常繁忙。'},{en:'The fire truck drove quickly to the fire.',cn:'消防车很快地开去救火。'}],
     mathNoun:'bikes',
     reading:{title:'坐火车去旅行',text:'暑假里，小刚和家人坐火车去旅行。火车开得很快，窗外的风景一闪而过。小刚开心极了。',question:'小刚一家坐什么去旅行？',optA:'火车',optB:'飞机',answer:'A'}},
   {id:'sports',name:'运动',icon:'⚽',
-    words:[{en:'run',ph:'/rʌn/',cn:'跑步'},{en:'jump',ph:'/dʒʌmp/',cn:'跳'},{en:'swim',ph:'/swɪm/',cn:'游泳'},{en:'football',ph:'/ˈfʊtbɔːl/',cn:'足球'},{en:'basketball',ph:'/ˈbæskɪtbɔːl/',cn:'篮球'},{en:'volleyball',ph:'/ˈvɑːlibɔːl/',cn:'排球'},{en:'tennis',ph:'/ˈtenɪs/',cn:'网球'},{en:'badminton',ph:'/ˈbædmɪntən/',cn:'羽毛球'},{en:'skate',ph:'/skeɪt/',cn:'滑冰'},{en:'ski',ph:'/skiː/',cn:'滑雪'},{en:'climb',ph:'/klaɪm/',cn:'攀爬'},{en:'ride',ph:'/raɪd/',cn:'骑'},{en:'dance',ph:'/dæns/',cn:'跳舞'},{en:'exercise',ph:'/ˈeksərsaɪz/',cn:'锻炼'},{en:'race',ph:'/reɪs/',cn:'比赛'}],
-    hanzi:[{zi:'跑步',py:'pǎo bù',cn:'用脚快速前进'},{zi:'跳绳',py:'tiào shéng',cn:'一种运动游戏'},{zi:'游泳',py:'yóu yǒng',cn:'在水里前进'},{zi:'足球',py:'zú qiú',cn:'用脚踢的球类运动'},{zi:'篮球',py:'lán qiú',cn:'投篮得分的运动'},{zi:'排球',py:'pái qiú',cn:'隔网对打的球类运动'},{zi:'滑冰',py:'huá bīng',cn:'在冰上滑行的运动'},{zi:'锻炼',py:'duàn liàn',cn:'增强体质的活动'}],
-    sentences:[{en:'I like to run every morning.',cn:'我喜欢每天早上跑步。'},{en:'He can swim very well.',cn:'他游泳游得很好。'},{en:'We play football after school.',cn:'我们放学后踢足球。'},{en:'She is good at basketball.',cn:'她篮球打得很好。'},{en:'Jumping rope is good exercise.',cn:'跳绳是很好的运动。'},{en:'I like playing volleyball with my friends.',cn:'我喜欢和朋友们打排球。'},{en:'She can skate very fast on the ice.',cn:'她能在冰上滑得很快。'},{en:'We exercise every morning to stay healthy.',cn:'我们每天早上锻炼保持健康。'}],
+    words:[{en:'run',ph:'/rʌn/',cn:'跑步'},{en:'jump',ph:'/dʒʌmp/',cn:'跳'},{en:'swim',ph:'/swɪm/',cn:'游泳'},{en:'football',ph:'/ˈfʊtbɔːl/',cn:'足球'},{en:'basketball',ph:'/ˈbæskɪtbɔːl/',cn:'篮球'},{en:'volleyball',ph:'/ˈvɑːlibɔːl/',cn:'排球'},{en:'tennis',ph:'/ˈtenɪs/',cn:'网球'},{en:'badminton',ph:'/ˈbædmɪntən/',cn:'羽毛球'},{en:'skate',ph:'/skeɪt/',cn:'滑冰'},{en:'ski',ph:'/skiː/',cn:'滑雪'},{en:'climb',ph:'/klaɪm/',cn:'攀爬'},{en:'ride',ph:'/raɪd/',cn:'骑'},{en:'dance',ph:'/dæns/',cn:'跳舞'},{en:'exercise',ph:'/ˈeksərsaɪz/',cn:'锻炼'},{en:'race',ph:'/reɪs/',cn:'比赛'},{en:'baseball',ph:'/ˈbeɪsbɔːl/',cn:'棒球'},{en:'golf',ph:'/ɡɑːlf/',cn:'高尔夫球'},{en:'hockey',ph:'/ˈhɑːki/',cn:'曲棍球'},{en:'gymnastics',ph:'/dʒɪmˈnæstɪks/',cn:'体操'},{en:'wrestle',ph:'/ˈrɛsəl/',cn:'摔跤'},{en:'throw',ph:'/θroʊ/',cn:'投掷'},{en:'catch',ph:'/kætʃ/',cn:'接住'},{en:'kick',ph:'/kɪk/',cn:'踢'},{en:'pitch',ph:'/pɪtʃ/',cn:'投球'},{en:'stretch',ph:'/strɛtʃ/',cn:'伸展'},{en:'team',ph:'/tiːm/',cn:'队伍'},{en:'coach',ph:'/koʊtʃ/',cn:'教练'},{en:'goal',ph:'/ɡoʊl/',cn:'进球/球门'},{en:'referee',ph:'/ˌrɛfəˈriː/',cn:'裁判'},{en:'medal',ph:'/ˈmɛdl/',cn:'奖牌'},{en:'champion',ph:'/ˈtʃæmpiən/',cn:'冠军'},{en:'stadium',ph:'/ˈsteɪdiəm/',cn:'体育场'},{en:'rope',ph:'/roʊp/',cn:'绳子'},{en:'ball',ph:'/bɔːl/',cn:'球'},{en:'win',ph:'/wɪn/',cn:'赢'}],
+    hanzi:[{zi:'跑步',py:'pǎo bù',cn:'用脚快速前进'},{zi:'跳绳',py:'tiào shéng',cn:'一种运动游戏'},{zi:'游泳',py:'yóu yǒng',cn:'在水里前进'},{zi:'足球',py:'zú qiú',cn:'用脚踢的球类运动'},{zi:'篮球',py:'lán qiú',cn:'投篮得分的运动'},{zi:'排球',py:'pái qiú',cn:'隔网对打的球类运动'},{zi:'滑冰',py:'huá bīng',cn:'在冰上滑行的运动'},{zi:'锻炼',py:'duàn liàn',cn:'增强体质的活动'},{zi:'棒球',py:'bàng qiú',cn:'棒球是用球棒打球的一种运动。'},{zi:'网球',py:'wǎng qiú',cn:'网球是用球拍打球的一种运动。'},{zi:'羽毛球',py:'yǔ máo qiú',cn:'羽毛球是用球拍打羽毛球的运动。'},{zi:'滑雪',py:'huá xuě',cn:'滑雪是在雪地上滑行的运动。'},{zi:'爬山',py:'pá shān',cn:'爬山可以锻炼身体，看到美丽的风景。'},{zi:'跳舞',py:'tiào wǔ',cn:'跳舞的时候身体会跟着音乐动起来。'},{zi:'体操',py:'tǐ cāo',cn:'体操需要身体又软又灵活。'},{zi:'冠军',py:'guàn jūn',cn:'冠军是比赛里得第一名的人。'},{zi:'教练',py:'jiào liàn',cn:'教练会教我们怎样做运动。'},{zi:'裁判',py:'cái pàn',cn:'裁判在比赛中判断输赢对错。'},{zi:'运动会',py:'yùn dòng huì',cn:'运动会是大家一起比赛运动的日子。'},{zi:'骑车',py:'qí chē',cn:'骑车是用脚踩踏板前进的运动。'}],
+    sentences:[{en:'I like to run every morning.',cn:'我喜欢每天早上跑步。'},{en:'He can swim very well.',cn:'他游泳游得很好。'},{en:'We play football after school.',cn:'我们放学后踢足球。'},{en:'She is good at basketball.',cn:'她篮球打得很好。'},{en:'Jumping rope is good exercise.',cn:'跳绳是很好的运动。'},{en:'I like playing volleyball with my friends.',cn:'我喜欢和朋友们打排球。'},{en:'She can skate very fast on the ice.',cn:'她能在冰上滑得很快。'},{en:'We exercise every morning to stay healthy.',cn:'我们每天早上锻炼保持健康。'},{en:'He plays baseball with his friends on weekends.',cn:'他周末和朋友们打棒球。'},{en:'She hits the tennis ball over the net.',cn:'她把网球打过了球网。'},{en:'We practice badminton in the gym.',cn:'我们在体育馆练习羽毛球。'},{en:'My brother learned to ski last winter.',cn:'我哥哥去年冬天学会了滑雪。'},{en:'They climbed the mountain slowly and carefully.',cn:'他们慢慢地、小心地爬上了山。'},{en:'The coach taught us how to throw the ball.',cn:'教练教我们怎样投球。'},{en:'Our team won the game and a shiny medal.',cn:'我们队赢了比赛，得到了一块闪亮的奖牌。'},{en:'The referee blew the whistle to start the match.',cn:'裁判吹哨开始了比赛。'},{en:'I stretch my body before I exercise.',cn:'我运动前会先做伸展。'},{en:'The stadium was full of cheering fans.',cn:'体育场里挤满了欢呼的观众。'},{en:'She can catch the ball with one hand.',cn:'她可以用一只手接住球。'},{en:'We ride our bikes around the park every weekend.',cn:'我们每个周末都骑自行车绕公园骑行。'}],
     mathNoun:'footballs',
     reading:{title:'运动会',text:'学校举行运动会，小朋友们参加了跑步、跳远和拔河比赛。大家你追我赶，非常热闹，最后小明得了跑步第一名。',question:'小明在什么项目中得了第一名？',optA:'跑步',optB:'跳远',answer:'A'}},
   {id:'nature',name:'大自然',icon:'🌳',
-    words:[{en:'tree',ph:'/triː/',cn:'树'},{en:'flower',ph:'/ˈflaʊər/',cn:'花'},{en:'river',ph:'/ˈrɪvər/',cn:'河流'},{en:'mountain',ph:'/ˈmaʊntən/',cn:'山'},{en:'sky',ph:'/skaɪ/',cn:'天空'},{en:'sea',ph:'/siː/',cn:'大海'},{en:'lake',ph:'/leɪk/',cn:'湖泊'},{en:'forest',ph:'/ˈfɔːrɪst/',cn:'森林'},{en:'grass',ph:'/ɡræs/',cn:'草'},{en:'stone',ph:'/stoʊn/',cn:'石头'},{en:'sun',ph:'/sʌn/',cn:'太阳'},{en:'moon',ph:'/muːn/',cn:'月亮'},{en:'star',ph:'/stɑːr/',cn:'星星'},{en:'cloud',ph:'/klaʊd/',cn:'云'},{en:'wind',ph:'/wɪnd/',cn:'风'}],
-    hanzi:[{zi:'大树',py:'dà shù',cn:'高大的树木'},{zi:'鲜花',py:'xiān huā',cn:'盛开的花朵'},{zi:'河流',py:'hé liú',cn:'流动的水'},{zi:'高山',py:'gāo shān',cn:'很高的山'},{zi:'天空',py:'tiān kōng',cn:'头顶上方的空间'},{zi:'森林',py:'sēn lín',cn:'树木很多的地方'},{zi:'大海',py:'dà hǎi',cn:'又大又蓝的海洋'},{zi:'月亮',py:'yuè liang',cn:'晚上挂在天上的星球'}],
-    sentences:[{en:'The tree is very tall.',cn:'这棵树很高。'},{en:'The flowers smell so sweet.',cn:'花闻起来很香。'},{en:'The river flows to the sea.',cn:'河流流向大海。'},{en:'The mountain is covered with snow.',cn:'山上覆盖着雪。'},{en:'The sky is full of stars at night.',cn:'夜晚的天空布满星星。'},{en:'The forest is full of tall trees.',cn:'森林里长满了高大的树木。'},{en:'The sea is deep and blue.',cn:'大海又深又蓝。'},{en:'The moon shines brightly at night.',cn:'月亮在夜晚发出明亮的光。'}],
+    words:[{en:'tree',ph:'/triː/',cn:'树'},{en:'flower',ph:'/ˈflaʊər/',cn:'花'},{en:'river',ph:'/ˈrɪvər/',cn:'河流'},{en:'mountain',ph:'/ˈmaʊntən/',cn:'山'},{en:'sky',ph:'/skaɪ/',cn:'天空'},{en:'sea',ph:'/siː/',cn:'大海'},{en:'lake',ph:'/leɪk/',cn:'湖泊'},{en:'forest',ph:'/ˈfɔːrɪst/',cn:'森林'},{en:'grass',ph:'/ɡræs/',cn:'草'},{en:'stone',ph:'/stoʊn/',cn:'石头'},{en:'sun',ph:'/sʌn/',cn:'太阳'},{en:'moon',ph:'/muːn/',cn:'月亮'},{en:'star',ph:'/stɑːr/',cn:'星星'},{en:'cloud',ph:'/klaʊd/',cn:'云'},{en:'wind',ph:'/wɪnd/',cn:'风'},{en:'rain',ph:'/reɪn/',cn:'雨'},{en:'snow',ph:'/snoʊ/',cn:'雪'},{en:'rainbow',ph:'/ˈreɪnboʊ/',cn:'彩虹'},{en:'leaf',ph:'/liːf/',cn:'叶子'},{en:'root',ph:'/ruːt/',cn:'根'},{en:'branch',ph:'/bræntʃ/',cn:'树枝'},{en:'seed',ph:'/siːd/',cn:'种子'},{en:'soil',ph:'/sɔɪl/',cn:'泥土'},{en:'rock',ph:'/rɑːk/',cn:'岩石'},{en:'sand',ph:'/sænd/',cn:'沙子'},{en:'island',ph:'/ˈaɪlənd/',cn:'岛屿'},{en:'valley',ph:'/ˈvæli/',cn:'山谷'},{en:'waterfall',ph:'/ˈwɔːtərfɔːl/',cn:'瀑布'},{en:'pond',ph:'/pɑːnd/',cn:'池塘'},{en:'desert',ph:'/ˈdɛzərt/',cn:'沙漠'},{en:'hill',ph:'/hɪl/',cn:'小山'},{en:'field',ph:'/fiːld/',cn:'田野'},{en:'bird',ph:'/bɜːrd/',cn:'鸟'},{en:'butterfly',ph:'/ˈbʌtərflaɪ/',cn:'蝴蝶'},{en:'breeze',ph:'/briːz/',cn:'微风'}],
+    hanzi:[{zi:'大树',py:'dà shù',cn:'高大的树木'},{zi:'鲜花',py:'xiān huā',cn:'盛开的花朵'},{zi:'河流',py:'hé liú',cn:'流动的水'},{zi:'高山',py:'gāo shān',cn:'很高的山'},{zi:'天空',py:'tiān kōng',cn:'头顶上方的空间'},{zi:'森林',py:'sēn lín',cn:'树木很多的地方'},{zi:'大海',py:'dà hǎi',cn:'又大又蓝的海洋'},{zi:'月亮',py:'yuè liang',cn:'晚上挂在天上的星球'},{zi:'小草',py:'xiǎo cǎo',cn:'小草是绿色的，长在地上。'},{zi:'石头',py:'shí tou',cn:'石头又硬又重，可以在地上找到。'},{zi:'太阳',py:'tài yáng',cn:'太阳在白天给我们光和温暖。'},{zi:'星星',py:'xīng xīng',cn:'星星在夜晚的天空里闪闪发光。'},{zi:'云朵',py:'yún duǒ',cn:'云朵在天空中飘来飘去。'},{zi:'微风',py:'wēi fēng',cn:'微风轻轻吹过，让人很舒服。'},{zi:'湖泊',py:'hú pō',cn:'湖泊是被陆地围住的一片水。'},{zi:'瀑布',py:'pù bù',cn:'瀑布是从高处流下来的水。'},{zi:'叶子',py:'yè zi',cn:'叶子长在树枝上，大多是绿色的。'},{zi:'雨水',py:'yǔ shuǐ',cn:'雨水从天空中落下来。'},{zi:'雪花',py:'xuě huā',cn:'雪花在冬天从天空飘落下来。'},{zi:'蝴蝶',py:'hú dié',cn:'蝴蝶有漂亮的翅膀，在花丛中飞舞。'}],
+    sentences:[{en:'The tree is very tall.',cn:'这棵树很高。'},{en:'The flowers smell so sweet.',cn:'花闻起来很香。'},{en:'The river flows to the sea.',cn:'河流流向大海。'},{en:'The mountain is covered with snow.',cn:'山上覆盖着雪。'},{en:'The sky is full of stars at night.',cn:'夜晚的天空布满星星。'},{en:'The forest is full of tall trees.',cn:'森林里长满了高大的树木。'},{en:'The sea is deep and blue.',cn:'大海又深又蓝。'},{en:'The moon shines brightly at night.',cn:'月亮在夜晚发出明亮的光。'},{en:'The leaves turn yellow in autumn.',cn:'树叶在秋天变黄了。'},{en:'It started to rain in the afternoon.',cn:'下午开始下雨了。'},{en:'The snow covered the whole field.',cn:'雪覆盖了整个田野。'},{en:'A butterfly landed on the yellow flower.',cn:'一只蝴蝶落在了黄色的花上。'},{en:'The waterfall makes a loud sound.',cn:'瀑布发出很大的声音。'},{en:'We planted a seed and watered it every day.',cn:'我们种了一颗种子，每天给它浇水。'},{en:'The birds sing happily in the trees.',cn:'鸟儿在树上快乐地歌唱。'},{en:'The wind blew gently across the field.',cn:'微风轻轻吹过田野。'},{en:'There is a small pond behind our house.',cn:'我们家后面有一个小池塘。'},{en:'The desert is very hot and dry.',cn:'沙漠非常炎热干燥。'},{en:'We walked up the hill to see the view.',cn:'我们爬上小山去看风景。'},{en:'The island is surrounded by clear blue water.',cn:'这座岛屿被清澈的蓝色海水围绕着。'}],
     mathNoun:'flowers',
     reading:{title:'美丽的大自然',text:'周末，小雨和爸爸去爬山。山上有很多大树和野花，山下有一条小河静静地流淌，风景美极了。',question:'山下有什么？',optA:'一条小河',optB:'一片沙滩',answer:'A'}},
   {id:'body',name:'身体',icon:'🖐️',
-    words:[{en:'head',ph:'/hed/',cn:'头'},{en:'hand',ph:'/hænd/',cn:'手'},{en:'foot',ph:'/fʊt/',cn:'脚'},{en:'eye',ph:'/aɪ/',cn:'眼睛'},{en:'ear',ph:'/ɪr/',cn:'耳朵'},{en:'nose',ph:'/noʊz/',cn:'鼻子'},{en:'mouth',ph:'/maʊθ/',cn:'嘴巴'},{en:'arm',ph:'/ɑːrm/',cn:'手臂'},{en:'leg',ph:'/leɡ/',cn:'腿'},{en:'finger',ph:'/ˈfɪŋɡər/',cn:'手指'},{en:'hair',ph:'/her/',cn:'头发'},{en:'tooth',ph:'/tuːθ/',cn:'牙齿'},{en:'shoulder',ph:'/ˈʃoʊldər/',cn:'肩膀'},{en:'knee',ph:'/niː/',cn:'膝盖'},{en:'back',ph:'/bæk/',cn:'背部'}],
-    hanzi:[{zi:'头发',py:'tóu fa',cn:'长在头上的毛'},{zi:'眼睛',py:'yǎn jing',cn:'用来看东西的器官'},{zi:'耳朵',py:'ěr duo',cn:'用来听声音的器官'},{zi:'手指',py:'shǒu zhǐ',cn:'手上的部位'},{zi:'脚趾',py:'jiǎo zhǐ',cn:'脚上的部位'},{zi:'鼻子',py:'bí zi',cn:'用来呼吸和闻气味的器官'},{zi:'嘴巴',py:'zuǐ ba',cn:'用来吃饭说话的器官'},{zi:'牙齿',py:'yá chǐ',cn:'用来咀嚼食物的器官'}],
-    sentences:[{en:'I wash my hands before eating.',cn:'吃饭前我要洗手。'},{en:'She has big beautiful eyes.',cn:'她有一双美丽的大眼睛。'},{en:'We use our ears to listen.',cn:'我们用耳朵听声音。'},{en:'He hurt his foot while playing.',cn:'他玩耍时弄伤了脚。'},{en:'Brush your teeth every morning.',cn:'每天早上要刷牙。'},{en:'My nose is a little red today.',cn:'我的鼻子今天有点红。'},{en:'Open your mouth and say ah.',cn:'张开嘴巴说啊。'},{en:'I brush my teeth twice a day.',cn:'我每天刷两次牙。'}],
+    words:[{en:'head',ph:'/hed/',cn:'头'},{en:'hand',ph:'/hænd/',cn:'手'},{en:'foot',ph:'/fʊt/',cn:'脚'},{en:'eye',ph:'/aɪ/',cn:'眼睛'},{en:'ear',ph:'/ɪr/',cn:'耳朵'},{en:'nose',ph:'/noʊz/',cn:'鼻子'},{en:'mouth',ph:'/maʊθ/',cn:'嘴巴'},{en:'arm',ph:'/ɑːrm/',cn:'手臂'},{en:'leg',ph:'/leɡ/',cn:'腿'},{en:'finger',ph:'/ˈfɪŋɡər/',cn:'手指'},{en:'hair',ph:'/her/',cn:'头发'},{en:'tooth',ph:'/tuːθ/',cn:'牙齿'},{en:'shoulder',ph:'/ˈʃoʊldər/',cn:'肩膀'},{en:'knee',ph:'/niː/',cn:'膝盖'},{en:'back',ph:'/bæk/',cn:'背部'},{en:'elbow',ph:'/ˈɛlboʊ/',cn:'手肘'},{en:'wrist',ph:'/rɪst/',cn:'手腕'},{en:'ankle',ph:'/ˈæŋkəl/',cn:'脚踝'},{en:'chest',ph:'/tʃɛst/',cn:'胸'},{en:'stomach',ph:'/ˈstʌmək/',cn:'肚子'},{en:'neck',ph:'/nɛk/',cn:'脖子'},{en:'chin',ph:'/tʃɪn/',cn:'下巴'},{en:'cheek',ph:'/tʃiːk/',cn:'脸颊'},{en:'eyebrow',ph:'/ˈaɪbraʊ/',cn:'眉毛'},{en:'eyelash',ph:'/ˈaɪlæʃ/',cn:'睫毛'},{en:'thumb',ph:'/θʌm/',cn:'大拇指'},{en:'toe',ph:'/toʊ/',cn:'脚趾'},{en:'palm',ph:'/pɑːm/',cn:'手掌'},{en:'heel',ph:'/hiːl/',cn:'脚后跟'},{en:'waist',ph:'/weɪst/',cn:'腰'},{en:'hip',ph:'/hɪp/',cn:'臀部'},{en:'lip',ph:'/lɪp/',cn:'嘴唇'},{en:'tongue',ph:'/tʌŋ/',cn:'舌头'},{en:'skin',ph:'/skɪn/',cn:'皮肤'},{en:'nail',ph:'/neɪl/',cn:'指甲'}],
+    hanzi:[{zi:'头发',py:'tóu fa',cn:'长在头上的毛'},{zi:'眼睛',py:'yǎn jing',cn:'用来看东西的器官'},{zi:'耳朵',py:'ěr duo',cn:'用来听声音的器官'},{zi:'手指',py:'shǒu zhǐ',cn:'手上的部位'},{zi:'脚趾',py:'jiǎo zhǐ',cn:'脚上的部位'},{zi:'鼻子',py:'bí zi',cn:'用来呼吸和闻气味的器官'},{zi:'嘴巴',py:'zuǐ ba',cn:'用来吃饭说话的器官'},{zi:'牙齿',py:'yá chǐ',cn:'用来咀嚼食物的器官'},{zi:'手肘',py:'shǒu zhǒu',cn:'手臂中间可以弯曲的地方。'},{zi:'手腕',py:'shǒu wàn',cn:'手和手臂连接的地方。'},{zi:'脚踝',py:'jiǎo huái',cn:'腿和脚连接的地方。'},{zi:'肚子',py:'dù zi',cn:'身体前面装食物的地方。'},{zi:'脖子',py:'bó zi',cn:'连接头和身体的部分。'},{zi:'下巴',py:'xià ba',cn:'脸的最下面的部分。'},{zi:'脸颊',py:'liǎn jiá',cn:'脸两边软软的地方。'},{zi:'眉毛',py:'méi mao',cn:'长在眼睛上面的毛。'},{zi:'睫毛',py:'jié máo',cn:'长在眼皮边上的小毛。'},{zi:'大拇指',py:'dà mǔ zhǐ',cn:'手上最粗的那个手指。'},{zi:'手掌',py:'shǒu zhǎng',cn:'手心那一面。'},{zi:'嘴唇',py:'zuǐ chún',cn:'嘴巴周围软软的皮肤。'}],
+    sentences:[{en:'I wash my hands before eating.',cn:'吃饭前我要洗手。'},{en:'She has big beautiful eyes.',cn:'她有一双美丽的大眼睛。'},{en:'We use our ears to listen.',cn:'我们用耳朵听声音。'},{en:'He hurt his foot while playing.',cn:'他玩耍时弄伤了脚。'},{en:'Brush your teeth every morning.',cn:'每天早上要刷牙。'},{en:'My nose is a little red today.',cn:'我的鼻子今天有点红。'},{en:'Open your mouth and say ah.',cn:'张开嘴巴说啊。'},{en:'I brush my teeth twice a day.',cn:'我每天刷两次牙。'},{en:'My elbow hurts a little after I fell down.',cn:'我摔倒后手肘有点疼。'},{en:'She touched her toes with her fingers.',cn:'她用手指碰到了自己的脚趾。'},{en:'He wears a watch on his wrist.',cn:'他的手腕上戴着一块手表。'},{en:'I twisted my ankle while running.',cn:'我跑步时扭伤了脚踝。'},{en:'The doctor listened to his chest.',cn:'医生听了听他的胸口。'},{en:'My stomach feels full after dinner.',cn:'吃完晚饭后我的肚子感觉饱饱的。'},{en:'She wrapped a scarf around her neck.',cn:'她在脖子上围了一条围巾。'},{en:'He has a small dimple on his chin.',cn:'他的下巴上有一个小酒窝。'},{en:'Her cheeks turn red when she smiles.',cn:'她笑起来的时候脸颊会变红。'},{en:'He raised his eyebrows in surprise.',cn:'他惊讶地扬起了眉毛。'},{en:'I use my thumb to turn the pages.',cn:'我用大拇指翻书页。'},{en:'He painted his nails a bright color.',cn:'他把指甲涂成了鲜艳的颜色。'}],
     mathNoun:'fingers',
     reading:{title:'爱干净的乐乐',text:'乐乐每天早上起床后都会认真刷牙、洗脸、洗手，保持身体干净整洁。妈妈夸他是个讲卫生的好孩子。',question:'乐乐每天早上做什么？',optA:'刷牙洗脸洗手',optB:'看电视',answer:'A'}},
   {id:'shopping',name:'购物',icon:'🛒',
-    words:[{en:'money',ph:'/ˈmʌni/',cn:'钱'},{en:'shop',ph:'/ʃɑːp/',cn:'商店'},{en:'buy',ph:'/baɪ/',cn:'买'},{en:'price',ph:'/praɪs/',cn:'价格'},{en:'basket',ph:'/ˈbæskɪt/',cn:'篮子'},{en:'sell',ph:'/sel/',cn:'卖'},{en:'cheap',ph:'/tʃiːp/',cn:'便宜的'},{en:'expensive',ph:'/ɪkˈspensɪv/',cn:'昂贵的'},{en:'gift',ph:'/ɡɪft/',cn:'礼物'},{en:'coin',ph:'/kɔɪn/',cn:'硬币'},{en:'wallet',ph:'/ˈwɑːlɪt/',cn:'钱包'},{en:'mall',ph:'/mɔːl/',cn:'商场'},{en:'cashier',ph:'/kæˈʃɪr/',cn:'收银员'},{en:'discount',ph:'/ˈdɪskaʊnt/',cn:'折扣'},{en:'receipt',ph:'/rɪˈsiːt/',cn:'收据'}],
-    hanzi:[{zi:'商店',py:'shāng diàn',cn:'卖东西的地方'},{zi:'价格',py:'jià gé',cn:'东西的价钱'},{zi:'购物',py:'gòu wù',cn:'买东西'},{zi:'顾客',py:'gù kè',cn:'买东西的人'},{zi:'收银台',py:'shōu yín tái',cn:'付钱的地方'},{zi:'礼物',py:'lǐ wù',cn:'送给别人的东西'},{zi:'钱包',py:'qián bāo',cn:'装钱的小包'},{zi:'折扣',py:'zhé kòu',cn:'打折优惠'}],
-    sentences:[{en:'We went to the shop to buy some fruit.',cn:'我们去商店买了一些水果。'},{en:'How much is this toy?',cn:'这个玩具多少钱？'},{en:'She paid for the bread at the counter.',cn:'她在柜台付了面包的钱。'},{en:'The price of the book is ten dollars.',cn:'这本书的价格是十元。'},{en:'He put the apples in his basket.',cn:'他把苹果放进篮子里。'},{en:'This gift is for my best friend.',cn:'这份礼物是送给我最好的朋友的。'},{en:'I keep my coins in my wallet.',cn:'我把硬币放在钱包里。'},{en:'The shirt is on discount today.',cn:'这件衬衫今天打折。'}],
+    words:[{en:'money',ph:'/ˈmʌni/',cn:'钱'},{en:'shop',ph:'/ʃɑːp/',cn:'商店'},{en:'buy',ph:'/baɪ/',cn:'买'},{en:'price',ph:'/praɪs/',cn:'价格'},{en:'basket',ph:'/ˈbæskɪt/',cn:'篮子'},{en:'sell',ph:'/sel/',cn:'卖'},{en:'cheap',ph:'/tʃiːp/',cn:'便宜的'},{en:'expensive',ph:'/ɪkˈspensɪv/',cn:'昂贵的'},{en:'gift',ph:'/ɡɪft/',cn:'礼物'},{en:'coin',ph:'/kɔɪn/',cn:'硬币'},{en:'wallet',ph:'/ˈwɑːlɪt/',cn:'钱包'},{en:'mall',ph:'/mɔːl/',cn:'商场'},{en:'cashier',ph:'/kæˈʃɪr/',cn:'收银员'},{en:'discount',ph:'/ˈdɪskaʊnt/',cn:'折扣'},{en:'receipt',ph:'/rɪˈsiːt/',cn:'收据'},{en:'store',ph:'/stɔːr/',cn:'商店'},{en:'market',ph:'/ˈmɑːrkɪt/',cn:'市场'},{en:'pay',ph:'/peɪ/',cn:'付钱'},{en:'change',ph:'/tʃeɪndʒ/',cn:'找零'},{en:'bag',ph:'/bæɡ/',cn:'袋子'},{en:'counter',ph:'/ˈkaʊntər/',cn:'柜台'},{en:'customer',ph:'/ˈkʌstəmər/',cn:'顾客'},{en:'clerk',ph:'/klɜːrk/',cn:'店员'},{en:'sale',ph:'/seɪl/',cn:'促销'},{en:'coupon',ph:'/ˈkuːpɒn/',cn:'优惠券'},{en:'cart',ph:'/kɑːrt/',cn:'购物车'},{en:'label',ph:'/ˈleɪbəl/',cn:'标签'},{en:'size',ph:'/saɪz/',cn:'尺寸'},{en:'color',ph:'/ˈkʌlər/',cn:'颜色'},{en:'brand',ph:'/brænd/',cn:'品牌'},{en:'order',ph:'/ˈɔːrdər/',cn:'订购'},{en:'deliver',ph:'/dɪˈlɪvər/',cn:'配送'},{en:'return',ph:'/rɪˈtɜːrn/',cn:'退货'},{en:'refund',ph:'/ˈriːfʌnd/',cn:'退款'},{en:'bargain',ph:'/ˈbɑːrɡɪn/',cn:'讨价还价'}],
+    hanzi:[{zi:'商店',py:'shāng diàn',cn:'卖东西的地方'},{zi:'价格',py:'jià gé',cn:'东西的价钱'},{zi:'购物',py:'gòu wù',cn:'买东西'},{zi:'顾客',py:'gù kè',cn:'买东西的人'},{zi:'收银台',py:'shōu yín tái',cn:'付钱的地方'},{zi:'礼物',py:'lǐ wù',cn:'送给别人的东西'},{zi:'钱包',py:'qián bāo',cn:'装钱的小包'},{zi:'折扣',py:'zhé kòu',cn:'打折优惠'},{zi:'超市',py:'chāo shì',cn:'可以买到很多东西的大商店。'},{zi:'市场',py:'shì chǎng',cn:'很多人买卖东西的地方。'},{zi:'购物车',py:'gòu wù chē',cn:'购物时用来装东西的小车。'},{zi:'标签',py:'biāo qiān',cn:'贴在东西上面写着价格或名字的小纸片。'},{zi:'袋子',py:'dài zi',cn:'用来装东西的布或者塑料用品。'},{zi:'找零',py:'zhǎo líng',cn:'付钱后找回来的钱。'},{zi:'优惠券',py:'yōu huì quàn',cn:'可以用来省钱的小纸片。'},{zi:'店员',py:'diàn yuán',cn:'在商店里帮客人的人。'},{zi:'促销',py:'cù xiāo',cn:'商店用更便宜的价格卖东西。'},{zi:'退货',py:'tuì huò',cn:'把买的东西还给商店。'},{zi:'账单',py:'zhàng dān',cn:'写着要付多少钱的单子。'},{zi:'现金',py:'xiàn jīn',cn:'纸做的钱和硬币。'}],
+    sentences:[{en:'We went to the shop to buy some fruit.',cn:'我们去商店买了一些水果。'},{en:'How much is this toy?',cn:'这个玩具多少钱？'},{en:'She paid for the bread at the counter.',cn:'她在柜台付了面包的钱。'},{en:'The price of the book is ten dollars.',cn:'这本书的价格是十元。'},{en:'He put the apples in his basket.',cn:'他把苹果放进篮子里。'},{en:'This gift is for my best friend.',cn:'这份礼物是送给我最好的朋友的。'},{en:'I keep my coins in my wallet.',cn:'我把硬币放在钱包里。'},{en:'The shirt is on discount today.',cn:'这件衬衫今天打折。'},{en:'We pushed the cart around the market.',cn:'我们在市场里推着购物车。'},{en:'The clerk put my shoes in a bag.',cn:'店员把我的鞋子放进了袋子里。'},{en:'I paid with cash and got some change.',cn:'我用现金付款,找回了一些零钱。'},{en:'She used a coupon to save some money.',cn:'她用优惠券省了一些钱。'},{en:'The store is having a big sale this week.',cn:'这家商店这周在搞大促销。'},{en:'He checked the label to see the size.',cn:'他看了看标签上的尺寸。'},{en:'My mother likes the color of this bag.',cn:'妈妈喜欢这个包的颜色。'},{en:'We ordered a cake for the party.',cn:'我们为聚会订了一个蛋糕。'},{en:'The toy store delivers toys to our home.',cn:'玩具店把玩具送到我们家。'},{en:'He wants to return the broken toy.',cn:'他想把坏掉的玩具退回去。'},{en:'I looked at the price tag before buying it.',cn:'买之前我看了看价格标签。'},{en:'The new store sells many kinds of snacks.',cn:'这家新商店卖很多种零食。'}],
     mathNoun:'toys',
     reading:{title:'第一次买东西',text:'今天，妈妈给了乐乐十元钱，让他自己去商店买一瓶牛奶。乐乐认真地数了数钱，顺利地买到了牛奶，非常开心。',question:'妈妈给了乐乐多少钱？',optA:'十元',optB:'五元',answer:'A'}},
   {id:'fruits',name:'水果',icon:'🍇',
-    words:[{en:'banana',ph:'/bəˈnænə/',cn:'香蕉'},{en:'orange',ph:'/ˈɔːrɪndʒ/',cn:'橙子'},{en:'grape',ph:'/ɡreɪp/',cn:'葡萄'},{en:'watermelon',ph:'/ˈwɔːtərmelən/',cn:'西瓜'},{en:'strawberry',ph:'/ˈstrɔːberi/',cn:'草莓'},{en:'pear',ph:'/per/',cn:'梨'},{en:'peach',ph:'/piːtʃ/',cn:'桃子'},{en:'mango',ph:'/ˈmæŋɡoʊ/',cn:'芒果'},{en:'pineapple',ph:'/ˈpaɪnæpl/',cn:'菠萝'},{en:'cherry',ph:'/ˈtʃeri/',cn:'樱桃'},{en:'lemon',ph:'/ˈlemən/',cn:'柠檬'},{en:'kiwi',ph:'/ˈkiːwiː/',cn:'猕猴桃'},{en:'coconut',ph:'/ˈkoʊkənʌt/',cn:'椰子'},{en:'blueberry',ph:'/ˈbluːberi/',cn:'蓝莓'},{en:'papaya',ph:'/pəˈpaɪə/',cn:'木瓜'}],
-    hanzi:[{zi:'香蕉',py:'xiāng jiāo',cn:'弯弯的黄色水果'},{zi:'葡萄',py:'pú táo',cn:'一串一串的紫色小果子'},{zi:'西瓜',py:'xī guā',cn:'夏天解暑的大水果'},{zi:'草莓',py:'cǎo méi',cn:'红色带小籽的水果'},{zi:'桃子',py:'táo zi',cn:'毛茸茸的甜水果'},{zi:'芒果',py:'máng guǒ',cn:'香甜多汁的黄色水果'},{zi:'菠萝',py:'bō luó',cn:'表皮带刺的水果'},{zi:'柠檬',py:'níng méi',cn:'酸酸的黄色水果'}],
-    sentences:[{en:'I eat a banana every morning.',cn:'我每天早上吃一根香蕉。'},{en:'Grapes are small and sweet.',cn:'葡萄又小又甜。'},{en:'Watermelon is my favorite summer fruit.',cn:'西瓜是我最喜欢的夏天水果。'},{en:'Strawberries are red and juicy.',cn:'草莓又红又多汁。'},{en:'This peach smells very sweet.',cn:'这个桃子闻起来很甜。'},{en:'Mangoes are yellow and delicious.',cn:'芒果是黄色的，非常好吃。'},{en:'The pineapple has a spiky skin.',cn:'菠萝的外皮上有刺。'},{en:'Lemons taste very sour.',cn:'柠檬尝起来很酸。'}],
+    words:[{en:'banana',ph:'/bəˈnænə/',cn:'香蕉'},{en:'orange',ph:'/ˈɔːrɪndʒ/',cn:'橙子'},{en:'grape',ph:'/ɡreɪp/',cn:'葡萄'},{en:'watermelon',ph:'/ˈwɔːtərmelən/',cn:'西瓜'},{en:'strawberry',ph:'/ˈstrɔːberi/',cn:'草莓'},{en:'pear',ph:'/per/',cn:'梨'},{en:'peach',ph:'/piːtʃ/',cn:'桃子'},{en:'mango',ph:'/ˈmæŋɡoʊ/',cn:'芒果'},{en:'pineapple',ph:'/ˈpaɪnæpl/',cn:'菠萝'},{en:'cherry',ph:'/ˈtʃeri/',cn:'樱桃'},{en:'lemon',ph:'/ˈlemən/',cn:'柠檬'},{en:'kiwi',ph:'/ˈkiːwiː/',cn:'猕猴桃'},{en:'coconut',ph:'/ˈkoʊkənʌt/',cn:'椰子'},{en:'blueberry',ph:'/ˈbluːberi/',cn:'蓝莓'},{en:'papaya',ph:'/pəˈpaɪə/',cn:'木瓜'},{en:'apple',ph:'/ˈæpəl/',cn:'苹果'},{en:'grapefruit',ph:'/ˈɡreɪpfruːt/',cn:'西柚'},{en:'plum',ph:'/plʌm/',cn:'李子'},{en:'apricot',ph:'/ˈæprɪkɑːt/',cn:'杏子'},{en:'fig',ph:'/fɪɡ/',cn:'无花果'},{en:'raspberry',ph:'/ˈræzbɛri/',cn:'覆盆子'},{en:'blackberry',ph:'/ˈblækbɛri/',cn:'黑莓'},{en:'cranberry',ph:'/ˈkrænbɛri/',cn:'蔓越莓'},{en:'pomegranate',ph:'/ˈpɑːmɪɡrænɪt/',cn:'石榴'},{en:'lychee',ph:'/ˈliːtʃiː/',cn:'荔枝'},{en:'dragonfruit',ph:'/ˈdræɡənfruːt/',cn:'火龙果'},{en:'persimmon',ph:'/pərˈsɪmən/',cn:'柿子'},{en:'tangerine',ph:'/ˈtændʒəriːn/',cn:'橘子'},{en:'melon',ph:'/ˈmɛlən/',cn:'甜瓜'},{en:'date',ph:'/deɪt/',cn:'枣'},{en:'guava',ph:'/ˈɡwɑːvə/',cn:'番石榴'},{en:'durian',ph:'/ˈdʊriən/',cn:'榴莲'},{en:'passionfruit',ph:'/ˈpæʃənfruːt/',cn:'百香果'},{en:'nectarine',ph:'/ˈnɛktəriːn/',cn:'油桃'},{en:'raisin',ph:'/ˈreɪzən/',cn:'葡萄干'}],
+    hanzi:[{zi:'香蕉',py:'xiāng jiāo',cn:'弯弯的黄色水果'},{zi:'葡萄',py:'pú táo',cn:'一串一串的紫色小果子'},{zi:'西瓜',py:'xī guā',cn:'夏天解暑的大水果'},{zi:'草莓',py:'cǎo méi',cn:'红色带小籽的水果'},{zi:'桃子',py:'táo zi',cn:'毛茸茸的甜水果'},{zi:'芒果',py:'máng guǒ',cn:'香甜多汁的黄色水果'},{zi:'菠萝',py:'bō luó',cn:'表皮带刺的水果'},{zi:'柠檬',py:'níng méi',cn:'酸酸的黄色水果'},{zi:'苹果',py:'píng guǒ',cn:'一种圆圆的,红色或绿色的水果。'},{zi:'橘子',py:'jú zi',cn:'一种橙黄色,容易剥皮的水果。'},{zi:'荔枝',py:'lì zhī',cn:'一种壳是红色,里面是白色果肉的水果。'},{zi:'火龙果',py:'huǒ lóng guǒ',cn:'一种外皮是红色,里面有很多小黑籽的水果。'},{zi:'榴莲',py:'liú lián',cn:'一种味道很特别、外壳有刺的水果。'},{zi:'石榴',py:'shí liu',cn:'一种里面有很多红色小颗粒的水果。'},{zi:'柿子',py:'shì zi',cn:'一种橙红色、软软甜甜的水果。'},{zi:'百香果',py:'bǎi xiāng guǒ',cn:'一种闻起来很香、里面有很多籽的水果。'},{zi:'李子',py:'lǐ zi',cn:'一种紫红色、圆圆的水果。'},{zi:'甜瓜',py:'tián guā',cn:'一种味道很甜的瓜类水果。'},{zi:'葡萄干',py:'pú tao gān',cn:'晒干了的葡萄。'},{zi:'无花果',py:'wú huā guǒ',cn:'一种甜甜的、里面有很多小籽的水果。'}],
+    sentences:[{en:'I eat a banana every morning.',cn:'我每天早上吃一根香蕉。'},{en:'Grapes are small and sweet.',cn:'葡萄又小又甜。'},{en:'Watermelon is my favorite summer fruit.',cn:'西瓜是我最喜欢的夏天水果。'},{en:'Strawberries are red and juicy.',cn:'草莓又红又多汁。'},{en:'This peach smells very sweet.',cn:'这个桃子闻起来很甜。'},{en:'Mangoes are yellow and delicious.',cn:'芒果是黄色的，非常好吃。'},{en:'The pineapple has a spiky skin.',cn:'菠萝的外皮上有刺。'},{en:'Lemons taste very sour.',cn:'柠檬尝起来很酸。'},{en:'An apple a day keeps me healthy.',cn:'每天吃一个苹果让我保持健康。'},{en:'I like to peel an orange after dinner.',cn:'晚饭后我喜欢剥一个橙子吃。'},{en:'The plum is purple and very juicy.',cn:'这个李子是紫色的,很多汁。'},{en:'Dragonfruit has a bright pink skin.',cn:'火龙果的外皮是亮粉色的。'},{en:'Durian has a strong and special smell.',cn:'榴莲有一种很特别的味道。'},{en:'Pomegranate seeds are small and red.',cn:'石榴籽又小又红。'},{en:'We dried the grapes to make raisins.',cn:'我们把葡萄晒干做成了葡萄干。'},{en:'Tangerines are easy to peel.',cn:'橘子很容易剥皮。'},{en:'The persimmon turns soft when it is ripe.',cn:'柿子熟了以后会变软。'},{en:'I drink fresh melon juice in summer.',cn:'夏天我喝新鲜的甜瓜汁。'},{en:'Lychees have a hard red shell.',cn:'荔枝有一层坚硬的红色外壳。'},{en:'Figs are sweet and full of tiny seeds.',cn:'无花果又甜又有很多小籽。'}],
     mathNoun:'bananas',
     reading:{title:'果园里的秋天',text:'秋天到了，果园里结满了果子。红红的苹果、黄黄的梨子、紫紫的葡萄挂满枝头。小朋友们跟着爷爷一起去摘水果，篮子很快就装满了。',question:'果园里都结了哪些水果？',optA:'苹果、梨子、葡萄',optB:'只有苹果',answer:'A'}},
   {id:'vegetables',name:'蔬菜',icon:'🥦',
-    words:[{en:'carrot',ph:'/ˈkærət/',cn:'胡萝卜'},{en:'potato',ph:'/pəˈteɪtoʊ/',cn:'土豆'},{en:'tomato',ph:'/təˈmeɪtoʊ/',cn:'西红柿'},{en:'onion',ph:'/ˈʌnjən/',cn:'洋葱'},{en:'cabbage',ph:'/ˈkæbɪdʒ/',cn:'卷心菜'},{en:'cucumber',ph:'/ˈkjuːkʌmbər/',cn:'黄瓜'},{en:'pumpkin',ph:'/ˈpʌmpkɪn/',cn:'南瓜'},{en:'corn',ph:'/kɔːrn/',cn:'玉米'},{en:'pea',ph:'/piː/',cn:'豌豆'},{en:'mushroom',ph:'/ˈmʌʃrʊm/',cn:'蘑菇'},{en:'pepper',ph:'/ˈpepər/',cn:'辣椒'},{en:'broccoli',ph:'/ˈbrɑːkəli/',cn:'西兰花'},{en:'eggplant',ph:'/ˈeɡplænt/',cn:'茄子'},{en:'spinach',ph:'/ˈspɪnɪtʃ/',cn:'菠菜'},{en:'garlic',ph:'/ˈɡɑːrlɪk/',cn:'大蒜'}],
-    hanzi:[{zi:'胡萝卜',py:'hú luó bo',cn:'橙色的根茎蔬菜'},{zi:'土豆',py:'tǔ dòu',cn:'长在地里的圆形蔬菜'},{zi:'西红柿',py:'xī hóng shì',cn:'红色圆形的蔬菜'},{zi:'洋葱',py:'yáng cōng',cn:'有辛辣味的球形蔬菜'},{zi:'南瓜',py:'nán guā',cn:'橙黄色的大蔬菜'},{zi:'玉米',py:'yù mǐ',cn:'金黄色一粒一粒的粮食'},{zi:'蘑菇',py:'mó gu',cn:'伞状的食用菌'},{zi:'茄子',py:'qié zi',cn:'紫色长条形的蔬菜'}],
-    sentences:[{en:'Rabbits like to eat carrots.',cn:'兔子喜欢吃胡萝卜。'},{en:'I had potatoes for dinner.',cn:'我晚饭吃了土豆。'},{en:'Tomatoes are red and round.',cn:'西红柿又红又圆。'},{en:'The soup has onions in it.',cn:'汤里有洋葱。'},{en:'We carved a pumpkin for Halloween.',cn:'我们雕刻了一个南瓜过万圣节。'},{en:'Corn is yellow and sweet.',cn:'玉米是黄色的，很甜。'},{en:'Mushrooms grow in damp places.',cn:'蘑菇长在潮湿的地方。'},{en:'Eggplants are purple and long.',cn:'茄子是紫色长条形的。'}],
+    words:[{en:'carrot',ph:'/ˈkærət/',cn:'胡萝卜'},{en:'potato',ph:'/pəˈteɪtoʊ/',cn:'土豆'},{en:'tomato',ph:'/təˈmeɪtoʊ/',cn:'西红柿'},{en:'onion',ph:'/ˈʌnjən/',cn:'洋葱'},{en:'cabbage',ph:'/ˈkæbɪdʒ/',cn:'卷心菜'},{en:'cucumber',ph:'/ˈkjuːkʌmbər/',cn:'黄瓜'},{en:'pumpkin',ph:'/ˈpʌmpkɪn/',cn:'南瓜'},{en:'corn',ph:'/kɔːrn/',cn:'玉米'},{en:'pea',ph:'/piː/',cn:'豌豆'},{en:'mushroom',ph:'/ˈmʌʃrʊm/',cn:'蘑菇'},{en:'pepper',ph:'/ˈpepər/',cn:'辣椒'},{en:'broccoli',ph:'/ˈbrɑːkəli/',cn:'西兰花'},{en:'eggplant',ph:'/ˈeɡplænt/',cn:'茄子'},{en:'spinach',ph:'/ˈspɪnɪtʃ/',cn:'菠菜'},{en:'garlic',ph:'/ˈɡɑːrlɪk/',cn:'大蒜'},{en:'lettuce',ph:'/ˈlɛtɪs/',cn:'生菜'},{en:'celery',ph:'/ˈsɛləri/',cn:'芹菜'},{en:'radish',ph:'/ˈrædɪʃ/',cn:'小萝卜'},{en:'bean',ph:'/biːn/',cn:'豆子'},{en:'sweet potato',ph:'/swiːt pəˈteɪtoʊ/',cn:'红薯'},{en:'zucchini',ph:'/zuˈkiːni/',cn:'西葫芦'},{en:'asparagus',ph:'/əˈspærəɡəs/',cn:'芦笋'},{en:'leek',ph:'/liːk/',cn:'韭菜'},{en:'ginger',ph:'/ˈdʒɪndʒər/',cn:'姜'},{en:'chili',ph:'/ˈtʃɪli/',cn:'辣椒'},{en:'bok choy',ph:'/bɑːk tʃɔɪ/',cn:'小白菜'},{en:'taro',ph:'/ˈtɑːroʊ/',cn:'芋头'},{en:'turnip',ph:'/ˈtɜːrnɪp/',cn:'大头菜'},{en:'cauliflower',ph:'/ˈkɑːliflaʊər/',cn:'菜花'},{en:'kale',ph:'/keɪl/',cn:'羽衣甘蓝'},{en:'bamboo shoot',ph:'/bæmˈbuː ʃuːt/',cn:'竹笋'},{en:'bean sprout',ph:'/biːn spraʊt/',cn:'豆芽'},{en:'soybean',ph:'/ˈsɔɪbiːn/',cn:'黄豆'},{en:'okra',ph:'/ˈoʊkrə/',cn:'秋葵'},{en:'scallion',ph:'/ˈskæliən/',cn:'小葱'}],
+    hanzi:[{zi:'胡萝卜',py:'hú luó bo',cn:'橙色的根茎蔬菜'},{zi:'土豆',py:'tǔ dòu',cn:'长在地里的圆形蔬菜'},{zi:'西红柿',py:'xī hóng shì',cn:'红色圆形的蔬菜'},{zi:'洋葱',py:'yáng cōng',cn:'有辛辣味的球形蔬菜'},{zi:'南瓜',py:'nán guā',cn:'橙黄色的大蔬菜'},{zi:'玉米',py:'yù mǐ',cn:'金黄色一粒一粒的粮食'},{zi:'蘑菇',py:'mó gu',cn:'伞状的食用菌'},{zi:'茄子',py:'qié zi',cn:'紫色长条形的蔬菜'},{zi:'生菜',py:'shēng cài',cn:'一种绿色的叶子蔬菜,常用来做沙拉。'},{zi:'芹菜',py:'qín cài',cn:'一种长长的、绿色的蔬菜,茎很脆。'},{zi:'西兰花',py:'xī lán huā',cn:'一种绿色,长得像小树的蔬菜。'},{zi:'韭菜',py:'jiǔ cài',cn:'一种绿色细长、味道特别的蔬菜。'},{zi:'红薯',py:'hóng shǔ',cn:'一种甜甜的,皮是红色的根茎类食物。'},{zi:'芦笋',py:'lú sǔn',cn:'一种细长的绿色蔬菜。'},{zi:'豆芽',py:'dòu yá',cn:'豆子发芽后长出来的嫩芽,可以吃。'},{zi:'竹笋',py:'zhú sǔn',cn:'竹子刚长出来的嫩芽。'},{zi:'大蒜',py:'dà suàn',cn:'一种味道很浓,可以调味的小瓣蔬菜。'},{zi:'芋头',py:'yù tou',cn:'一种紫灰色、煮熟后很软糯的根茎类食物。'},{zi:'生姜',py:'shēng jiāng',cn:'一种味道辛辣,常用来做菜调味的根茎。'},{zi:'豌豆',py:'wān dòu',cn:'一种圆圆的、绿色的小豆子。'}],
+    sentences:[{en:'Rabbits like to eat carrots.',cn:'兔子喜欢吃胡萝卜。'},{en:'I had potatoes for dinner.',cn:'我晚饭吃了土豆。'},{en:'Tomatoes are red and round.',cn:'西红柿又红又圆。'},{en:'The soup has onions in it.',cn:'汤里有洋葱。'},{en:'We carved a pumpkin for Halloween.',cn:'我们雕刻了一个南瓜过万圣节。'},{en:'Corn is yellow and sweet.',cn:'玉米是黄色的，很甜。'},{en:'Mushrooms grow in damp places.',cn:'蘑菇长在潮湿的地方。'},{en:'Eggplants are purple and long.',cn:'茄子是紫色长条形的。'},{en:'I like to eat lettuce in my salad.',cn:'我喜欢在沙拉里吃生菜。'},{en:'Celery is long and very crunchy.',cn:'芹菜又长又很脆。'},{en:'Sweet potatoes taste sweet when baked.',cn:'烤红薯的味道很甜。'},{en:'Ginger makes the soup taste warm.',cn:'姜让这碗汤喝起来很暖和。'},{en:'We planted radishes in the garden.',cn:'我们在花园里种了小萝卜。'},{en:'Green beans grow on tall plants.',cn:'绿豆子长在高高的植物上。'},{en:'My grandmother grows garlic in the yard.',cn:'奶奶在院子里种大蒜。'},{en:'Bean sprouts are thin and white.',cn:'豆芽又细又白。'},{en:'Bamboo shoots grow very fast after rain.',cn:'竹笋下雨后长得很快。'},{en:'Broccoli looks like a small green tree.',cn:'西兰花看起来像一棵小绿树。'},{en:'Peas are small, round, and green.',cn:'豌豆又小又圆,还是绿色的。'},{en:'Spinach is a healthy green vegetable.',cn:'菠菜是一种健康的绿色蔬菜。'}],
     mathNoun:'carrots',
     reading:{title:'妈妈的菜园',text:'妈妈在院子里种了一片小菜园，里面有绿绿的黄瓜、红红的西红柿，还有金黄的玉米。小朋友每天都去看看它们长高了没有。',question:'菜园里种了什么？',optA:'黄瓜、西红柿、玉米',optB:'只有西瓜',answer:'A'}},
   {id:'numbers',name:'数字',icon:'🔢',
-    words:[{en:'one',ph:'/wʌn/',cn:'一'},{en:'two',ph:'/tuː/',cn:'二'},{en:'three',ph:'/θriː/',cn:'三'},{en:'four',ph:'/fɔːr/',cn:'四'},{en:'five',ph:'/faɪv/',cn:'五'},{en:'six',ph:'/sɪks/',cn:'六'},{en:'seven',ph:'/ˈsevn/',cn:'七'},{en:'eight',ph:'/eɪt/',cn:'八'},{en:'nine',ph:'/naɪn/',cn:'九'},{en:'ten',ph:'/ten/',cn:'十'},{en:'eleven',ph:'/ɪˈlevn/',cn:'十一'},{en:'twelve',ph:'/twelv/',cn:'十二'},{en:'twenty',ph:'/ˈtwenti/',cn:'二十'},{en:'hundred',ph:'/ˈhʌndrəd/',cn:'一百'},{en:'zero',ph:'/ˈzɪroʊ/',cn:'零'}],
-    hanzi:[{zi:'数字',py:'shù zì',cn:'表示数目的符号'},{zi:'加法',py:'jiā fǎ',cn:'把两个数合起来算的方法'},{zi:'减法',py:'jiǎn fǎ',cn:'从一个数里去掉另一个数的方法'},{zi:'乘法',py:'chéng fǎ',cn:'几个相同数相加的简便算法'},{zi:'除法',py:'chú fǎ',cn:'把总数平均分的运算'},{zi:'十位',py:'shí wèi',cn:'数字中十的位置'},{zi:'百位',py:'bǎi wèi',cn:'数字中一百的位置'},{zi:'数一数',py:'shǔ yī shǔ',cn:'一个一个地数'}],
-    sentences:[{en:'I have ten fingers on my hands.',cn:'我的双手一共有十根手指。'},{en:'There are five apples on the table.',cn:'桌上有五个苹果。'},{en:'She counted to twenty.',cn:'她数到了二十。'},{en:'Two plus three equals five.',cn:'二加三等于五。'},{en:'This book has one hundred pages.',cn:'这本书有一百页。'},{en:'I am seven years old this year.',cn:'我今年七岁了。'},{en:'He has twelve toy cars.',cn:'他有十二辆玩具车。'},{en:'Zero means nothing at all.',cn:'零表示什么都没有。'}],
+    words:[{en:'one',ph:'/wʌn/',cn:'一'},{en:'two',ph:'/tuː/',cn:'二'},{en:'three',ph:'/θriː/',cn:'三'},{en:'four',ph:'/fɔːr/',cn:'四'},{en:'five',ph:'/faɪv/',cn:'五'},{en:'six',ph:'/sɪks/',cn:'六'},{en:'seven',ph:'/ˈsevn/',cn:'七'},{en:'eight',ph:'/eɪt/',cn:'八'},{en:'nine',ph:'/naɪn/',cn:'九'},{en:'ten',ph:'/ten/',cn:'十'},{en:'eleven',ph:'/ɪˈlevn/',cn:'十一'},{en:'twelve',ph:'/twelv/',cn:'十二'},{en:'twenty',ph:'/ˈtwenti/',cn:'二十'},{en:'hundred',ph:'/ˈhʌndrəd/',cn:'一百'},{en:'zero',ph:'/ˈzɪroʊ/',cn:'零'},{en:'thirteen',ph:'/ˌθɜːrˈtiːn/',cn:'十三'},{en:'fourteen',ph:'/ˌfɔːrˈtiːn/',cn:'十四'},{en:'fifteen',ph:'/ˌfɪfˈtiːn/',cn:'十五'},{en:'sixteen',ph:'/ˌsɪksˈtiːn/',cn:'十六'},{en:'seventeen',ph:'/ˌsɛvənˈtiːn/',cn:'十七'},{en:'eighteen',ph:'/ˌeɪˈtiːn/',cn:'十八'},{en:'nineteen',ph:'/ˌnaɪnˈtiːn/',cn:'十九'},{en:'thirty',ph:'/ˈθɜːrti/',cn:'三十'},{en:'forty',ph:'/ˈfɔːrti/',cn:'四十'},{en:'fifty',ph:'/ˈfɪfti/',cn:'五十'},{en:'sixty',ph:'/ˈsɪksti/',cn:'六十'},{en:'seventy',ph:'/ˈsɛvənti/',cn:'七十'},{en:'eighty',ph:'/ˈeɪti/',cn:'八十'},{en:'ninety',ph:'/ˈnaɪnti/',cn:'九十'},{en:'thousand',ph:'/ˈθaʊzənd/',cn:'一千'},{en:'million',ph:'/ˈmɪljən/',cn:'一百万'},{en:'first',ph:'/fɜːrst/',cn:'第一'},{en:'second',ph:'/ˈsɛkənd/',cn:'第二'},{en:'third',ph:'/θɜːrd/',cn:'第三'},{en:'half',ph:'/hæf/',cn:'一半'}],
+    hanzi:[{zi:'数字',py:'shù zì',cn:'表示数目的符号'},{zi:'加法',py:'jiā fǎ',cn:'把两个数合起来算的方法'},{zi:'减法',py:'jiǎn fǎ',cn:'从一个数里去掉另一个数的方法'},{zi:'乘法',py:'chéng fǎ',cn:'几个相同数相加的简便算法'},{zi:'除法',py:'chú fǎ',cn:'把总数平均分的运算'},{zi:'十位',py:'shí wèi',cn:'数字中十的位置'},{zi:'百位',py:'bǎi wèi',cn:'数字中一百的位置'},{zi:'数一数',py:'shǔ yī shǔ',cn:'一个一个地数'},{zi:'个位',py:'gè wèi',cn:'数字中最右边的那一位,表示几个一。'},{zi:'千位',py:'qiān wèi',cn:'数字中表示一千的那一位。'},{zi:'单数',py:'dān shù',cn:'不能被二整除的数字,比如一、三、五。'},{zi:'双数',py:'shuāng shù',cn:'可以被二整除的数字,比如二、四、六。'},{zi:'数轴',py:'shù zhóu',cn:'一条画着数字的直线。'},{zi:'排序',py:'pái xù',cn:'按照从小到大或从大到小的顺序排列。'},{zi:'大于',py:'dà yú',cn:'表示一个数字比另一个数字大。'},{zi:'小于',py:'xiǎo yú',cn:'表示一个数字比另一个数字小。'},{zi:'等于',py:'děng yú',cn:'表示两个数字一样大。'},{zi:'余数',py:'yú shù',cn:'除法算完以后剩下的数字。'},{zi:'分数',py:'fēn shù',cn:'表示把一个整体分成几份的数字。'},{zi:'一半',py:'yī bàn',cn:'把一个东西平均分成两份中的一份。'}],
+    sentences:[{en:'I have ten fingers on my hands.',cn:'我的双手一共有十根手指。'},{en:'There are five apples on the table.',cn:'桌上有五个苹果。'},{en:'She counted to twenty.',cn:'她数到了二十。'},{en:'Two plus three equals five.',cn:'二加三等于五。'},{en:'This book has one hundred pages.',cn:'这本书有一百页。'},{en:'I am seven years old this year.',cn:'我今年七岁了。'},{en:'He has twelve toy cars.',cn:'他有十二辆玩具车。'},{en:'Zero means nothing at all.',cn:'零表示什么都没有。'},{en:'Four plus six equals ten.',cn:'四加六等于十。'},{en:'Nine minus four equals five.',cn:'九减四等于五。'},{en:'There are thirteen students in my class.',cn:'我们班有十三个学生。'},{en:'She can count to one hundred.',cn:'她能数到一百。'},{en:'Ten times two equals twenty.',cn:'十乘以二等于二十。'},{en:'Half of eight is four.',cn:'八的一半是四。'},{en:'My brother is fifteen years old.',cn:'我哥哥今年十五岁。'},{en:'Twenty divided by four equals five.',cn:'二十除以四等于五。'},{en:'I ate half of the orange.',cn:'我吃了一半的橙子。'},{en:'There are sixty seconds in one minute.',cn:'一分钟有六十秒。'},{en:'He wrote the numbers from one to thirty.',cn:'他把一到三十的数字都写了下来。'},{en:'Three plus three plus three equals nine.',cn:'三加三再加三等于九。'}],
     mathNoun:'candies',
     reading:{title:'数星星',text:'晚上，小雨和爸爸坐在院子里数星星。他们数了一颗、两颗、三颗……一直数到二十多颗，小雨开心地笑了。',question:'小雨和谁一起数星星？',optA:'爸爸',optB:'老师',answer:'A'}},
   {id:'time',name:'时间',icon:'⏰',
-    words:[{en:'morning',ph:'/ˈmɔːrnɪŋ/',cn:'早晨'},{en:'noon',ph:'/nuːn/',cn:'中午'},{en:'afternoon',ph:'/ˌæftərˈnuːn/',cn:'下午'},{en:'evening',ph:'/ˈiːvnɪŋ/',cn:'傍晚'},{en:'night',ph:'/naɪt/',cn:'夜晚'},{en:'today',ph:'/təˈdeɪ/',cn:'今天'},{en:'tomorrow',ph:'/təˈmɔːroʊ/',cn:'明天'},{en:'yesterday',ph:'/ˈjestərdeɪ/',cn:'昨天'},{en:'week',ph:'/wiːk/',cn:'星期'},{en:'month',ph:'/mʌnθ/',cn:'月份'},{en:'year',ph:'/jɪr/',cn:'年'},{en:'hour',ph:'/ˈaʊər/',cn:'小时'},{en:'minute',ph:'/ˈmɪnɪt/',cn:'分钟'},{en:'second',ph:'/ˈsekənd/',cn:'秒'},{en:'clock',ph:'/klɑːk/',cn:'时钟'}],
-    hanzi:[{zi:'早晨',py:'zǎo chén',cn:'一天刚开始的时候'},{zi:'中午',py:'zhōng wǔ',cn:'一天当中太阳最高的时候'},{zi:'晚上',py:'wǎn shang',cn:'天黑以后的时间'},{zi:'今天',py:'jīn tiān',cn:'现在这一天'},{zi:'明天',py:'míng tiān',cn:'今天的下一天'},{zi:'昨天',py:'zuó tiān',cn:'今天的前一天'},{zi:'星期',py:'xīng qī',cn:'七天为一个星期'},{zi:'时钟',py:'shí zhōng',cn:'用来看时间的工具'}],
-    sentences:[{en:'I get up early in the morning.',cn:'我早晨很早起床。'},{en:'We eat lunch at noon.',cn:'我们中午吃午饭。'},{en:'She does her homework in the evening.',cn:'她在傍晚做作业。'},{en:'Today is a sunny day.',cn:'今天是个晴天。'},{en:'I will visit grandma tomorrow.',cn:'我明天要去看奶奶。'},{en:'There are seven days in a week.',cn:'一个星期有七天。'},{en:'The clock on the wall shows three.',cn:'墙上的时钟显示三点。'},{en:'An hour has sixty minutes.',cn:'一个小时有六十分钟。'}],
+    words:[{en:'morning',ph:'/ˈmɔːrnɪŋ/',cn:'早晨'},{en:'noon',ph:'/nuːn/',cn:'中午'},{en:'afternoon',ph:'/ˌæftərˈnuːn/',cn:'下午'},{en:'evening',ph:'/ˈiːvnɪŋ/',cn:'傍晚'},{en:'night',ph:'/naɪt/',cn:'夜晚'},{en:'today',ph:'/təˈdeɪ/',cn:'今天'},{en:'tomorrow',ph:'/təˈmɔːroʊ/',cn:'明天'},{en:'yesterday',ph:'/ˈjestərdeɪ/',cn:'昨天'},{en:'week',ph:'/wiːk/',cn:'星期'},{en:'month',ph:'/mʌnθ/',cn:'月份'},{en:'year',ph:'/jɪr/',cn:'年'},{en:'hour',ph:'/ˈaʊər/',cn:'小时'},{en:'minute',ph:'/ˈmɪnɪt/',cn:'分钟'},{en:'second',ph:'/ˈsekənd/',cn:'秒'},{en:'clock',ph:'/klɑːk/',cn:'时钟'},{en:'daytime',ph:'/ˈdeɪtaɪm/',cn:'白天'},{en:'midnight',ph:'/ˈmɪdnaɪt/',cn:'午夜'},{en:'sunrise',ph:'/ˈsʌnraɪz/',cn:'日出'},{en:'sunset',ph:'/ˈsʌnsɛt/',cn:'日落'},{en:'calendar',ph:'/ˈkæləndər/',cn:'日历'},{en:'schedule',ph:'/ˈskɛdʒuːl/',cn:'日程表'},{en:'birthday',ph:'/ˈbɜːrθdeɪ/',cn:'生日'},{en:'holiday',ph:'/ˈhɑːlədeɪ/',cn:'假日'},{en:'weekend',ph:'/ˈwiːkɛnd/',cn:'周末'},{en:'season',ph:'/ˈsiːzən/',cn:'季节'},{en:'spring',ph:'/sprɪŋ/',cn:'春天'},{en:'summer',ph:'/ˈsʌmər/',cn:'夏天'},{en:'autumn',ph:'/ˈɔːtəm/',cn:'秋天'},{en:'winter',ph:'/ˈwɪntər/',cn:'冬天'},{en:'watch',ph:'/wɑːtʃ/',cn:'手表'},{en:'alarm',ph:'/əˈlɑːrm/',cn:'闹钟'},{en:'early',ph:'/ˈɜːrli/',cn:'早的'},{en:'late',ph:'/leɪt/',cn:'晚的'},{en:'soon',ph:'/suːn/',cn:'很快'},{en:'now',ph:'/naʊ/',cn:'现在'}],
+    hanzi:[{zi:'早晨',py:'zǎo chén',cn:'一天刚开始的时候'},{zi:'中午',py:'zhōng wǔ',cn:'一天当中太阳最高的时候'},{zi:'晚上',py:'wǎn shang',cn:'天黑以后的时间'},{zi:'今天',py:'jīn tiān',cn:'现在这一天'},{zi:'明天',py:'míng tiān',cn:'今天的下一天'},{zi:'昨天',py:'zuó tiān',cn:'今天的前一天'},{zi:'星期',py:'xīng qī',cn:'七天为一个星期'},{zi:'时钟',py:'shí zhōng',cn:'用来看时间的工具'},{zi:'白天',py:'bái tiān',cn:'太阳出来的时候天是亮的,这叫白天。'},{zi:'夜晚',py:'yè wǎn',cn:'天黑以后到第二天天亮之前的时间叫夜晚。'},{zi:'日历',py:'rì lì',cn:'日历上写着每个月和每一天的日期。'},{zi:'周末',py:'zhōu mò',cn:'星期六和星期天叫周末,不用上学。'},{zi:'生日',py:'shēng rì',cn:'生日是一个人出生的那一天,每年都会庆祝。'},{zi:'春天',py:'chūn tiān',cn:'春天是一年里第一个季节,天气慢慢变暖。'},{zi:'夏天',py:'xià tiān',cn:'夏天天气很热,可以去游泳。'},{zi:'秋天',py:'qiū tiān',cn:'秋天树叶会变黄,天气变凉快。'},{zi:'冬天',py:'dōng tiān',cn:'冬天天气很冷,有的地方会下雪。'},{zi:'日出',py:'rì chū',cn:'太阳从东边升起来,这叫日出。'},{zi:'日落',py:'rì luò',cn:'太阳落到西边不见了,这叫日落。'},{zi:'分钟',py:'fēn zhōng',cn:'一分钟有六十秒,是很短的时间。'}],
+    sentences:[{en:'I get up early in the morning.',cn:'我早晨很早起床。'},{en:'We eat lunch at noon.',cn:'我们中午吃午饭。'},{en:'She does her homework in the evening.',cn:'她在傍晚做作业。'},{en:'Today is a sunny day.',cn:'今天是个晴天。'},{en:'I will visit grandma tomorrow.',cn:'我明天要去看奶奶。'},{en:'There are seven days in a week.',cn:'一个星期有七天。'},{en:'The clock on the wall shows three.',cn:'墙上的时钟显示三点。'},{en:'An hour has sixty minutes.',cn:'一个小时有六十分钟。'},{en:'The sun comes up at sunrise.',cn:'太阳在日出时升起来。'},{en:'We watch the sunset together.',cn:'我们一起看日落。'},{en:'My birthday is in the summer.',cn:'我的生日在夏天。'},{en:'We rest at home on the weekend.',cn:'我们周末在家休息。'},{en:'Leaves turn yellow in the autumn.',cn:'秋天树叶变黄了。'},{en:'It is very cold in the winter.',cn:'冬天的天气很冷。'},{en:'Flowers bloom in the spring.',cn:'春天花儿开了。'},{en:'I look at the calendar every day.',cn:'我每天都看日历。'},{en:'The alarm rings at six in the morning.',cn:'闹钟在早上六点响了。'},{en:'She wears a new watch on her wrist.',cn:'她手腕上戴着一块新手表。'},{en:'We have a holiday next week.',cn:'我们下周有一个假日。'},{en:'Midnight is the middle of the night.',cn:'午夜是夜晚的中间时刻。'}],
     mathNoun:'clocks',
     reading:{title:'珍惜时间的小明',text:'小明每天早晨按时起床，晚上按时睡觉，从不浪费时间。他常说，今天的事情今天做完，才能开开心心地过明天。',question:'小明是什么样的孩子？',optA:'珍惜时间，按时作息',optB:'喜欢睡懒觉',answer:'A'}},
   {id:'toys',name:'玩具',icon:'🧸',
-    words:[{en:'doll',ph:'/dɑːl/',cn:'玩具娃娃'},{en:'ball',ph:'/bɔːl/',cn:'球'},{en:'kite',ph:'/kaɪt/',cn:'风筝'},{en:'puzzle',ph:'/ˈpʌzl/',cn:'拼图'},{en:'blocks',ph:'/blɑːks/',cn:'积木'},{en:'robot',ph:'/ˈroʊbɑːt/',cn:'机器人'},{en:'balloon',ph:'/bəˈluːn/',cn:'气球'},{en:'yoyo',ph:'/ˈjoʊjoʊ/',cn:'悠悠球'},{en:'drum',ph:'/drʌm/',cn:'鼓'},{en:'spinning top',ph:'/ˈspɪnɪŋ tɑːp/',cn:'陀螺'},{en:'teddy bear',ph:'/ˈtedi ber/',cn:'玩具熊'},{en:'toy car',ph:'/tɔɪ kɑːr/',cn:'玩具车'},{en:'marble',ph:'/ˈmɑːrbl/',cn:'弹珠'},{en:'whistle',ph:'/ˈwɪsl/',cn:'哨子'},{en:'jump rope',ph:'/dʒʌmp roʊp/',cn:'跳绳'}],
-    hanzi:[{zi:'玩具',py:'wán jù',cn:'供玩耍用的东西'},{zi:'娃娃',py:'wá wa',cn:'玩具人形'},{zi:'积木',py:'jī mù',cn:'可以拼搭的方块玩具'},{zi:'风筝',py:'fēng zheng',cn:'能在天上飞的玩具'},{zi:'气球',py:'qì qiú',cn:'充气后能飘起来的玩具'},{zi:'机器人',py:'jī qì rén',cn:'能自动做事的机械装置'},{zi:'陀螺',py:'tuó luó',cn:'会旋转的玩具'},{zi:'弹珠',py:'dàn zhū',cn:'圆圆的小玻璃球'}],
-    sentences:[{en:'I like to play with building blocks.',cn:'我喜欢玩积木。'},{en:'We fly kites in the park.',cn:'我们在公园放风筝。'},{en:'This robot can walk and talk.',cn:'这个机器人会走路会说话。'},{en:'She holds a red balloon.',cn:'她拿着一个红色的气球。'},{en:'He is good at playing with a yoyo.',cn:'他很会玩悠悠球。'},{en:'My teddy bear sleeps with me every night.',cn:'我的玩具熊每晚都陪我睡觉。'},{en:'The spinning top spins very fast.',cn:'陀螺转得很快。'},{en:'We play with marbles after school.',cn:'我们放学后玩弹珠。'}],
+    words:[{en:'doll',ph:'/dɑːl/',cn:'玩具娃娃'},{en:'ball',ph:'/bɔːl/',cn:'球'},{en:'kite',ph:'/kaɪt/',cn:'风筝'},{en:'puzzle',ph:'/ˈpʌzl/',cn:'拼图'},{en:'blocks',ph:'/blɑːks/',cn:'积木'},{en:'robot',ph:'/ˈroʊbɑːt/',cn:'机器人'},{en:'balloon',ph:'/bəˈluːn/',cn:'气球'},{en:'yoyo',ph:'/ˈjoʊjoʊ/',cn:'悠悠球'},{en:'drum',ph:'/drʌm/',cn:'鼓'},{en:'spinning top',ph:'/ˈspɪnɪŋ tɑːp/',cn:'陀螺'},{en:'teddy bear',ph:'/ˈtedi ber/',cn:'玩具熊'},{en:'toy car',ph:'/tɔɪ kɑːr/',cn:'玩具车'},{en:'marble',ph:'/ˈmɑːrbl/',cn:'弹珠'},{en:'whistle',ph:'/ˈwɪsl/',cn:'哨子'},{en:'jump rope',ph:'/dʒʌmp roʊp/',cn:'跳绳'},{en:'dice',ph:'/daɪs/',cn:'骰子'},{en:'chess',ph:'/tʃɛs/',cn:'国际象棋'},{en:'checkers',ph:'/ˈtʃɛkərz/',cn:'西洋跳棋'},{en:'slide',ph:'/slaɪd/',cn:'滑梯'},{en:'swing',ph:'/swɪŋ/',cn:'秋千'},{en:'seesaw',ph:'/ˈsiːsɔː/',cn:'跷跷板'},{en:'sandbox',ph:'/ˈsændbɑːks/',cn:'沙坑'},{en:'bicycle',ph:'/ˈbaɪsɪkəl/',cn:'自行车'},{en:'scooter',ph:'/ˈskuːtər/',cn:'滑板车'},{en:'skateboard',ph:'/ˈskeɪtbɔːrd/',cn:'滑板'},{en:'frisbee',ph:'/ˈfrɪzbi/',cn:'飞盘'},{en:'bubble',ph:'/ˈbʌbəl/',cn:'泡泡'},{en:'toy box',ph:'/ˈtɔɪ bɑːks/',cn:'玩具箱'},{en:'action figure',ph:'/ˈækʃən ˈfɪɡjər/',cn:'动作人偶'},{en:'building set',ph:'/ˈbɪldɪŋ sɛt/',cn:'拼装玩具'},{en:'rocking horse',ph:'/ˈrɑːkɪŋ hɔːrs/',cn:'摇摇马'},{en:'pinwheel',ph:'/ˈpɪnwiːl/',cn:'风车'},{en:'magnet',ph:'/ˈmæɡnət/',cn:'磁铁'},{en:'card game',ph:'/ˈkɑːrd ɡeɪm/',cn:'纸牌游戏'},{en:'stuffed animal',ph:'/stʌft ˈænəməl/',cn:'毛绒玩具'}],
+    hanzi:[{zi:'玩具',py:'wán jù',cn:'供玩耍用的东西'},{zi:'娃娃',py:'wá wa',cn:'玩具人形'},{zi:'积木',py:'jī mù',cn:'可以拼搭的方块玩具'},{zi:'风筝',py:'fēng zheng',cn:'能在天上飞的玩具'},{zi:'气球',py:'qì qiú',cn:'充气后能飘起来的玩具'},{zi:'机器人',py:'jī qì rén',cn:'能自动做事的机械装置'},{zi:'陀螺',py:'tuó luó',cn:'会旋转的玩具'},{zi:'弹珠',py:'dàn zhū',cn:'圆圆的小玻璃球'},{zi:'滑梯',py:'huá tī',cn:'滑梯是公园里可以滑下来玩的玩具。'},{zi:'秋千',py:'qiū qiān',cn:'秋千可以坐在上面前后摇荡。'},{zi:'跷跷板',py:'qiāo qiāo bǎn',cn:'跷跷板两边各坐一个人,一上一下地玩。'},{zi:'自行车',py:'zì xíng chē',cn:'自行车有两个轮子,用脚踩着骑。'},{zi:'滑板车',py:'huá bǎn chē',cn:'滑板车有轮子,可以站在上面滑行。'},{zi:'飞盘',py:'fēi pán',cn:'飞盘是圆圆的,可以扔出去让人接住。'},{zi:'泡泡',py:'pào pào',cn:'泡泡是用泡泡水吹出来的圆圆的小球。'},{zi:'玩具箱',py:'wán jù xiāng',cn:'玩具箱是用来装玩具的箱子。'},{zi:'摇摇马',py:'yáo yáo mǎ',cn:'摇摇马是可以坐上去摇来摇去的玩具马。'},{zi:'国际象棋',py:'guó jì xiàng qí',cn:'国际象棋是一种两个人下的棋类游戏。'},{zi:'骰子',py:'tóu zi',cn:'骰子是一个小方块,上面有点数,用来玩游戏。'},{zi:'风车',py:'fēng chē',cn:'风车是一种吹风就会转动的玩具。'}],
+    sentences:[{en:'I like to play with building blocks.',cn:'我喜欢玩积木。'},{en:'We fly kites in the park.',cn:'我们在公园放风筝。'},{en:'This robot can walk and talk.',cn:'这个机器人会走路会说话。'},{en:'She holds a red balloon.',cn:'她拿着一个红色的气球。'},{en:'He is good at playing with a yoyo.',cn:'他很会玩悠悠球。'},{en:'My teddy bear sleeps with me every night.',cn:'我的玩具熊每晚都陪我睡觉。'},{en:'The spinning top spins very fast.',cn:'陀螺转得很快。'},{en:'We play with marbles after school.',cn:'我们放学后玩弹珠。'},{en:'We slide down the slide at the park.',cn:'我们在公园里滑滑梯。'},{en:'He rides his bicycle every afternoon.',cn:'他每天下午骑自行车。'},{en:'I blow bubbles in the garden.',cn:'我在花园里吹泡泡。'},{en:'She keeps her toys in a toy box.',cn:'她把玩具放在玩具箱里。'},{en:'We play chess after dinner.',cn:'我们晚饭后下国际象棋。'},{en:'The children take turns on the seesaw.',cn:'孩子们轮流玩跷跷板。'},{en:'He throws the frisbee to his dog.',cn:'他把飞盘扔给他的狗。'},{en:'I roll the dice and move my piece.',cn:'我掷骰子,移动我的棋子。'},{en:'My little sister loves her stuffed animal.',cn:'我的妹妹喜欢她的毛绒玩具。'},{en:'The pinwheel spins in the wind.',cn:'风车在风中转动。'},{en:'He is learning to ride a scooter.',cn:'他正在学骑滑板车。'},{en:'We push her gently on the swing.',cn:'我们轻轻地推她荡秋千。'}],
     mathNoun:'balloons',
     reading:{title:'心爱的机器人',text:'生日那天，爸爸送给小杰一个会说话的机器人。小杰高兴极了，每天都和机器人一起玩耍、聊天，晚上还要抱着它才能睡着。',question:'爸爸送给小杰什么礼物？',optA:'会说话的机器人',optB:'一本故事书',answer:'A'}},
   {id:'music',name:'音乐',icon:'🎵',
-    words:[{en:'song',ph:'/sɔːŋ/',cn:'歌曲'},{en:'sing',ph:'/sɪŋ/',cn:'唱歌'},{en:'piano',ph:'/piˈænoʊ/',cn:'钢琴'},{en:'guitar',ph:'/ɡɪˈtɑːr/',cn:'吉他'},{en:'violin',ph:'/ˌvaɪəˈlɪn/',cn:'小提琴'},{en:'flute',ph:'/fluːt/',cn:'长笛'},{en:'trumpet',ph:'/ˈtrʌmpɪt/',cn:'小号'},{en:'music',ph:'/ˈmjuːzɪk/',cn:'音乐'},{en:'note',ph:'/noʊt/',cn:'音符'},{en:'rhythm',ph:'/ˈrɪðəm/',cn:'节奏'},{en:'concert',ph:'/ˈkɑːnsərt/',cn:'音乐会'},{en:'band',ph:'/bænd/',cn:'乐队'},{en:'voice',ph:'/vɔɪs/',cn:'声音'},{en:'melody',ph:'/ˈmelədi/',cn:'旋律'},{en:'instrument',ph:'/ˈɪnstrəmənt/',cn:'乐器'}],
-    hanzi:[{zi:'音乐',py:'yīn yuè',cn:'用声音表达情感的艺术'},{zi:'唱歌',py:'chàng gē',cn:'用嗓子发出美妙的声音'},{zi:'钢琴',py:'gāng qín',cn:'有黑白琴键的乐器'},{zi:'吉他',py:'jí tā',cn:'弹拨弦乐器'},{zi:'小提琴',py:'xiǎo tí qín',cn:'用弓拉奏的弦乐器'},{zi:'音符',py:'yīn fú',cn:'记录音乐的符号'},{zi:'节奏',py:'jié zòu',cn:'音乐中强弱长短的规律'},{zi:'乐队',py:'yuè duì',cn:'一起演奏音乐的团体'}],
-    sentences:[{en:'I love to sing my favorite songs.',cn:'我喜欢唱我最喜欢的歌。'},{en:'She plays the piano every afternoon.',cn:'她每天下午弹钢琴。'},{en:'He is learning to play the guitar.',cn:'他正在学弹吉他。'},{en:'The violin makes a beautiful sound.',cn:'小提琴发出美妙的声音。'},{en:'We went to a wonderful concert.',cn:'我们去看了一场精彩的音乐会。'},{en:'The band played music at the party.',cn:'乐队在聚会上演奏音乐。'},{en:'Her voice is soft and sweet.',cn:'她的声音又软又甜。'},{en:'This song has a lovely melody.',cn:'这首歌的旋律很动听。'}],
+    words:[{en:'song',ph:'/sɔːŋ/',cn:'歌曲'},{en:'sing',ph:'/sɪŋ/',cn:'唱歌'},{en:'piano',ph:'/piˈænoʊ/',cn:'钢琴'},{en:'guitar',ph:'/ɡɪˈtɑːr/',cn:'吉他'},{en:'violin',ph:'/ˌvaɪəˈlɪn/',cn:'小提琴'},{en:'flute',ph:'/fluːt/',cn:'长笛'},{en:'trumpet',ph:'/ˈtrʌmpɪt/',cn:'小号'},{en:'music',ph:'/ˈmjuːzɪk/',cn:'音乐'},{en:'note',ph:'/noʊt/',cn:'音符'},{en:'rhythm',ph:'/ˈrɪðəm/',cn:'节奏'},{en:'concert',ph:'/ˈkɑːnsərt/',cn:'音乐会'},{en:'band',ph:'/bænd/',cn:'乐队'},{en:'voice',ph:'/vɔɪs/',cn:'声音'},{en:'melody',ph:'/ˈmelədi/',cn:'旋律'},{en:'instrument',ph:'/ˈɪnstrəmənt/',cn:'乐器'},{en:'drum',ph:'/drʌm/',cn:'鼓'},{en:'cello',ph:'/ˈtʃɛloʊ/',cn:'大提琴'},{en:'harp',ph:'/hɑːrp/',cn:'竖琴'},{en:'clarinet',ph:'/ˌklærəˈnɛt/',cn:'单簧管'},{en:'saxophone',ph:'/ˈsæksəfoʊn/',cn:'萨克斯管'},{en:'microphone',ph:'/ˈmaɪkrəfoʊn/',cn:'麦克风'},{en:'chorus',ph:'/ˈkɔːrəs/',cn:'合唱团'},{en:'lyrics',ph:'/ˈlɪrɪks/',cn:'歌词'},{en:'tune',ph:'/tuːn/',cn:'曲调'},{en:'beat',ph:'/biːt/',cn:'节拍'},{en:'orchestra',ph:'/ˈɔːrkɪstrə/',cn:'管弦乐队'},{en:'conductor',ph:'/kənˈdʌktər/',cn:'指挥'},{en:'audience',ph:'/ˈɔːdiəns/',cn:'观众'},{en:'stage',ph:'/steɪdʒ/',cn:'舞台'},{en:'dance',ph:'/dæns/',cn:'跳舞'},{en:'clap',ph:'/klæp/',cn:'鼓掌'},{en:'loud',ph:'/laʊd/',cn:'响亮的'},{en:'soft',ph:'/sɔːft/',cn:'轻柔的'},{en:'recorder',ph:'/rɪˈkɔːrdər/',cn:'竖笛'},{en:'xylophone',ph:'/ˈzaɪləfoʊn/',cn:'木琴'}],
+    hanzi:[{zi:'音乐',py:'yīn yuè',cn:'用声音表达情感的艺术'},{zi:'唱歌',py:'chàng gē',cn:'用嗓子发出美妙的声音'},{zi:'钢琴',py:'gāng qín',cn:'有黑白琴键的乐器'},{zi:'吉他',py:'jí tā',cn:'弹拨弦乐器'},{zi:'小提琴',py:'xiǎo tí qín',cn:'用弓拉奏的弦乐器'},{zi:'音符',py:'yīn fú',cn:'记录音乐的符号'},{zi:'节奏',py:'jié zòu',cn:'音乐中强弱长短的规律'},{zi:'乐队',py:'yuè duì',cn:'一起演奏音乐的团体'},{zi:'大提琴',py:'dà tí qín',cn:'大提琴是一种比小提琴大很多的弦乐器。'},{zi:'竖琴',py:'shù qín',cn:'竖琴有很多根弦,用手指拨动发出声音。'},{zi:'小鼓',py:'xiǎo gǔ',cn:'小鼓是用鼓槌敲打发出声音的乐器。'},{zi:'麦克风',py:'mài kè fēng',cn:'麦克风可以把声音变得更大。'},{zi:'合唱团',py:'hé chàng tuán',cn:'合唱团是很多人一起唱歌的团体。'},{zi:'歌词',py:'gē cí',cn:'歌词是一首歌里唱的那些字句。'},{zi:'指挥',py:'zhǐ huī',cn:'指挥站在乐队前面,带领大家一起演奏。'},{zi:'舞台',py:'wǔ tái',cn:'舞台是表演节目的地方。'},{zi:'观众',py:'guān zhòng',cn:'观众是坐在台下看表演的人。'},{zi:'跳舞',py:'tiào wǔ',cn:'跳舞是跟着音乐移动身体。'},{zi:'木琴',py:'mù qín',cn:'木琴是用小锤子敲打木条发出声音的乐器。'},{zi:'萨克斯管',py:'sà kè sī guǎn',cn:'萨克斯管是一种用嘴吹的金属乐器。'}],
+    sentences:[{en:'I love to sing my favorite songs.',cn:'我喜欢唱我最喜欢的歌。'},{en:'She plays the piano every afternoon.',cn:'她每天下午弹钢琴。'},{en:'He is learning to play the guitar.',cn:'他正在学弹吉他。'},{en:'The violin makes a beautiful sound.',cn:'小提琴发出美妙的声音。'},{en:'We went to a wonderful concert.',cn:'我们去看了一场精彩的音乐会。'},{en:'The band played music at the party.',cn:'乐队在聚会上演奏音乐。'},{en:'Her voice is soft and sweet.',cn:'她的声音又软又甜。'},{en:'This song has a lovely melody.',cn:'这首歌的旋律很动听。'},{en:'She plays the cello in the school orchestra.',cn:'她在学校管弦乐队里拉大提琴。'},{en:'The conductor stands in front of the band.',cn:'指挥站在乐队前面。'},{en:'We clap our hands after the concert.',cn:'音乐会结束后我们鼓掌。'},{en:'The singer holds a microphone on stage.',cn:'歌手在舞台上拿着麦克风。'},{en:'Many children join the school chorus.',cn:'很多孩子加入了学校合唱团。'},{en:'He taps the drum to keep the beat.',cn:'他敲鼓来打节拍。'},{en:'The audience listens quietly to the music.',cn:'观众安静地听音乐。'},{en:'I am learning the lyrics to a new song.',cn:'我正在学习一首新歌的歌词。'},{en:'The xylophone makes a bright sound.',cn:'木琴发出清脆的声音。'},{en:'We dance happily to the fast tune.',cn:'我们随着欢快的曲调快乐地跳舞。'},{en:'Her trumpet sounds loud and clear.',cn:'她的小号声音响亮又清楚。'},{en:'He practices the saxophone every evening.',cn:'他每天晚上练习萨克斯管。'}],
     mathNoun:'drums',
     reading:{title:'小音乐家',text:'小美从小就喜欢音乐，每天放学后都要练习弹钢琴。虽然有时候很辛苦，但她从不放弃，现在已经能弹出好听的曲子了。',question:'小美每天放学后做什么？',optA:'练习弹钢琴',optB:'看电视',answer:'A'}},
   {id:'space',name:'太空',icon:'🚀',
-    words:[{en:'planet',ph:'/ˈplænɪt/',cn:'行星'},{en:'earth',ph:'/ɜːrθ/',cn:'地球'},{en:'astronaut',ph:'/ˈæstrənɔːt/',cn:'宇航员'},{en:'galaxy',ph:'/ˈɡæləksi/',cn:'星系'},{en:'universe',ph:'/ˈjuːnɪvɜːrs/',cn:'宇宙'},{en:'comet',ph:'/ˈkɑːmɪt/',cn:'彗星'},{en:'satellite',ph:'/ˈsætəlaɪt/',cn:'卫星'},{en:'spaceship',ph:'/ˈspeɪsʃɪp/',cn:'宇宙飞船'},{en:'alien',ph:'/ˈeɪliən/',cn:'外星人'},{en:'telescope',ph:'/ˈtelɪskoʊp/',cn:'望远镜'},{en:'orbit',ph:'/ˈɔːrbɪt/',cn:'轨道'},{en:'sun',ph:'/sʌn/',cn:'太阳'},{en:'moon',ph:'/muːn/',cn:'月亮'},{en:'star',ph:'/stɑːr/',cn:'星星'},{en:'rocket',ph:'/ˈrɑːkɪt/',cn:'火箭'}],
-    hanzi:[{zi:'太空',py:'tài kōng',cn:'地球大气层以外的空间'},{zi:'地球',py:'dì qiú',cn:'我们居住的星球'},{zi:'月亮',py:'yuè liang',cn:'围绕地球转动的星球'},{zi:'星星',py:'xīng xing',cn:'夜空中闪烁的光点'},{zi:'宇航员',py:'yǔ háng yuán',cn:'在太空中工作的人'},{zi:'飞船',py:'fēi chuán',cn:'在太空中飞行的交通工具'},{zi:'行星',py:'xíng xīng',cn:'围绕恒星转动的天体'},{zi:'宇宙',py:'yǔ zhòu',cn:'包含所有星球的空间'}],
-    sentences:[{en:'The earth is our home planet.',cn:'地球是我们的家园星球。'},{en:'Astronauts travel to outer space.',cn:'宇航员到外太空旅行。'},{en:'There are eight planets in our solar system.',cn:'我们的太阳系有八颗行星。'},{en:'The spaceship landed on the moon.',cn:'宇宙飞船在月球上着陆。'},{en:'Stars twinkle brightly at night.',cn:'星星在夜晚闪闪发光。'},{en:'Scientists use a telescope to see far away.',cn:'科学家用望远镜看很远的地方。'},{en:'The universe is very big and mysterious.',cn:'宇宙非常大也很神秘。'},{en:'The satellite orbits around the earth.',cn:'卫星绕着地球转动。'}],
+    words:[{en:'planet',ph:'/ˈplænɪt/',cn:'行星'},{en:'earth',ph:'/ɜːrθ/',cn:'地球'},{en:'astronaut',ph:'/ˈæstrənɔːt/',cn:'宇航员'},{en:'galaxy',ph:'/ˈɡæləksi/',cn:'星系'},{en:'universe',ph:'/ˈjuːnɪvɜːrs/',cn:'宇宙'},{en:'comet',ph:'/ˈkɑːmɪt/',cn:'彗星'},{en:'satellite',ph:'/ˈsætəlaɪt/',cn:'卫星'},{en:'spaceship',ph:'/ˈspeɪsʃɪp/',cn:'宇宙飞船'},{en:'alien',ph:'/ˈeɪliən/',cn:'外星人'},{en:'telescope',ph:'/ˈtelɪskoʊp/',cn:'望远镜'},{en:'orbit',ph:'/ˈɔːrbɪt/',cn:'轨道'},{en:'sun',ph:'/sʌn/',cn:'太阳'},{en:'moon',ph:'/muːn/',cn:'月亮'},{en:'star',ph:'/stɑːr/',cn:'星星'},{en:'rocket',ph:'/ˈrɑːkɪt/',cn:'火箭'},{en:'Mars',ph:'/mɑːrz/',cn:'火星'},{en:'Venus',ph:'/ˈviːnəs/',cn:'金星'},{en:'Jupiter',ph:'/ˈdʒuːpɪtər/',cn:'木星'},{en:'Saturn',ph:'/ˈsætərn/',cn:'土星'},{en:'Mercury',ph:'/ˈmɜːrkjəri/',cn:'水星'},{en:'Neptune',ph:'/ˈnɛptuːn/',cn:'海王星'},{en:'Uranus',ph:'/ˈjʊrənəs/',cn:'天王星'},{en:'meteor',ph:'/ˈmiːtiər/',cn:'流星'},{en:'gravity',ph:'/ˈɡrævəti/',cn:'引力'},{en:'space station',ph:'/speɪs ˈsteɪʃən/',cn:'空间站'},{en:'crater',ph:'/ˈkreɪtər/',cn:'环形山'},{en:'launch',ph:'/lɔːntʃ/',cn:'发射'},{en:'spacesuit',ph:'/ˈspeɪssuːt/',cn:'太空服'},{en:'astronomer',ph:'/əˈstrɑːnəmər/',cn:'天文学家'},{en:'solar system',ph:'/ˈsoʊlər ˈsɪstəm/',cn:'太阳系'},{en:'constellation',ph:'/ˌkɑːnstəˈleɪʃən/',cn:'星座'},{en:'asteroid',ph:'/ˈæstərɔɪd/',cn:'小行星'},{en:'weightless',ph:'/ˈweɪtləs/',cn:'失重的'},{en:'explore',ph:'/ɪkˈsplɔːr/',cn:'探索'},{en:'discover',ph:'/dɪˈskʌvər/',cn:'发现'}],
+    hanzi:[{zi:'太空',py:'tài kōng',cn:'地球大气层以外的空间'},{zi:'地球',py:'dì qiú',cn:'我们居住的星球'},{zi:'月亮',py:'yuè liang',cn:'围绕地球转动的星球'},{zi:'星星',py:'xīng xing',cn:'夜空中闪烁的光点'},{zi:'宇航员',py:'yǔ háng yuán',cn:'在太空中工作的人'},{zi:'飞船',py:'fēi chuán',cn:'在太空中飞行的交通工具'},{zi:'行星',py:'xíng xīng',cn:'围绕恒星转动的天体'},{zi:'宇宙',py:'yǔ zhòu',cn:'包含所有星球的空间'},{zi:'火星',py:'huǒ xīng',cn:'火星是太阳系里一颗红色的行星。'},{zi:'木星',py:'mù xīng',cn:'木星是太阳系中最大的一颗行星。'},{zi:'太阳系',py:'tài yáng xì',cn:'太阳系是太阳和围着它转的星球组成的。'},{zi:'流星',py:'liú xīng',cn:'流星是从天空划过的一道亮光。'},{zi:'空间站',py:'kōng jiān zhàn',cn:'空间站是宇航员在太空生活和工作的地方。'},{zi:'太空服',py:'tài kōng fú',cn:'太空服是宇航员在太空穿的特殊衣服。'},{zi:'望远镜',py:'wàng yuǎn jìng',cn:'望远镜可以帮助我们看到很远的星星。'},{zi:'星座',py:'xīng zuò',cn:'星座是天空中一群排列成图案的星星。'},{zi:'引力',py:'yǐn lì',cn:'引力是把东西往下拉的一种力量。'},{zi:'小行星',py:'xiǎo xíng xīng',cn:'小行星是太空中比行星小的石头天体。'},{zi:'天文学家',py:'tiān wén xué jiā',cn:'天文学家是研究星星和太空的科学家。'},{zi:'火箭发射',py:'huǒ jiàn fā shè',cn:'火箭发射是指火箭飞向太空的那一刻。'}],
+    sentences:[{en:'The earth is our home planet.',cn:'地球是我们的家园星球。'},{en:'Astronauts travel to outer space.',cn:'宇航员到外太空旅行。'},{en:'There are eight planets in our solar system.',cn:'我们的太阳系有八颗行星。'},{en:'The spaceship landed on the moon.',cn:'宇宙飞船在月球上着陆。'},{en:'Stars twinkle brightly at night.',cn:'星星在夜晚闪闪发光。'},{en:'Scientists use a telescope to see far away.',cn:'科学家用望远镜看很远的地方。'},{en:'The universe is very big and mysterious.',cn:'宇宙非常大也很神秘。'},{en:'The satellite orbits around the earth.',cn:'卫星绕着地球转动。'},{en:'Mars is often called the red planet.',cn:'火星常被称为红色星球。'},{en:'A meteor streaks across the night sky.',cn:'一颗流星划过夜空。'},{en:'Astronauts live and work on the space station.',cn:'宇航员在空间站生活和工作。'},{en:'She wears a spacesuit before going outside.',cn:'她出舱前穿上太空服。'},{en:'Gravity keeps our feet on the ground.',cn:'引力让我们的脚留在地面上。'},{en:'Scientists want to explore new planets.',cn:'科学家想探索新的行星。'},{en:'We can see many stars in a constellation.',cn:'我们能在一个星座里看到许多星星。'},{en:'The rocket launches high into the sky.',cn:'火箭升空飞向高高的天空。'},{en:'An astronomer studies the stars every night.',cn:'天文学家每晚研究星星。'},{en:'Objects float because there is no weight in space.',cn:'太空中没有重力,物体会飘浮起来。'},{en:'Jupiter is bigger than all the other planets.',cn:'木星比其他所有行星都大。'},{en:'We discovered a new comet in the sky.',cn:'我们在天空中发现了一颗新彗星。'}],
     mathNoun:'rockets',
     reading:{title:'我的航天梦',text:'小宇从小就梦想成为一名宇航员，去太空看看星星和月亮。他每天努力学习，希望长大后能坐着飞船飞上太空。',question:'小宇长大后想做什么？',optA:'当宇航员',optB:'当厨师',answer:'A'}},
   {id:'ocean',name:'海洋',icon:'🐠',
-    words:[{en:'shark',ph:'/ʃɑːrk/',cn:'鲨鱼'},{en:'whale',ph:'/weɪl/',cn:'鲸鱼'},{en:'dolphin',ph:'/ˈdɑːlfɪn/',cn:'海豚'},{en:'octopus',ph:'/ˈɑːktəpəs/',cn:'章鱼'},{en:'crab',ph:'/kræb/',cn:'螃蟹'},{en:'starfish',ph:'/ˈstɑːrfɪʃ/',cn:'海星'},{en:'jellyfish',ph:'/ˈdʒelifɪʃ/',cn:'水母'},{en:'turtle',ph:'/ˈtɜːrtl/',cn:'海龟'},{en:'seahorse',ph:'/ˈsiːhɔːrs/',cn:'海马'},{en:'coral',ph:'/ˈkɔːrəl/',cn:'珊瑚'},{en:'shell',ph:'/ʃel/',cn:'贝壳'},{en:'wave',ph:'/weɪv/',cn:'海浪'},{en:'beach',ph:'/biːtʃ/',cn:'海滩'},{en:'seaweed',ph:'/ˈsiːwiːd/',cn:'海藻'},{en:'fish',ph:'/fɪʃ/',cn:'鱼'}],
-    hanzi:[{zi:'海洋',py:'hǎi yáng',cn:'又大又深的水域'},{zi:'鲨鱼',py:'shā yú',cn:'海里凶猛的大鱼'},{zi:'鲸鱼',py:'jīng yú',cn:'海里最大的哺乳动物'},{zi:'海豚',py:'hǎi tún',cn:'聪明友好的海洋动物'},{zi:'螃蟹',py:'páng xiè',cn:'横着走路的甲壳动物'},{zi:'海星',py:'hǎi xīng',cn:'星星形状的海洋生物'},{zi:'珊瑚',py:'shān hú',cn:'五颜六色的海底生物'},{zi:'贝壳',py:'bèi ké',cn:'海边捡到的硬壳'}],
-    sentences:[{en:'The shark swims very fast in the water.',cn:'鲨鱼在水里游得很快。'},{en:'The whale is the biggest animal in the ocean.',cn:'鲸鱼是海洋里最大的动物。'},{en:'Dolphins are very smart and friendly.',cn:'海豚非常聪明友好。'},{en:'The crab walks sideways on the beach.',cn:'螃蟹在沙滩上横着走。'},{en:'I found a beautiful shell on the beach.',cn:'我在沙滩上捡到一个漂亮的贝壳。'},{en:'The coral reef is full of colors.',cn:'珊瑚礁色彩缤纷。'},{en:'Big waves crashed onto the shore.',cn:'大浪拍打着海岸。'},{en:'The turtle swims slowly in the sea.',cn:'海龟在海里慢慢地游。'}],
+    words:[{en:'shark',ph:'/ʃɑːrk/',cn:'鲨鱼'},{en:'whale',ph:'/weɪl/',cn:'鲸鱼'},{en:'dolphin',ph:'/ˈdɑːlfɪn/',cn:'海豚'},{en:'octopus',ph:'/ˈɑːktəpəs/',cn:'章鱼'},{en:'crab',ph:'/kræb/',cn:'螃蟹'},{en:'starfish',ph:'/ˈstɑːrfɪʃ/',cn:'海星'},{en:'jellyfish',ph:'/ˈdʒelifɪʃ/',cn:'水母'},{en:'turtle',ph:'/ˈtɜːrtl/',cn:'海龟'},{en:'seahorse',ph:'/ˈsiːhɔːrs/',cn:'海马'},{en:'coral',ph:'/ˈkɔːrəl/',cn:'珊瑚'},{en:'shell',ph:'/ʃel/',cn:'贝壳'},{en:'wave',ph:'/weɪv/',cn:'海浪'},{en:'beach',ph:'/biːtʃ/',cn:'海滩'},{en:'seaweed',ph:'/ˈsiːwiːd/',cn:'海藻'},{en:'fish',ph:'/fɪʃ/',cn:'鱼'},{en:'clownfish',ph:'/ˈklaʊnfɪʃ/',cn:'小丑鱼'},{en:'stingray',ph:'/ˈstɪŋreɪ/',cn:'黄貂鱼'},{en:'squid',ph:'/skwɪd/',cn:'鱿鱼'},{en:'lobster',ph:'/ˈlɑːbstər/',cn:'龙虾'},{en:'shrimp',ph:'/ʃrɪmp/',cn:'虾'},{en:'penguin',ph:'/ˈpɛŋɡwɪn/',cn:'企鹅'},{en:'seal',ph:'/siːl/',cn:'海豹'},{en:'walrus',ph:'/ˈwɔːlrəs/',cn:'海象'},{en:'sand',ph:'/sænd/',cn:'沙子'},{en:'tide',ph:'/taɪd/',cn:'潮汐'},{en:'island',ph:'/ˈaɪlənd/',cn:'岛屿'},{en:'boat',ph:'/boʊt/',cn:'船'},{en:'sailor',ph:'/ˈseɪlər/',cn:'水手'},{en:'net',ph:'/nɛt/',cn:'渔网'},{en:'swim',ph:'/swɪm/',cn:'游泳'},{en:'deep',ph:'/diːp/',cn:'深的'},{en:'pearl',ph:'/pɜːrl/',cn:'珍珠'},{en:'anchor',ph:'/ˈæŋkər/',cn:'锚'},{en:'lighthouse',ph:'/ˈlaɪthaʊs/',cn:'灯塔'},{en:'current',ph:'/ˈkɜːrənt/',cn:'洋流'}],
+    hanzi:[{zi:'海洋',py:'hǎi yáng',cn:'又大又深的水域'},{zi:'鲨鱼',py:'shā yú',cn:'海里凶猛的大鱼'},{zi:'鲸鱼',py:'jīng yú',cn:'海里最大的哺乳动物'},{zi:'海豚',py:'hǎi tún',cn:'聪明友好的海洋动物'},{zi:'螃蟹',py:'páng xiè',cn:'横着走路的甲壳动物'},{zi:'海星',py:'hǎi xīng',cn:'星星形状的海洋生物'},{zi:'珊瑚',py:'shān hú',cn:'五颜六色的海底生物'},{zi:'贝壳',py:'bèi ké',cn:'海边捡到的硬壳'},{zi:'章鱼',py:'zhāng yú',cn:'章鱼有八只长长的触手,生活在海里。'},{zi:'水母',py:'shuǐ mǔ',cn:'水母身体透明柔软,在海里漂来漂去。'},{zi:'海龟',py:'hǎi guī',cn:'海龟是生活在海里的一种大乌龟。'},{zi:'海马',py:'hǎi mǎ',cn:'海马的样子像小马,是一种小鱼。'},{zi:'鱿鱼',py:'yóu yú',cn:'鱿鱼身体长长的,有很多触手。'},{zi:'龙虾',py:'lóng xiā',cn:'龙虾有一对大大的钳子,生活在海里。'},{zi:'企鹅',py:'qǐ é',cn:'企鹅不会飞,但是很会游泳。'},{zi:'海豹',py:'hǎi bào',cn:'海豹身体圆圆的,喜欢在水里游来游去。'},{zi:'灯塔',py:'dēng tǎ',cn:'灯塔建在海边,夜里发光给船指路。'},{zi:'潮汐',py:'cháo xī',cn:'潮汐是海水有时涨高有时退下去的现象。'},{zi:'珍珠',py:'zhēn zhū',cn:'珍珠是蚌壳里长出来的圆圆的宝石。'},{zi:'海浪',py:'hǎi làng',cn:'海浪是海面上一波一波的水。'}],
+    sentences:[{en:'The shark swims very fast in the water.',cn:'鲨鱼在水里游得很快。'},{en:'The whale is the biggest animal in the ocean.',cn:'鲸鱼是海洋里最大的动物。'},{en:'Dolphins are very smart and friendly.',cn:'海豚非常聪明友好。'},{en:'The crab walks sideways on the beach.',cn:'螃蟹在沙滩上横着走。'},{en:'I found a beautiful shell on the beach.',cn:'我在沙滩上捡到一个漂亮的贝壳。'},{en:'The coral reef is full of colors.',cn:'珊瑚礁色彩缤纷。'},{en:'Big waves crashed onto the shore.',cn:'大浪拍打着海岸。'},{en:'The turtle swims slowly in the sea.',cn:'海龟在海里慢慢地游。'},{en:'The octopus has eight long arms.',cn:'章鱼有八只长长的触手。'},{en:'A jellyfish floats gently in the water.',cn:'水母在水里轻轻地漂浮。'},{en:'The seahorse swims near the coral reef.',cn:'海马在珊瑚礁附近游动。'},{en:'Penguins cannot fly but they swim well.',cn:'企鹅不会飞,但是很会游泳。'},{en:'The lighthouse shines a light at night.',cn:'灯塔在夜里发出光亮。'},{en:'We collect pearls from the oyster shells.',cn:'我们从牡蛎壳里收集珍珠。'},{en:'The boat sails slowly across the sea.',cn:'船在海面上慢慢航行。'},{en:'Fishermen catch fish with a big net.',cn:'渔民用大渔网捕鱼。'},{en:'The tide comes in and goes out every day.',cn:'潮汐每天涨落。'},{en:'Children build sandcastles on the beach.',cn:'孩子们在沙滩上堆沙堡。'},{en:'A lobster has two big claws.',cn:'龙虾有两只大钳子。'},{en:'The seal rests on a rock near the water.',cn:'海豹在水边的石头上休息。'}],
     mathNoun:'seashells',
     reading:{title:'海边的一天',text:'暑假里，妈妈带小艾去海边玩。他们看到了螃蟹、贝壳，还有远处跳跃的海豚。小艾捡了好多好看的贝壳带回家。',question:'小艾在海边捡到了什么？',optA:'好看的贝壳',optB:'好多石头',answer:'A'}},
   {id:'insects',name:'昆虫',icon:'🐝',
-    words:[{en:'ant',ph:'/ænt/',cn:'蚂蚁'},{en:'bee',ph:'/biː/',cn:'蜜蜂'},{en:'butterfly',ph:'/ˈbʌtərflaɪ/',cn:'蝴蝶'},{en:'ladybug',ph:'/ˈleɪdibʌɡ/',cn:'瓢虫'},{en:'dragonfly',ph:'/ˈdræɡənflaɪ/',cn:'蜻蜓'},{en:'spider',ph:'/ˈspaɪdər/',cn:'蜘蛛'},{en:'grasshopper',ph:'/ˈɡræshɑːpər/',cn:'蚱蜢'},{en:'mosquito',ph:'/məˈskiːtoʊ/',cn:'蚊子'},{en:'fly',ph:'/flaɪ/',cn:'苍蝇'},{en:'beetle',ph:'/ˈbiːtl/',cn:'甲虫'},{en:'cricket',ph:'/ˈkrɪkɪt/',cn:'蟋蟀'},{en:'caterpillar',ph:'/ˈkætərpɪlər/',cn:'毛毛虫'},{en:'snail',ph:'/sneɪl/',cn:'蜗牛'},{en:'moth',ph:'/mɔːθ/',cn:'飞蛾'},{en:'firefly',ph:'/ˈfaɪərflaɪ/',cn:'萤火虫'}],
-    hanzi:[{zi:'昆虫',py:'kūn chóng',cn:'身体分节、有六条腿的小动物'},{zi:'蚂蚁',py:'mǎ yǐ',cn:'群居的小昆虫'},{zi:'蜜蜂',py:'mì fēng',cn:'会采蜜的昆虫'},{zi:'蝴蝶',py:'hú dié',cn:'翅膀漂亮的昆虫'},{zi:'蜻蜓',py:'qīng tíng',cn:'飞得很快的昆虫'},{zi:'蜘蛛',py:'zhī zhū',cn:'会结网的小动物'},{zi:'毛毛虫',py:'máo mao chóng',cn:'蝴蝶的幼虫'},{zi:'蜗牛',py:'wō niú',cn:'背着壳慢慢爬的小动物'}],
-    sentences:[{en:'Ants work together to carry food.',cn:'蚂蚁一起合作搬运食物。'},{en:'Bees make sweet honey.',cn:'蜜蜂酿造甜甜的蜂蜜。'},{en:'The butterfly has colorful wings.',cn:'蝴蝶有五颜六色的翅膀。'},{en:'The spider spins a big web.',cn:'蜘蛛织了一张大网。'},{en:'A caterpillar will become a butterfly one day.',cn:'毛毛虫总有一天会变成蝴蝶。'},{en:'The snail moves very slowly.',cn:'蜗牛爬得很慢。'},{en:'Fireflies glow in the dark night.',cn:'萤火虫在黑夜中发光。'},{en:'The dragonfly flies over the pond.',cn:'蜻蜓在池塘上方飞。'}],
+    words:[{en:'ant',ph:'/ænt/',cn:'蚂蚁'},{en:'bee',ph:'/biː/',cn:'蜜蜂'},{en:'butterfly',ph:'/ˈbʌtərflaɪ/',cn:'蝴蝶'},{en:'ladybug',ph:'/ˈleɪdibʌɡ/',cn:'瓢虫'},{en:'dragonfly',ph:'/ˈdræɡənflaɪ/',cn:'蜻蜓'},{en:'spider',ph:'/ˈspaɪdər/',cn:'蜘蛛'},{en:'grasshopper',ph:'/ˈɡræshɑːpər/',cn:'蚱蜢'},{en:'mosquito',ph:'/məˈskiːtoʊ/',cn:'蚊子'},{en:'fly',ph:'/flaɪ/',cn:'苍蝇'},{en:'beetle',ph:'/ˈbiːtl/',cn:'甲虫'},{en:'cricket',ph:'/ˈkrɪkɪt/',cn:'蟋蟀'},{en:'caterpillar',ph:'/ˈkætərpɪlər/',cn:'毛毛虫'},{en:'snail',ph:'/sneɪl/',cn:'蜗牛'},{en:'moth',ph:'/mɔːθ/',cn:'飞蛾'},{en:'firefly',ph:'/ˈfaɪərflaɪ/',cn:'萤火虫'},{en:'wasp',ph:'/wɑːsp/',cn:'黄蜂'},{en:'termite',ph:'/ˈtɜːrmaɪt/',cn:'白蚁'},{en:'cockroach',ph:'/ˈkɑːkroʊtʃ/',cn:'蟑螂'},{en:'centipede',ph:'/ˈsentəpiːd/',cn:'蜈蚣'},{en:'millipede',ph:'/ˈmɪləpiːd/',cn:'马陆'},{en:'cicada',ph:'/sɪˈkeɪdə/',cn:'蝉'},{en:'flea',ph:'/fliː/',cn:'跳蚤'},{en:'tick',ph:'/tɪk/',cn:'蜱虫'},{en:'aphid',ph:'/ˈeɪfɪd/',cn:'蚜虫'},{en:'locust',ph:'/ˈloʊkəst/',cn:'蝗虫'},{en:'scorpion',ph:'/ˈskɔːrpiən/',cn:'蝎子'},{en:'silkworm',ph:'/ˈsɪlkwɜːrm/',cn:'蚕'},{en:'stick insect',ph:'/stɪk ˈɪnsekt/',cn:'竹节虫'},{en:'praying mantis',ph:'/ˈpreɪɪŋ ˈmæntɪs/',cn:'螳螂'},{en:'antenna',ph:'/ænˈtenə/',cn:'触角'},{en:'wing',ph:'/wɪŋ/',cn:'翅膀'},{en:'cocoon',ph:'/kəˈkuːn/',cn:'蚕茧'},{en:'nest',ph:'/nest/',cn:'巢'},{en:'hive',ph:'/haɪv/',cn:'蜂巢'},{en:'pollen',ph:'/ˈpɑːlən/',cn:'花粉'}],
+    hanzi:[{zi:'昆虫',py:'kūn chóng',cn:'身体分节、有六条腿的小动物'},{zi:'蚂蚁',py:'mǎ yǐ',cn:'群居的小昆虫'},{zi:'蜜蜂',py:'mì fēng',cn:'会采蜜的昆虫'},{zi:'蝴蝶',py:'hú dié',cn:'翅膀漂亮的昆虫'},{zi:'蜻蜓',py:'qīng tíng',cn:'飞得很快的昆虫'},{zi:'蜘蛛',py:'zhī zhū',cn:'会结网的小动物'},{zi:'毛毛虫',py:'máo mao chóng',cn:'蝴蝶的幼虫'},{zi:'蜗牛',py:'wō niú',cn:'背着壳慢慢爬的小动物'},{zi:'黄蜂',py:'huáng fēng',cn:'一种会蜇人的黄色昆虫。'},{zi:'白蚁',py:'bái yǐ',cn:'喜欢吃木头的小昆虫。'},{zi:'蟑螂',py:'zhāng láng',cn:'一种常在厨房里出现的小虫子。'},{zi:'蜈蚣',py:'wú gōng',cn:'身体长长、有很多条腿的小虫子。'},{zi:'知了',py:'zhī liǎo',cn:'夏天在树上大声叫的昆虫。'},{zi:'跳蚤',py:'tiào zao',cn:'身体很小、能跳得很高的虫子。'},{zi:'蝎子',py:'xiē zi',cn:'尾巴上有毒钩的小动物。'},{zi:'蚕宝宝',py:'cán bǎo bao',cn:'会吐丝做茧的小虫子。'},{zi:'螳螂',py:'táng láng',cn:'前腿像镰刀一样的昆虫。'},{zi:'竹节虫',py:'zhú jié chóng',cn:'身体长得像树枝一样的昆虫。'},{zi:'蜂巢',py:'fēng cháo',cn:'蜜蜂居住的地方。'},{zi:'蝗虫',py:'huáng chóng',cn:'会成群吃掉农作物的昆虫。'}],
+    sentences:[{en:'Ants work together to carry food.',cn:'蚂蚁一起合作搬运食物。'},{en:'Bees make sweet honey.',cn:'蜜蜂酿造甜甜的蜂蜜。'},{en:'The butterfly has colorful wings.',cn:'蝴蝶有五颜六色的翅膀。'},{en:'The spider spins a big web.',cn:'蜘蛛织了一张大网。'},{en:'A caterpillar will become a butterfly one day.',cn:'毛毛虫总有一天会变成蝴蝶。'},{en:'The snail moves very slowly.',cn:'蜗牛爬得很慢。'},{en:'Fireflies glow in the dark night.',cn:'萤火虫在黑夜中发光。'},{en:'The dragonfly flies over the pond.',cn:'蜻蜓在池塘上方飞。'},{en:'The wasp built its nest under the roof.',cn:'黄蜂在屋檐下筑了一个巢。'},{en:'A ladybug has small black spots on its back.',cn:'瓢虫的背上有小小的黑点。'},{en:'The grasshopper can jump very far.',cn:'蚱蜢能跳得很远。'},{en:'Mosquitoes like to bite people at night.',cn:'蚊子喜欢在晚上咬人。'},{en:'The cricket sings at night in the grass.',cn:'蟋蟀在晚上的草丛里唱歌。'},{en:'A beetle has a hard shiny shell.',cn:'甲虫有坚硬发亮的外壳。'},{en:'The moth flies toward the light.',cn:'飞蛾朝着灯光飞去。'},{en:'The silkworm spins silk to make a cocoon.',cn:'蚕吐丝做成蚕茧。'},{en:'A scorpion has a long tail with a sting.',cn:'蝎子有一条带毒刺的长尾巴。'},{en:'Many ants are carrying crumbs back to their nest.',cn:'许多蚂蚁正把面包屑搬回巢穴。'},{en:'Bees collect pollen from colorful flowers.',cn:'蜜蜂从五颜六色的花朵上采集花粉。'},{en:'The cicada sings loudly on a hot summer day.',cn:'知了在炎热的夏天大声鸣叫。'}],
     mathNoun:'butterflies',
     reading:{title:'毛毛虫变蝴蝶',text:'花园里有一条小小的毛毛虫，它每天都在吃树叶。过了一段时间，它结成了蛹，最后变成了一只美丽的蝴蝶飞走了。',question:'毛毛虫最后变成了什么？',optA:'美丽的蝴蝶',optB:'一只小鸟',answer:'A'}},
   {id:'birds',name:'鸟类',icon:'🐦',
-    words:[{en:'bird',ph:'/bɜːrd/',cn:'鸟'},{en:'eagle',ph:'/ˈiːɡl/',cn:'老鹰'},{en:'owl',ph:'/aʊl/',cn:'猫头鹰'},{en:'parrot',ph:'/ˈpærət/',cn:'鹦鹉'},{en:'sparrow',ph:'/ˈspæroʊ/',cn:'麻雀'},{en:'swan',ph:'/swɑːn/',cn:'天鹅'},{en:'duck',ph:'/dʌk/',cn:'鸭子'},{en:'chicken',ph:'/ˈtʃɪkɪn/',cn:'鸡'},{en:'peacock',ph:'/ˈpiːkɑːk/',cn:'孔雀'},{en:'penguin',ph:'/ˈpeŋɡwɪn/',cn:'企鹅'},{en:'pigeon',ph:'/ˈpɪdʒɪn/',cn:'鸽子'},{en:'crow',ph:'/kroʊ/',cn:'乌鸦'},{en:'swallow',ph:'/ˈswɑːloʊ/',cn:'燕子'},{en:'woodpecker',ph:'/ˈwʊdpekər/',cn:'啄木鸟'},{en:'ostrich',ph:'/ˈɔːstrɪtʃ/',cn:'鸵鸟'}],
-    hanzi:[{zi:'老鹰',py:'lǎo yīng',cn:'飞得又高又快的猛禽'},{zi:'猫头鹰',py:'māo tóu yīng',cn:'夜里活动的鸟'},{zi:'鹦鹉',py:'yīng wǔ',cn:'会学人说话的鸟'},{zi:'天鹅',py:'tiān é',cn:'洁白优雅的水鸟'},{zi:'鸭子',py:'yā zi',cn:'会游泳的家禽'},{zi:'孔雀',py:'kǒng què',cn:'尾巴很漂亮的鸟'},{zi:'企鹅',py:'qǐ é',cn:'生活在南极的鸟'},{zi:'燕子',py:'yàn zi',cn:'春天飞回来的候鸟'}],
-    sentences:[{en:'The eagle flies high in the sky.',cn:'老鹰在天空中高高地飞翔。'},{en:'The owl sleeps in the daytime.',cn:'猫头鹰在白天睡觉。'},{en:'This parrot can say a few words.',cn:'这只鹦鹉会说几个词。'},{en:'Swans are white and graceful.',cn:'天鹅又白又优雅。'},{en:'The peacock has beautiful tail feathers.',cn:'孔雀有漂亮的尾羽。'},{en:'Penguins live in very cold places.',cn:'企鹅生活在非常寒冷的地方。'},{en:'Swallows come back in spring.',cn:'燕子在春天飞回来。'},{en:'The woodpecker pecks holes in trees.',cn:'啄木鸟在树上啄洞。'}],
+    words:[{en:'bird',ph:'/bɜːrd/',cn:'鸟'},{en:'eagle',ph:'/ˈiːɡl/',cn:'老鹰'},{en:'owl',ph:'/aʊl/',cn:'猫头鹰'},{en:'parrot',ph:'/ˈpærət/',cn:'鹦鹉'},{en:'sparrow',ph:'/ˈspæroʊ/',cn:'麻雀'},{en:'swan',ph:'/swɑːn/',cn:'天鹅'},{en:'duck',ph:'/dʌk/',cn:'鸭子'},{en:'chicken',ph:'/ˈtʃɪkɪn/',cn:'鸡'},{en:'peacock',ph:'/ˈpiːkɑːk/',cn:'孔雀'},{en:'penguin',ph:'/ˈpeŋɡwɪn/',cn:'企鹅'},{en:'pigeon',ph:'/ˈpɪdʒɪn/',cn:'鸽子'},{en:'crow',ph:'/kroʊ/',cn:'乌鸦'},{en:'swallow',ph:'/ˈswɑːloʊ/',cn:'燕子'},{en:'woodpecker',ph:'/ˈwʊdpekər/',cn:'啄木鸟'},{en:'ostrich',ph:'/ˈɔːstrɪtʃ/',cn:'鸵鸟'},{en:'flamingo',ph:'/fləˈmɪŋɡoʊ/',cn:'火烈鸟'},{en:'seagull',ph:'/ˈsiːɡʌl/',cn:'海鸥'},{en:'robin',ph:'/ˈrɑːbɪn/',cn:'知更鸟'},{en:'hummingbird',ph:'/ˈhʌmɪŋbɜːrd/',cn:'蜂鸟'},{en:'goose',ph:'/ɡuːs/',cn:'鹅'},{en:'turkey',ph:'/ˈtɜːrki/',cn:'火鸡'},{en:'falcon',ph:'/ˈfælkən/',cn:'猎鹰'},{en:'heron',ph:'/ˈherən/',cn:'苍鹭'},{en:'stork',ph:'/stɔːrk/',cn:'鹳'},{en:'kingfisher',ph:'/ˈkɪŋfɪʃər/',cn:'翠鸟'},{en:'cuckoo',ph:'/ˈkuːkuː/',cn:'布谷鸟'},{en:'magpie',ph:'/ˈmæɡpaɪ/',cn:'喜鹊'},{en:'canary',ph:'/kəˈneri/',cn:'金丝雀'},{en:'vulture',ph:'/ˈvʌltʃər/',cn:'秃鹫'},{en:'finch',ph:'/fɪntʃ/',cn:'雀'},{en:'feather',ph:'/ˈfeðər/',cn:'羽毛'},{en:'beak',ph:'/biːk/',cn:'鸟喙'},{en:'nest',ph:'/nest/',cn:'鸟巢'},{en:'egg',ph:'/eɡ/',cn:'蛋'},{en:'wing',ph:'/wɪŋ/',cn:'翅膀'}],
+    hanzi:[{zi:'老鹰',py:'lǎo yīng',cn:'飞得又高又快的猛禽'},{zi:'猫头鹰',py:'māo tóu yīng',cn:'夜里活动的鸟'},{zi:'鹦鹉',py:'yīng wǔ',cn:'会学人说话的鸟'},{zi:'天鹅',py:'tiān é',cn:'洁白优雅的水鸟'},{zi:'鸭子',py:'yā zi',cn:'会游泳的家禽'},{zi:'孔雀',py:'kǒng què',cn:'尾巴很漂亮的鸟'},{zi:'企鹅',py:'qǐ é',cn:'生活在南极的鸟'},{zi:'燕子',py:'yàn zi',cn:'春天飞回来的候鸟'},{zi:'火烈鸟',py:'huǒ liè niǎo',cn:'身体是粉红色、腿很长的鸟。'},{zi:'海鸥',py:'hǎi ōu',cn:'喜欢在海边飞翔的白色鸟。'},{zi:'喜鹊',py:'xǐ què',cn:'叫声好听、被人们认为吉祥的鸟。'},{zi:'乌鸦',py:'wū yā',cn:'全身黑色、非常聪明的鸟。'},{zi:'布谷鸟',py:'bù gǔ niǎo',cn:'叫声像在说布谷的鸟。'},{zi:'啄木鸟',py:'zhuó mù niǎo',cn:'喜欢用嘴敲树捉虫子的鸟。'},{zi:'火鸡',py:'huǒ jī',cn:'一种体型很大的家禽。'},{zi:'金丝雀',py:'jīn sī què',cn:'一种会唱歌的黄色小鸟。'},{zi:'翠鸟',py:'cuì niǎo',cn:'羽毛颜色鲜艳、喜欢捕鱼的小鸟。'},{zi:'鸵鸟',py:'tuó niǎo',cn:'身体很大但不会飞的鸟。'},{zi:'鸟巢',py:'niǎo cháo',cn:'鸟儿用来休息和下蛋的窝。'},{zi:'鸟蛋',py:'niǎo dàn',cn:'鸟妈妈生下的蛋。'}],
+    sentences:[{en:'The eagle flies high in the sky.',cn:'老鹰在天空中高高地飞翔。'},{en:'The owl sleeps in the daytime.',cn:'猫头鹰在白天睡觉。'},{en:'This parrot can say a few words.',cn:'这只鹦鹉会说几个词。'},{en:'Swans are white and graceful.',cn:'天鹅又白又优雅。'},{en:'The peacock has beautiful tail feathers.',cn:'孔雀有漂亮的尾羽。'},{en:'Penguins live in very cold places.',cn:'企鹅生活在非常寒冷的地方。'},{en:'Swallows come back in spring.',cn:'燕子在春天飞回来。'},{en:'The woodpecker pecks holes in trees.',cn:'啄木鸟在树上啄洞。'},{en:'Flamingos stand on one leg in the water.',cn:'火烈鸟用一条腿站在水里。'},{en:'Seagulls fly over the beach looking for fish.',cn:'海鸥在沙滩上空飞翔寻找鱼。'},{en:'The crow is very smart and black all over.',cn:'乌鸦非常聪明,全身都是黑色的。'},{en:'A cuckoo makes a very special sound.',cn:'布谷鸟会发出特别的叫声。'},{en:'The magpie builds its nest high in a tree.',cn:'喜鹊把巢筑在高高的树上。'},{en:'Many geese swim together in the pond.',cn:'很多鹅一起在池塘里游泳。'},{en:'The turkey has a large round body.',cn:'火鸡的身体又大又圆。'},{en:'A hummingbird can fly backwards.',cn:'蜂鸟可以向后飞。'},{en:'The falcon catches its food very quickly.',cn:'猎鹰捕食的速度非常快。'},{en:'Birds use their beaks to pick up food.',cn:'鸟儿用喙啄起食物。'},{en:'A mother bird keeps her eggs warm in the nest.',cn:'鸟妈妈把蛋放在巢里保温。'},{en:'The robin has a red chest and sings in the morning.',cn:'知更鸟的胸口是红色的,早上会唱歌。'}],
     mathNoun:'eggs',
     reading:{title:'会说话的鹦鹉',text:'小乐家里养了一只鹦鹉，它很聪明，会学着说"你好"和"谢谢"。小乐每天放学回家，都要和鹦鹉聊聊天。',question:'小乐家的鹦鹉会做什么？',optA:'学着说话',optB:'会游泳',answer:'A'}},
   {id:'kitchen',name:'厨房',icon:'🍳',
-    words:[{en:'pot',ph:'/pɑːt/',cn:'锅'},{en:'pan',ph:'/pæn/',cn:'平底锅'},{en:'knife',ph:'/naɪf/',cn:'刀'},{en:'spoon',ph:'/spuːn/',cn:'勺子'},{en:'fork',ph:'/fɔːrk/',cn:'叉子'},{en:'plate',ph:'/pleɪt/',cn:'盘子'},{en:'bowl',ph:'/boʊl/',cn:'碗'},{en:'cup',ph:'/kʌp/',cn:'杯子'},{en:'stove',ph:'/stoʊv/',cn:'炉灶'},{en:'fridge',ph:'/frɪdʒ/',cn:'冰箱'},{en:'oven',ph:'/ˈʌvn/',cn:'烤箱'},{en:'kettle',ph:'/ˈketl/',cn:'水壶'},{en:'chopsticks',ph:'/ˈtʃɑːpstɪks/',cn:'筷子'},{en:'napkin',ph:'/ˈnæpkɪn/',cn:'餐巾纸'},{en:'sink',ph:'/sɪŋk/',cn:'水槽'}],
-    hanzi:[{zi:'厨房',py:'chú fáng',cn:'做饭的地方'},{zi:'锅',py:'guō',cn:'用来烧菜煮饭的器具'},{zi:'碗筷',py:'wǎn kuài',cn:'碗和筷子'},{zi:'盘子',py:'pán zi',cn:'装菜用的扁平器皿'},{zi:'冰箱',py:'bīng xiāng',cn:'冷藏食物的电器'},{zi:'炉灶',py:'lú zào',cn:'用来加热做饭的设备'},{zi:'水壶',py:'shuǐ hú',cn:'烧水用的壶'},{zi:'筷子',py:'kuài zi',cn:'中国人吃饭用的工具'}],
-    sentences:[{en:'Mom is cooking in the kitchen.',cn:'妈妈在厨房里做饭。'},{en:'I use chopsticks to eat noodles.',cn:'我用筷子吃面条。'},{en:'Please put the plate on the table.',cn:'请把盘子放在桌子上。'},{en:'The fridge keeps our food fresh.',cn:'冰箱让我们的食物保持新鲜。'},{en:'Be careful with the sharp knife.',cn:'小心那把锋利的刀。'},{en:'The kettle is boiling water now.',cn:'水壶正在烧水。'},{en:'We wash the bowls after dinner.',cn:'我们晚饭后洗碗。'},{en:'The oven is baking a cake.',cn:'烤箱正在烤蛋糕。'}],
+    words:[{en:'pot',ph:'/pɑːt/',cn:'锅'},{en:'pan',ph:'/pæn/',cn:'平底锅'},{en:'knife',ph:'/naɪf/',cn:'刀'},{en:'spoon',ph:'/spuːn/',cn:'勺子'},{en:'fork',ph:'/fɔːrk/',cn:'叉子'},{en:'plate',ph:'/pleɪt/',cn:'盘子'},{en:'bowl',ph:'/boʊl/',cn:'碗'},{en:'cup',ph:'/kʌp/',cn:'杯子'},{en:'stove',ph:'/stoʊv/',cn:'炉灶'},{en:'fridge',ph:'/frɪdʒ/',cn:'冰箱'},{en:'oven',ph:'/ˈʌvn/',cn:'烤箱'},{en:'kettle',ph:'/ˈketl/',cn:'水壶'},{en:'chopsticks',ph:'/ˈtʃɑːpstɪks/',cn:'筷子'},{en:'napkin',ph:'/ˈnæpkɪn/',cn:'餐巾纸'},{en:'sink',ph:'/sɪŋk/',cn:'水槽'},{en:'cutting board',ph:'/ˈkʌtɪŋ bɔːrd/',cn:'砧板'},{en:'ladle',ph:'/ˈleɪdl/',cn:'长柄勺'},{en:'spatula',ph:'/ˈspætʃələ/',cn:'锅铲'},{en:'tray',ph:'/treɪ/',cn:'托盘'},{en:'jar',ph:'/dʒɑːr/',cn:'罐子'},{en:'bottle',ph:'/ˈbɑːtl/',cn:'瓶子'},{en:'blender',ph:'/ˈblendər/',cn:'搅拌机'},{en:'toaster',ph:'/ˈtoʊstər/',cn:'烤面包机'},{en:'microwave',ph:'/ˈmaɪkroʊweɪv/',cn:'微波炉'},{en:'dishwasher',ph:'/ˈdɪʃwɑːʃər/',cn:'洗碗机'},{en:'tablecloth',ph:'/ˈteɪblklɔːθ/',cn:'桌布'},{en:'apron',ph:'/ˈeɪprən/',cn:'围裙'},{en:'strainer',ph:'/ˈstreɪnər/',cn:'滤网'},{en:'lid',ph:'/lɪd/',cn:'锅盖'},{en:'mug',ph:'/mʌɡ/',cn:'马克杯'},{en:'basket',ph:'/ˈbæskɪt/',cn:'篮子'},{en:'scale',ph:'/skeɪl/',cn:'秤'},{en:'timer',ph:'/ˈtaɪmər/',cn:'计时器'},{en:'recipe',ph:'/ˈresəpi/',cn:'食谱'},{en:'faucet',ph:'/ˈfɔːsɪt/',cn:'水龙头'}],
+    hanzi:[{zi:'厨房',py:'chú fáng',cn:'做饭的地方'},{zi:'锅',py:'guō',cn:'用来烧菜煮饭的器具'},{zi:'碗筷',py:'wǎn kuài',cn:'碗和筷子'},{zi:'盘子',py:'pán zi',cn:'装菜用的扁平器皿'},{zi:'冰箱',py:'bīng xiāng',cn:'冷藏食物的电器'},{zi:'炉灶',py:'lú zào',cn:'用来加热做饭的设备'},{zi:'水壶',py:'shuǐ hú',cn:'烧水用的壶'},{zi:'筷子',py:'kuài zi',cn:'中国人吃饭用的工具'},{zi:'砧板',py:'zhēn bǎn',cn:'切菜用的板子。'},{zi:'锅铲',py:'guō chǎn',cn:'炒菜时用来翻动食物的工具。'},{zi:'微波炉',py:'wēi bō lú',cn:'可以快速加热食物的电器。'},{zi:'洗碗机',py:'xǐ wǎn jī',cn:'能自动把碗洗干净的机器。'},{zi:'围裙',py:'wéi qún',cn:'做饭时穿上防止弄脏衣服的东西。'},{zi:'烤箱',py:'kǎo xiāng',cn:'用来烤面包和蛋糕的电器。'},{zi:'水龙头',py:'shuǐ lóng tóu',cn:'用来打开和关闭自来水的装置。'},{zi:'砂锅',py:'shā guō',cn:'用沙土烧制、可以用来煲汤的锅。'},{zi:'保鲜膜',py:'bǎo xiān mó',cn:'用来包住食物保持新鲜的透明薄膜。'},{zi:'餐具',py:'cān jù',cn:'碗、筷子、勺子等吃饭用具的总称。'},{zi:'托盘',py:'tuō pán',cn:'用来端菜或杯子的盘子。'},{zi:'计时器',py:'jì shí qì',cn:'用来计算烹饪时间的小工具。'}],
+    sentences:[{en:'Mom is cooking in the kitchen.',cn:'妈妈在厨房里做饭。'},{en:'I use chopsticks to eat noodles.',cn:'我用筷子吃面条。'},{en:'Please put the plate on the table.',cn:'请把盘子放在桌子上。'},{en:'The fridge keeps our food fresh.',cn:'冰箱让我们的食物保持新鲜。'},{en:'Be careful with the sharp knife.',cn:'小心那把锋利的刀。'},{en:'The kettle is boiling water now.',cn:'水壶正在烧水。'},{en:'We wash the bowls after dinner.',cn:'我们晚饭后洗碗。'},{en:'The oven is baking a cake.',cn:'烤箱正在烤蛋糕。'},{en:'I cut the vegetables on the cutting board.',cn:'我在砧板上切蔬菜。'},{en:'Dad uses a spatula to flip the pancake.',cn:'爸爸用锅铲翻煎饼。'},{en:'We heat the soup in the microwave.',cn:'我们用微波炉加热汤。'},{en:'The dishwasher cleans the dirty plates.',cn:'洗碗机把脏盘子洗干净。'},{en:'Grandma wears an apron when she cooks.',cn:'奶奶做饭的时候穿着围裙。'},{en:'The cake is baking in the oven.',cn:'蛋糕正在烤箱里烘烤。'},{en:'Please turn off the faucet after washing your hands.',cn:'洗完手后请关掉水龙头。'},{en:'I pour juice from the bottle into my cup.',cn:'我把果汁从瓶子里倒进杯子里。'},{en:'Mom puts the fruit in a basket on the table.',cn:'妈妈把水果放在桌上的篮子里。'},{en:'The timer rings when the food is ready.',cn:'计时器响起的时候,食物就做好了。'},{en:'We keep cookies in a glass jar.',cn:'我们把饼干放在玻璃罐子里。'},{en:'I set the table with a clean tablecloth.',cn:'我用干净的桌布把桌子布置好。'}],
     mathNoun:'bowls',
     reading:{title:'我帮妈妈做家务',text:'星期天，小乐主动帮妈妈在厨房里摆碗筷、洗盘子。妈妈夸他是个懂事的好孩子，小乐心里美滋滋的。',question:'小乐在厨房里做了什么？',optA:'摆碗筷、洗盘子',optB:'看电视',answer:'A'}},
   {id:'furniture',name:'家具',icon:'🛋️',
-    words:[{en:'bed',ph:'/bed/',cn:'床'},{en:'sofa',ph:'/ˈsoʊfə/',cn:'沙发'},{en:'table',ph:'/ˈteɪbl/',cn:'桌子'},{en:'wardrobe',ph:'/ˈwɔːrdroʊb/',cn:'衣柜'},{en:'shelf',ph:'/ʃelf/',cn:'架子'},{en:'mirror',ph:'/ˈmɪrər/',cn:'镜子'},{en:'lamp',ph:'/læmp/',cn:'台灯'},{en:'curtain',ph:'/ˈkɜːrtn/',cn:'窗帘'},{en:'carpet',ph:'/ˈkɑːrpɪt/',cn:'地毯'},{en:'cabinet',ph:'/ˈkæbɪnət/',cn:'柜子'},{en:'drawer',ph:'/drɔːr/',cn:'抽屉'},{en:'cushion',ph:'/ˈkʊʃn/',cn:'靠垫'},{en:'door',ph:'/dɔːr/',cn:'门'},{en:'window',ph:'/ˈwɪndoʊ/',cn:'窗户'},{en:'chair',ph:'/tʃer/',cn:'椅子'}],
-    hanzi:[{zi:'家具',py:'jiā jù',cn:'家里使用的器具'},{zi:'床',py:'chuáng',cn:'睡觉用的家具'},{zi:'沙发',py:'shā fā',cn:'柔软舒适的坐具'},{zi:'桌子',py:'zhuō zi',cn:'用来放东西或写字的家具'},{zi:'衣柜',py:'yī guì',cn:'放衣服的柜子'},{zi:'镜子',py:'jìng zi',cn:'可以照出影像的物品'},{zi:'窗帘',py:'chuāng lián',cn:'遮挡窗户的布'},{zi:'地毯',py:'dì tǎn',cn:'铺在地上的毯子'}],
-    sentences:[{en:'I sleep in my comfortable bed every night.',cn:'我每晚都睡在舒服的床上。'},{en:'We watch TV together on the sofa.',cn:'我们一起在沙发上看电视。'},{en:'My books are on the shelf.',cn:'我的书在架子上。'},{en:'She looked in the mirror before school.',cn:'她上学前照了照镜子。'},{en:'Please close the curtain, it is too bright.',cn:'请把窗帘拉上，太亮了。'},{en:'The cat is sleeping on the soft carpet.',cn:'猫在柔软的地毯上睡觉。'},{en:'He put his toys in the drawer.',cn:'他把玩具放进抽屉里。'},{en:'Please open the window for fresh air.',cn:'请打开窗户呼吸新鲜空气。'}],
+    words:[{en:'bed',ph:'/bed/',cn:'床'},{en:'sofa',ph:'/ˈsoʊfə/',cn:'沙发'},{en:'table',ph:'/ˈteɪbl/',cn:'桌子'},{en:'wardrobe',ph:'/ˈwɔːrdroʊb/',cn:'衣柜'},{en:'shelf',ph:'/ʃelf/',cn:'架子'},{en:'mirror',ph:'/ˈmɪrər/',cn:'镜子'},{en:'lamp',ph:'/læmp/',cn:'台灯'},{en:'curtain',ph:'/ˈkɜːrtn/',cn:'窗帘'},{en:'carpet',ph:'/ˈkɑːrpɪt/',cn:'地毯'},{en:'cabinet',ph:'/ˈkæbɪnət/',cn:'柜子'},{en:'drawer',ph:'/drɔːr/',cn:'抽屉'},{en:'cushion',ph:'/ˈkʊʃn/',cn:'靠垫'},{en:'door',ph:'/dɔːr/',cn:'门'},{en:'window',ph:'/ˈwɪndoʊ/',cn:'窗户'},{en:'chair',ph:'/tʃer/',cn:'椅子'},{en:'bookshelf',ph:'/ˈbʊkʃelf/',cn:'书架'},{en:'desk',ph:'/desk/',cn:'书桌'},{en:'stool',ph:'/stuːl/',cn:'凳子'},{en:'bench',ph:'/bentʃ/',cn:'长椅'},{en:'rug',ph:'/rʌɡ/',cn:'小地毯'},{en:'blanket',ph:'/ˈblæŋkɪt/',cn:'毯子'},{en:'pillow',ph:'/ˈpɪloʊ/',cn:'枕头'},{en:'hanger',ph:'/ˈhæŋər/',cn:'衣架'},{en:'closet',ph:'/ˈklɑːzɪt/',cn:'壁橱'},{en:'rocking chair',ph:'/ˈrɑːkɪŋ tʃer/',cn:'摇椅'},{en:'bookcase',ph:'/ˈbʊkkeɪs/',cn:'书柜'},{en:'nightstand',ph:'/ˈnaɪtstænd/',cn:'床头柜'},{en:'bunk bed',ph:'/ˈbʌŋk bed/',cn:'双层床'},{en:'ceiling',ph:'/ˈsiːlɪŋ/',cn:'天花板'},{en:'wall',ph:'/wɔːl/',cn:'墙壁'},{en:'floor',ph:'/flɔːr/',cn:'地板'},{en:'staircase',ph:'/ˈsterkeɪs/',cn:'楼梯'},{en:'clock',ph:'/klɑːk/',cn:'时钟'},{en:'vase',ph:'/veɪs/',cn:'花瓶'},{en:'frame',ph:'/freɪm/',cn:'相框'}],
+    hanzi:[{zi:'家具',py:'jiā jù',cn:'家里使用的器具'},{zi:'床',py:'chuáng',cn:'睡觉用的家具'},{zi:'沙发',py:'shā fā',cn:'柔软舒适的坐具'},{zi:'桌子',py:'zhuō zi',cn:'用来放东西或写字的家具'},{zi:'衣柜',py:'yī guì',cn:'放衣服的柜子'},{zi:'镜子',py:'jìng zi',cn:'可以照出影像的物品'},{zi:'窗帘',py:'chuāng lián',cn:'遮挡窗户的布'},{zi:'地毯',py:'dì tǎn',cn:'铺在地上的毯子'},{zi:'书架',py:'shū jià',cn:'用来放书的架子。'},{zi:'书桌',py:'shū zhuō',cn:'用来写字和看书的桌子。'},{zi:'凳子',py:'dèng zi',cn:'没有靠背的小椅子。'},{zi:'枕头',py:'zhěn tou',cn:'睡觉时垫在头下面的东西。'},{zi:'毯子',py:'tǎn zi',cn:'盖在身上用来保暖的布。'},{zi:'衣架',py:'yī jià',cn:'用来挂衣服的架子。'},{zi:'床头柜',py:'chuáng tóu guì',cn:'放在床边的小柜子。'},{zi:'双层床',py:'shuāng céng chuáng',cn:'上下两层的床。'},{zi:'楼梯',py:'lóu tī',cn:'连接楼上和楼下的台阶。'},{zi:'时钟',py:'shí zhōng',cn:'用来看时间的工具。'},{zi:'花瓶',py:'huā píng',cn:'用来插花的瓶子。'},{zi:'相框',py:'xiàng kuàng',cn:'用来装照片的框子。'}],
+    sentences:[{en:'I sleep in my comfortable bed every night.',cn:'我每晚都睡在舒服的床上。'},{en:'We watch TV together on the sofa.',cn:'我们一起在沙发上看电视。'},{en:'My books are on the shelf.',cn:'我的书在架子上。'},{en:'She looked in the mirror before school.',cn:'她上学前照了照镜子。'},{en:'Please close the curtain, it is too bright.',cn:'请把窗帘拉上，太亮了。'},{en:'The cat is sleeping on the soft carpet.',cn:'猫在柔软的地毯上睡觉。'},{en:'He put his toys in the drawer.',cn:'他把玩具放进抽屉里。'},{en:'Please open the window for fresh air.',cn:'请打开窗户呼吸新鲜空气。'},{en:'I do my homework at my desk.',cn:'我在书桌上做作业。'},{en:'My pillow is very soft and warm.',cn:'我的枕头又软又暖和。'},{en:'She hangs her coat on the hanger.',cn:'她把外套挂在衣架上。'},{en:'I keep my favorite books on the bookshelf.',cn:'我把最喜欢的书放在书架上。'},{en:'Grandpa sits on the stool in the garden.',cn:'爷爷坐在花园里的凳子上。'},{en:'We climb the staircase to go upstairs.',cn:'我们爬楼梯上楼。'},{en:'The clock on the wall tells us the time.',cn:'墙上的时钟告诉我们时间。'},{en:'I cover myself with a warm blanket at night.',cn:'晚上我盖着暖和的毯子。'},{en:'There are fresh flowers in the vase.',cn:'花瓶里有新鲜的花。'},{en:'My brother sleeps on the top of the bunk bed.',cn:'我弟弟睡在双层床的上铺。'},{en:'A photo frame sits on the nightstand.',cn:'床头柜上放着一个相框。'},{en:'I put my shoes under the bench.',cn:'我把鞋子放在长椅下面。'}],
     mathNoun:'cushions',
     reading:{title:'我的小房间',text:'小美的房间里有一张舒服的床、一个放满书的架子，还有一面漂亮的镜子。每天晚上，她都在这个温暖的小房间里安心入睡。',question:'小美房间里的架子上放着什么？',optA:'书',optB:'玩具车',answer:'A'}},
   {id:'stationery',name:'文具',icon:'✏️',
-    words:[{en:'pen',ph:'/pen/',cn:'钢笔'},{en:'notebook',ph:'/ˈnoʊtbʊk/',cn:'笔记本'},{en:'crayon',ph:'/ˈkreɪɑːn/',cn:'蜡笔'},{en:'scissors',ph:'/ˈsɪzərz/',cn:'剪刀'},{en:'glue',ph:'/ɡluː/',cn:'胶水'},{en:'marker',ph:'/ˈmɑːrkər/',cn:'记号笔'},{en:'paper',ph:'/ˈpeɪpər/',cn:'纸'},{en:'folder',ph:'/ˈfoʊldər/',cn:'文件夹'},{en:'stapler',ph:'/ˈsteɪplər/',cn:'订书机'},{en:'tape',ph:'/teɪp/',cn:'胶带'},{en:'sharpener',ph:'/ˈʃɑːrpənər/',cn:'卷笔刀'},{en:'paint',ph:'/peɪnt/',cn:'颜料'},{en:'pencil',ph:'/ˈpensl/',cn:'铅笔'},{en:'eraser',ph:'/ɪˈreɪsər/',cn:'橡皮'},{en:'ruler',ph:'/ˈruːlər/',cn:'尺子'}],
-    hanzi:[{zi:'文具',py:'wén jù',cn:'学习用的工具'},{zi:'铅笔',py:'qiān bǐ',cn:'用来写字画画的笔'},{zi:'橡皮',py:'xiàng pí',cn:'用来擦掉铅笔字的工具'},{zi:'尺子',py:'chǐ zi',cn:'用来测量长度的工具'},{zi:'剪刀',py:'jiǎn dāo',cn:'用来剪东西的工具'},{zi:'胶水',py:'jiāo shuǐ',cn:'用来粘东西的液体'},{zi:'蜡笔',py:'là bǐ',cn:'用来涂色的彩色笔'},{zi:'笔记本',py:'bǐ jì běn',cn:'用来记笔记的本子'}],
-    sentences:[{en:'I write with a pencil in class.',cn:'我在课堂上用铅笔写字。'},{en:'Please pass me the scissors.',cn:'请把剪刀递给我。'},{en:'She uses crayons to draw a picture.',cn:'她用蜡笔画画。'},{en:'I keep my papers in a folder.',cn:'我把纸张放在文件夹里。'},{en:'We use glue to stick the paper together.',cn:'我们用胶水把纸粘在一起。'},{en:'My pencil is too short, I need a new one.',cn:'我的铅笔太短了，我需要一支新的。'},{en:'He sharpens his pencil before class.',cn:'他上课前削铅笔。'},{en:'This notebook is full of my drawings.',cn:'这个笔记本上都是我画的画。'}],
+    words:[{en:'pen',ph:'/pen/',cn:'钢笔'},{en:'notebook',ph:'/ˈnoʊtbʊk/',cn:'笔记本'},{en:'crayon',ph:'/ˈkreɪɑːn/',cn:'蜡笔'},{en:'scissors',ph:'/ˈsɪzərz/',cn:'剪刀'},{en:'glue',ph:'/ɡluː/',cn:'胶水'},{en:'marker',ph:'/ˈmɑːrkər/',cn:'记号笔'},{en:'paper',ph:'/ˈpeɪpər/',cn:'纸'},{en:'folder',ph:'/ˈfoʊldər/',cn:'文件夹'},{en:'stapler',ph:'/ˈsteɪplər/',cn:'订书机'},{en:'tape',ph:'/teɪp/',cn:'胶带'},{en:'sharpener',ph:'/ˈʃɑːrpənər/',cn:'卷笔刀'},{en:'paint',ph:'/peɪnt/',cn:'颜料'},{en:'pencil',ph:'/ˈpensl/',cn:'铅笔'},{en:'eraser',ph:'/ɪˈreɪsər/',cn:'橡皮'},{en:'ruler',ph:'/ˈruːlər/',cn:'尺子'},{en:'pencil case',ph:'/ˈpensl keɪs/',cn:'铅笔盒'},{en:'highlighter',ph:'/ˈhaɪlaɪtər/',cn:'荧光笔'},{en:'correction tape',ph:'/kəˈrekʃn teɪp/',cn:'修正带'},{en:'sticky note',ph:'/ˈstɪki noʊt/',cn:'便利贴'},{en:'clip',ph:'/klɪp/',cn:'回形针'},{en:'pin',ph:'/pɪn/',cn:'图钉'},{en:'compass',ph:'/ˈkʌmpəs/',cn:'圆规'},{en:'protractor',ph:'/proʊˈtræktər/',cn:'量角器'},{en:'calculator',ph:'/ˈkælkjəleɪtər/',cn:'计算器'},{en:'textbook',ph:'/ˈtekstbʊk/',cn:'课本'},{en:'workbook',ph:'/ˈwɜːrkbʊk/',cn:'练习册'},{en:'backpack',ph:'/ˈbækpæk/',cn:'书包'},{en:'envelope',ph:'/ˈenvəloʊp/',cn:'信封'},{en:'label',ph:'/ˈleɪbl/',cn:'标签'},{en:'ink',ph:'/ɪŋk/',cn:'墨水'},{en:'brush',ph:'/brʌʃ/',cn:'画笔'},{en:'palette',ph:'/ˈpælət/',cn:'调色盘'},{en:'chalk',ph:'/tʃɔːk/',cn:'粉笔'},{en:'blackboard',ph:'/ˈblækbɔːrd/',cn:'黑板'},{en:'whiteboard',ph:'/ˈwaɪtbɔːrd/',cn:'白板'}],
+    hanzi:[{zi:'文具',py:'wén jù',cn:'学习用的工具'},{zi:'铅笔',py:'qiān bǐ',cn:'用来写字画画的笔'},{zi:'橡皮',py:'xiàng pí',cn:'用来擦掉铅笔字的工具'},{zi:'尺子',py:'chǐ zi',cn:'用来测量长度的工具'},{zi:'剪刀',py:'jiǎn dāo',cn:'用来剪东西的工具'},{zi:'胶水',py:'jiāo shuǐ',cn:'用来粘东西的液体'},{zi:'蜡笔',py:'là bǐ',cn:'用来涂色的彩色笔'},{zi:'笔记本',py:'bǐ jì běn',cn:'用来记笔记的本子'},{zi:'铅笔盒',py:'qiān bǐ hé',cn:'用来装铅笔和橡皮的盒子。'},{zi:'荧光笔',py:'yíng guāng bǐ',cn:'用来标出重点内容的彩色笔。'},{zi:'回形针',py:'huí xíng zhēn',cn:'用来夹住纸张的小工具。'},{zi:'圆规',py:'yuán guī',cn:'用来画圆形的工具。'},{zi:'量角器',py:'liáng jiǎo qì',cn:'用来测量角度的工具。'},{zi:'计算器',py:'jì suàn qì',cn:'用来帮助计算数字的小机器。'},{zi:'课本',py:'kè běn',cn:'上课时用来学习的书。'},{zi:'书包',py:'shū bāo',cn:'用来装书本和文具的包。'},{zi:'画笔',py:'huà bǐ',cn:'用来画画的笔。'},{zi:'调色盘',py:'tiáo sè pán',cn:'用来调配颜色的盘子。'},{zi:'黑板',py:'hēi bǎn',cn:'老师用粉笔写字的板子。'},{zi:'订书机',py:'dìng shū jī',cn:'用来把纸张钉在一起的工具。'}],
+    sentences:[{en:'I write with a pencil in class.',cn:'我在课堂上用铅笔写字。'},{en:'Please pass me the scissors.',cn:'请把剪刀递给我。'},{en:'She uses crayons to draw a picture.',cn:'她用蜡笔画画。'},{en:'I keep my papers in a folder.',cn:'我把纸张放在文件夹里。'},{en:'We use glue to stick the paper together.',cn:'我们用胶水把纸粘在一起。'},{en:'My pencil is too short, I need a new one.',cn:'我的铅笔太短了，我需要一支新的。'},{en:'He sharpens his pencil before class.',cn:'他上课前削铅笔。'},{en:'This notebook is full of my drawings.',cn:'这个笔记本上都是我画的画。'},{en:'I keep my pens and erasers in a pencil case.',cn:'我把钢笔和橡皮放在铅笔盒里。'},{en:'She uses a highlighter to mark important words.',cn:'她用荧光笔标出重要的单词。'},{en:'We use a compass to draw a perfect circle.',cn:'我们用圆规画一个完美的圆。'},{en:'The teacher writes on the blackboard with chalk.',cn:'老师用粉笔在黑板上写字。'},{en:'I carry my books in my backpack every day.',cn:'我每天背着书包装书。'},{en:'He uses a calculator to check his math homework.',cn:'他用计算器检查数学作业。'},{en:'I paint with a brush and bright colors.',cn:'我用画笔和鲜艳的颜色画画。'},{en:'Please stick a label on the box.',cn:'请在盒子上贴一张标签。'},{en:'I write a letter and put it in an envelope.',cn:'我写了一封信,把它放进信封里。'},{en:'We use a protractor to measure the angle.',cn:'我们用量角器测量角度。'},{en:'My new textbook has many colorful pictures.',cn:'我的新课本里有很多彩色的图片。'},{en:'The stapler holds the papers together.',cn:'订书机把纸张订在一起。'}],
     mathNoun:'pencils',
     reading:{title:'我的铅笔盒',text:'小华的铅笔盒里装着铅笔、橡皮、尺子和蜡笔，整整齐齐的。每次用完，他都会把文具放回原来的位置。',question:'小华的铅笔盒里有什么？',optA:'铅笔、橡皮、尺子、蜡笔',optB:'只有一支铅笔',answer:'A'}},
   {id:'emotions',name:'情感',icon:'😊',
-    words:[{en:'happy',ph:'/ˈhæpi/',cn:'开心的'},{en:'sad',ph:'/sæd/',cn:'伤心的'},{en:'angry',ph:'/ˈæŋɡri/',cn:'生气的'},{en:'scared',ph:'/skerd/',cn:'害怕的'},{en:'excited',ph:'/ɪkˈsaɪtɪd/',cn:'兴奋的'},{en:'tired',ph:'/ˈtaɪərd/',cn:'累的'},{en:'surprised',ph:'/sərˈpraɪzd/',cn:'惊讶的'},{en:'shy',ph:'/ʃaɪ/',cn:'害羞的'},{en:'proud',ph:'/praʊd/',cn:'自豪的'},{en:'worried',ph:'/ˈwɜːrid/',cn:'担心的'},{en:'nervous',ph:'/ˈnɜːrvəs/',cn:'紧张的'},{en:'bored',ph:'/bɔːrd/',cn:'无聊的'},{en:'calm',ph:'/kɑːm/',cn:'平静的'},{en:'brave',ph:'/breɪv/',cn:'勇敢的'},{en:'lonely',ph:'/ˈloʊnli/',cn:'孤单的'}],
-    hanzi:[{zi:'开心',py:'kāi xīn',cn:'心里感到快乐'},{zi:'伤心',py:'shāng xīn',cn:'心里感到难过'},{zi:'生气',py:'shēng qì',cn:'心里感到愤怒'},{zi:'害怕',py:'hài pà',cn:'心里感到恐惧'},{zi:'兴奋',py:'xīng fèn',cn:'心情激动愉快'},{zi:'紧张',py:'jǐn zhāng',cn:'心里感到不安'},{zi:'自豪',py:'zì háo',cn:'为自己感到骄傲'},{zi:'勇敢',py:'yǒng gǎn',cn:'不怕困难和危险'}],
-    sentences:[{en:'I feel very happy today.',cn:'我今天感觉很开心。'},{en:'She was sad when her toy broke.',cn:'她的玩具坏了，她很伤心。'},{en:'He gets angry when he loses a game.',cn:'他输了游戏就会生气。'},{en:'The little boy was scared of the dark.',cn:'小男孩害怕黑暗。'},{en:'We are excited about the trip tomorrow.',cn:'我们对明天的旅行感到兴奋。'},{en:'I feel nervous before the exam.',cn:'考试前我感到很紧张。'},{en:'She felt proud of her good grades.',cn:'她为自己的好成绩感到自豪。'},{en:'Be brave and try your best.',cn:'要勇敢，尽力而为。'}],
+    words:[{en:'happy',ph:'/ˈhæpi/',cn:'开心的'},{en:'sad',ph:'/sæd/',cn:'伤心的'},{en:'angry',ph:'/ˈæŋɡri/',cn:'生气的'},{en:'scared',ph:'/skerd/',cn:'害怕的'},{en:'excited',ph:'/ɪkˈsaɪtɪd/',cn:'兴奋的'},{en:'tired',ph:'/ˈtaɪərd/',cn:'累的'},{en:'surprised',ph:'/sərˈpraɪzd/',cn:'惊讶的'},{en:'shy',ph:'/ʃaɪ/',cn:'害羞的'},{en:'proud',ph:'/praʊd/',cn:'自豪的'},{en:'worried',ph:'/ˈwɜːrid/',cn:'担心的'},{en:'nervous',ph:'/ˈnɜːrvəs/',cn:'紧张的'},{en:'bored',ph:'/bɔːrd/',cn:'无聊的'},{en:'calm',ph:'/kɑːm/',cn:'平静的'},{en:'brave',ph:'/breɪv/',cn:'勇敢的'},{en:'lonely',ph:'/ˈloʊnli/',cn:'孤单的'},{en:'glad',ph:'/ɡlæd/',cn:'高兴的'},{en:'cheerful',ph:'/ˈtʃɪrfəl/',cn:'开朗的'},{en:'upset',ph:'/ʌpˈsɛt/',cn:'难过的'},{en:'confused',ph:'/kənˈfjuzd/',cn:'困惑的'},{en:'curious',ph:'/ˈkjʊriəs/',cn:'好奇的'},{en:'jealous',ph:'/ˈdʒɛləs/',cn:'嫉妒的'},{en:'embarrassed',ph:'/ɪmˈbɛrəst/',cn:'尴尬的'},{en:'grateful',ph:'/ˈɡreɪtfəl/',cn:'感激的'},{en:'hopeful',ph:'/ˈhoʊpfəl/',cn:'充满希望的'},{en:'disappointed',ph:'/ˌdɪsəˈpɔɪntɪd/',cn:'失望的'},{en:'relaxed',ph:'/rɪˈlækst/',cn:'放松的'},{en:'silly',ph:'/ˈsɪli/',cn:'傻乎乎的'},{en:'cranky',ph:'/ˈkræŋki/',cn:'烦躁的'},{en:'content',ph:'/kənˈtɛnt/',cn:'满足的'},{en:'frightened',ph:'/ˈfraɪtənd/',cn:'受惊的'},{en:'annoyed',ph:'/əˈnɔɪd/',cn:'恼怒的'},{en:'amazed',ph:'/əˈmeɪzd/',cn:'惊讶的'},{en:'sleepy',ph:'/ˈslipi/',cn:'困倦的'},{en:'playful',ph:'/ˈpleɪfəl/',cn:'爱玩的'},{en:'thankful',ph:'/ˈθæŋkfəl/',cn:'感恩的'}],
+    hanzi:[{zi:'开心',py:'kāi xīn',cn:'心里感到快乐'},{zi:'伤心',py:'shāng xīn',cn:'心里感到难过'},{zi:'生气',py:'shēng qì',cn:'心里感到愤怒'},{zi:'害怕',py:'hài pà',cn:'心里感到恐惧'},{zi:'兴奋',py:'xīng fèn',cn:'心情激动愉快'},{zi:'紧张',py:'jǐn zhāng',cn:'心里感到不安'},{zi:'自豪',py:'zì háo',cn:'为自己感到骄傲'},{zi:'勇敢',py:'yǒng gǎn',cn:'不怕困难和危险'},{zi:'高兴',py:'gāo xìng',cn:'心里很愉快的感觉。'},{zi:'难过',py:'nán guò',cn:'心里不舒服，想哭的感觉。'},{zi:'害羞',py:'hài xiū',cn:'见到别人不好意思，脸会红。'},{zi:'担心',py:'dān xīn',cn:'心里一直想着不好的事情。'},{zi:'孤单',py:'gū dān',cn:'身边没有人陪伴的感觉。'},{zi:'惊讶',py:'jīng yà',cn:'看到意外的事情感到很吃惊。'},{zi:'放松',py:'fàng sōng',cn:'身体和心里都很舒服，不紧张。'},{zi:'满足',py:'mǎn zú',cn:'得到想要的东西后很开心。'},{zi:'感激',py:'gǎn jī',cn:'对别人的帮助心里很感谢。'},{zi:'失望',py:'shī wàng',cn:'事情没有做好，心里不高兴。'},{zi:'好奇',py:'hào qí',cn:'很想知道一件事情是怎么回事。'},{zi:'冷静',py:'lěng jìng',cn:'遇到事情不着急，能好好想办法。'}],
+    sentences:[{en:'I feel very happy today.',cn:'我今天感觉很开心。'},{en:'She was sad when her toy broke.',cn:'她的玩具坏了，她很伤心。'},{en:'He gets angry when he loses a game.',cn:'他输了游戏就会生气。'},{en:'The little boy was scared of the dark.',cn:'小男孩害怕黑暗。'},{en:'We are excited about the trip tomorrow.',cn:'我们对明天的旅行感到兴奋。'},{en:'I feel nervous before the exam.',cn:'考试前我感到很紧张。'},{en:'She felt proud of her good grades.',cn:'她为自己的好成绩感到自豪。'},{en:'Be brave and try your best.',cn:'要勇敢，尽力而为。'},{en:'He felt embarrassed when he forgot his lines.',cn:'他忘记台词的时候感到很尴尬。'},{en:'My little sister is curious about everything.',cn:'我妹妹对什么都很好奇。'},{en:'I am grateful for my family.',cn:'我很感激我的家人。'},{en:'She was disappointed when the picnic was canceled.',cn:'野餐取消的时候她很失望。'},{en:'The puppy looks confused by the mirror.',cn:'小狗看着镜子感到很困惑。'},{en:'He is jealous of his friend\'s new bike.',cn:'他很羡慕朋友的新自行车。'},{en:'We felt relaxed after the warm bath.',cn:'洗完热水澡后我们感到很放松。'},{en:'She is content with her small gift.',cn:'她对这份小礼物很满足。'},{en:'The baby was frightened by the loud thunder.',cn:'宝宝被巨大的雷声吓到了。'},{en:'My brother gets cranky when he is hungry.',cn:'我弟弟饿的时候会很烦躁。'},{en:'I am thankful for my teacher\'s help.',cn:'我很感谢老师的帮助。'},{en:'The children were amazed by the magic show.',cn:'孩子们被魔术表演惊呆了。'}],
     mathNoun:'smiley faces',
     reading:{title:'勇敢的小雨',text:'小雨一直很害怕打针，但这次去医院，她深吸一口气，勇敢地伸出了手臂。打完针，她自豪地笑了，觉得自己一点也不疼。',question:'小雨这次是什么样的表现？',optA:'勇敢面对',optB:'一直哭闹',answer:'A'}},
   {id:'farm',name:'农场',icon:'🐄',
-    words:[{en:'farm',ph:'/fɑːrm/',cn:'农场'},{en:'cow',ph:'/kaʊ/',cn:'奶牛'},{en:'pig',ph:'/pɪɡ/',cn:'猪'},{en:'sheep',ph:'/ʃiːp/',cn:'绵羊'},{en:'horse',ph:'/hɔːrs/',cn:'马'},{en:'goat',ph:'/ɡoʊt/',cn:'山羊'},{en:'hen',ph:'/hen/',cn:'母鸡'},{en:'rooster',ph:'/ˈruːstər/',cn:'公鸡'},{en:'barn',ph:'/bɑːrn/',cn:'谷仓'},{en:'tractor',ph:'/ˈtræktər/',cn:'拖拉机'},{en:'field',ph:'/fiːld/',cn:'田地'},{en:'harvest',ph:'/ˈhɑːrvɪst/',cn:'收获'},{en:'crop',ph:'/krɑːp/',cn:'农作物'},{en:'duck',ph:'/dʌk/',cn:'鸭子'},{en:'farmer',ph:'/ˈfɑːrmər/',cn:'农民'}],
-    hanzi:[{zi:'农场',py:'nóng chǎng',cn:'种植农作物和养殖牲畜的地方'},{zi:'奶牛',py:'nǎi niú',cn:'产奶的牛'},{zi:'猪',py:'zhū',cn:'常见的家养动物'},{zi:'绵羊',py:'mián yáng',cn:'长着卷毛的家畜'},{zi:'马',py:'mǎ',cn:'跑得很快的家畜'},{zi:'山羊',py:'shān yáng',cn:'有胡须的家畜'},{zi:'谷仓',py:'gǔ cāng',cn:'存放粮食的仓库'},{zi:'拖拉机',py:'tuō lā jī',cn:'农田里用的机械车辆'}],
-    sentences:[{en:'The cow gives us fresh milk.',cn:'奶牛为我们提供新鲜的牛奶。'},{en:'The pig is sleeping in the mud.',cn:'猪在泥地里睡觉。'},{en:'Sheep have soft white wool.',cn:'绵羊有柔软洁白的羊毛。'},{en:'The horse runs very fast in the field.',cn:'马在田野里跑得很快。'},{en:'The farmer drives his tractor every morning.',cn:'农民每天早上都开拖拉机。'},{en:'Hens lay eggs every day.',cn:'母鸡每天下蛋。'},{en:'We picked apples during the harvest.',cn:'我们在收获季节摘苹果。'},{en:'The barn is full of hay.',cn:'谷仓里装满了干草。'}],
+    words:[{en:'farm',ph:'/fɑːrm/',cn:'农场'},{en:'cow',ph:'/kaʊ/',cn:'奶牛'},{en:'pig',ph:'/pɪɡ/',cn:'猪'},{en:'sheep',ph:'/ʃiːp/',cn:'绵羊'},{en:'horse',ph:'/hɔːrs/',cn:'马'},{en:'goat',ph:'/ɡoʊt/',cn:'山羊'},{en:'hen',ph:'/hen/',cn:'母鸡'},{en:'rooster',ph:'/ˈruːstər/',cn:'公鸡'},{en:'barn',ph:'/bɑːrn/',cn:'谷仓'},{en:'tractor',ph:'/ˈtræktər/',cn:'拖拉机'},{en:'field',ph:'/fiːld/',cn:'田地'},{en:'harvest',ph:'/ˈhɑːrvɪst/',cn:'收获'},{en:'crop',ph:'/krɑːp/',cn:'农作物'},{en:'duck',ph:'/dʌk/',cn:'鸭子'},{en:'farmer',ph:'/ˈfɑːrmər/',cn:'农民'},{en:'chicken',ph:'/ˈtʃɪkɪn/',cn:'鸡'},{en:'donkey',ph:'/ˈdɑŋki/',cn:'驴'},{en:'rabbit',ph:'/ˈræbɪt/',cn:'兔子'},{en:'turkey',ph:'/ˈtɜrki/',cn:'火鸡'},{en:'hay',ph:'/heɪ/',cn:'干草'},{en:'wheat',ph:'/wit/',cn:'小麦'},{en:'corn',ph:'/kɔrn/',cn:'玉米'},{en:'vegetable',ph:'/ˈvɛdʒtəbəl/',cn:'蔬菜'},{en:'fruit',ph:'/frut/',cn:'水果'},{en:'seed',ph:'/sid/',cn:'种子'},{en:'plant',ph:'/plænt/',cn:'种植；植物'},{en:'soil',ph:'/sɔɪl/',cn:'土壤'},{en:'fence',ph:'/fɛns/',cn:'栅栏'},{en:'pond',ph:'/pɑnd/',cn:'池塘'},{en:'orchard',ph:'/ˈɔrtʃərd/',cn:'果园'},{en:'scarecrow',ph:'/ˈskɛrkroʊ/',cn:'稻草人'},{en:'wool',ph:'/wʊl/',cn:'羊毛'},{en:'milk',ph:'/mɪlk/',cn:'牛奶'},{en:'straw',ph:'/strɔ/',cn:'稻草'},{en:'pasture',ph:'/ˈpæstʃər/',cn:'牧场'}],
+    hanzi:[{zi:'农场',py:'nóng chǎng',cn:'种植农作物和养殖牲畜的地方'},{zi:'奶牛',py:'nǎi niú',cn:'产奶的牛'},{zi:'猪',py:'zhū',cn:'常见的家养动物'},{zi:'绵羊',py:'mián yáng',cn:'长着卷毛的家畜'},{zi:'马',py:'mǎ',cn:'跑得很快的家畜'},{zi:'山羊',py:'shān yáng',cn:'有胡须的家畜'},{zi:'谷仓',py:'gǔ cāng',cn:'存放粮食的仓库'},{zi:'拖拉机',py:'tuō lā jī',cn:'农田里用的机械车辆'},{zi:'小鸡',py:'xiǎo jī',cn:'农场里毛茸茸的小鸡宝宝。'},{zi:'鸭子',py:'yā zi',cn:'喜欢在水里游泳的农场动物。'},{zi:'兔子',py:'tù zi',cn:'长着长耳朵、爱吃胡萝卜的小动物。'},{zi:'驴子',py:'lǘ zi',cn:'农场里会驮东西的动物。'},{zi:'稻草人',py:'dào cǎo rén',cn:'立在田地里吓唬小鸟的假人。'},{zi:'果园',py:'guǒ yuán',cn:'种着很多果树的地方。'},{zi:'池塘',py:'chí táng',cn:'农场里有水的小水坑。'},{zi:'牧场',py:'mù chǎng',cn:'牛羊吃草的大草地。'},{zi:'小麦',py:'xiǎo mài',cn:'可以磨成面粉的农作物。'},{zi:'玉米',py:'yù mǐ',cn:'金黄色的，农场常见的农作物。'},{zi:'干草',py:'gān cǎo',cn:'晒干的草，可以喂牛羊。'},{zi:'篱笆',py:'lí ba',cn:'围在农场周围的栅栏。'}],
+    sentences:[{en:'The cow gives us fresh milk.',cn:'奶牛为我们提供新鲜的牛奶。'},{en:'The pig is sleeping in the mud.',cn:'猪在泥地里睡觉。'},{en:'Sheep have soft white wool.',cn:'绵羊有柔软洁白的羊毛。'},{en:'The horse runs very fast in the field.',cn:'马在田野里跑得很快。'},{en:'The farmer drives his tractor every morning.',cn:'农民每天早上都开拖拉机。'},{en:'Hens lay eggs every day.',cn:'母鸡每天下蛋。'},{en:'We picked apples during the harvest.',cn:'我们在收获季节摘苹果。'},{en:'The barn is full of hay.',cn:'谷仓里装满了干草。'},{en:'The chicken walks around the yard.',cn:'小鸡在院子里到处走。'},{en:'The duck swims in the pond.',cn:'鸭子在池塘里游泳。'},{en:'The rabbit eats fresh carrots.',cn:'兔子吃新鲜的胡萝卜。'},{en:'The donkey carries heavy bags on its back.',cn:'驴子背上驮着很重的袋子。'},{en:'We planted corn in the field this spring.',cn:'今年春天我们在田地里种了玉米。'},{en:'The wheat turns golden in autumn.',cn:'秋天小麦变成金黄色。'},{en:'The scarecrow stands in the middle of the field.',cn:'稻草人站在田地中间。'},{en:'The farmer waters the vegetables every evening.',cn:'农夫每天晚上给蔬菜浇水。'},{en:'The fence keeps the animals safe.',cn:'栅栏让动物们很安全。'},{en:'The orchard is full of sweet fruit.',cn:'果园里长满了甜甜的水果。'},{en:'The goat likes to climb on the rocks.',cn:'山羊喜欢爬到石头上。'},{en:'The rooster wakes everyone up in the morning.',cn:'公鸡早上把大家都叫醒。'}],
     mathNoun:'eggs',
     reading:{title:'农场一日游',text:'周末，老师带同学们去农场参观。大家看到了奶牛、绵羊和小猪，还坐上拖拉机体验了一下。同学们都觉得非常有趣。',question:'同学们在农场坐了什么？',optA:'拖拉机',optB:'小汽车',answer:'A'}},
   {id:'dinosaurs',name:'恐龙',icon:'🦕',
-    words:[{en:'dinosaur',ph:'/ˈdaɪnəsɔːr/',cn:'恐龙'},{en:'tyrannosaurus',ph:'/tɪˌrænəˈsɔːrəs/',cn:'霸王龙'},{en:'triceratops',ph:'/traɪˈserətɑːps/',cn:'三角龙'},{en:'stegosaurus',ph:'/ˌsteɡəˈsɔːrəs/',cn:'剑龙'},{en:'brontosaurus',ph:'/ˌbrɑːntəˈsɔːrəs/',cn:'雷龙'},{en:'pterodactyl',ph:'/ˌterəˈdæktɪl/',cn:'翼龙'},{en:'velociraptor',ph:'/vəˌlɑːsɪˈræptər/',cn:'迅猛龙'},{en:'fossil',ph:'/ˈfɑːsl/',cn:'化石'},{en:'extinct',ph:'/ɪkˈstɪŋkt/',cn:'灭绝的'},{en:'giant',ph:'/ˈdʒaɪənt/',cn:'巨大的'},{en:'ancient',ph:'/ˈeɪnʃənt/',cn:'古代的'},{en:'claw',ph:'/klɔː/',cn:'爪子'},{en:'tail',ph:'/teɪl/',cn:'尾巴'},{en:'skeleton',ph:'/ˈskelɪtn/',cn:'骨架'},{en:'egg',ph:'/eɡ/',cn:'蛋'}],
-    hanzi:[{zi:'恐龙',py:'kǒng lóng',cn:'生活在很久以前的巨大爬行动物'},{zi:'霸王龙',py:'bà wáng lóng',cn:'凶猛的肉食恐龙'},{zi:'三角龙',py:'sān jiǎo lóng',cn:'头上有三只角的恐龙'},{zi:'化石',py:'huà shí',cn:'古代生物变成的石头'},{zi:'灭绝',py:'miè jué',cn:'物种完全消失'},{zi:'巨大',py:'jù dà',cn:'形容非常大'},{zi:'古代',py:'gǔ dài',cn:'很久以前的时代'},{zi:'骨架',py:'gǔ jià',cn:'支撑身体的骨头架子'}],
-    sentences:[{en:'Dinosaurs lived on the earth millions of years ago.',cn:'恐龙在几百万年前生活在地球上。'},{en:'The tyrannosaurus was a fierce meat-eating dinosaur.',cn:'霸王龙是一种凶猛的食肉恐龙。'},{en:'Triceratops had three horns on its head.',cn:'三角龙头上有三只角。'},{en:'Scientists found dinosaur fossils in the desert.',cn:'科学家在沙漠里发现了恐龙化石。'},{en:'Dinosaurs became extinct a long time ago.',cn:'恐龙在很久以前灭绝了。'},{en:'This dinosaur skeleton is huge.',cn:'这具恐龙骨架非常巨大。'},{en:'The pterodactyl could fly in the sky.',cn:'翼龙能在天空中飞翔。'},{en:'Some dinosaurs were as tall as buildings.',cn:'有些恐龙和楼房一样高。'}],
+    words:[{en:'dinosaur',ph:'/ˈdaɪnəsɔːr/',cn:'恐龙'},{en:'tyrannosaurus',ph:'/tɪˌrænəˈsɔːrəs/',cn:'霸王龙'},{en:'triceratops',ph:'/traɪˈserətɑːps/',cn:'三角龙'},{en:'stegosaurus',ph:'/ˌsteɡəˈsɔːrəs/',cn:'剑龙'},{en:'brontosaurus',ph:'/ˌbrɑːntəˈsɔːrəs/',cn:'雷龙'},{en:'pterodactyl',ph:'/ˌterəˈdæktɪl/',cn:'翼龙'},{en:'velociraptor',ph:'/vəˌlɑːsɪˈræptər/',cn:'迅猛龙'},{en:'fossil',ph:'/ˈfɑːsl/',cn:'化石'},{en:'extinct',ph:'/ɪkˈstɪŋkt/',cn:'灭绝的'},{en:'giant',ph:'/ˈdʒaɪənt/',cn:'巨大的'},{en:'ancient',ph:'/ˈeɪnʃənt/',cn:'古代的'},{en:'claw',ph:'/klɔː/',cn:'爪子'},{en:'tail',ph:'/teɪl/',cn:'尾巴'},{en:'skeleton',ph:'/ˈskelɪtn/',cn:'骨架'},{en:'egg',ph:'/eɡ/',cn:'蛋'},{en:'paleontologist',ph:'/ˌpeɪliɒnˈtɒlədʒɪst/',cn:'古生物学家'},{en:'museum',ph:'/mjuˈziəm/',cn:'博物馆'},{en:'herbivore',ph:'/ˈhɜrbɪvɔr/',cn:'食草动物'},{en:'carnivore',ph:'/ˈkɑrnɪvɔr/',cn:'食肉动物'},{en:'volcano',ph:'/vɒlˈkeɪnoʊ/',cn:'火山'},{en:'swamp',ph:'/swɒmp/',cn:'沼泽'},{en:'jungle',ph:'/ˈdʒʌŋɡəl/',cn:'丛林'},{en:'horn',ph:'/hɔrn/',cn:'角'},{en:'spike',ph:'/spaɪk/',cn:'尖刺'},{en:'wing',ph:'/wɪŋ/',cn:'翅膀'},{en:'nest',ph:'/nɛst/',cn:'巢'},{en:'roar',ph:'/rɔr/',cn:'吼叫'},{en:'footprint',ph:'/ˈfʊtprɪnt/',cn:'脚印'},{en:'prehistoric',ph:'/ˌpriːhɪˈstɔrɪk/',cn:'史前的'},{en:'reptile',ph:'/ˈrɛptaɪl/',cn:'爬行动物'},{en:'scale',ph:'/skeɪl/',cn:'鳞片'},{en:'dig',ph:'/dɪɡ/',cn:'挖掘'},{en:'bone',ph:'/boʊn/',cn:'骨头'},{en:'discover',ph:'/dɪˈskʌvər/',cn:'发现'},{en:'meteor',ph:'/ˈmiːtiər/',cn:'陨石'}],
+    hanzi:[{zi:'恐龙',py:'kǒng lóng',cn:'生活在很久以前的巨大爬行动物'},{zi:'霸王龙',py:'bà wáng lóng',cn:'凶猛的肉食恐龙'},{zi:'三角龙',py:'sān jiǎo lóng',cn:'头上有三只角的恐龙'},{zi:'化石',py:'huà shí',cn:'古代生物变成的石头'},{zi:'灭绝',py:'miè jué',cn:'物种完全消失'},{zi:'巨大',py:'jù dà',cn:'形容非常大'},{zi:'古代',py:'gǔ dài',cn:'很久以前的时代'},{zi:'骨架',py:'gǔ jià',cn:'支撑身体的骨头架子'},{zi:'剑龙',py:'jiàn lóng',cn:'背上长着像剑一样骨板的恐龙。'},{zi:'雷龙',py:'léi lóng',cn:'脖子很长、身体巨大的恐龙。'},{zi:'翼龙',py:'yì lóng',cn:'会飞的史前爬行动物。'},{zi:'迅猛龙',py:'xùn měng lóng',cn:'跑得很快、很聪明的小型恐龙。'},{zi:'博物馆',py:'bó wù guǎn',cn:'可以看到恐龙化石的地方。'},{zi:'爪子',py:'zhuǎ zi',cn:'恐龙脚上尖尖的部分。'},{zi:'史前',py:'shǐ qián',cn:'人类出现之前的久远年代。'},{zi:'食草恐龙',py:'shí cǎo kǒng lóng',cn:'只吃植物的恐龙。'},{zi:'食肉恐龙',py:'shí ròu kǒng lóng',cn:'会吃肉的恐龙。'},{zi:'脚印',py:'jiǎo yìn',cn:'恐龙走过留下的印记。'},{zi:'恐龙蛋',py:'kǒng lóng dàn',cn:'恐龙妈妈生下的蛋。'},{zi:'考古学家',py:'kǎo gǔ xué jiā',cn:'专门研究古代东西的科学家。'}],
+    sentences:[{en:'Dinosaurs lived on the earth millions of years ago.',cn:'恐龙在几百万年前生活在地球上。'},{en:'The tyrannosaurus was a fierce meat-eating dinosaur.',cn:'霸王龙是一种凶猛的食肉恐龙。'},{en:'Triceratops had three horns on its head.',cn:'三角龙头上有三只角。'},{en:'Scientists found dinosaur fossils in the desert.',cn:'科学家在沙漠里发现了恐龙化石。'},{en:'Dinosaurs became extinct a long time ago.',cn:'恐龙在很久以前灭绝了。'},{en:'This dinosaur skeleton is huge.',cn:'这具恐龙骨架非常巨大。'},{en:'The pterodactyl could fly in the sky.',cn:'翼龙能在天空中飞翔。'},{en:'Some dinosaurs were as tall as buildings.',cn:'有些恐龙和楼房一样高。'},{en:'The stegosaurus had bony plates on its back.',cn:'剑龙背上长着骨板。'},{en:'The brontosaurus had a very long neck.',cn:'雷龙的脖子非常长。'},{en:'The velociraptor could run very quickly.',cn:'迅猛龙跑得非常快。'},{en:'Scientists study dinosaur bones in the museum.',cn:'科学家在博物馆里研究恐龙的骨头。'},{en:'Some dinosaurs ate only plants.',cn:'有些恐龙只吃植物。'},{en:'Other dinosaurs ate meat and hunted for food.',cn:'还有一些恐龙吃肉并捕猎食物。'},{en:'We saw huge dinosaur footprints in the rock.',cn:'我们在岩石上看到了巨大的恐龙脚印。'},{en:'The dinosaur egg was found near the river.',cn:'恐龙蛋是在河边被发现的。'},{en:'A paleontologist digs carefully in the dirt.',cn:'古生物学家在泥土里小心地挖掘。'},{en:'The dinosaur\'s sharp claw helped it catch food.',cn:'恐龙锋利的爪子帮助它捕捉食物。'},{en:'Many dinosaurs lived near rivers and swamps.',cn:'许多恐龙生活在河流和沼泽附近。'},{en:'The dinosaur let out a loud roar.',cn:'恐龙发出了很大的吼叫声。'}],
     mathNoun:'dinosaur eggs',
     reading:{title:'恐龙博物馆',text:'周末，小刚跟着爸爸去恐龙博物馆参观，看到了巨大的霸王龙骨架，还有三角龙的化石。小刚觉得恐龙实在是太神奇了。',question:'小刚在博物馆看到了什么恐龙的骨架？',optA:'霸王龙',optB:'三角龙',answer:'A'}},
   {id:'clothes',name:'服装',icon:'👕',
-    words:[{en:'shirt',ph:'/ʃɜːrt/',cn:'衬衫'},{en:'pants',ph:'/pænts/',cn:'裤子'},{en:'dress',ph:'/dres/',cn:'连衣裙'},{en:'skirt',ph:'/skɜːrt/',cn:'裙子'},{en:'shoes',ph:'/ʃuːz/',cn:'鞋子'},{en:'socks',ph:'/sɑːks/',cn:'袜子'},{en:'hat',ph:'/hæt/',cn:'帽子'},{en:'coat',ph:'/koʊt/',cn:'外套'},{en:'jacket',ph:'/ˈdʒækɪt/',cn:'夹克'},{en:'sweater',ph:'/ˈswetər/',cn:'毛衣'},{en:'scarf',ph:'/skɑːrf/',cn:'围巾'},{en:'gloves',ph:'/ɡlʌvz/',cn:'手套'},{en:'shorts',ph:'/ʃɔːrts/',cn:'短裤'},{en:'jeans',ph:'/dʒiːnz/',cn:'牛仔裤'},{en:'uniform',ph:'/ˈjuːnɪfɔːrm/',cn:'校服/制服'}],
-    hanzi:[{zi:'衣服',py:'yī fu',cn:'穿在身上的东西'},{zi:'衬衫',py:'chèn shān',cn:'上身穿的衣服'},{zi:'裤子',py:'kù zi',cn:'穿在下身的衣服'},{zi:'裙子',py:'qún zi',cn:'女生常穿的下装'},{zi:'鞋子',py:'xié zi',cn:'穿在脚上的东西'},{zi:'帽子',py:'mào zi',cn:'戴在头上的东西'},{zi:'外套',py:'wài tào',cn:'穿在外面的衣服'},{zi:'围巾',py:'wéi jīn',cn:'围在脖子上的布条'}],
-    sentences:[{en:'I wear a school uniform every day.',cn:'我每天都穿校服。'},{en:'She is wearing a pretty red dress.',cn:'她穿着一条漂亮的红裙子。'},{en:'Put on your coat, it is cold outside.',cn:'穿上外套，外面很冷。'},{en:'He wears a scarf in winter.',cn:'他冬天戴围巾。'},{en:'These shoes are very comfortable.',cn:'这双鞋子很舒服。'},{en:'My socks are blue and white.',cn:'我的袜子是蓝白色的。'},{en:'She bought a new hat yesterday.',cn:'她昨天买了一顶新帽子。'},{en:'He always wears jeans on weekends.',cn:'他周末总是穿牛仔裤。'}],
+    words:[{en:'shirt',ph:'/ʃɜːrt/',cn:'衬衫'},{en:'pants',ph:'/pænts/',cn:'裤子'},{en:'dress',ph:'/dres/',cn:'连衣裙'},{en:'skirt',ph:'/skɜːrt/',cn:'裙子'},{en:'shoes',ph:'/ʃuːz/',cn:'鞋子'},{en:'socks',ph:'/sɑːks/',cn:'袜子'},{en:'hat',ph:'/hæt/',cn:'帽子'},{en:'coat',ph:'/koʊt/',cn:'外套'},{en:'jacket',ph:'/ˈdʒækɪt/',cn:'夹克'},{en:'sweater',ph:'/ˈswetər/',cn:'毛衣'},{en:'scarf',ph:'/skɑːrf/',cn:'围巾'},{en:'gloves',ph:'/ɡlʌvz/',cn:'手套'},{en:'shorts',ph:'/ʃɔːrts/',cn:'短裤'},{en:'jeans',ph:'/dʒiːnz/',cn:'牛仔裤'},{en:'uniform',ph:'/ˈjuːnɪfɔːrm/',cn:'校服/制服'},{en:'t-shirt',ph:'/ˈtiʃɜrt/',cn:'T恤衫'},{en:'button',ph:'/ˈbʌtən/',cn:'纽扣'},{en:'zipper',ph:'/ˈzɪpər/',cn:'拉链'},{en:'pocket',ph:'/ˈpɑkɪt/',cn:'口袋'},{en:'belt',ph:'/bɛlt/',cn:'腰带'},{en:'pajamas',ph:'/pəˈdʒɑməz/',cn:'睡衣'},{en:'swimsuit',ph:'/ˈswɪmsut/',cn:'泳衣'},{en:'raincoat',ph:'/ˈreɪnkoʊt/',cn:'雨衣'},{en:'boots',ph:'/buts/',cn:'靴子'},{en:'sandals',ph:'/ˈsændəlz/',cn:'凉鞋'},{en:'slippers',ph:'/ˈslɪpərz/',cn:'拖鞋'},{en:'tie',ph:'/taɪ/',cn:'领带'},{en:'vest',ph:'/vɛst/',cn:'背心'},{en:'apron',ph:'/ˈeɪprən/',cn:'围裙'},{en:'mittens',ph:'/ˈmɪtənz/',cn:'连指手套'},{en:'cap',ph:'/kæp/',cn:'鸭舌帽'},{en:'sleeve',ph:'/sliv/',cn:'袖子'},{en:'collar',ph:'/ˈkɑlər/',cn:'衣领'},{en:'fabric',ph:'/ˈfæbrɪk/',cn:'布料'},{en:'size',ph:'/saɪz/',cn:'尺码'}],
+    hanzi:[{zi:'衣服',py:'yī fu',cn:'穿在身上的东西'},{zi:'衬衫',py:'chèn shān',cn:'上身穿的衣服'},{zi:'裤子',py:'kù zi',cn:'穿在下身的衣服'},{zi:'裙子',py:'qún zi',cn:'女生常穿的下装'},{zi:'鞋子',py:'xié zi',cn:'穿在脚上的东西'},{zi:'帽子',py:'mào zi',cn:'戴在头上的东西'},{zi:'外套',py:'wài tào',cn:'穿在外面的衣服'},{zi:'围巾',py:'wéi jīn',cn:'围在脖子上的布条'},{zi:'T恤',py:'T xù',cn:'一种简单的短袖上衣。'},{zi:'短裤',py:'duǎn kù',cn:'夏天穿的短裤子。'},{zi:'牛仔裤',py:'niú zǎi kù',cn:'蓝色的厚一点的裤子。'},{zi:'睡衣',py:'shuì yī',cn:'晚上睡觉时穿的衣服。'},{zi:'雨衣',py:'yǔ yī',cn:'下雨天穿的防水衣服。'},{zi:'靴子',py:'xuē zi',cn:'一种比较高、包住脚踝的鞋子。'},{zi:'拖鞋',py:'tuō xié',cn:'在家里穿的软软的鞋子。'},{zi:'手套',py:'shǒu tào',cn:'冬天戴在手上保暖的东西。'},{zi:'领带',py:'lǐng dài',cn:'系在衬衫领子上的长条布。'},{zi:'纽扣',py:'niǔ kòu',cn:'衣服上用来扣紧的小圆片。'},{zi:'口袋',py:'kǒu dài',cn:'衣服上可以装东西的小袋子。'},{zi:'腰带',py:'yāo dài',cn:'系在腰上固定裤子的带子。'}],
+    sentences:[{en:'I wear a school uniform every day.',cn:'我每天都穿校服。'},{en:'She is wearing a pretty red dress.',cn:'她穿着一条漂亮的红裙子。'},{en:'Put on your coat, it is cold outside.',cn:'穿上外套，外面很冷。'},{en:'He wears a scarf in winter.',cn:'他冬天戴围巾。'},{en:'These shoes are very comfortable.',cn:'这双鞋子很舒服。'},{en:'My socks are blue and white.',cn:'我的袜子是蓝白色的。'},{en:'She bought a new hat yesterday.',cn:'她昨天买了一顶新帽子。'},{en:'He always wears jeans on weekends.',cn:'他周末总是穿牛仔裤。'},{en:'I put on my pajamas before bed.',cn:'我睡觉前穿上睡衣。'},{en:'She wears a raincoat on rainy days.',cn:'她下雨天穿雨衣。'},{en:'He zipped up his jacket quickly.',cn:'他很快拉上了外套的拉链。'},{en:'My shirt has two small pockets.',cn:'我的衬衫上有两个小口袋。'},{en:'The belt keeps his pants from falling down.',cn:'腰带让他的裤子不会掉下来。'},{en:'She tied her shoes before running.',cn:'她跑步前系好了鞋带。'},{en:'He wears boots when it snows.',cn:'下雪的时候他穿靴子。'},{en:'I like to wear slippers at home.',cn:'我喜欢在家里穿拖鞋。'},{en:'Grandpa wears a tie to the party.',cn:'爷爷穿着领带去参加聚会。'},{en:'The t-shirt is soft and light.',cn:'这件T恤柔软又轻便。'},{en:'She buttoned up her sweater in the cold wind.',cn:'冷风中她扣上了毛衣的扣子。'},{en:'He wore mittens to keep his hands warm.',cn:'他戴上连指手套来保暖双手。'}],
     mathNoun:'hats',
     reading:{title:'冬天的新外套',text:'冬天到了，天气越来越冷。妈妈给小丽买了一件红色的新外套，还配了一条毛线围巾。小丽穿上后觉得暖和极了。',question:'妈妈给小丽买了什么？',optA:'新外套和围巾',optB:'新鞋子',answer:'A'}},
   {id:'festivals',name:'节日',icon:'🎉',
-    words:[{en:'festival',ph:'/ˈfestɪvl/',cn:'节日'},{en:'holiday',ph:'/ˈhɑːlədeɪ/',cn:'假日'},{en:'celebrate',ph:'/ˈselɪbreɪt/',cn:'庆祝'},{en:'lantern',ph:'/ˈlæntərn/',cn:'灯笼'},{en:'fireworks',ph:'/ˈfaɪərwɜːrks/',cn:'烟花'},{en:'dragon',ph:'/ˈdræɡən/',cn:'龙'},{en:'moon cake',ph:'/muːn keɪk/',cn:'月饼'},{en:'red envelope',ph:'/red ˈenvəloʊp/',cn:'红包'},{en:'new year',ph:'/nuː jɪr/',cn:'新年'},{en:'birthday',ph:'/ˈbɜːrθdeɪ/',cn:'生日'},{en:'party',ph:'/ˈpɑːrti/',cn:'派对'},{en:'candle',ph:'/ˈkændl/',cn:'蜡烛'},{en:'costume',ph:'/ˈkɑːstuːm/',cn:'服装/装扮'},{en:'parade',ph:'/pəˈreɪd/',cn:'游行'},{en:'gift',ph:'/ɡɪft/',cn:'礼物'}],
-    hanzi:[{zi:'节日',py:'jié rì',cn:'特殊纪念意义的日子'},{zi:'春节',py:'chūn jié',cn:'中国最重要的传统节日'},{zi:'灯笼',py:'dēng long',cn:'节日里常挂的装饰灯'},{zi:'烟花',py:'yān huā',cn:'燃放后绽放出美丽光彩的东西'},{zi:'月饼',py:'yuè bǐng',cn:'中秋节吃的传统食品'},{zi:'红包',py:'hóng bāo',cn:'装着压岁钱的红色纸包'},{zi:'庆祝',py:'qìng zhù',cn:'用喜庆的方式纪念'},{zi:'生日',py:'shēng rì',cn:'一个人出生的日子'}],
-    sentences:[{en:'We celebrate Chinese New Year with our family.',cn:'我们和家人一起庆祝春节。'},{en:'People hang red lanterns during the festival.',cn:'节日期间人们挂起红灯笼。'},{en:'We watched the beautiful fireworks at night.',cn:'我们晚上看了美丽的烟花。'},{en:'Grandma gave me a red envelope for New Year.',cn:'奶奶在新年给了我一个红包。'},{en:'We eat moon cakes during the Mid-Autumn Festival.',cn:'我们在中秋节吃月饼。'},{en:'Today is my birthday, and I am very happy.',cn:'今天是我的生日，我非常开心。'},{en:'We had a fun party with all my friends.',cn:'我们和所有朋友开了一个有趣的派对。'},{en:'The dragon dance is exciting to watch.',cn:'舞龙表演看起来很精彩。'}],
+    words:[{en:'festival',ph:'/ˈfestɪvl/',cn:'节日'},{en:'holiday',ph:'/ˈhɑːlədeɪ/',cn:'假日'},{en:'celebrate',ph:'/ˈselɪbreɪt/',cn:'庆祝'},{en:'lantern',ph:'/ˈlæntərn/',cn:'灯笼'},{en:'fireworks',ph:'/ˈfaɪərwɜːrks/',cn:'烟花'},{en:'dragon',ph:'/ˈdræɡən/',cn:'龙'},{en:'moon cake',ph:'/muːn keɪk/',cn:'月饼'},{en:'red envelope',ph:'/red ˈenvəloʊp/',cn:'红包'},{en:'new year',ph:'/nuː jɪr/',cn:'新年'},{en:'birthday',ph:'/ˈbɜːrθdeɪ/',cn:'生日'},{en:'party',ph:'/ˈpɑːrti/',cn:'派对'},{en:'candle',ph:'/ˈkændl/',cn:'蜡烛'},{en:'costume',ph:'/ˈkɑːstuːm/',cn:'服装/装扮'},{en:'parade',ph:'/pəˈreɪd/',cn:'游行'},{en:'gift',ph:'/ɡɪft/',cn:'礼物'},{en:'mid-autumn festival',ph:'/mɪd ˈɔtəm ˈfɛstəvəl/',cn:'中秋节'},{en:'lantern festival',ph:'/ˈlæntərn ˈfɛstəvəl/',cn:'元宵节'},{en:'dragon boat',ph:'/ˈdræɡən boʊt/',cn:'龙舟'},{en:'spring festival',ph:'/sprɪŋ ˈfɛstəvəl/',cn:'春节'},{en:'decoration',ph:'/ˌdɛkəˈreɪʃən/',cn:'装饰'},{en:'drum',ph:'/drʌm/',cn:'鼓'},{en:'dance',ph:'/dæns/',cn:'舞蹈'},{en:'mask',ph:'/mæsk/',cn:'面具'},{en:'balloon',ph:'/bəˈlun/',cn:'气球'},{en:'cake',ph:'/keɪk/',cn:'蛋糕'},{en:'wish',ph:'/wɪʃ/',cn:'愿望'},{en:'guest',ph:'/ɡɛst/',cn:'客人'},{en:'invite',ph:'/ɪnˈvaɪt/',cn:'邀请'},{en:'decorate',ph:'/ˈdɛkəreɪt/',cn:'装饰（动词）'},{en:'reunion',ph:'/riˈjunjən/',cn:'团圆'},{en:'calendar',ph:'/ˈkæləndər/',cn:'日历'},{en:'ribbon',ph:'/ˈrɪbən/',cn:'丝带'},{en:'zongzi',ph:'/ˈzʊŋˈzɨ/',cn:'粽子'},{en:'sparkler',ph:'/ˈspɑrklər/',cn:'仙女棒'},{en:'tradition',ph:'/trəˈdɪʃən/',cn:'传统'}],
+    hanzi:[{zi:'节日',py:'jié rì',cn:'特殊纪念意义的日子'},{zi:'春节',py:'chūn jié',cn:'中国最重要的传统节日'},{zi:'灯笼',py:'dēng long',cn:'节日里常挂的装饰灯'},{zi:'烟花',py:'yān huā',cn:'燃放后绽放出美丽光彩的东西'},{zi:'月饼',py:'yuè bǐng',cn:'中秋节吃的传统食品'},{zi:'红包',py:'hóng bāo',cn:'装着压岁钱的红色纸包'},{zi:'庆祝',py:'qìng zhù',cn:'用喜庆的方式纪念'},{zi:'生日',py:'shēng rì',cn:'一个人出生的日子'},{zi:'元宵节',py:'yuán xiāo jié',cn:'农历正月十五，大家一起看灯笼、吃汤圆的节日。'},{zi:'端午节',py:'duān wǔ jié',cn:'人们吃粽子、赛龙舟的节日。'},{zi:'中秋节',py:'zhōng qiū jié',cn:'一家人一起赏月、吃月饼的节日。'},{zi:'龙舟',py:'lóng zhōu',cn:'端午节时人们划的像龙一样的船。'},{zi:'粽子',py:'zòng zi',cn:'用糯米和叶子包成的食物。'},{zi:'团圆',py:'tuán yuán',cn:'一家人聚在一起的意思。'},{zi:'新年',py:'xīn nián',cn:'一年的开始，大家互相祝福的日子。'},{zi:'烟花秀',py:'yān huā xiù',cn:'节日晚上放的美丽烟花表演。'},{zi:'装饰',py:'zhuāng shì',cn:'把房子或地方打扮得漂漂亮亮。'},{zi:'面具',py:'miàn jù',cn:'节日时人们戴在脸上的东西。'},{zi:'气球',py:'qì qiú',cn:'节日派对上常见的彩色圆球。'},{zi:'礼物',py:'lǐ wù',cn:'节日时送给别人的东西。'}],
+    sentences:[{en:'We celebrate Chinese New Year with our family.',cn:'我们和家人一起庆祝春节。'},{en:'People hang red lanterns during the festival.',cn:'节日期间人们挂起红灯笼。'},{en:'We watched the beautiful fireworks at night.',cn:'我们晚上看了美丽的烟花。'},{en:'Grandma gave me a red envelope for New Year.',cn:'奶奶在新年给了我一个红包。'},{en:'We eat moon cakes during the Mid-Autumn Festival.',cn:'我们在中秋节吃月饼。'},{en:'Today is my birthday, and I am very happy.',cn:'今天是我的生日，我非常开心。'},{en:'We had a fun party with all my friends.',cn:'我们和所有朋友开了一个有趣的派对。'},{en:'The dragon dance is exciting to watch.',cn:'舞龙表演看起来很精彩。'},{en:'We eat rice dumplings during the Dragon Boat Festival.',cn:'端午节的时候我们吃粽子。'},{en:'People race dragon boats on the river.',cn:'人们在河上进行龙舟比赛。'},{en:'We light candles on the birthday cake.',cn:'我们在生日蛋糕上点蜡烛。'},{en:'Families get together for a big reunion dinner.',cn:'一家人聚在一起吃团圆饭。'},{en:'Children carry colorful lanterns during the Lantern Festival.',cn:'元宵节的时候孩子们提着彩色的灯笼。'},{en:'We decorate the house before the new year.',cn:'新年前我们把房子装饰得漂漂亮亮。'},{en:'I wear a fun costume for the costume party.',cn:'我穿着有趣的服装参加化装派对。'},{en:'We watch the parade pass by the street.',cn:'我们看着游行队伍经过街道。'},{en:'She tied a red ribbon on the gift box.',cn:'她在礼物盒上系了一条红丝带。'},{en:'We blow up balloons for the party.',cn:'我们为派对吹气球。'},{en:'Everyone makes a wish before blowing out the candles.',cn:'大家在吹灭蜡烛前都许了愿望。'},{en:'We invite our friends to celebrate the holiday together.',cn:'我们邀请朋友们一起庆祝节日。'}],
     mathNoun:'lanterns',
     reading:{title:'热闹的春节',text:'春节到了，家家户户都挂起了红灯笼，贴上了春联。晚上，小朋友们最期待的就是看烟花和收红包，大家都开开心心的。',question:'春节的晚上，小朋友们最期待什么？',optA:'看烟花和收红包',optB:'早点睡觉',answer:'A'}}
 ];
@@ -10113,6 +10141,15 @@ function logStudyCompletionForDay(d){
       hanzi:!!(d.study&&d.study.hanzi),
       sentence:!!(d.study&&d.study.sentence),
       mathen:!!(d.study&&d.study.mathen)
+    },
+    // 2026-10新增："本周学习统计"要给家长展示"孩子具体学了哪些单词/汉字/句子"，不能只给一个
+    // true/false的打卡完成状态——这里把当天真的点开看过的那些条目(state.day.studyViewed)也存一份
+    // 原始key(单词用en，汉字用zi，句子用en，跟studyItemKey()保持一致)，供以后周报按主题把
+    // 具体内容(中文意思等)还原出来展示
+    viewed:{
+      word:Object.keys((d.studyViewed&&d.studyViewed.word)||{}),
+      hanzi:Object.keys((d.studyViewed&&d.studyViewed.hanzi)||{}),
+      sentence:Object.keys((d.studyViewed&&d.studyViewed.sentence)||{})
     }
   });
   if(state.studyCompletionLog.length>30) state.studyCompletionLog=state.studyCompletionLog.slice(-30); // 只留最近这些天，避免无限增长
@@ -10140,6 +10177,11 @@ function studyCompletionEntries(){
       hanzi:!!(state.day.study&&state.day.study.hanzi),
       sentence:!!(state.day.study&&state.day.study.sentence),
       mathen:!!(state.day.study&&state.day.study.mathen)
+    },
+    viewed:{
+      word:Object.keys((state.day.studyViewed&&state.day.studyViewed.word)||{}),
+      hanzi:Object.keys((state.day.studyViewed&&state.day.studyViewed.hanzi)||{}),
+      sentence:Object.keys((state.day.studyViewed&&state.day.studyViewed.sentence)||{})
     }
   });
   return entries;
@@ -10191,6 +10233,65 @@ function buildWeeklyReviewPool(){
     });
   });
   return pool;
+}
+/* 2026-10新增："本周学习统计"里专门给家长看的"孩子这周总共学了哪些具体内容"清单——
+   跟上面buildWeeklyReviewPool()不一样：那个是给每周复习测验抽题用的"题库"，为了抽题方便，
+   只要当天打卡完成了就把整个主题的单词/汉字/句子都算进池子；这里是要如实展示"孩子真的点开看过
+   的内容"，所以只收 state.day.studyViewed 里记录过的那些条目（studyCompletionLog里新增的
+   viewed.word/hanzi/sentence），不夸大、不少算。老存档里以前几天的记录还没有viewed字段，
+   这些老的日子就不计入清单了（没法倒推），不影响往后正常积累。
+   按主题分组展示，同一个单词/汉字/句子这周出现好几次只算一次(按内容去重，不是按天去重)。 */
+function buildWeeklyLearnedSummary(){
+  var themeOrder=[], themeMap={}; // {themeId:{name,words:[],hanzi:[],sentences:[]}}，words/hanzi/sentences内部各自去重
+  var wordSeen={}, hanziSeen={}, sentSeen={};
+  var totalWords=0, totalHanzi=0, totalSentences=0;
+  studyCompletionEntries().forEach(function(e){
+    var theme=themeForDoy(e.doy,e.mode,e.manualId,e.grade);
+    if(!theme) return;
+    var v=e.viewed||{word:[],hanzi:[],sentence:[]};
+    var viewedWords=v.word||[], viewedHanzi=v.hanzi||[], viewedSent=v.sentence||[];
+    if(!viewedWords.length && !viewedHanzi.length && !viewedSent.length) return; // 这天啥也没点开看过，不建这个主题的分组条目
+    if(!themeMap[theme.id]){
+      themeMap[theme.id]={name:theme.name,words:[],hanzi:[],sentences:[]};
+      themeOrder.push(theme.id);
+    }
+    var grp=themeMap[theme.id];
+    viewedWords.forEach(function(key){
+      var dk=String(key).toLowerCase();
+      if(wordSeen[dk]) return;
+      var item=(theme.words||[]).filter(function(w){ return w.en===key; })[0];
+      if(!item) return; // 主题内容后来被改过/删过，找不到原文就跳过，不硬凑
+      wordSeen[dk]=true; totalWords++;
+      grp.words.push(item);
+    });
+    viewedHanzi.forEach(function(key){
+      if(hanziSeen[key]) return;
+      var item=(theme.hanzi||[]).filter(function(h){ return h.zi===key; })[0];
+      if(!item) return;
+      hanziSeen[key]=true; totalHanzi++;
+      grp.hanzi.push(item);
+    });
+    viewedSent.forEach(function(key){
+      var dk=String(key).toLowerCase();
+      if(sentSeen[dk]) return;
+      var item=(theme.sentences||[]).filter(function(s){ return s.en===key; })[0];
+      if(!item) return;
+      sentSeen[dk]=true; totalSentences++;
+      grp.sentences.push(item);
+    });
+  });
+  var reading=[];
+  var readingSeen={};
+  WEEKLY_QUIZ_READING_CATS.forEach(function(cat){
+    recentReadingHistoryTitles(cat).forEach(function(title){
+      var dk=cat+'|'+title;
+      if(readingSeen[dk]) return;
+      readingSeen[dk]=true;
+      reading.push({cat:cat,title:title});
+    });
+  });
+  var themes=themeOrder.map(function(id){ return themeMap[id]; });
+  return {themes:themes,totalWords:totalWords,totalHanzi:totalHanzi,totalSentences:totalSentences,reading:reading};
 }
 function weeklyQuizSampleSeed(){
   var wk=getWeekKey(), seed=0;
@@ -10299,6 +10400,7 @@ function requestRetakeWeeklyQuiz(){
 function renderWeeklyPage(){
   ensureWeeklyQuizState();
   renderWeeklyStatsBox();
+  renderWeeklyLearnedBox();
   renderWeeklyQuizBody();
 }
 function renderWeeklyStatsBox(){
@@ -10313,6 +10415,44 @@ function renderWeeklyStatsBox(){
     +'⌨️ 本周打字练习完成：<b>'+wsc.typingCorrect+'</b> 个词<br>'
     +'📝 本周复习测验：'+(wq.submitted?('已完成，答对 <b>'+wq.score+'</b> / '+wq.total+' 题'):'还没完整做完，随时可以开始')
     +'</div>';
+}
+/* 2026-10新增：家长反馈想知道"孩子这周总共学了哪些内容"，不只是小测验的正确率——这里按主题
+   分组，列出这周真的点开看过的单词/汉字词语/英文句子具体清单，再加上读过的阅读/故事标题，
+   供家长点开核实。数据来源见 buildWeeklyLearnedSummary()。 */
+function weeklyLearnedItemRowsHtml(list,render){
+  return list.map(function(it){ return '<div style="padding:2px 0;border-bottom:1px dashed #f0e0f5">'+render(it)+'</div>'; }).join('');
+}
+function renderWeeklyLearnedBox(){
+  var box=document.getElementById('weeklyLearnedBox');
+  if(!box) return;
+  var sum=buildWeeklyLearnedSummary();
+  if(!sum.themes.length && !sum.reading.length){
+    box.innerHTML='<div class="small" style="color:#999">这周还没有点开学习内容哦，去"打卡"页面学一学吧～</div>';
+    return;
+  }
+  var themeNames=sum.themes.map(function(t){ return t.name; }).join('、')||'暂无';
+  var html='<div class="small" style="line-height:1.9">'
+    +'📚 本周学习主题：<b>'+escapeAttr(themeNames)+'</b><br>'
+    +'🔤 本周学了 <b>'+sum.totalWords+'</b> 个单词，🀄 <b>'+sum.totalHanzi+'</b> 个汉字词语，💬 <b>'+sum.totalSentences+'</b> 个句子'
+    +(sum.reading.length?('，📖 读了 <b>'+sum.reading.length+'</b> 篇阅读/故事'):'')
+    +'</div>';
+  sum.themes.forEach(function(t){
+    var count=t.words.length+t.hanzi.length+t.sentences.length;
+    if(!count) return;
+    html+='<details style="margin-top:8px"><summary style="cursor:pointer;color:#7b1fa2;font-weight:700;font-size:12.5px">📂 '+escapeAttr(t.name)+'（共'+count+'项，点开查看）</summary>'
+      +'<div style="max-height:220px;overflow-y:auto;font-size:12px;color:#666;margin-top:4px">'
+      +(t.words.length?('<div style="font-weight:600;color:#7b1fa2;margin-top:4px">🔤 单词</div>'+weeklyLearnedItemRowsHtml(t.words,function(w){ return escapeAttr(w.en)+' '+escapeAttr(w.ph||'')+' — '+escapeAttr(w.cn); })):'')
+      +(t.hanzi.length?('<div style="font-weight:600;color:#7b1fa2;margin-top:4px">🀄 汉字词语</div>'+weeklyLearnedItemRowsHtml(t.hanzi,function(h){ return escapeAttr(h.zi)+'（'+escapeAttr(h.py)+'）— '+escapeAttr(h.cn); })):'')
+      +(t.sentences.length?('<div style="font-weight:600;color:#7b1fa2;margin-top:4px">💬 句子</div>'+weeklyLearnedItemRowsHtml(t.sentences,function(s){ return escapeAttr(s.en)+' — '+escapeAttr(s.cn); })):'')
+      +'</div></details>';
+  });
+  if(sum.reading.length){
+    html+='<details style="margin-top:8px"><summary style="cursor:pointer;color:#7b1fa2;font-weight:700;font-size:12.5px">📖 本周读过的阅读/故事（共'+sum.reading.length+'篇）</summary>'
+      +'<div style="max-height:160px;overflow-y:auto;font-size:12px;color:#666;margin-top:4px">'
+      +weeklyLearnedItemRowsHtml(sum.reading,function(r){ return escapeAttr(READING_CAT_LABEL_ZH[r.cat]||'')+'：'+escapeAttr(r.title); })
+      +'</div></details>';
+  }
+  box.innerHTML=html;
 }
 function renderWeeklyQuizBody(){
   var wq=ensureWeeklyQuizState();
@@ -11312,8 +11452,15 @@ function migrateState(s){
   // undefined 参与减法得到 NaN，"NaN<=0"恒为false，会让"今日抽奖次数用完"的限制在这个窗口期内完全失效，
   // 可以无限转动幸运转盘。这里统一补上默认值0，跟其它 day.* 字段一样兜底。
   if(typeof s.day.wheelUsed!=='number') s.day.wheelUsed=0;
-  // 2026-10新增：金币抽奖次数，老存档/当天还没跨天时也要补上默认值0，道理跟上面wheelUsed的兜底完全一样
-  if(typeof s.day.wheelPaidCount!=='number') s.day.wheelPaidCount=0;
+  // 2026-10变更：金币抽奖的翻倍计数从state.day搬到顶层了（按凌晨1点重置，见wheelPaidCostPeriodKey）；
+  // 老存档的state.day.wheelPaidCount如果还有值，迁移过去当作顶层的起始值，然后删掉这个老字段
+  if(typeof s.wheelPaidCount!=='number'){
+    s.wheelPaidCount=(s.day&&typeof s.day.wheelPaidCount==='number')?s.day.wheelPaidCount:0;
+  }
+  if(!s.wheelPaidCostKey) s.wheelPaidCostKey=wheelPaidCostPeriodKey();
+  if(s.day) delete s.day.wheelPaidCount;
+  // 2026-10新增：幸运转盘大奖保底的累计抽奖次数，老存档没有这个字段时从0开始攒，不倒推历史
+  if(typeof s.wheelPityCount!=='number') s.wheelPityCount=0;
   if(!s.day.trainBought) s.day.trainBought={train:false,train2:false};
   if(!s.sportStudyFullDays) s.sportStudyFullDays=[];
   if(!s.restCardMonthKey) s.restCardMonthKey=getMonthKey();
@@ -11329,6 +11476,7 @@ function migrateState(s){
       for(var mi=0;mi<s.restCard;mi++) s.backpack.restCards.push({obtained:todayKey()});
     }
   }
+  if(!s.backpack.jackpotRestCards) s.backpack.jackpotRestCards=[]; // 2026-10新增：转盘大奖"大奖·休息一天"卡，跟库洛米休息卡是两种不同的卡
   delete s.restCard;
   delete s.houseWeek;
   delete s.houseWeekKey;
@@ -11631,7 +11779,7 @@ function showPage(name){
   });
   syncPetImmersive();
   syncPetSprite();
-  if(name==='wheel') drawWheel();
+  if(name==='wheel'){ drawWheel(); updateWheelPityUI(); }
   if(name==='board') renderWish();
   if(name==='weekly') renderWeeklyPage();
   if(name==='cottage') renderCottagePage();
@@ -12956,6 +13104,10 @@ function cleanDiscounts(){
   state.backpack.d8=state.backpack.d8.filter(function(k){return daysBetween(today,usableDayOf(k))>=0;});
   if(state.backpack.restCards){
     state.backpack.restCards=state.backpack.restCards.filter(function(rc){return daysBetween(rc.obtained,today)<=12;});
+  }
+  // 转盘大奖"大奖·休息一天"：5天内不用就自动作废，跟库洛米休息卡(12天)是两种不同的有效期
+  if(state.backpack.jackpotRestCards){
+    state.backpack.jackpotRestCards=state.backpack.jackpotRestCards.filter(function(rc){return daysBetween(rc.obtained,today)<=JACKPOT_REST_VALID_DAYS;});
   }
 }
 
@@ -15784,6 +15936,12 @@ function pvpBattleEnd(win){
 }
 
 /* ========== 幸运转盘 ========== */
+// 2026-10改版：①"谢谢参与"这个空奖取消，改成"再来一次"（抽中不算用掉今天的次数，白送一次重抽机会）；
+// ②新增两个"大奖"：1000金币 / 大奖·休息一天（5天内可用，用的时候直接把当天学习+运动打卡全部
+// 补齐并照常发金币+经验，见 useJackpotRestCard()）。大奖用 jackpot:true 标记，转盘上画金色发光描边，
+// 一眼就能看出这两格不一样。中奖概率刻意压到跟"龙鳞瓦"（副本后期终极材料）同一档——每个约1.2%，
+// 两个合起来约2.5%：不会随随便便就中，但正常玩下来总有机会碰上，符合"不能太容易，但又偶尔能中"。
+var JACKPOT_REST_VALID_DAYS=5;
 const WHEEL_ITEMS=[
   {id:'free',label:'免做卡',labelEn:'Free-Pass',emoji:'🎫',color:'#ab47bc',weight:6},
   {id:'rest',label:'休息卡',labelEn:'Rest Card',emoji:'🎁',color:'#26a69a',weight:6},
@@ -15800,7 +15958,9 @@ const WHEEL_ITEMS=[
   {id:'mat_silk',   label:'云锦',   labelEn:'Silk',           emoji:'🧵', color:'#f06292', weight:7,  mat:'silk',    qty:1},
   {id:'mat_crystal',label:'星辉晶', labelEn:'Starlight Crystal', emoji:'💎', color:'#5c6bc0', weight:4,  mat:'crystal', qty:1},
   {id:'mat_tile',   label:'龙鳞瓦', labelEn:'Dragon Tile',    emoji:'🐉', color:'#7e57c2', weight:2,  mat:'tile',    qty:1},
-  {id:'none',label:'谢谢参与',labelEn:'Thanks for Playing',emoji:'⭐',color:'#bdbdbd',weight:25}
+  {id:'jackpot_coin',label:'大奖·1000金币',labelEn:'JACKPOT·1000 Coins',emoji:'👑',color:'#ffd700',weight:2,jackpot:true,coin:1000},
+  {id:'jackpot_rest',label:'大奖·休息一天',labelEn:'JACKPOT·Rest Day',emoji:'🌟',color:'#ff4081',weight:2,jackpot:true},
+  {id:'again',label:'再来一次',labelEn:'Spin Again',emoji:'🔄',color:'#bdbdbd',weight:25}
 ];
 function wheelSegments(){
   var arr=WHEEL_ITEMS.slice();
@@ -15810,6 +15970,9 @@ function wheelSegments(){
 }
 var wheelCanvas=document.getElementById('wheelCanvas');
 var wheelRotation=0,spinning=false;
+// 2026-10改版：以前是"转盘本身转、指针固定不动"，家长反馈希望"点击转盘时能看到指针转动"——
+// 现在反过来：转盘格子固定不转（文字也不会跟着转到歪七扭八/倒过来，顺带解决了老版本转到某些
+// 角度文字会倒着显示的小问题），改成指针在转盘中心转动，转到哪个格子上停下就是中奖结果。
 function drawWheel(){
   var segs=wheelSegments(),n=segs.length;
   var ctx=wheelCanvas.getContext('2d');
@@ -15817,9 +15980,16 @@ function drawWheel(){
   ctx.clearRect(0,0,size,size);
   var seg=2*Math.PI/n;
   for(var i=0;i<n;i++){
-    var start=-Math.PI/2+i*seg+wheelRotation*Math.PI/180;
+    var start=-Math.PI/2+i*seg; // 固定位置，不再加wheelRotation——转的是指针，不是这些格子
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+seg);ctx.closePath();
     ctx.fillStyle=segs[i].color;ctx.fill();
+    if(segs[i].jackpot){
+      // 大奖格子加一圈金色发光描边，一眼就能看出这两格是特殊的
+      ctx.save();
+      ctx.shadowColor='#fff176';ctx.shadowBlur=12;
+      ctx.strokeStyle='#fff176';ctx.lineWidth=3;ctx.stroke();
+      ctx.restore();
+    }
     ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
     ctx.save();ctx.translate(cx,cy);ctx.rotate(start+seg/2);
     ctx.textAlign='right';ctx.textBaseline='middle';
@@ -15828,6 +15998,23 @@ function drawWheel(){
     ctx.fillText(L(segs[i].label, segs[i].labelEn||segs[i].label),r-14,0);
     ctx.restore();
   }
+  drawWheelPointer();
+}
+// 转动的指针：从圆心附近一直指向外圈，wheelRotation（度）决定指针当前转到哪个角度
+function drawWheelPointer(){
+  var ctx=wheelCanvas.getContext('2d');
+  var cx=130,cy=130,rOuter=122,rInner=26;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate((-90+wheelRotation)*Math.PI/180);
+  ctx.strokeStyle='#d32f2f';ctx.lineWidth=5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,-rInner);ctx.lineTo(0,-(rOuter-16));ctx.stroke();
+  ctx.fillStyle='#d32f2f';
+  ctx.beginPath();
+  ctx.moveTo(0,-rOuter);ctx.lineTo(-9,-(rOuter-16));ctx.lineTo(9,-(rOuter-16));
+  ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.restore();
 }
 function pickWeighted(segs){
   var total=0,i;
@@ -15839,57 +16026,146 @@ function pickWeighted(segs){
 // 2026-10重构：把"转动动画"从spinWheel()里拆出来，变成一个可以复用的通用函数——
 // 免费抽奖(spinWheel)和金币抽奖(spinWheelPaid)用的是完全同一套转动动画，只是"转到哪个结果"
 // 和"转完之后要不要占用今日免费次数"不一样，拆开避免维护两份几乎一样的代码
+// 2026-10新增："差一点中大奖，但又慢慢转过去"的戏剧化效果：如果这次结果不是大奖、但转盘上确实
+// 存在大奖格子，就有一半概率让指针先转到"大奖格子附近"，用力减速得像是要停在那儿了，蠕动一下，
+// 吊住胃口，然后再慢慢挪到真正中奖的格子上定格。结果本身在动画开始前就已经由pickWeighted()
+// 决定好了，这里纯粹是让指针"路过"大奖的视觉效果更有悬念感，不会真的影响抽奖概率。
 function runWheelSpinAnimation(segs, idx, onDone){
   var n=segs.length;
   var segDeg=360/n;
   var centerIdx=(idx+0.5)*segDeg;
-  var targetMod=(((-centerIdx)%360)+360)%360;
+  var targetMod=((centerIdx%360)+360)%360;
   var currentMod=((wheelRotation%360)+360)%360;
   var target=wheelRotation+5*360+((targetMod-currentMod+360)%360);
-  var start=wheelRotation,duration=3600,t0=performance.now();
+  var start=wheelRotation;
+
+  var jackpotIdxs=[];
+  for(var ji=0;ji<segs.length;ji++){ if(segs[ji].jackpot) jackpotIdxs.push(ji); }
+  var nearMissAbs=null;
+  if(jackpotIdxs.length && !segs[idx].jackpot && Math.random()<0.5){
+    var bestDelta=null;
+    jackpotIdxs.forEach(function(ji){
+      var jMod=(((ji+0.5)*segDeg%360)+360)%360;
+      var diff=((target-jMod)%360+360)%360; // 从target往回退多少度，能退到这个大奖格子的中心
+      var candidateAbs=target-diff;
+      if(diff<20) candidateAbs-=360; // 大奖格子离真正中奖的格子太近，往前再退一整圈，留足"慢慢路过"的时间
+      var deltaBack=target-candidateAbs;
+      if(bestDelta===null||deltaBack<bestDelta){ bestDelta=deltaBack; nearMissAbs=candidateAbs; }
+    });
+  }
+
+  var duration=nearMissAbs!==null?4600:3600, t0=performance.now();
   spinning=true;
   function frame(t){
     var p=Math.min(1,(t-t0)/duration);
-    var ease=1-Math.pow(1-p,4);
-    wheelRotation=start+(target-start)*ease;
+    var rot;
+    if(nearMissAbs!==null){
+      var p1=0.68,p2=0.14; // 阶段占比：68%时间快转到"差一点"的位置，14%时间慢慢蠕动吊胃口，剩下转到终点
+      if(p<p1){
+        var e1=1-Math.pow(1-(p/p1),4);
+        rot=start+(nearMissAbs-start)*e1;
+      }else if(p<p1+p2){
+        rot=nearMissAbs+((p-p1)/p2)*6; // 在大奖格子附近极慢蠕动几度，看起来像是快要停住了
+      }else{
+        var e3=1-Math.pow(1-((p-p1-p2)/(1-p1-p2)),3);
+        rot=(nearMissAbs+6)+(target-(nearMissAbs+6))*e3;
+      }
+    }else{
+      var ease=1-Math.pow(1-p,4);
+      rot=start+(target-start)*ease;
+    }
+    wheelRotation=rot;
     drawWheel();
     if(p<1){requestAnimationFrame(frame);}
-    else{spinning=false;onDone();}
+    else{ wheelRotation=target; drawWheel(); spinning=false; onDone(); }
   }
   requestAnimationFrame(frame);
+}
+/* ========== 2026-10新增：幸运转盘大奖保底 ==========
+   家长要求："增加一个计数统计,累计抽奖次数满100次,保底一次大奖...保底机制会因为提前触发大奖而刷新"——
+   免费抽奖+金币抽奖的次数合并累计，满100次这一抽强制给一个大奖；如果没到100次就凭真实概率先
+   抽中了大奖，这个累计计数也直接清零重新攒，不会"攒了的次数继续留着、以后又在不满100次时再保底一次"
+   这种重复触发。两种抽奖方式都要走 pickWheelResult()，不能再直接调用 pickWeighted()，不然这次
+   抽奖就漏记了，保底计数会算不准。 */
+var WHEEL_PITY_THRESHOLD=100;
+function wheelPityRemaining(){
+  return Math.max(0, WHEEL_PITY_THRESHOLD-(state.wheelPityCount||0));
+}
+function pickWheelResult(segs){
+  state.wheelPityCount=(state.wheelPityCount||0)+1;
+  var jackpotIdxs=[];
+  for(var i=0;i<segs.length;i++){ if(segs[i].jackpot) jackpotIdxs.push(i); }
+  var idx;
+  if(state.wheelPityCount>=WHEEL_PITY_THRESHOLD && jackpotIdxs.length){
+    idx=jackpotIdxs[Math.floor(Math.random()*jackpotIdxs.length)]; // 保底触发：攒够100次，这一抽强制给大奖
+    state.wheelPityCount=0;
+  }else{
+    idx=pickWeighted(segs);
+    if(segs[idx] && segs[idx].jackpot) state.wheelPityCount=0; // 没攒够100次就先凭真实概率中了大奖，能量条也跟着清零重新攒
+  }
+  return idx;
+}
+function updateWheelPityUI(){
+  var n=state.wheelPityCount||0;
+  var pct=Math.max(0,Math.min(100,Math.round(n/WHEEL_PITY_THRESHOLD*100)));
+  var bar=document.getElementById('wheelPityBar');
+  if(bar) bar.style.width=pct+'%';
+  var txt=document.getElementById('wheelPityText');
+  if(txt) txt.innerText=n+'/'+WHEEL_PITY_THRESHOLD;
+  var tip=L('⚡大奖保底能量条\n已经攒了 '+n+' / '+WHEEL_PITY_THRESHOLD+' 次抽奖\n还差 '+wheelPityRemaining()+' 次抽奖，必定触发一次大奖！\n（提前凭运气真的抽中大奖，能量条也会清零重新攒）','⚡ Jackpot Pity Meter\nBanked '+n+' / '+WHEEL_PITY_THRESHOLD+' spins\n'+wheelPityRemaining()+' more spins until a jackpot is guaranteed!\n(Naturally landing a jackpot early also resets this meter)');
+  var wrap=document.getElementById('wheelPityWrap');
+  if(wrap) wrap.title=tip;
+}
+function showWheelPityInfo(){
+  var n=state.wheelPityCount||0;
+  alert(L('⚡大奖保底能量条\n已经攒了 '+n+' / '+WHEEL_PITY_THRESHOLD+' 次抽奖\n还差 '+wheelPityRemaining()+' 次抽奖，必定触发一次大奖！\n（提前凭运气真的抽中大奖，能量条也会清零重新攒）','⚡ Jackpot Pity Meter\nBanked '+n+' / '+WHEEL_PITY_THRESHOLD+' spins\n'+wheelPityRemaining()+' more spins until a jackpot is guaranteed!\n(Naturally landing a jackpot early also resets this meter)'));
 }
 function spinWheel(){
   if(spinning) return;
   if(remainingWheel()<=0){alert(L('今日抽奖次数已用完，快去完成运动/家务/学习打卡获取次数吧！','Out of spins for today - go finish Sport/Chores/Study check-ins to earn more!'));return;}
   var segs=wheelSegments();
-  var idx=pickWeighted(segs);
+  var idx=pickWheelResult(segs);
+  updateWheelPityUI();
   runWheelSpinAnimation(segs, idx, function(){
-    state.day.wheelUsed++; // 免费抽奖才占用"今日剩余抽奖"这个每日限量的次数
-    applyReward(segs[idx]);
+    applyReward(segs[idx]); // 要不要占用"今日剩余抽奖"次数统一交给applyReward()判断，这里不重复累加
   });
 }
 /* ========== 2026-10新增：花金币额外抽奖 ==========
    家长要求："幸运转盘增加一个可以用金币尝试抽奖,抽奖一次5金币,每抽奖一次就翻倍,不限次数,
    金币抽奖保底不会出现谢谢参与"——跟上面"今日剩余抽奖"(靠打卡赚的免费次数)完全独立的另一条路：
    ①不占用免费次数、也不受免费次数限制，钱够就能一直抽；②第一次5金币，之后每抽一次下一次的
-   价格就翻倍(5→10→20→40...)，每天从5金币重新开始计价；③保底不会抽到"谢谢参与"这个空奖——
-   直接把"谢谢参与"这个奖项从金币抽奖的奖池里剔除，只在剩下的真奖品里抽，天然保证每次都有收获。 */
+   价格就翻倍(5→10→20→40...)；③保底不会抽到"再来一次"这个空奖——直接把"再来一次"这个奖项从
+   金币抽奖的奖池里剔除，只在剩下的真奖品里抽（大奖也在里面），天然保证每次都有收获。
+   2026-10再次调整：翻倍计价改成按凌晨1点重置（不是跟state.day一样卡在自然日0点）——比如晚上
+   11点抽贵了，0点一过、1点之前价格还是沿用之前抽贵的那个，1点一到才真正回落到最低价重新计。 */
 var WHEEL_PAID_BASE_COST=5;
+function wheelPaidCostPeriodKey(){
+  var d=new Date();
+  if(d.getHours()<1) d.setDate(d.getDate()-1); // 0点~1点之间，还算"前一个周期"，1点一过才算新周期开始
+  return keyOf(d);
+}
+function ensureWheelPaidCostPeriod(){
+  var k=wheelPaidCostPeriodKey();
+  if(state.wheelPaidCostKey!==k){ state.wheelPaidCostKey=k; state.wheelPaidCount=0; }
+  return state.wheelPaidCount||0;
+}
 function wheelPaidNextCost(){
-  var n=(state.day && typeof state.day.wheelPaidCount==='number')?state.day.wheelPaidCount:0;
+  var n=ensureWheelPaidCostPeriod();
   return WHEEL_PAID_BASE_COST*Math.pow(2,n);
 }
 function spinWheelPaid(){
   if(spinning) return;
   var cost=wheelPaidNextCost();
   if((state.moneyBalance||0)<cost){ alert(L('金币不够啦，这次金币抽奖需要 '+cost+' 金币','Not enough coins - this coin spin costs '+cost+' coins')); return; }
-  var segs=wheelSegments().filter(function(s){return s.id!=='none';}); // 金币抽奖保底：奖池里压根没有"谢谢参与"这个选项
+  var segs=wheelSegments().filter(function(s){return s.id!=='again';}); // 金币抽奖保底：奖池里压根没有"再来一次"这个选项
   if(!segs.length){ alert(L('暂时没有可以抽的奖项，请稍后再试','No prizes are available to draw right now, try again later')); return; }
-  if(!confirm(L('确认花费 '+cost+' 金币抽一次奖吗？\n金币抽奖不限次数，但每抽一次，下一次要花的金币都会翻倍；金币抽奖保底不会抽到"谢谢参与"。','Spend '+cost+' coins for one extra spin?\nCoin spins are unlimited, but the cost doubles every time you use one; a coin spin is guaranteed to never land on "Thanks for Playing".'))) return;
+  if(!confirm(L('确认花费 '+cost+' 金币抽一次奖吗？\n金币抽奖不限次数，但每抽一次，下一次要花的金币都会翻倍；金币抽奖保底不会抽到"再来一次"。','Spend '+cost+' coins for one extra spin?\nCoin spins are unlimited, but the cost doubles every time you use one; a coin spin is guaranteed to never land on "Spin Again".'))) return;
   addCoinChange(-cost, L('幸运转盘：花金币额外抽奖','Lucky Wheel: paid extra spin'));
-  state.day.wheelPaidCount=(state.day.wheelPaidCount||0)+1;
+  ensureWheelPaidCostPeriod();
+  state.wheelPaidCount=(state.wheelPaidCount||0)+1;
   updateWheelPaidSpinUI();
-  var idx=pickWeighted(segs);
+  var idx=pickWheelResult(segs);
+  updateWheelPityUI();
   runWheelSpinAnimation(segs, idx, function(){
     applyReward(segs[idx], {paid:true}); // 金币抽奖不占用免费次数，所以不调用state.day.wheelUsed++
     updateWheelPaidSpinUI();
@@ -15904,6 +16180,7 @@ function updateWheelPaidSpinUI(){
 function applyReward(seg,opts){
   opts=opts||{};
   var id=seg.id,msg='';
+  var skipWheelUsedIncrement=false; // "再来一次"不占用今日免费次数，相当于白送一次重抽机会
   if(id==='free'){
     if(state.day.gotFreeCard){addCoinChange(10,'转盘抽中免做卡补偿（今日已有一张，换成金币）');msg=L('🎫抽中免做卡，但今日已获得过一张，自动换成10金币补偿！','🎫 Free-Pass Card drawn, but you already got one today - auto-converted to 10 coins instead!');}
     else{state.backpack.freeCard++;state.day.gotFreeCard=true;msg=L('🎫恭喜抽中【免做卡】×1！','🎫 Congrats, you won [Free-Pass Card] ×1!');}
@@ -15915,17 +16192,68 @@ function applyReward(seg,opts){
   else if(id==='d8'){state.backpack.d8.push(todayKey());msg=L('🔖恭喜抽中【8折折扣卡】！次日生效，次日不用即过期','🔖 Congrats, you won [20% Off Card]! Takes effect tomorrow, expires if unused that day');}
   else if(id==='c15'){addCoinChange(15,'转盘抽中15金币');msg=L('💰恭喜抽中15金币！已存入宠物金币钱包','💰 Congrats, you won 15 coins! Added to your pet coin wallet');}
   else if(id==='c25'){addCoinChange(25,'转盘抽中25金币');msg=L('💰恭喜抽中25金币！已存入宠物金币钱包','💰 Congrats, you won 25 coins! Added to your pet coin wallet');}
+  else if(id==='jackpot_coin'){
+    addCoinChange(seg.coin||1000,'转盘大奖：1000金币');
+    msg=L('👑👑👑 大奖！恭喜抽中【1000金币】！！','👑👑👑 JACKPOT! You won [1000 Coins]!!');
+    if(state.pet&&state.pet.chosen) petCelebrateSmartAnswer();
+  }
+  else if(id==='jackpot_rest'){
+    if(!state.backpack.jackpotRestCards) state.backpack.jackpotRestCards=[];
+    state.backpack.jackpotRestCards.push({obtained:todayKey()});
+    msg=L('🌟🌟🌟 大奖！恭喜抽中【大奖·休息一天】！'+JACKPOT_REST_VALID_DAYS+'天内随时可以使用（去🎒背包里用），使用后当天的学习+运动打卡会直接全部补齐，并照常发放金币和经验奖励','🌟🌟🌟 JACKPOT! You won [Rest Day]! Usable anytime within '+JACKPOT_REST_VALID_DAYS+' days (use it from your 🎒 Bag) - using it instantly completes today\'s study + sport check-ins and grants the usual coin and exp rewards');
+    if(state.pet&&state.pet.chosen) petCelebrateSmartAnswer();
+  }
   else if(seg.mat){
     if(!state.backpack.materials) state.backpack.materials={};
     var matQty=seg.qty||1;
     state.backpack.materials[seg.mat]=(state.backpack.materials[seg.mat]||0)+matQty;
     msg=seg.emoji+L('恭喜抽中【'+materialLabel(seg.mat)+'】×'+matQty+'！已经存进副本建材背包','Congrats, you won ['+materialLabel(seg.mat)+'] ×'+matQty+'! Added to your dungeon materials bag');
   }
-  else{msg=L('⭐谢谢参与，下次好运！','⭐ Thanks for playing, better luck next time!');}
-  if(!opts.paid) state.day.wheelUsed++; // 2026-10fix：这一行原来无条件执行，现在金币抽奖不应该占用"今日剩余抽奖"的免费次数，只有免费抽奖才计数
+  else{ // id==='again'：抽到"再来一次"，不给具体奖品，但也不扣今日次数
+    skipWheelUsedIncrement=true;
+    msg=L('🔄再来一次！这次抽奖不占用今日次数，再试一次手气吧～','🔄 Spin Again! This draw doesn\'t use up today\'s spin count - give it another try~');
+  }
+  if(!opts.paid && !skipWheelUsedIncrement) state.day.wheelUsed++; // 金币抽奖不占用免费次数；"再来一次"也不占用（见上面注释）
   addLog((opts.paid?L('💰金币抽奖：','💰 Coin Spin: '):L('🎡幸运转盘：','🎡 Lucky Wheel: '))+msg);
   showReward(seg.emoji+L(' 抽奖结果',' Spin Result'),msg);
   save();
+}
+/* ========== 2026-10新增：转盘大奖"大奖·休息一天"的使用 ==========
+   跟库洛米休息卡(useRestCard，只豁免家务、不给奖励)是完全不同的两种卡：这张卡用掉以后，
+   直接把当天的"学习"和"运动"这两类打卡判定成全部完成(如果今天还没转过每日必做任务转盘，这里
+   会先顺手帮忙转一下，不然"全部完成"这个状态永远点不亮)，并且照常发放金币+经验奖励——
+   不是"免做卡"那种零奖励豁免，而是真的当作小朋友自己做完了一样发奖励，相当于白得一整天的
+   学习+运动打卡成果。5天内不用，见cleanDiscounts()会自动作废。 */
+function autoCompleteDailyPickCategoryAll(cat){
+  var d=state.day;
+  var pick=ensureDailyPick(d);
+  if(!pick[cat]){
+    var candidates=dailyPickCandidates(cat);
+    if(candidates.length) pick[cat]=candidates[Math.floor(Math.random()*candidates.length)];
+  }
+  if(cat==='sport' && !(d.sport.burpee>0)){
+    d.sport.burpee=1;
+    earnCoins(specialCoin('burpee'),'波比跳（大奖休息卡补齐）');
+    gainTaskExp(1,'波比跳打卡');
+    gainAbilityPoint('sport',{highQuality:false});
+    addLog('✅完成：波比跳（大奖休息卡补齐），+'+specialCoin('burpee')+'金币');
+    afterTask('sport');
+  }
+  var defs=(store.taskDefs&&store.taskDefs[cat])||DEFAULT_TASK_DEFS[cat]||[];
+  defs.forEach(function(it){ if(!d[cat][it.id]) markDone(cat,it.id,false); });
+}
+function jackpotRestCardCount(){ return (state.backpack.jackpotRestCards||[]).length; }
+function useJackpotRestCard(){
+  var cards=state.backpack.jackpotRestCards||[];
+  if(!cards.length){ alert(L('没有可用的大奖休息卡（或者已经过期啦）','No jackpot rest cards available (or they expired)')); return; }
+  if(isStudyFull(state.day) && isSportFull(state.day)){ alert(L('今天的学习和运动打卡已经全部完成啦，不需要用这张卡','Today\'s study and sport check-ins are already all done - no need to use this card')); return; }
+  if(!confirm(L('确认使用这张大奖休息卡吗？会直接把今天的学习+运动打卡任务全部补齐，并照常发放金币和经验奖励','Use this jackpot rest card? It will complete all of today\'s study + sport check-ins at once and grant the usual coin and exp rewards'))) return;
+  cards.shift();
+  autoCompleteDailyPickCategoryAll('study');
+  autoCompleteDailyPickCategoryAll('sport');
+  addLog(L('🌟使用【大奖·休息一天】，今日学习+运动打卡任务全部补齐，已照常发放金币和经验奖励','🌟 Used [Jackpot: Rest Day] - all of today\'s study + sport check-ins are complete, coins and exp granted as usual'));
+  save();
+  render();
 }
 
 /* ========== 背包 ========== */
@@ -16252,6 +16580,7 @@ function render(){
   document.getElementById('spinRemain').innerText=Math.max(0,rem);
   document.getElementById('btnSpin').disabled=rem<=0||spinning;
   updateWheelPaidSpinUI();
+  updateWheelPityUI();
   document.getElementById('fullDays').innerText=Math.min(10,state.totalFullDays);
   document.getElementById('restStreak').innerText=Math.min(10,computeSportStudyStreak());
   var restMk=getMonthKey();
@@ -16933,6 +17262,16 @@ function renderBackpack(){
       if(left<restDaysLeft) restDaysLeft=left;
     });
   }
+  var jpRestCards=state.backpack.jackpotRestCards||[];
+  var jpRestN=jpRestCards.length;
+  var jpRestDaysLeft=null;
+  if(jpRestN>0){
+    jpRestDaysLeft=99;
+    jpRestCards.forEach(function(rc){
+      var left=JACKPOT_REST_VALID_DAYS-daysBetween(rc.obtained,today);
+      if(left<jpRestDaysLeft) jpRestDaysLeft=left;
+    });
+  }
   // 2026-09新增：每种卡下面加一个"拍卖"按钮，能挂到拍卖行换金币/换给别的小朋友——只是转让已经抽到的
   // 库存，不影响这几种卡"只有转盘能抽到"这条唯一产出渠道
   var d7bag=state.backpack.d7||[], d8bag=state.backpack.d8||[];
@@ -16957,6 +17296,11 @@ function renderBackpack(){
     +'<div class="b-note">库洛米休息卡'+(restDaysLeft!==null?'（最早'+restDaysLeft+'天后过期）':'')+'</div>'
     +'<button class="btn '+(restN>0?'btn-success':'btn-gray')+'" '+(restN>0?'':'disabled')+' onclick="useRestCard()">使用一张</button>'
     +(restN>0?'<button class="btn btn-gray btn-sm" style="margin-top:4px" onclick="openAuctionListCardModal(\'rest\')">🏷️拍卖</button>':'')
+    +'</div>';
+  // 2026-10新增：转盘隐藏大奖之一，抽中概率很低，所以不开放拍卖，专属抽中的小朋友自己使用
+  html+='<div class="bag-card" style="border:2px solid #ffd700;box-shadow:0 0 8px rgba(255,215,0,.5)"><div class="b-emoji">🌟</div><div class="b-count">'+jpRestN+'</div>'
+    +'<div class="b-note">👑大奖·休息一天'+(jpRestDaysLeft!==null?'（最早'+jpRestDaysLeft+'天后过期）':'')+'</div>'
+    +'<button class="btn '+(jpRestN>0?'btn-success':'btn-gray')+'" '+(jpRestN>0?'':'disabled')+' onclick="useJackpotRestCard()">使用一张</button>'
     +'</div>';
   box.innerHTML=html;
   document.getElementById('freeSelectHint').style.display=selectedFree?'block':'none';
