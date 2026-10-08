@@ -2608,9 +2608,26 @@ var PET_LIBRARY = {
     danceImg: 'xiaojinlong_dance.webp',
     danceAudio: 'xiaojinlong_dance.mp3',
     danceDurationMs: 10060
+  },
+  /* 2026-10新增：根据家长提供的角色三视图+两段表情参考视频加入的"基础版"宠物（参照小金麟的
+     精简结构：只有 happy/run/sad 三张图 + 没有专属孵化素材，用默认的🥚蛋图标即可）。三张素材
+     全部是从提供的参考素材里真实出现过的姿势里截取/拼接而成（身体和服装都是同一套真实渲染图，
+     只是原素材里同时满足"全身可见"和"目标表情"的镜头不全，所以happy/run两张是用同一个视频里
+     的上半身表情图 + 另一帧全身图的下半身腿部拼接而成，没有凭空画新的内容）：
+     - happy：大笑+挥手的上半身 + 自然站立的双腿
+     - run  ：叉腰生气/有活力的上半身 + 伸手那帧的双腿
+     - sad  ：伸手求抱抱+掉眼泪，这帧本身就是全身镜头，直接原样截取 */
+  shuangyu: {
+    name: '双鱼宝宝',
+    pickDesc: '爱做梦的双鱼宝宝，心思细腻又敏感，一会儿笑一会儿哭，陪你一起体验满满的小情绪～',
+    img: {
+      happy: 'shuangyu_happy.webp',
+      run:   'shuangyu_run.webp',
+      sad:   'shuangyu_sad.webp'
+    }
   }
 };
-var PET_ORDER = ['xiaojinlin','naolong','xiaojinlong'];
+var PET_ORDER = ['xiaojinlin','naolong','xiaojinlong','shuangyu'];
 function currentPetType(){
   var t=(state.pet && state.pet.type) || 'xiaojinlin';
   return PET_LIBRARY[t] || PET_LIBRARY.xiaojinlin;
@@ -15921,7 +15938,7 @@ function pvpRemoveFriend(id){
   var idx=pvpFindFriendIdx(id);
   if(idx>=0){ state.pvpFriends.splice(idx,1); save(); renderPvpView(); }
 }
-var PET_TYPE_EMOJI={xiaojinlin:'🦄',naolong:'🐲',xiaojinlong:'🐉'};
+var PET_TYPE_EMOJI={xiaojinlin:'🦄',naolong:'🐲',xiaojinlong:'🐉',shuangyu:'👧'};
 function renderPvpView(){
   var codeInput=document.getElementById('dgMyCodeInput');
   if(codeInput) codeInput.value=pvpEncodeMyPet()||'';
