@@ -1540,6 +1540,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-10新增：阅读/故事打卡"已读记录"点开核实——家长点开某一条历史记录，能看到当时那篇的
+     完整原文+小问题+正确答案，确认小朋友是不是真的读过，不是靠秒点刷打卡次数 -->
+<div class="modal-mask" id="readingHistoryViewModal">
+  <div class="modal" style="max-width:420px;text-align:left;max-height:80vh;overflow-y:auto">
+    <button class="modal-close" onclick="hideModal('readingHistoryViewModal')">✕</button>
+    <div id="readingHistoryViewBody" class="small" style="line-height:1.7"></div>
+  </div>
+</div>
+
 <!-- 宠物每日金币消耗预测弹窗 -->
 <div class="modal-mask" id="coinForecastModal">
   <div class="modal" style="max-width:340px;text-align:left">
@@ -2103,7 +2112,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 </div>
 
 <div id="petWrap" class="face-right" style="display:none">
-  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
+  <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="">
   <div id="petAccessory" class="pet-accessory"></div>
   <div id="petMoodBadge" class="pet-mood-badge"></div>
   <div id="petHit" onclick="petTouch()"></div>
@@ -11412,13 +11421,39 @@ function completeReadingTask(cat){
 function readingHistoryHtml(cat){
   var list=(state.readingHistory&&state.readingHistory[cat])||[];
   if(!list.length) return '';
+  // 2026-10新增：家长反馈发现小孩"刷阅读打卡"（点得很快但其实没真的在读），光看标题列表没法核实——
+  // 这里把每一条记录都变成可点击的，点开能看到当时那篇的完整原文+小问题+正确答案，方便家长核实
   var rows=list.slice().reverse().slice(0,12).map(function(it){
     var d=new Date(it.at);
     var t=d.getMonth()+1+'/'+d.getDate()+' '+(''+d.getHours()).padStart(2,'0')+':'+(''+d.getMinutes()).padStart(2,'0');
-    return '<div style="padding:2px 0;border-bottom:1px dashed #f0e0f5">'+t+'　'+it.title+'</div>';
+    return '<div style="padding:2px 0;border-bottom:1px dashed #f0e0f5;cursor:pointer;color:#5e35b1" onclick="viewReadingHistoryItem(\''+cat+'\',\''+studyEscape(it.title)+'\')">'+t+'　'+it.title+' <span style="color:#9c7fc9;font-size:11px">🔍点开看原文</span></div>';
   }).join('');
   return '<details style="margin-top:8px"><summary style="cursor:pointer;color:#7b1fa2;font-weight:700;font-size:12.5px">📋 已读记录（共'+list.length+'篇，家长可以点开核实）</summary>'
     +'<div style="max-height:160px;overflow-y:auto;font-size:12px;color:#666;margin-top:4px">'+rows+'</div></details>';
+}
+// 点开"已读记录"里的某一条，把那篇当时的原文+小问题+正确答案找出来展示给家长看，
+// 不是重新测验小孩（历史记录里没存小孩当时选了哪个答案，这里只核实"内容确实存在、确实读得到"）
+function viewReadingHistoryItem(cat,title){
+  var labelZh=READING_CAT_LABEL_ZH[cat]||'';
+  var cfg=READING_CONFIG[cat];
+  var it=findReadingBankItemByTitle(cat,title);
+  var body=document.getElementById('readingHistoryViewBody');
+  if(!body) return;
+  if(!it){
+    body.innerHTML='<h3 style="text-align:center;margin-top:0">📖 '+labelZh+'</h3>'
+      +'<p><b>《'+title+'》</b></p>'
+      +'<p style="color:#999">这篇内容现在题库里找不到了（可能是年级或题库后来调整过），暂时看不了原文啦。</p>';
+  }else{
+    var textHtml=String(it.text).replace(/\n/g,'<br><br>');
+    var speakText=studyEscape(String(it.text).replace(/\n/g,' '));
+    var speakBtn=cfg?(' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+speakText+'\',\''+cfg.lang+'\')">🔊</button>'):'';
+    body.innerHTML='<h3 style="text-align:center;margin-top:0">📖 '+labelZh+'</h3>'
+      +'<p><b>《'+it.title+'》</b>'+speakBtn+'</p>'
+      +'<div>'+textHtml+'</div>'
+      +'<p style="margin-top:10px;margin-bottom:4px;color:#7b1fa2;font-weight:700">小问题：'+it.question+'</p>'
+      +'<p style="padding:6px 10px;border-radius:8px;background:#e8f5e9;color:#2e7d32;display:inline-block">✅ 正确答案：'+(it.answer==='A'?it.optA:it.optB)+'</p>';
+  }
+  showModal('readingHistoryViewModal');
 }
 function save(){ saveStore(); render(); }
 
@@ -16366,9 +16401,21 @@ function spinWheelPaid(){
   state.wheelPaidCount=(state.wheelPaidCount||0)+1;
   updateWheelPaidSpinUI();
   var idx=pickWheelResult(segs);
+  var winner=segs[idx];
   updateWheelPityUI();
-  runWheelSpinAnimation(segs, idx, function(){
-    applyReward(segs[idx], {paid:true}); // 金币抽奖不占用免费次数，所以不调用state.day.wheelUsed++
+  // 2026-10修复：家长反馈"转盘转中的东西和实际获得的不一致，转到了云锦结果拿到的是15金币"——
+  // 根因是drawWheel()画出来的转盘格子，用的始终是wheelSegments()这个完整列表（包含"再来一次"）；
+  // 但金币抽奖的中奖计算用的是segs（上面过滤掉"再来一次"之后的短列表），直接拿这个短列表里的
+  // 下标去算指针要转到第几格，跟画面上实际的格子位置对不上（少了"再来一次"那一格，后面每一格
+  // 都错位了一格）。这里改成：先在真正画出来的完整列表里按id找到这个奖项实际所在的格子下标，
+  // 动画按"完整列表+真实格子下标"来转，保证指针停的格子和winner这个奖励对象是同一个；
+  // 发奖本身仍然用winner（来自过滤后的segs，正确排除了"再来一次"这个选项），不受影响。
+  var fullSegs=wheelSegments();
+  var drawIdx=-1;
+  for(var di=0;di<fullSegs.length;di++){ if(fullSegs[di].id===winner.id){ drawIdx=di; break; } }
+  if(drawIdx<0) drawIdx=0; // 理论上winner的id一定能在完整列表里找到，这里只是防御性兜底
+  runWheelSpinAnimation(fullSegs, drawIdx, function(){
+    applyReward(winner, {paid:true}); // 金币抽奖不占用免费次数，所以不调用state.day.wheelUsed++
     updateWheelPaidSpinUI();
   });
 }
