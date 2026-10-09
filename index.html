@@ -5094,6 +5094,49 @@ function saveStoreLocalOnly(){
 var SUPA_URL='https://yngdnajnlilamqsxydnv.supabase.co';
 var SUPA_KEY='sb_publishable_IDyd8JeUSRRZ5FVNk9VK8g_5izNiYdC';
 var SUPA_TABLE='kuluomi_sync';
+/* ============================================================
+   新申请邮件提醒（2026-10新增）：家长反馈"有人提交新申请"自己完全不知道，只能没事就去点开
+   "管理后台"手动看一眼有没有待审核的。这里用 EmailJS（https://www.emailjs.com）的邮件发送
+   REST接口，直接 fetch() 调它的REST API，不引入额外的SDK——跟上面"不引入supabase-js，只用
+   fetch直连REST"是同一个原则，少一个"外部脚本CDN加载不了"的失败点。
+   一次性配置方法（不需要会写代码）：
+   1. 去 https://www.emailjs.com 免费注册一个账号
+   2. 左侧菜单 Email Services → Add New Service，选Gmail（或你常用的邮箱），按提示连好
+      （会跳转到邮箱账号授权一下），连好之后这里会有一个 Service ID，形如"service_xxxxxx"
+   3. 左侧菜单 Email Templates → Create New Template，收件人(To Email)填你自己要接收通知的
+      邮箱；邮件正文/标题可以用这几个变量：{{family_code}}（家庭码）、{{child_name}}（孩子姓名）、
+      {{applied_at}}（提交时间）；保存后会有一个 Template ID，形如"template_xxxxxx"
+   4. 左侧菜单 Account → General，能看到一个 Public Key（一串字母数字）
+   5. 同样在 Account → General 里，找到"Allowed origins"，加一条你这个App实际部署的网址
+      （比如 https://differentted.github.io），不加的话EmailJS会拒绝来自网页的发信请求
+   6. 把上面的 Service ID / Template ID / Public Key 这三个值发给我，我帮你填进下面三行代码里
+      就能生效了。在配置好这三个值之前，下面这段代码会静默跳过（不报错、不影响正常申请流程），
+      只是admin暂时收不到邮件提醒而已，其它什么都不受影响 */
+var EMAILJS_SERVICE_ID='REPLACE_ME_SERVICE_ID';
+var EMAILJS_TEMPLATE_ID='REPLACE_ME_TEMPLATE_ID';
+var EMAILJS_PUBLIC_KEY='REPLACE_ME_PUBLIC_KEY';
+function emailjsConfigured(){
+  return EMAILJS_SERVICE_ID.indexOf('REPLACE_ME')!==0 && EMAILJS_TEMPLATE_ID.indexOf('REPLACE_ME')!==0 && EMAILJS_PUBLIC_KEY.indexOf('REPLACE_ME')!==0;
+}
+// 有新的"申请新账号"提交成功后调用：给管理员发一封提醒邮件。这只是"锦上添花"的提醒，
+// 失败/超时/没配置好都绝不能影响申请本身已经提交成功这件事，所以整个函数是完全独立的
+// fire-and-forget，不接入调用方的then/catch链，任何异常都在内部自己吞掉
+function notifyAdminNewApplication(code,childName){
+  if(!emailjsConfigured()) return;
+  try{
+    var body=JSON.stringify({
+      service_id:EMAILJS_SERVICE_ID,
+      template_id:EMAILJS_TEMPLATE_ID,
+      user_id:EMAILJS_PUBLIC_KEY,
+      template_params:{
+        family_code:code,
+        child_name:childName,
+        applied_at:new Date().toLocaleString('zh-CN',{hour12:false})
+      }
+    });
+    fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},body:body}).catch(function(){});
+  }catch(e){}
+}
 var DEFAULT_FAMILY_ROW_ID='6GtaRbPnAT56Qf3e'; // 原来那一家（茜茜/嫣嫣等）专用的同步行ID，不要改动/泄露给无关的人
 var SUPA_ROW_ID=DEFAULT_FAMILY_ROW_ID; // 实际用哪一行，由下面 familyGateAndLoad() 根据这台设备保存的"家庭码"重新算出来，覆盖这个默认值
 var SUPA_LAST_SYNCED_KEY='kuroCloudLastSyncedUpdatedAt';
@@ -5576,6 +5619,7 @@ function confirmFamilyApply(){
         localStorage.setItem(PENDING_APPLY_CODE_KEY,code);
         localStorage.setItem(PENDING_APPLY_ID_KEY,pointerId);
       }catch(e){}
+      notifyAdminNewApplication(code,name); // 提交成功后顺手提醒一下管理员，失败也不影响下面的流程
       if(btn){ btn.disabled=false; btn.textContent=L('📮 提交申请','📮 Submit Application'); }
       hideModal('familyApplyModal');
       showFamilyPendingModal(code,L('申请已经提交啦，等管理员审核通过后，回到这个页面点"🔑登录"、输入这个家庭码就能进入了。','Application submitted! Once the admin approves it, come back and tap "🔑Log In" with this Family Code.'));
@@ -8222,6 +8266,12 @@ function cloudSyncOnLoad(){
         }
         try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
         adopted=true;
+      }else{
+        // 2026-10fix【金币同步漏洞修复】：这个分支是"本机数据判定为更新/持平，不整份采用云端"——
+        // 正是家长反馈的事故发生的地方：管理员在后台改的金币，就藏在被放弃不用的这份云端数据里。
+        // 不整份采用没问题（本机其它数据确实更新），但管理员那几笔必须单独捞出来补上，见
+        // applyMissingAdminCoinLedgerEntries() 的说明。
+        if(applyMissingAdminCoinLedgerEntries(row.data)){ saveStore(); render(); }
       }
     }
     _cloudSyncReady=true;
@@ -8245,7 +8295,15 @@ function trySyncFromCloud(){
     if(!(row&&row.data&&row.data.accounts&&row.updated_at)) return;
     var cloudTime=new Date(row.updated_at).getTime();
     var localTime=(store&&store.updatedAt)?store.updatedAt:0;
-    if(cloudTime<=localTime+1000) return; // 云端没有比本机更新，本机已经是最新，不用做任何事
+    if(cloudTime<=localTime+1000){
+      // 2026-10fix【金币同步漏洞修复】：云端没有整体比本机更新，正常情况下本机确实已经是最新，
+      // 什么都不用做——除了一个例外：管理员在后台直接改云端数据，不会经过孩子这台设备，
+      // 哪怕孩子这台设备这段时间一直开着、本机updated_at看起来更新，也不代表管理员那笔改动
+      // 已经包含在本机这份数据里。这里单独补一下金币流水账里"本机还没有的管理员条目"，
+      // 不影响"谁的时间戳更新就整份采信谁"这条主逻辑本身。
+      if(applyMissingAdminCoinLedgerEntries(row.data)){ saveStore(); render(); }
+      return;
+    }
     var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来
     store=row.data;
     resetPetClocksOnAdopt(store);
@@ -16457,10 +16515,20 @@ function addLog(txt){var t=new Date().toLocaleString();state.log.push(t+' | '+tx
    能直接翻这本账，一眼揪出到底是哪个功能在不正常地加钱/扣钱。只保留最近COIN_LEDGER_MAX条，
    避免存档无限膨胀——这是排查用的调试账本，不需要也不应该保留从出生到现在的全部历史。 */
 var COIN_LEDGER_MAX=300;
-function _pushCoinLedgerEntry(st,delta,reason){
+function _pushCoinLedgerEntry(st,delta,reason,opts){
   if(!st) return;
   if(!Array.isArray(st.coinLedger)) st.coinLedger=[];
-  st.coinLedger.push({t:Date.now(), delta:delta, reason:reason||'（未说明原因）', bal:(typeof st.moneyBalance==='number')?st.moneyBalance:null});
+  var entry={t:Date.now(), delta:delta, reason:reason||'（未说明原因）', bal:(typeof st.moneyBalance==='number')?st.moneyBalance:null};
+  // 2026-10fix【金币同步漏洞修复】：管理员在后台改的这几笔，额外打上admin标记+唯一id——
+  // 见下面 applyMissingAdminCoinLedgerEntries() 的说明。问题根源：云同步整体是"谁的updated_at
+  // 更新就整份采信谁"，但管理员后台是直接改云端这一行数据、完全绕开了孩子自己设备那台机器，
+  // 如果孩子的设备这段时间一直开着（本机updated_at没有变旧，甚至因为孩子自己又做了点别的事
+  // 变得更新），下次孩子那台设备往云端推送时，会拿自己这份"没包含管理员那笔改动"的旧余额，
+  // 原样覆盖掉云端刚被管理员改过的新余额——管理员在后台看着改成功了、过一会儿又被孩子自己的
+  // 设备悄悄覆盖回去，孩子那边永远看不到。只给管理员改的这几笔打标记+id，方便下面在"本机数据
+  // 被判定为更新、不整份采用云端"的情况下，单独把这几笔管理员改动的差额追加补回本机，不被连带吞掉。
+  if(opts&&opts.admin){ entry.admin=true; entry.id='admin'+Date.now()+Math.floor(Math.random()*1000); }
+  st.coinLedger.push(entry);
   if(st.coinLedger.length>COIN_LEDGER_MAX) st.coinLedger.splice(0, st.coinLedger.length-COIN_LEDGER_MAX);
 }
 // 金币增/减一个数额（可以是负数），同时自动记一笔明细——日常绝大多数"赚钱/花钱"场景都应该用这个，
@@ -16486,7 +16554,47 @@ function setCoinBalance(newVal,reason){
 // 调用方必须先把 childState.moneyBalance 改成新值，再调用这个函数记账（delta传"改之后-改之前"）
 function addCoinLedgerEntryToRaw(childState,delta,reason){
   if(!childState || typeof delta!=='number' || !isFinite(delta) || delta===0) return;
-  _pushCoinLedgerEntry(childState, delta, reason);
+  _pushCoinLedgerEntry(childState, delta, reason, {admin:true});
+}
+/* 2026-10fix【金币同步漏洞修复，配合上面_pushCoinLedgerEntry的admin标记一起看】：
+   家长反馈"在管理后台用'✏️调整金币'改了孩子的金币数，后台也显示改成功了，但孩子实际账号上
+   没有看到"。根子在云同步整体是"谁的updated_at更新，就整份采信谁"（见cloudSyncOnLoad/
+   trySyncFromCloud），而管理后台是直接改云端这一行、完全绕开孩子自己那台设备——如果孩子的
+   设备这段时间一直开着没关（本机updated_at没有变旧），下次孩子那台设备自己往云端推送时，
+   会拿自己这份"根本不知道管理员刚才改过"的旧余额，原样覆盖掉云端刚被管理员改过的新余额。
+   这里不去动"整体谁新谁旧"这套主逻辑（改动太大、风险也更大），而是在"判定本机数据更新/持平、
+   不整份采用云端"的分支里，额外单独比一下双方的金币流水账（coinLedger）：只要云端这边有
+   本机还没有的"管理员标记"条目（admin===true，按上面新加的唯一id判断是否已经有），就把这几笔
+   的差额单独追加补回本机——其它普通流水（孩子自己赚的/花的）完全不受影响，还是照旧"整份谁新信谁"。
+   返回true/false，告诉调用方"这次有没有真的补上东西"，方便调用方决定要不要存档/刷新界面/推送云端。 */
+function applyMissingAdminCoinLedgerEntries(cloudData){
+  if(!store || !store.accounts || !cloudData || !cloudData.accounts) return false;
+  var appliedAny=false;
+  Object.keys(store.accounts).forEach(function(cid){
+    var cloudAcc=cloudData.accounts[cid];
+    var localAcc=store.accounts[cid];
+    if(!cloudAcc || !localAcc) return;
+    var cloudSt=cloudAcc.state, localSt=localAcc.state;
+    if(!cloudSt || !localSt) return;
+    var cloudLedger=Array.isArray(cloudSt.coinLedger)?cloudSt.coinLedger:[];
+    if(!cloudLedger.length) return;
+    if(!Array.isArray(localSt.coinLedger)) localSt.coinLedger=[];
+    var localIds={};
+    localSt.coinLedger.forEach(function(e){ if(e&&e.id) localIds[e.id]=true; });
+    var missing=cloudLedger.filter(function(e){ return e && e.admin===true && e.id && !localIds[e.id]; });
+    if(!missing.length) return;
+    missing.sort(function(a,b){ return (a.t||0)-(b.t||0); }); // 按时间先后顺序补，万一管理员连续改了好几次
+    missing.forEach(function(e){
+      if(typeof localSt.moneyBalance!=='number' || !isFinite(localSt.moneyBalance)) localSt.moneyBalance=0;
+      localSt.moneyBalance+=e.delta;
+      localSt.coinLedger.push({t:e.t, delta:e.delta, reason:e.reason, bal:localSt.moneyBalance, admin:true, id:e.id});
+    });
+    if(localSt.coinLedger.length>COIN_LEDGER_MAX) localSt.coinLedger.splice(0, localSt.coinLedger.length-COIN_LEDGER_MAX);
+    appliedAny=true;
+    // 如果正好是当前显示的这个孩子，顺手把内存里实时用的state也同步一下余额，不用等切换孩子才刷新
+    if(state && store.currentChildId===cid) state.moneyBalance=localSt.moneyBalance;
+  });
+  return appliedAny;
 }
 
 /* ========== 道具（商店物品/背包用品）消费明细账本 ==========
