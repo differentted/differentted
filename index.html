@@ -165,6 +165,16 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
 .pet-accessory{ position:absolute; top:-8%; left:50%; transform:translateX(-50%); font-size:26px; pointer-events:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)); display:none; z-index:2; }
 .pet-accessory.show{ display:block; }
 #petWrap.pet-hiding .pet-accessory{ display:none; }
+/* 2026-10新增：家长反馈"宠物不开心的时候，怎么看着还是笑嘻嘻的"——根子跟上面 moodFilterFor()
+   注释里说的是同一件事：AI画的哭脸用了亮晶晶的星星眼+张嘴笑的造型+暖金色配色，哪怕叠加了
+   变灰变暗的滤镜，不细看还是很容易被读成"开心"，尤其是在手机小屏幕上一晃而过。
+   滤镜这种"让人感觉不对劲"的弱提示显然不够用，这里加一个不依赖原画画得够不够"苦"的强提示：
+   直接在宠物身上叠一个清清楚楚的表情emoji小徽章（跟打卡页"心情"文字用的是同一套emoji，
+   不会对不上），心情好的时候完全不显示，只要不是happy就一定会出现，不用靠眼睛分辨原画细节 */
+.pet-mood-badge{ position:absolute; top:-6%; right:-4%; font-size:22px; line-height:1; pointer-events:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.4)); display:none; z-index:3; animation:petMoodBadgePop .35s ease-out; }
+.pet-mood-badge.show{ display:block; }
+#petWrap.pet-hiding .pet-mood-badge{ display:none; }
+@keyframes petMoodBadgePop{ 0%{transform:scale(.3); opacity:0;} 60%{transform:scale(1.15); opacity:1;} 100%{transform:scale(1);} }
 #petHit{ position:absolute; inset:-30% -20%; cursor:pointer; pointer-events:auto; }
 .pet-fs-overlay{position:fixed;inset:0;z-index:40;background:#111 center/cover no-repeat;display:none}
 .pet-fs-overlay.show{display:block}
@@ -2095,6 +2105,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petWrap" class="face-right" style="display:none">
   <img id="petImg" class="anim-idle" src="petimg_default.webp" alt="小金麟">
   <div id="petAccessory" class="pet-accessory"></div>
+  <div id="petMoodBadge" class="pet-mood-badge"></div>
   <div id="petHit" onclick="petTouch()"></div>
   <div id="petHearts"></div>
   <div id="petBubble"></div>
@@ -2610,13 +2621,13 @@ var PET_LIBRARY = {
     danceDurationMs: 10060
   },
   /* 2026-10新增：根据家长提供的角色三视图+两段表情参考视频加入的"基础版"宠物（参照小金麟的
-     精简结构：只有 happy/run/sad 三张图 + 没有专属孵化素材，用默认的🥚蛋图标即可）。三张素材
-     全部是从提供的参考素材里真实出现过的姿势里截取/拼接而成（身体和服装都是同一套真实渲染图，
-     只是原素材里同时满足"全身可见"和"目标表情"的镜头不全，所以happy/run两张是用同一个视频里
-     的上半身表情图 + 另一帧全身图的下半身腿部拼接而成，没有凭空画新的内容）：
-     - happy：大笑+挥手的上半身 + 自然站立的双腿
-     - run  ：叉腰生气/有活力的上半身 + 伸手那帧的双腿
-     - sad  ：伸手求抱抱+掉眼泪，这帧本身就是全身镜头，直接原样截取 */
+     精简结构：只有 happy/run/sad 三张图 + 没有专属孵化素材，用默认的🥚蛋图标即可）。
+     2026-10更新：家长明确要求不要用AI重绘的卡通化造型，happy图+跳舞动图改成直接取材真实跳舞
+     视频的原始画面（去背景后的真实照片，不是AI生成/风格化的图）——跳舞动图是把整段约15秒的
+     真人跳舞视频每隔2帧取1帧（约8fps，共120帧，换算下来跟奶龙/小金龙那两套跳舞动图同一个
+     安全的"解码内存预算"量级，280px那次修复踩过的坑这里一开始就避开了），happy是从同一段视频
+     里挑的一帧自然站立、表情温和的画面。run/sad暂时还是沿用旧的AI卡通图（手头没有能对应这两个
+     动作的真实素材），风格上会跟happy/跳舞不统一，等家长之后补充对应的真实照片/视频再一并换掉 */
   shuangyu: {
     name: '双鱼宝宝',
     pickDesc: '爱做梦的双鱼宝宝，心思细腻又敏感，一会儿笑一会儿哭，陪你一起体验满满的小情绪～',
@@ -2624,7 +2635,10 @@ var PET_LIBRARY = {
       happy: 'shuangyu_happy.webp',
       run:   'shuangyu_run.webp',
       sad:   'shuangyu_sad.webp'
-    }
+    },
+    danceImg: 'shuangyu_dance.webp',
+    danceAudio: 'shuangyu_dance.mp3',
+    danceDurationMs: 15000
   }
 };
 var PET_ORDER = ['xiaojinlin','naolong','xiaojinlong','shuangyu'];
@@ -2655,7 +2669,7 @@ function poseFor(state, opts){
 }
 var STAGE_WIDTH_PCT = { baby:100/4, teen:100/3, adult:100/2 };
 
-var petWrap=null, petImg=null, petHit=null, petBubbleEl=null, petHeartsEl=null, petAccessoryEl=null;
+var petWrap=null, petImg=null, petHit=null, petBubbleEl=null, petHeartsEl=null, petAccessoryEl=null, petMoodBadgeEl=null;
 var petSpriteReady=false;
 function ensurePetSpriteRefs(){
   if(petSpriteReady) return;
@@ -2665,6 +2679,7 @@ function ensurePetSpriteRefs(){
   petBubbleEl=document.getElementById('petBubble');
   petHeartsEl=document.getElementById('petHearts');
   petAccessoryEl=document.getElementById('petAccessory');
+  petMoodBadgeEl=document.getElementById('petMoodBadge');
   if(petWrap) petSpriteReady=true;
 }
 function petSpriteVisible(){ return petWrap && petWrap.style.display!=='none'; }
@@ -4050,7 +4065,7 @@ document.addEventListener('visibilitychange', function(){
    跳舞素材和待机呼吸动画用的是同一套做法：真实跳舞视频去掉背景后做成宠物本体的动画贴图，
    直接在原地（房间场景里）播放，不再弹出一个视频框；原视频的背景音乐单独提取成音频，
    跟贴图动画同步播放。每只宠物用的是它自己那条专属素材，不会张冠李戴。
-   目前只有小金龙、毛绒小奶龙有专属跳舞素材；小金麟还没有，等以后补上专属素材再给它加。 */
+   目前小金龙、毛绒小奶龙、双鱼宝宝都有专属跳舞素材；小金麟还没有，等以后补上专属素材再给它加。 */
 var PET_DANCE_LINES=[{zh:'学的新舞蹈，好看吗？💃',en:'I learned a new dance, does it look good? 💃'},{zh:'看我扭一个！🕺',en:'Check out this move! 🕺'},{zh:'嘿嘿，这段舞我练了好久！',en:'Hehe, I practiced this dance for so long!'},{zh:'律动起来，根本停不下来～',en:"Once I start grooving, I just can't stop~"}];
 var petDanceAudioEl=null;
 var petDancing=false;
@@ -4427,6 +4442,23 @@ function syncPetSprite(){
   // 在真正的分部位换装美术做出来之前，先让小朋友能直观感受到"穿了好装备"
   if(petImg) petImg.style.filter=[moodFilterFor(moodNow), dirtyFilterFor(pet.clean), petEquipGlowFilter(pet)].filter(Boolean).join(' ');
   if(petWrap) petWrap.classList.toggle('mood-angry', moodNow==='angry');
+  // 2026-10新增：心情不好时，光靠滤镜变灰变暗这种"弱提示"不够——直接叠一个清楚的表情emoji徽章，
+  // 跟打卡页"心情"文字（petMoodText）用的是同一套emoji，不用再靠肉眼分辨原画表情细节。
+  // 心情好的时候完全不显示，避免平时多一个常驻的视觉干扰
+  if(petMoodBadgeEl){
+    if(moodNow==='happy'){
+      petMoodBadgeEl.classList.remove('show');
+    }else{
+      var badgeEmoji=PET_MOOD_BADGE_EMOJI[moodNow]||'😿';
+      if(petMoodBadgeEl.textContent!==badgeEmoji||!petMoodBadgeEl.classList.contains('show')){
+        petMoodBadgeEl.textContent=badgeEmoji;
+        petMoodBadgeEl.classList.add('show');
+        petMoodBadgeEl.style.animation='none';
+        void petMoodBadgeEl.offsetWidth; // 重新触发一次"弹出"小动画，心情从一种不好的状态切到另一种时也有反馈
+        petMoodBadgeEl.style.animation='';
+      }
+    }
+  }
   // 2026-10新增："残血"危急状态比生气更严重，视觉上要盖过普通的生气光晕，二者互斥（残血时不叠加生气光晕，避免两种动画打架）
   var isCritical=!!petCriticalStatus();
   if(petWrap){ petWrap.classList.toggle('pet-critical', isCritical); if(isCritical) petWrap.classList.remove('mood-angry'); }
@@ -4497,6 +4529,9 @@ function petMoodText(mood){
   var mEn={happy:'😊 Doing great, go spend some time with it!',hungry:'😫 Getting hungry, go feed it!',thirsty:'🥺 A bit thirsty, go give it some water!',dirty:'😖 Getting dirty, time for a clean-up!',sad:'😿 Feeling down, go play with it a bit!',angry:"😡 No one's looked after it for days and it's upset! Come take care of it right away!"};
   return L(m[mood]||m.happy, mEn[mood]||mEn.happy);
 }
+// 2026-10新增：叠在宠物本体右上角的心情表情徽章专用——跟上面petMoodText()开头那颗emoji完全对应，
+// 不单独另起一套，保证"打卡页文字提示"和"宠物身上的表情徽章"任何时候看到的都是同一个表情符号
+var PET_MOOD_BADGE_EMOJI={hungry:'😫',thirsty:'🥺',dirty:'😖',sad:'😿',angry:'😡'};
 
 /* ========== "护体灵光"倒计时装置：宠物页悬浮小徽章，提醒小朋友再不照顾灵光就要耗尽、
    宠物会被打回蛋劫——鼠标放上去（或手机点一下）弹出仙侠风提示，讲清楚还剩多久、
