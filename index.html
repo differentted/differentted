@@ -34067,6 +34067,360 @@ function renderNaplanBankBox(boxId,bank,offsetKey,qkeyPrefix,langKey){
   }
   box.innerHTML=html;
 }
+
+/* ========== 2026-10新增：naplanqen专属——学习进度统计 + 随时复习已学 + 模拟测试 ==========
+   家长反馈：希望NAPLAN题库练习"每天的题目不能重复"（按题库进度往前走，不要还没学完就先
+   重复），同时要有"已学了多少"的统计，并且"随时可以从已学内容里挑出来重新看"。跟家长确认过，
+   这三样新能力只加在naplanqen（英文解析版）上，naplanq（中文解析版）继续用上面
+   renderNaplanBankBox那套"自由换批、循环不设门槛"的老逻辑，不动它。
+   另外再加一个"模拟测试"：从Reading(一整篇+5题)/Language(5题)/Numeracy(5题)里各抽一批，
+   一次性做完再统一交卷判分，跟"边做边看解析"的日常练习模式分开。Writing没法自动判分，不计入测试。
+   学习进度用"从题库第0项开始、按顺序往前推进"的指针实现（state.naplanqenProgress[part]记录
+   "已经学到第几项"，一个方向地增加，不会跳着走也不会后退），这样"不重复"是天然成立的——
+   复习模式(state.naplanqenReview[part]/state.naplanqenMode[part])是另一套完全独立的指针，
+   只在"已学范围"内前后翻看，不会影响/消耗上面的学习进度。 */
+var NAPLANQEN_BATCH_SIZE={reading:1,writing:1,language:5,numeracy:5};
+var NAPLANQEN_TOTAL={reading:20,writing:40,language:100,numeracy:160};
+function naplanqenProgress(){
+  if(!state.naplanqenProgress) state.naplanqenProgress={reading:0,writing:0,language:0,numeracy:0};
+  return state.naplanqenProgress;
+}
+function naplanqenReviewPtr(){
+  if(!state.naplanqenReview) state.naplanqenReview={reading:0,writing:0,language:0,numeracy:0};
+  return state.naplanqenReview;
+}
+function naplanqenMode(){
+  if(!state.naplanqenMode) state.naplanqenMode={reading:'learn',writing:'learn',language:'learn',numeracy:'learn'};
+  return state.naplanqenMode;
+}
+function naplanqenBankArr(part){
+  if(part==='reading') return NAPLAN_BANK_EN.reading;
+  if(part==='writing') return NAPLAN_BANK_EN.writing;
+  if(part==='language') return NAPLAN_BANK_EN.language;
+  return NAPLAN_BANK_EN.numeracy;
+}
+// 第一次用到某个Part时(progress还是0)，先把第一批标记成"已学"，这样一打开就有内容显示，
+// 不用先点一次按钮才能看到东西
+function naplanqenEnsureStarted(part){
+  var prog=naplanqenProgress();
+  if(prog[part]===0){
+    prog[part]=Math.min(NAPLANQEN_BATCH_SIZE[part],NAPLANQEN_TOTAL[part]);
+    save();
+  }
+}
+function naplanqenCurrentLearnBatch(part){
+  naplanqenEnsureStarted(part);
+  var prog=naplanqenProgress();
+  var bs=NAPLANQEN_BATCH_SIZE[part];
+  var arr=naplanqenBankArr(part);
+  var start=Math.max(0,prog[part]-bs);
+  return arr.slice(start,prog[part]);
+}
+function naplanqenAdvance(part){
+  naplanqenEnsureStarted(part);
+  var prog=naplanqenProgress();
+  var bs=NAPLANQEN_BATCH_SIZE[part];
+  var total=NAPLANQEN_TOTAL[part];
+  if(prog[part]>=total) return; // 已经全部学完，按钮在UI上会被换成提示文字，这里再兜底一次
+  prog[part]=Math.min(prog[part]+bs,total);
+  save();
+  renderStudyAids();
+}
+function naplanqenSetMode(part,mode){
+  var m=naplanqenMode();
+  m[part]=mode;
+  if(mode==='review'){
+    // 进入复习模式时，默认从"最近学的那一批"开始看，比直接跳回第一批更贴近"刚学完想再看一眼"的需求
+    var rp=naplanqenReviewPtr();
+    var bs=NAPLANQEN_BATCH_SIZE[part];
+    var prog=naplanqenProgress()[part];
+    rp[part]=Math.max(0,prog-bs);
+  }
+  save();
+  renderStudyAids();
+}
+function naplanqenReviewBatch(part){
+  var learnedCount=naplanqenProgress()[part];
+  if(learnedCount<=0) return []; // 还什么都没学过，复习模式下不该看到任何内容（哪怕题库本身不是空的）
+  var rp=naplanqenReviewPtr();
+  var bs=NAPLANQEN_BATCH_SIZE[part];
+  var arr=naplanqenBankArr(part);
+  var maxStart=Math.max(0,learnedCount-bs);
+  var start=Math.max(0,Math.min(rp[part],maxStart));
+  return arr.slice(start,start+bs);
+}
+function naplanqenReviewMove(part,dir){
+  var rp=naplanqenReviewPtr();
+  var bs=NAPLANQEN_BATCH_SIZE[part];
+  var learnedCount=naplanqenProgress()[part];
+  var maxStart=Math.max(0,learnedCount-bs);
+  var next=rp[part]+dir*bs;
+  if(next<0) next=maxStart; // 从头部再往"上一个"翻，直接循环到已学的最后一批，方便来回浏览
+  if(next>maxStart) next=0;
+  rp[part]=next;
+  save();
+  renderStudyAids();
+}
+function naplanqenReviewRandom(part){
+  var rp=naplanqenReviewPtr();
+  var bs=NAPLANQEN_BATCH_SIZE[part];
+  var learnedCount=naplanqenProgress()[part];
+  var maxStart=Math.max(0,learnedCount-bs);
+  var steps=Math.floor(maxStart/bs)+1;
+  rp[part]=Math.min(Math.floor(Math.random()*steps)*bs,maxStart);
+  save();
+  renderStudyAids();
+}
+function naplanqenMcqHtml(q,label){
+  var qkey='quiz:naplanqen:'+q.id;
+  var opts=q.opts.map(function(o,i){ return {letter:['A','B','C','D'][i],text:o}; });
+  var rec=quizState(qkey);
+  return '<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px;line-height:1.5">'
+    +q.q
+    +quizSelectHtml(qkey,opts,q.answer,label)
+    +(rec?('<div class="small" style="color:#7b1fa2;margin-top:2px">💡 '+q.explanation+'</div>'):'')
+    +'</div>';
+}
+function naplanqenModeToggleHtml(part){
+  var mode=naplanqenMode()[part];
+  var prog=naplanqenProgress()[part];
+  var total=NAPLANQEN_TOTAL[part];
+  var html='<div style="margin:2px 0 6px">';
+  html+='<button class="btn btn-sm '+(mode==='learn'?'btn-primary':'btn-gray')+'" onclick="naplanqenSetMode(\''+part+'\',\'learn\')">📖 Learn new</button> ';
+  if(prog>0){
+    html+='<button class="btn btn-sm '+(mode==='review'?'btn-primary':'btn-gray')+'" onclick="naplanqenSetMode(\''+part+'\',\'review\')">🔁 Review learned</button>';
+  }
+  html+=' <span class="small" style="color:#9c7ab0;margin-left:6px">'+prog+'/'+total+' learned</span>';
+  html+='</div>';
+  return html;
+}
+/* Reading/Writing是"单项"(batchSize=1)，Language/Numeracy是"5题一批"(batchSize=5)，
+   但学习模式/复习模式下的渲染结构基本一样，所以拆成这两个小帮手，被4个Part分别调用 */
+function naplanqenRenderSingle(part,label){
+  var mode=naplanqenMode()[part];
+  var prog=naplanqenProgress();
+  var html=naplanqenModeToggleHtml(part);
+  if(mode==='review'){
+    var rb=naplanqenReviewBatch(part);
+    if(!rb.length){ return html+'<div class="small">Nothing learned yet — switch to "Learn new" first.</div>'; }
+    var ritem=rb[0];
+    html+=naplanqenRenderItem(part,ritem,label+' (Review)');
+    html+='<button class="btn btn-gray btn-sm" onclick="naplanqenReviewMove(\''+part+'\',-1)">⬅️ Previous</button> '
+      +'<button class="btn btn-gray btn-sm" onclick="naplanqenReviewMove(\''+part+'\',1)">➡️ Next</button> '
+      +'<button class="btn btn-gray btn-sm" onclick="naplanqenReviewRandom(\''+part+'\')">🔀 Random</button>';
+  }else{
+    var lb=naplanqenCurrentLearnBatch(part);
+    if(lb.length) html+=naplanqenRenderItem(part,lb[0],label);
+    if(prog[part]>=NAPLANQEN_TOTAL[part]){
+      html+='<div class="small" style="color:#2e7d32">🎉 All '+part+' content learned! Use "Review learned" above to revisit anytime.</div>';
+    }else{
+      html+='<button class="btn btn-gray btn-sm" onclick="naplanqenAdvance(\''+part+'\')">🔄 '+(part==='reading'?'New passage':'New prompt')+'</button>';
+    }
+  }
+  return html;
+}
+function naplanqenRenderItem(part,item,label){
+  if(part==='reading'){
+    return '<div style="padding:4px 0;font-size:13px;line-height:1.7"><b>'+item.title+'</b>'
+      +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(item.text)+'\',\'en-US\')">🔊</button>'
+      +'<br>'+item.text+'</div>'
+      +item.questions.map(function(q){ return naplanqenMcqHtml(q,label); }).join('');
+  }
+  // writing
+  return '<div style="padding:4px 0;font-size:13px;line-height:1.7">'
+    +'<b>'+item.title+'</b> <span class="small" style="color:#9c7ab0">['+item.genre+']</span>'
+    +'<br>'+item.prompt
+    +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="var s=this.nextElementSibling;var sh=s.style.display!==\'none\';s.style.display=sh?\'none\':\'inline\';this.textContent=sh?\'👀 Show writing tips\':\'🙈 Hide writing tips\';">👀 Show writing tips</button>'
+    +'<span style="display:none;color:#7b1fa2;margin-left:4px"><b>Writing focus: </b>'+item.tips+'<br><b>Sample opening: </b>'+item.model
+    +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(item.model)+'\',\'en-US\')">🔊</button></span>'
+    +'</div>';
+}
+function naplanqenRenderBatch(part,label){
+  var mode=naplanqenMode()[part];
+  var prog=naplanqenProgress();
+  var html=naplanqenModeToggleHtml(part);
+  if(mode==='review'){
+    var rb=naplanqenReviewBatch(part);
+    if(!rb.length){ return html+'<div class="small">Nothing learned yet — switch to "Learn new" first.</div>'; }
+    html+=rb.map(function(q){ return naplanqenMcqHtml(q,label+' (Review)'); }).join('')
+      +'<button class="btn btn-gray btn-sm" onclick="naplanqenReviewMove(\''+part+'\',-1)">⬅️ Previous</button> '
+      +'<button class="btn btn-gray btn-sm" onclick="naplanqenReviewMove(\''+part+'\',1)">➡️ Next</button> '
+      +'<button class="btn btn-gray btn-sm" onclick="naplanqenReviewRandom(\''+part+'\')">🔀 Random</button>';
+  }else{
+    var lb=naplanqenCurrentLearnBatch(part);
+    html+=lb.map(function(q){ return naplanqenMcqHtml(q,label); }).join('');
+    if(prog[part]>=NAPLANQEN_TOTAL[part]){
+      html+='<div class="small" style="color:#2e7d32">🎉 All '+part+' content learned! Use "Review learned" above to revisit anytime.</div>';
+    }else{
+      html+='<button class="btn btn-gray btn-sm" onclick="naplanqenAdvance(\''+part+'\')">🔄 New batch</button>';
+    }
+  }
+  return html;
+}
+
+/* ---- 模拟测试：Reading(一整篇5题)+Language(5题)+Numeracy(5题)，共15题，一次性交卷判分 ---- */
+function naplanqenFindById(part,id){
+  var arr=(part==='reading')?NAPLAN_BANK_EN.reading.reduce(function(acc,p){ return acc.concat(p.questions); },[]):naplanqenBankArr(part);
+  for(var i=0;i<arr.length;i++){ if(arr[i].id===id) return arr[i]; }
+  return null;
+}
+function naplanqenPickRandomN(arr,n){
+  var pool=arr.slice();
+  var out=[];
+  while(out.length<n && pool.length){
+    var i=Math.floor(Math.random()*pool.length);
+    out.push(pool.splice(i,1)[0]);
+  }
+  return out;
+}
+function naplanqenStartTest(){
+  var bank=NAPLAN_BANK_EN;
+  var passage=bank.reading[Math.floor(Math.random()*bank.reading.length)];
+  var readingIds=passage.questions.map(function(q){ return q.id; });
+  var langIds=naplanqenPickRandomN(bank.language,5).map(function(q){ return q.id; });
+  var numIds=naplanqenPickRandomN(bank.numeracy,5).map(function(q){ return q.id; });
+  state.naplanqenTest={passageTitle:passage.title,qids:{reading:readingIds,language:langIds,numeracy:numIds},picks:{},submitted:false,result:null};
+  save();
+  renderStudyAids();
+}
+function naplanqenTestAllIds(){
+  var t=state.naplanqenTest;
+  if(!t) return [];
+  return t.qids.reading.concat(t.qids.language).concat(t.qids.numeracy);
+}
+function naplanqenTestPick(qid,letter){
+  var t=state.naplanqenTest;
+  if(!t||t.submitted) return;
+  t.picks[qid]=letter;
+  save();
+  renderStudyAids();
+}
+function naplanqenSubmitTest(){
+  var t=state.naplanqenTest;
+  if(!t||t.submitted) return;
+  var ids=naplanqenTestAllIds();
+  var unanswered=ids.filter(function(id){ return !t.picks[id]; });
+  if(unanswered.length){ alert('You still have '+unanswered.length+' question(s) left to answer before submitting.'); return; }
+  var result={
+    reading:{correct:0,total:t.qids.reading.length},
+    language:{correct:0,total:t.qids.language.length},
+    numeracy:{correct:0,total:t.qids.numeracy.length}
+  };
+  ['reading','language','numeracy'].forEach(function(part){
+    t.qids[part].forEach(function(qid){
+      var q=naplanqenFindById(part,qid);
+      if(q && t.picks[qid]===q.answer) result[part].correct++;
+    });
+  });
+  result.overall={correct:result.reading.correct+result.language.correct+result.numeracy.correct,total:ids.length};
+  t.submitted=true;
+  t.result=result;
+  if(result.overall.correct>0){
+    earnCoins(result.overall.correct,'NAPLAN Mock Test');
+    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct, +'+result.overall.correct+' coins');
+  }else{
+    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct');
+  }
+  save();
+  renderStudyAids();
+}
+function naplanqenCloseTest(){
+  state.naplanqenTest=null;
+  save();
+  renderStudyAids();
+}
+function naplanqenTestOptionHtml(q,picked,submitted){
+  var html='<div class="quiz-select">';
+  for(var i=0;i<q.opts.length;i++){
+    var letter=['A','B','C','D'][i];
+    var text=q.opts[i];
+    if(submitted){
+      var isCorrectOpt=(letter===q.answer);
+      var isPicked=(picked===letter);
+      var cls='quiz-opt-btn quiz-opt-disabled'+(isCorrectOpt?' quiz-opt-correct':(isPicked?' quiz-opt-wrong':''));
+      html+='<button class="'+cls+'" disabled>'+letter+'. '+text+(isCorrectOpt?' ✅':(isPicked?' ❌':''))+'</button>';
+    }else{
+      var pickedStyle=(picked===letter)?' style="outline:2px solid #8e24aa"':'';
+      html+='<button class="quiz-opt-btn"'+pickedStyle+' onclick="naplanqenTestPick(\''+q.id+'\',\''+letter+'\')">'+letter+'. '+text+(picked===letter?' ◀':'')+'</button>';
+    }
+  }
+  html+='</div>';
+  return html;
+}
+function renderNaplanqenTestHtml(){
+  var t=state.naplanqenTest;
+  var html='<div style="margin:8px 0 10px;border:1px solid #e1bee7;border-radius:10px;padding:8px;background:#fdf7ff">';
+  html+='<div style="font-weight:700;color:#5e35b1">📝 NAPLAN Mock Test</div>';
+  if(!t){
+    html+='<div class="small" style="margin:4px 0 6px">A quick 15-question check (5 Reading + 5 Language + 5 Numeracy), scored right away.</div>';
+    html+='<button class="btn btn-primary btn-sm" onclick="naplanqenStartTest()">▶️ Start Mock Test</button>';
+  }else if(!t.submitted){
+    var ids=naplanqenTestAllIds();
+    var answeredCount=ids.filter(function(id){ return !!t.picks[id]; }).length;
+    html+='<div class="small" style="margin:4px 0 6px">Answered '+answeredCount+'/'+ids.length+'</div>';
+    var passage=NAPLAN_BANK_EN.reading.filter(function(p){ return p.title===t.passageTitle; })[0];
+    if(passage){
+      html+='<div style="padding:4px 0;font-size:13px;line-height:1.7"><b>'+passage.title+'</b><br>'+passage.text+'</div>';
+      t.qids.reading.forEach(function(qid){
+        var q=naplanqenFindById('reading',qid);
+        html+='<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px">'+q.q+naplanqenTestOptionHtml(q,t.picks[qid],false)+'</div>';
+      });
+    }
+    html+='<div style="margin:6px 0 2px;font-weight:600;color:#7b1fa2">Language Conventions</div>';
+    t.qids.language.forEach(function(qid){
+      var q=naplanqenFindById('language',qid);
+      html+='<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px">'+q.q+naplanqenTestOptionHtml(q,t.picks[qid],false)+'</div>';
+    });
+    html+='<div style="margin:6px 0 2px;font-weight:600;color:#7b1fa2">Numeracy</div>';
+    t.qids.numeracy.forEach(function(qid){
+      var q=naplanqenFindById('numeracy',qid);
+      html+='<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px">'+q.q+naplanqenTestOptionHtml(q,t.picks[qid],false)+'</div>';
+    });
+    html+='<button class="btn btn-primary btn-sm" onclick="naplanqenSubmitTest()">✅ Submit Test</button>';
+  }else{
+    var r=t.result;
+    html+='<div class="small" style="margin:4px 0 6px;font-weight:600">Score: '+r.overall.correct+'/'+r.overall.total+' ('+Math.round(r.overall.correct/r.overall.total*100)+'%)</div>';
+    html+='<div class="small">Reading '+r.reading.correct+'/'+r.reading.total+' · Language '+r.language.correct+'/'+r.language.total+' · Numeracy '+r.numeracy.correct+'/'+r.numeracy.total+'</div>';
+    ['reading','language','numeracy'].forEach(function(part){
+      t.qids[part].forEach(function(qid){
+        var q=naplanqenFindById(part,qid);
+        var picked=t.picks[qid];
+        var correct=(picked===q.answer);
+        html+='<div style="padding:4px 0;border-bottom:1px dashed #f0e1f5;font-size:13px">'
+          +(correct?'✅ ':'❌ ')+q.q
+          +naplanqenTestOptionHtml(q,picked,true)
+          +'<div class="small" style="color:#7b1fa2;margin-top:2px">💡 '+q.explanation+'</div>'
+          +'</div>';
+      });
+    });
+    html+='<button class="btn btn-gray btn-sm" onclick="naplanqenCloseTest()">🔄 New Test</button>';
+  }
+  html+='</div>';
+  return html;
+}
+
+function renderNaplanqenBox(){
+  var box=document.getElementById('studyNaplanQEnBox');
+  if(!box) return;
+  var prog=naplanqenProgress();
+  var overallLearned=prog.reading+prog.writing+prog.language+prog.numeracy;
+  var overallTotal=NAPLANQEN_TOTAL.reading+NAPLANQEN_TOTAL.writing+NAPLANQEN_TOTAL.language+NAPLANQEN_TOTAL.numeracy;
+  var html='<div class="small" style="background:#f3e5f5;border-radius:8px;padding:6px 8px;margin-bottom:6px;color:#5e35b1">'
+    +'📊 Overall progress: '+overallLearned+'/'+overallTotal+' items learned ('+Math.round(overallLearned/overallTotal*100)+'%)'
+    +' · Reading '+prog.reading+'/20 passages · Writing '+prog.writing+'/40 prompts · Language '+prog.language+'/100 · Numeracy '+prog.numeracy+'/160'
+    +'</div>';
+  html+=renderNaplanqenTestHtml();
+  html+='<div style="margin:8px 0 2px;font-weight:700;color:#7b1fa2">📖 Part 1: Reading</div>';
+  html+=naplanqenRenderSingle('reading','NAPLAN Reading');
+  html+='<div style="margin:10px 0 2px;font-weight:700;color:#7b1fa2">📝 Part 2: Writing</div>';
+  html+=naplanqenRenderSingle('writing','NAPLAN Writing');
+  html+='<div style="margin:10px 0 2px;font-weight:700;color:#7b1fa2">✏️ Part 3: Language Conventions</div>';
+  html+=naplanqenRenderBatch('language','NAPLAN Language Conventions');
+  html+='<div style="margin:10px 0 2px;font-weight:700;color:#7b1fa2">🔢 Part 4: Numeracy</div>';
+  html+=naplanqenRenderBatch('numeracy','NAPLAN Numeracy');
+  box.innerHTML=html;
+}
+
 function studyBatchAllViewed(type,batchItems){
   if(!batchItems||!batchItems.length) return true;
   return batchItems.every(function(it){ return isStudyItemViewed(type, studyItemKey(type,it)); });
@@ -35151,13 +35505,15 @@ function renderStudyAids(){
   }
   /* 2026-10新增：study.naplanqen——跟上面naplanq正好反过来，只在英文模式显示，使用家长第二次
      上传并修正过的纯英文解析题库(NAPLAN_BANK_EN)，题目/选项/答案跟中文版完全一致，解析是英文。
-     用同一套renderNaplanBankBox渲染，只是换一套bank/offset命名空间/quizKey前缀/UI文字语言。 */
+     2026-10再次新增：这里改用专属的renderNaplanqenBox()——带学习进度统计、"随时复习已学"、
+     模拟测试三个新能力（跟家长确认过，这些新能力只给naplanqen加，naplanq继续用原来那套
+     renderNaplanBankBox自由换批、不设门槛的逻辑，没有变化）。 */
   var naplanQEnLabelEl=document.getElementById('studyNaplanQEnLabel');
   if(naplanQEnLabelEl) naplanQEnLabelEl.style.display=isEn?'':'none';
   var naplanQEnBox=document.getElementById('studyNaplanQEnBox');
   if(naplanQEnBox) naplanQEnBox.style.display=isEn?'':'none';
   if(naplanQEnBox && isEn){
-    renderNaplanBankBox('studyNaplanQEnBox',NAPLAN_BANK_EN,'naplanqenOffset','quiz:naplanqen:','en');
+    renderNaplanqenBox();
   }
   var phraseBox=document.getElementById('commPhraseBox');
   if(phraseBox){
@@ -36408,6 +36764,17 @@ function scriptSafeJson(obj){
    （比游戏自己的 <script> 都早），这样游戏脚本一运行就能读到 window.__DAILY_LINK__ /
    window.__ALREADY_CLEARED_TODAY__ 这两个全局变量——iframe 是完全独立的执行环境，
    访问不到主页面的任何函数/变量，只能靠这种方式主动喂数据进去。 */
+/* 2026-10新增：把NAPLAN_BANK_EN(家长上传的Year5 400题大题库)的Language+Numeracy两部分精简后
+   (只留q/opts/answer，去掉explanation——游戏里不展示解析，没必要把体积翻倍传进iframe)一起
+   打包成window.__NAPLAN_EN__注入iframe，这样"守卫家园"英文模式下就能直接从这套大题库里
+   抽题，取代游戏自己原来那一小份固定样题(QUESTION_BANK[grade].naplanLC/naplanNumWord/
+   naplanNumCalc，这份小题库保留在原地没有删除，万一__NAPLAN_EN__意外缺失时还能兜底用)。
+   Reading/Writing两部分没法做成"点选选项"的题型(阅读要先看一段短文、写作没有唯一答案)，
+   所以这里特意不传，跟家长确认过的范围保持一致。 */
+function buildNaplanEnZombiePayload(){
+  function trim(arr){ return (arr||[]).map(function(q){ return {q:q.q,opts:q.opts,answer:q.answer}; }); }
+  return { language:trim(NAPLAN_BANK_EN.language), numeracy:trim(NAPLAN_BANK_EN.numeracy) };
+}
 function buildMathDailyLinkPayload(){
   var theme=dailyTheme();
   var phrases=pickDailyStudyItems(PHRASE_STUDY_BANK,5);
@@ -36420,7 +36787,7 @@ function buildMathDailyLinkPayload(){
     phrases:phrases,
     themeName:theme.name
   };
-  return '<script>window.__DAILY_LINK__='+scriptSafeJson(data)+';window.__ALREADY_CLEARED_TODAY__='+scriptSafeJson(cleared)+';window.__UI_LANG__='+scriptSafeJson(getUiLang())+';<\/script>';
+  return '<script>window.__DAILY_LINK__='+scriptSafeJson(data)+';window.__ALREADY_CLEARED_TODAY__='+scriptSafeJson(cleared)+';window.__UI_LANG__='+scriptSafeJson(getUiLang())+';window.__NAPLAN_EN__='+scriptSafeJson(buildNaplanEnZombiePayload())+';<\/script>';
 }
 function openMathChallenge(){
   var frame=document.getElementById('mathChallengeFrame');
@@ -43515,6 +43882,10 @@ document.addEventListener('visibilitychange', function(){
         <div id="choiceAnswerArea" class="hidden w-full sm:w-auto flex-col gap-2">
           <button id="optionABtn" class="btn-secondary w-full text-left px-4 py-2 whitespace-normal"></button>
           <button id="optionBBtn" class="btn-secondary w-full text-left px-4 py-2 whitespace-normal" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"></button>
+          <!-- 2026-10新增：C/D两个选项按钮，默认隐藏——给NAPLAN题库(A-D四选一)用；原来英语/数学应用题
+               那些A/B两选一的题目不传optC/optD，这两个按钮保持隐藏，不影响旧题型 -->
+          <button id="optionCBtn" class="btn-secondary w-full text-left px-4 py-2 whitespace-normal hidden" style="background: linear-gradient(135deg, #0ea5e9, #0369a1);"></button>
+          <button id="optionDBtn" class="btn-secondary w-full text-left px-4 py-2 whitespace-normal hidden" style="background: linear-gradient(135deg, #f59e0b, #b45309);"></button>
         </div>
       </div>
     </div>
@@ -44010,6 +44381,32 @@ function pickInputFromBank(arr, n, category) {
     type: 'input', text, answer, category,
   }));
 }
+
+/* 2026-10新增：英文版"守卫家园"接入主app那套NAPLAN_BANK_EN大题库(400题，由主页面通过
+   window.__NAPLAN_EN__注入，只含Language/Numeracy两部分、字段精简成{q,opts,answer})，
+   取代游戏原来QUESTION_BANK里那一小份固定样题。统一做成A-D四选一的"选择题"样式(type:'choice',
+   optA~optD)，哪怕是数学题也不再要求手动输入数字——跟家长确认过的范围一致。
+   bankArr里是精简后的题目对象{q,opts:[4],answer}，不是旧pickFromBank用的数组元组格式。 */
+function naplanZombiePick(bankArr, n, category) {
+  if (!bankArr || !bankArr.length) return [];
+  const pool = bankArr.slice();
+  const out = [];
+  while (out.length < n && pool.length) {
+    const i = randInt(0, pool.length - 1);
+    const item = pool.splice(i, 1)[0];
+    out.push({ type: 'choice', text: item.q, optA: item.opts[0], optB: item.opts[1], optC: item.opts[2], optD: item.opts[3], answer: item.answer, category });
+  }
+  // 理论上Language(100)/Numeracy(160)都远大于每次抽取的n，这里只是兜底：
+  // 万一题库比n还小，允许重复抽取凑够n道，不让游戏因为题库耗尽卡住
+  while (out.length < n && bankArr.length) {
+    const item = bankArr[randInt(0, bankArr.length - 1)];
+    out.push({ type: 'choice', text: item.q, optA: item.opts[0], optB: item.opts[1], optC: item.opts[2], optD: item.opts[3], answer: item.answer, category });
+  }
+  return out;
+}
+/* 英文模式下window.__NAPLAN_EN__由主页面注入；如果缺失(比如旧缓存/直接打开游戏源码调试)，
+   就兜底回退成空结构，genQuestions()里对应分支会自动改走原来QUESTION_BANK那条路径 */
+const NAPLAN_EN_BANK = (typeof window !== 'undefined' && window.__NAPLAN_EN__) ? window.__NAPLAN_EN__ : { language: [], numeracy: [] };
 
 // ============================================================
 //  数学应用题生成器（模板 + 随机数字，按年级难度递增，和计算题一样每次都不一样）
@@ -44884,14 +45281,29 @@ function genQuestions(level, count = 20) {
   addFromRatio('english', () => genEnglishQuestion(level));
   addFromRatio('chinese', () => genChineseQuestion(level));
   addFromRatio('brain', () => genBrainQuestion(level));
+  // 2026-10新增：英文模式下，NAPLAN这三个比例key统一改成从主app的NAPLAN_BANK_EN大题库
+  // (400题，经window.__NAPLAN_EN__注入)抽题，取代游戏自带的那一小份固定样题，而且统一做成
+  // A-D选择题(不再有"手动输入数字"的naplanNumCalc题型)；__NAPLAN_EN__万一缺失(没走正常
+  // openMathChallenge()注入流程)时自动兜底回退到原来的QUESTION_BANK路径，不会出不了题。
+  // 中文模式(GAME_LANG!=='en')完全不受影响，继续用原来的QUESTION_BANK小题库。
+  const useNaplanEnBank = GAME_LANG === 'en' && NAPLAN_EN_BANK.language.length && NAPLAN_EN_BANK.numeracy.length;
   if (ratio.naplanLC) {
-    qs.push(...pickFromBank(bank.naplanLC, Math.max(1, Math.round(ratio.naplanLC * scale)), T('NAPLAN语言','NAPLAN Language')));
+    const n = Math.max(1, Math.round(ratio.naplanLC * scale));
+    qs.push(...(useNaplanEnBank
+      ? naplanZombiePick(NAPLAN_EN_BANK.language, n, 'NAPLAN Language')
+      : pickFromBank(bank.naplanLC, n, T('NAPLAN语言','NAPLAN Language'))));
   }
   if (ratio.naplanNumWord) {
-    qs.push(...pickFromBank(bank.naplanNumWord, Math.max(1, Math.round(ratio.naplanNumWord * scale)), T('NAPLAN数学','NAPLAN Numeracy')));
+    const n = Math.max(1, Math.round(ratio.naplanNumWord * scale));
+    qs.push(...(useNaplanEnBank
+      ? naplanZombiePick(NAPLAN_EN_BANK.numeracy, n, 'NAPLAN Numeracy')
+      : pickFromBank(bank.naplanNumWord, n, T('NAPLAN数学','NAPLAN Numeracy'))));
   }
   if (ratio.naplanNumCalc) {
-    qs.push(...pickInputFromBank(bank.naplanNumCalc, Math.max(1, Math.round(ratio.naplanNumCalc * scale)), T('NAPLAN数学','NAPLAN Numeracy')));
+    const n = Math.max(1, Math.round(ratio.naplanNumCalc * scale));
+    qs.push(...(useNaplanEnBank
+      ? naplanZombiePick(NAPLAN_EN_BANK.numeracy, n, 'NAPLAN Numeracy')
+      : pickInputFromBank(bank.naplanNumCalc, n, T('NAPLAN数学','NAPLAN Numeracy'))));
   }
   const calcCount = Math.max(1, count - qs.length);
   for (let i = 0; i < calcCount; i++) qs.push(genMathCalcQuestion(level));
@@ -45063,6 +45475,8 @@ const inputAnswerArea = $('inputAnswerArea');
 const choiceAnswerArea = $('choiceAnswerArea');
 const optionABtn = $('optionABtn');
 const optionBBtn = $('optionBBtn');
+const optionCBtn = $('optionCBtn');
+const optionDBtn = $('optionDBtn');
 const bombEnergyBar = $('bombEnergyBar');
 const bombTriggerBtn = $('bombTriggerBtn');
 
@@ -45139,6 +45553,12 @@ function pickQuestion() {
     choiceAnswerArea.classList.add('flex');
     optionABtn.textContent = 'A. ' + q.optA;
     optionBBtn.textContent = 'B. ' + q.optB;
+    // 2026-10新增：NAPLAN题库(A-D四选一)才会带optC/optD，原来的A/B两选一题目不受影响，
+    // C/D按钮保持隐藏
+    if (q.optC) { optionCBtn.textContent = 'C. ' + q.optC; optionCBtn.classList.remove('hidden'); }
+    else { optionCBtn.classList.add('hidden'); }
+    if (q.optD) { optionDBtn.textContent = 'D. ' + q.optD; optionDBtn.classList.remove('hidden'); }
+    else { optionDBtn.classList.add('hidden'); }
   } else {
     choiceAnswerArea.classList.add('hidden');
     choiceAnswerArea.classList.remove('flex');
@@ -46718,6 +47138,8 @@ answerInput.addEventListener('keydown', (e) => {
 });
 optionABtn.addEventListener('click', () => checkChoiceAnswer('A'));
 optionBBtn.addEventListener('click', () => checkChoiceAnswer('B'));
+optionCBtn.addEventListener('click', () => checkChoiceAnswer('C'));
+optionDBtn.addEventListener('click', () => checkChoiceAnswer('D'));
 bombTriggerBtn.addEventListener('click', () => triggerAtomicBomb());
 
 // 页面可见性
