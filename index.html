@@ -3896,6 +3896,7 @@ var I18N_EN = {
   checkin_study_title: '📖 Study Check-in',
   btn_weekly_quiz: '📊 Weekly Quiz',
   btn_theme_settings: '🎨 Theme Settings',
+  btn_study_content_manage: '📚 Content Management',
   study_content_label: '📚 Today\'s Study Content (tap 🔊 to hear it)',
   label_words: '🔤 Words: ',
   label_hanzi: '🀄 Chinese Characters: ',
@@ -4886,8 +4887,22 @@ const DEFAULT_TASK_DEFS = {
     {id:'dailyphrase',label:'学习今日5句日常用语',emoji:'💬',coins:3}
   ]
 };
+/* 2026-10新增：英文UI模式(🌐)下，打卡清单里的任务名称之前一直是硬编码中文（taskLabel()只会返回
+   store.taskDefs里存的label原文，不管语言模式），导致切到English之后打卡清单里反而还夹着大段中文，
+   跟周围已经翻译好的卡片标题/按钮很不协调。这里给"默认任务"补一份对应的英文翻译，taskLabel()
+   在英文模式下、且这个任务的label还是默认中文原文(没被家长在任务设置里改过)时，才会换成这份英文；
+   家长自己改过的任务名是自由文本，没办法自动翻译，只能原样显示——这是看得见的已知限制，不是bug。 */
+var TASK_LABEL_EN = {
+  sport: {burpee:'Burpees', plank:'Plank', balance:'Single-leg Balance', situp:'Sit-ups'},
+  study: {word:'5 English words', hanzi:'5 Hanzi with Pinyin', sentence:'Say + write 1 English sentence', mathen:'5 pure-English math problems', poem:'Recite 1 classical poem', reading:'Read 1 short passage', naplan:'5 NAPLAN English questions'},
+  house: {fold:'Fold clothes', wipe:'Wipe the table', wash:'Wash dishes', sweep:'Sweep the floor', mop:'Mop the floor', vacuum:'Vacuum', bathfloor:'Keep bathroom floor dry after shower', dining:'Keep table & floor clean after meals'},
+  fun: {sing:'Task 1: Sing a song, post on TikTok', dance:'Task 2: Dance, post on TikTok'},
+  diary: {diary:'Talk or write a diary entry: share what happened at school, with friends, or in class today with mom & dad'},
+  comm: {grandpa:'Video/phone call with Grandma & Grandpa', inlaw:'Video/phone call with the other grandparents', hello:'Greet someone first', dailyphrase:"Learn today's 5 daily phrases"}
+};
 const TASK_EDITABLE_CATS = ['sport','study','house','fun','diary','comm'];
 const SPORT_TARGET_SUFFIX = {plank:'组',balance:'组',situp:'个'};
+const SPORT_TARGET_SUFFIX_EN = {plank:'sets',balance:'sets',situp:'reps'};
 function ensureTaskDefs(){
   if(!store.taskDefs) store.taskDefs={};
   for(var i=0;i<TASK_EDITABLE_CATS.length;i++){
@@ -4984,9 +4999,25 @@ function tasksAnyDone(dayCat,defs){
   return false;
 }
 const AVATARS = [petPreviewImg('xiaojinlin'), petPreviewImg('naolong'), petPreviewImg('xiaojinlong'), '🦊','🐻','🐼','🦁','🐸','🐨','🐯'];
-function isImgAvatar(av){ return typeof av==='string' && av.indexOf('data:image')===0; }
+// 2026-10fix：家长反馈"选择小朋友"列表里名字前面冒出一串"xiaojinlin_happy.webp"文字，看着像乱码，
+// 其实名字本身("馨彤")是对的，问题出在这里——AVATARS数组前3个头像选项是petPreviewImg()返回的
+// 宠物照片文件名（普通相对路径，比如"xiaojinlin_happy.webp"），不是data:开头的base64图片，
+// 但isImgAvatar()之前只认data:URI，把这种文件名误判成"不是图片"，avatarHtml()就退化成把
+// 文件名当成普通文字（转义后）直接显示出来，而不是真的渲染成一张头像图片。这里把"以常见图片
+// 扩展名结尾的文件名/路径"也一并识别成图片，让这种头像选项（以及已经选了这种头像的小朋友档案）
+// 能正常显示成图片，不再裸露文件名文字。
+function isImgAvatar(av){
+  if(typeof av!=='string') return false;
+  if(av.indexOf('data:image')===0) return true;
+  return /\.(webp|png|jpe?g|gif|svg)$/i.test(av);
+}
 function avatarHtml(av,px){
-  if(isImgAvatar(av)) return '<img src="'+av+'" alt="" style="width:'+px+'px;height:'+px+'px;object-fit:cover;border-radius:50%;vertical-align:middle;display:inline-block">';
+  // 2026-10fix：src属性这里之前是直接把av原样拼进去，没有转义——av同样可能来自"串门"目录里别的
+  // 设备/别人写进云端的不可信数据，万一里面故意带了双引号，就能从src=".."这个属性里"逃逸"出去，
+  // 在后面插入额外的HTML属性/事件（比如onerror=...，配合一个故意打不开的图片地址触发），属于
+  // 存储型XSS的另一种变体，跟下面emoji分支要防的是同一类问题。escapeAttr()统一把双引号/尖括号
+  // 转义掉，正常的图片文件名/data:URI不受影响，显示效果不变。
+  if(isImgAvatar(av)) return '<img src="'+escapeAttr(av)+'" alt="" style="width:'+px+'px;height:'+px+'px;object-fit:cover;border-radius:50%;vertical-align:middle;display:inline-block">';
   // 2026-09fix：不是图片头像时，av通常是个emoji，但它最终来源可能是"串门"目录里别的设备/别人写进云端的数据，
   // 不能保证一定是安全的emoji——不转义就直接当HTML塞进innerHTML的话，别人可以在这里塞入<img onerror=...>之类
   // 的脚本，趁孩子或家长打开"串门"列表时执行（存储型XSS）。这里统一做HTML转义，emoji本身不含特殊符号，转义后
@@ -5515,6 +5546,27 @@ function toggleFamilyCodeReveal(){
   line.style.display=showing?'none':'block';
   if(btn) btn.textContent=showing?L('👁️ 查看我的登录码','👁️ Show my login code'):L('🙈 隐藏登录码','🙈 Hide login code');
 }
+// 2026-10fix：家长反馈"更换家庭空间"/"给家庭码改名"这两个弹窗，一直把当前家庭码明晃晃用<b>直接
+// 写死在说明文字里（之前只有首页"角色管理"那一块做了默认隐藏+点按钮才显示，这两个弹窗漏掉了，
+// 相当于同一个"密码"从另一个入口还是会被人一眼看到/截图），这里补成跟首页一样的"默认打码、
+// 点👁️才临时显示"写法。注意：如果用户根本没存过自定义码（还在用种子默认账号），curLabel会是
+// "默认家庭（茜茜嫣嫣家）"这种人类可读的说明文字，不是真正的登录凭证，不需要打码。
+function familyCodeMaskedHtml(curLabel, isRealCode, idPrefix){
+  if(!isRealCode) return '<b>'+escapeAttr(curLabel)+'</b>';
+  return '<b id="'+idPrefix+'Masked">••••</b>'
+    +'<b id="'+idPrefix+'Real" style="display:none">'+escapeAttr(curLabel)+'</b>'
+    +' <button type="button" class="btn btn-gray btn-sm" style="padding:0 6px;font-size:11px;vertical-align:1px" id="'+idPrefix+'Btn" onclick="toggleInlineFamilyCodeReveal(\''+idPrefix+'\')">'+L('👁️显示','👁️ Show')+'</button>';
+}
+function toggleInlineFamilyCodeReveal(idPrefix){
+  var masked=document.getElementById(idPrefix+'Masked');
+  var real=document.getElementById(idPrefix+'Real');
+  var btn=document.getElementById(idPrefix+'Btn');
+  if(!masked||!real) return;
+  var showingReal=(real.style.display!=='none');
+  real.style.display=showingReal?'none':'inline';
+  masked.style.display=showingReal?'inline':'none';
+  if(btn) btn.textContent=showingReal?L('👁️显示','👁️ Show'):L('🙈隐藏','🙈 Hide');
+}
 function openFamilyCodeChange(){
   _familyGateMode='change';
   var titleEl=document.getElementById('familyGateTitle');
@@ -5523,8 +5575,9 @@ function openFamilyCodeChange(){
   var input=document.getElementById('familyGateInput');
   var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
   var curLabel=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+  var curHtml=familyCodeMaskedHtml(curLabel, !!(saved&&saved!==''), 'familyGateChangeCur');
   if(titleEl) titleEl.textContent=L('🔄 更换家庭空间','🔄 Switch Family Space');
-  if(descEl) descEl.innerHTML=L('输入家庭码登录后，这台设备会切换到那个家庭码对应的空间（现在这台设备本机缓存的数据会被替换成那个家庭码云端已经保存的最新数据，云端数据本身不会丢）。<br><br>当前家庭码：<b>'+curLabel+'</b>','Enter a Family Code to log in, and this device will switch to that Family Space (the data cached on this device will be replaced with that Family Code\'s latest data from the cloud — nothing in the cloud is lost).<br><br>Current Family Code: <b>'+curLabel+'</b>');
+  if(descEl) descEl.innerHTML=L('输入家庭码登录后，这台设备会切换到那个家庭码对应的空间（现在这台设备本机缓存的数据会被替换成那个家庭码云端已经保存的最新数据，云端数据本身不会丢）。<br><br>当前家庭码：'+curHtml,'Enter a Family Code to log in, and this device will switch to that Family Space (the data cached on this device will be replaced with that Family Code\'s latest data from the cloud — nothing in the cloud is lost).<br><br>Current Family Code: '+curHtml);
   if(closeBtn) closeBtn.style.display='';
   if(input) input.value='';
   showModal('familyGateModal');
@@ -5540,8 +5593,9 @@ function openFamilyCodeRename(){
   var input=document.getElementById('familyGateInput');
   var saved=null; try{ saved=localStorage.getItem(FAMILY_CODE_KEY); }catch(e){}
   var curLabel=(saved&&saved!=='')?saved:'默认家庭（茜茜嫣嫣家）';
+  var curHtml=familyCodeMaskedHtml(curLabel, !!(saved&&saved!==''), 'familyGateRenameCur');
   if(titleEl) titleEl.textContent=L('✏️ 给家庭码改名','✏️ Rename Family Code');
-  if(descEl) descEl.innerHTML=L('这<b>不会</b>换成另一份数据，只是给现在这份家庭数据的"家庭码"换一个新名字，方便你自己记、分享给家里人。旧的家庭码（'+curLabel+'）改名后仍然继续有效，不会失效，两个码都能用。<br><br>请输入新的家庭码：','This will <b>not</b> switch to different data — it just gives your current family data\'s "Family Code" a new name, easier to remember and share. The old Family Code ('+curLabel+') will keep working after renaming, both codes remain valid.<br><br>Enter the new Family Code:');
+  if(descEl) descEl.innerHTML=L('这<b>不会</b>换成另一份数据，只是给现在这份家庭数据的"家庭码"换一个新名字，方便你自己记、分享给家里人。旧的家庭码（'+curHtml+'）改名后仍然继续有效，不会失效，两个码都能用。<br><br>请输入新的家庭码：','This will <b>not</b> switch to different data — it just gives your current family data\'s "Family Code" a new name, easier to remember and share. The old Family Code ('+curHtml+') will keep working after renaming, both codes remain valid.<br><br>Enter the new Family Code:');
   if(closeBtn) closeBtn.style.display='';
   if(input) input.value='';
   showModal('familyGateModal');
@@ -9529,7 +9583,8 @@ var THEMES=[
       "optA": "The monkey house",
       "optB": "The gift shop",
       "answer": "A"
-    }
+    },
+    "nameEn": "Animals"
   },
   {
     "id": "family",
@@ -10034,7 +10089,8 @@ var THEMES=[
       "optA": "Because he gets to eat cake",
       "optB": "Because his whole family is together",
       "answer": "B"
-    }
+    },
+    "nameEn": "Family"
   },
   {
     "id": "school",
@@ -10539,7 +10595,8 @@ var THEMES=[
       "optA": "He made a new friend",
       "optB": "He went home early",
       "answer": "A"
-    }
+    },
+    "nameEn": "School"
   },
   {
     "id": "food",
@@ -11044,7 +11101,8 @@ var THEMES=[
       "optA": "Honey",
       "optB": "Sugar",
       "answer": "A"
-    }
+    },
+    "nameEn": "Food"
   },
   {
     "id": "weather",
@@ -11549,7 +11607,8 @@ var THEMES=[
       "optA": "They closed the windows and lit a candle",
       "optB": "They went outside to watch the rain",
       "answer": "A"
-    }
+    },
+    "nameEn": "Weather"
   },
   {
     "id": "colors",
@@ -12054,7 +12113,8 @@ var THEMES=[
       "optA": "Red, orange, yellow, green, blue, and purple",
       "optB": "Black and white",
       "answer": "A"
-    }
+    },
+    "nameEn": "Colors"
   },
   {
     "id": "jobs",
@@ -12559,7 +12619,8 @@ var THEMES=[
       "optA": "Because he likes helping people stay safe",
       "optB": "Because he wants to cook meals",
       "answer": "A"
-    }
+    },
+    "nameEn": "Jobs"
   },
   {
     "id": "transport",
@@ -13064,7 +13125,8 @@ var THEMES=[
       "optA": "Three",
       "optB": "Five",
       "answer": "A"
-    }
+    },
+    "nameEn": "Transport"
   },
   {
     "id": "sports",
@@ -13569,7 +13631,8 @@ var THEMES=[
       "optA": "Ella scored a goal in the last minute",
       "optB": "The other team gave up",
       "answer": "A"
-    }
+    },
+    "nameEn": "Sports"
   },
   {
     "id": "nature",
@@ -14074,7 +14137,8 @@ var THEMES=[
       "optA": "A family of ducks",
       "optB": "A family of fish",
       "answer": "A"
-    }
+    },
+    "nameEn": "Nature"
   },
   {
     "id": "body",
@@ -14579,7 +14643,8 @@ var THEMES=[
       "optA": "Her knee",
       "optB": "Her wrist",
       "answer": "A"
-    }
+    },
+    "nameEn": "Body"
   },
   {
     "id": "shopping",
@@ -15084,7 +15149,8 @@ var THEMES=[
       "optA": "A small bag of lollies",
       "optB": "A new trolley",
       "answer": "A"
-    }
+    },
+    "nameEn": "Shopping"
   },
   {
     "id": "fruits",
@@ -15589,7 +15655,8 @@ var THEMES=[
       "optA": "Eat a peach before it was washed",
       "optB": "Carry the basket to the car",
       "answer": "A"
-    }
+    },
+    "nameEn": "Fruits"
   },
   {
     "id": "vegetables",
@@ -16094,7 +16161,8 @@ var THEMES=[
       "optA": "A carrot",
       "optB": "A pumpkin",
       "answer": "A"
-    }
+    },
+    "nameEn": "Vegetables"
   },
   {
     "id": "numbers",
@@ -16599,7 +16667,8 @@ var THEMES=[
       "optA": "One hundred and twenty",
       "optB": "Two hundred",
       "answer": "A"
-    }
+    },
+    "nameEn": "Numbers"
   },
   {
     "id": "time",
@@ -17104,7 +17173,8 @@ var THEMES=[
       "optA": "So he would wake up early",
       "optB": "Because he missed swimming lessons",
       "answer": "A"
-    }
+    },
+    "nameEn": "Time"
   },
   {
     "id": "toys",
@@ -17609,7 +17679,8 @@ var THEMES=[
       "optA": "The puzzle",
       "optB": "The teddy bear",
       "answer": "A"
-    }
+    },
+    "nameEn": "Toys"
   },
   {
     "id": "music",
@@ -18114,7 +18185,8 @@ var THEMES=[
       "optA": "Her nervousness disappeared",
       "optB": "She wanted to stop",
       "answer": "A"
-    }
+    },
+    "nameEn": "Music"
   },
   {
     "id": "space",
@@ -18619,7 +18691,8 @@ var THEMES=[
       "optA": "A telescope",
       "optB": "A microscope",
       "answer": "A"
-    }
+    },
+    "nameEn": "Space"
   },
   {
     "id": "ocean",
@@ -19124,7 +19197,8 @@ var THEMES=[
       "optA": "A crab hiding under a rock",
       "optB": "A dolphin jumping in the waves",
       "answer": "A"
-    }
+    },
+    "nameEn": "Ocean"
   },
   {
     "id": "insects",
@@ -19629,7 +19703,8 @@ var THEMES=[
       "optA": "A butterfly",
       "optB": "A ladybird",
       "answer": "A"
-    }
+    },
+    "nameEn": "Insects"
   },
   {
     "id": "birds",
@@ -20134,7 +20209,8 @@ var THEMES=[
       "optA": "In the lemon tree in her backyard",
       "optB": "In the school garden",
       "answer": "A"
-    }
+    },
+    "nameEn": "Birds"
   },
   {
     "id": "kitchen",
@@ -20639,7 +20715,8 @@ var THEMES=[
       "optA": "He cracked two eggs into the mixture",
       "optB": "He washed the dishes",
       "answer": "A"
-    }
+    },
+    "nameEn": "Kitchen"
   },
   {
     "id": "furniture",
@@ -21144,7 +21221,8 @@ var THEMES=[
       "optA": "His new reading lamp",
       "optB": "His tall wardrobe",
       "answer": "A"
-    }
+    },
+    "nameEn": "Furniture"
   },
   {
     "id": "stationery",
@@ -21649,7 +21727,8 @@ var THEMES=[
       "optA": "Because it has a picture of a rainbow on it",
       "optB": "Because it is very long",
       "answer": "A"
-    }
+    },
+    "nameEn": "Stationery"
   },
   {
     "id": "emotions",
@@ -22154,7 +22233,8 @@ var THEMES=[
       "optA": "Proud of how hard he tried",
       "optB": "Angry at his coach",
       "answer": "A"
-    }
+    },
+    "nameEn": "Emotions"
   },
   {
     "id": "farm",
@@ -22659,7 +22739,8 @@ var THEMES=[
       "optA": "Milking the cows",
       "optB": "Driving the tractor",
       "answer": "A"
-    }
+    },
+    "nameEn": "Farm"
   },
   {
     "id": "dinosaurs",
@@ -23164,7 +23245,8 @@ var THEMES=[
       "optA": "A real dinosaur egg fossil",
       "optB": "A model of a volcano",
       "answer": "A"
-    }
+    },
+    "nameEn": "Dinosaurs"
   },
   {
     "id": "clothes",
@@ -23669,7 +23751,8 @@ var THEMES=[
       "optA": "A padded jacket",
       "optB": "A swimming costume",
       "answer": "A"
-    }
+    },
+    "nameEn": "Clothes"
   },
   {
     "id": "festivals",
@@ -24174,7 +24257,8 @@ var THEMES=[
       "optA": "Watching the fireworks light up the sky",
       "optB": "Eating breakfast with her grandma",
       "answer": "A"
-    }
+    },
+    "nameEn": "Festivals"
   }
 ];
 /* 按"某一天的日期+模式+年级"重建当天应该显示的主题——抽成独立函数是为了"每周复习测验"能
@@ -25001,9 +25085,9 @@ function hanziTypingAllDone(){
 /* 学习打卡主题设置：'auto'=按天数顺序自动轮换（30个主题正好30天一圈，不重复）/
    'random'=每天随机挑一个主题（同一天不变，但允许跨天重复）/'manual'=小朋友自己固定选一个主题 */
 var STUDY_THEME_MODE_META={
-  auto:{label:'🔄 自动轮换',desc:'按天数顺序轮换全部30个主题，30天正好轮一圈，不会重复'},
-  random:{label:'🎲 随机主题',desc:'每天随机换一个主题，当天不会变，但不同天可能会重复到同一个主题'},
-  manual:{label:'🎯 自己选主题',desc:'自己挑一个喜欢的主题，之后每天都固定学这个主题的内容，不再自动换'}
+  auto:{label:'🔄 自动轮换',labelEn:'🔄 Auto-rotate',desc:'按天数顺序轮换全部30个主题，30天正好轮一圈，不会重复',descEn:'Rotates through all 30 themes in order, one full cycle every 30 days with no repeats'},
+  random:{label:'🎲 随机主题',labelEn:'🎲 Random theme',desc:'每天随机换一个主题，当天不会变，但不同天可能会重复到同一个主题',descEn:"Randomly picks a theme each day - won't change within the same day, but different days may repeat the same theme"},
+  manual:{label:'🎯 自己选主题',labelEn:'🎯 Pick my own',desc:'自己挑一个喜欢的主题，之后每天都固定学这个主题的内容，不再自动换',descEn:"Pick a favorite theme yourself, then study that same theme's content every day - no more auto-rotating"}
 };
 function openStudyThemeModal(){
   renderStudyThemeModal();
@@ -25035,8 +25119,8 @@ function renderStudyThemeModal(){
       var meta=STUDY_THEME_MODE_META[mode];
       var active=state.studyThemeMode===mode;
       return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px" onclick="setStudyThemeMode(\''+mode+'\')">'
-        +'<div style="font-weight:700">'+meta.label+(active?' ✅':'')+'</div>'
-        +'<div class="small" style="color:'+(active?'#fff':'#9c7ab0')+';margin-top:2px;font-weight:400">'+meta.desc+'</div>'
+        +'<div style="font-weight:700">'+L(meta.label,meta.labelEn||meta.label)+(active?' ✅':'')+'</div>'
+        +'<div class="small" style="color:'+(active?'#fff':'#9c7ab0')+';margin-top:2px;font-weight:400">'+L(meta.desc,meta.descEn||meta.desc)+'</div>'
         +'</button>';
     }).join('');
   }
@@ -25047,11 +25131,11 @@ function renderStudyThemeModal(){
       return;
     }
     var currentId=state.studyThemeManualId||dailyTheme().id;
-    manualBody.innerHTML='<div class="small" style="font-weight:700;color:#7b1fa2;margin-bottom:6px">选一个主题：</div>'
+    manualBody.innerHTML='<div class="small" style="font-weight:700;color:#7b1fa2;margin-bottom:6px">'+L('选一个主题：','Pick a theme:')+'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
       +activeThemes().map(function(t){
         var active=t.id===currentId;
-        return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="padding:6px 2px;font-size:12px" onclick="setStudyThemeManual(\''+t.id+'\')">'+t.icon+' '+t.name+'</button>';
+        return '<button class="btn '+(active?'btn-primary':'btn-gray')+'" style="padding:6px 2px;font-size:12px" onclick="setStudyThemeManual(\''+t.id+'\')">'+t.icon+' '+L(t.name,t.nameEn||t.name)+'</button>';
       }).join('')
       +'</div>';
   }
@@ -25225,8 +25309,14 @@ function renderStudyAids(){
   var themeBanner=document.getElementById('studyThemeBanner');
   if(themeBanner){
     var modeMeta=state?STUDY_THEME_MODE_META[state.studyThemeMode||'auto']:null;
-    var modeTag=modeMeta?(' <span class="small" style="color:#b388d8">['+modeMeta.label+']</span>'):'';
-    themeBanner.innerHTML='<span class="tag tag-purple">'+theme.icon+' 今日主题：'+theme.name+'</span>'+modeTag+' <span class="small" style="color:#9c7ab0">单词/汉字/句子/阅读/数学题都围绕这个主题，帮助加深记忆～</span>';
+    var modeTag=modeMeta?(' <span class="small" style="color:#b388d8">['+L(modeMeta.label,modeMeta.labelEn||modeMeta.label)+']</span>'):'';
+    var themeNameDisp=L(theme.name, theme.nameEn||theme.name);
+    // 2026-10变更：以前这整行是硬编码中文，没走L()，英文模式下切换语言后这里反而还是一整句中文，
+    // 跟周围已经翻译好的其它文案很不协调——这里补上英文版本；英文模式下汉字/句子/古诗已经整组隐藏
+    // （换成了NAPLAN练习），所以说明文字列的科目也相应换成"单词/NAPLAN/阅读/数学"，不再提汉字/句子/古诗
+    var introZh=isEn?'单词/NAPLAN/阅读/数学题都围绕这个主题，帮助加深记忆～':'单词/汉字/句子/阅读/数学题都围绕这个主题，帮助加深记忆～';
+    var introEn='Words/NAPLAN/Reading/Math all revolve around this theme, to help remember better~';
+    themeBanner.innerHTML='<span class="tag tag-purple">'+theme.icon+' '+L('今日主题：','Today\'s theme: ')+themeNameDisp+'</span>'+modeTag+' <span class="small" style="color:#9c7ab0">'+L(introZh,introEn)+'</span>';
   }
   var wordBox=document.getElementById('studyWordBox');
   if(wordBox){
@@ -28850,7 +28940,27 @@ function completeSentenceRepeat(){
   addLog('💬重复练习今日句子，+经验');
   save();
 }
+// 这个任务当前的label，是不是还跟出厂默认的中文原文一字不差——只有这种情况下才敢自动换成英文翻译，
+// 家长自己在"任务设置"里改过名字的话，那是自由文本，没办法自动翻译，只能原样显示（已知限制，不是bug）
+function defaultTaskLabelZh(cat,key){
+  var defs=DEFAULT_TASK_DEFS[cat];
+  if(!defs) return null;
+  for(var i=0;i<defs.length;i++){ if(defs[i].id===key) return defs[i].label; }
+  return null;
+}
 function taskLabel(cat,key){
+  var zh=taskLabelZh(cat,key);
+  if(getUiLang()==='en'){
+    var specialEn={sport:{burpee:'Burpees'},comm:{hello:'Greet someone first'}};
+    if(specialEn[cat]&&specialEn[cat][key]) return specialEn[cat][key];
+    var defaultZh=defaultTaskLabelZh(cat,key);
+    if(defaultZh!=null && zh===defaultZh && TASK_LABEL_EN[cat] && TASK_LABEL_EN[cat][key]) return TASK_LABEL_EN[cat][key];
+  }
+  return zh;
+}
+// 原来纯中文版本的taskLabel()逻辑，改名保留——上面taskLabel()在决定"是不是还等于默认值"时，
+// 要拿到的是不带英文翻译的原始中文，不能直接递归调用自己，所以拆成这一个专门返回中文原文的版本
+function taskLabelZh(cat,key){
   if(cat==='sport'&&key==='burpee') return '波比跳';
   if(cat==='comm'&&key==='hello') return '主动打招呼';
   var d=taskDef(cat,key);
@@ -32065,44 +32175,48 @@ function renderCategoryList(cat,containerId){
   if(cat==='study') defs=defs.filter(function(t){ return studyTaskVisible(t.id); });
   var dayCat=state.day[cat]||{};
   var html='';
-  if(!defs.length) html='<div class="small">这个板块还没有任务，去"⚙️自定义任务"里添加吧～</div>';
+  if(!defs.length) html='<div class="small">'+L('这个板块还没有任务，去"⚙️自定义任务"里添加吧～','No tasks here yet - add one in "⚙️ Edit Tasks"~')+'</div>';
   var t=(cat==='sport')?targets():null;
+  // 2026-10变更：以前这里直接拼it.label（永远是存档里那份中文原文），现在改成走taskLabel(cat,it.id)——
+  // 英文模式下，默认任务（没被家长改过名字的）会自动换成对应的英文；家长自己改过名字的任务，
+  // taskLabel()里判断"跟默认值不一样"就会原样返回家长自己写的文字，不会被强行翻译
+  var doneBtnText=L('✔已完成','✔ Done');
   for(var i=0;i<defs.length;i++){
     var it=defs[i],done=!!dayCat[it.id];
     var extra='';
     if(cat==='study'&&(it.id==='word'||it.id==='hanzi'||it.id==='naplan')){
       var showFree=state.freeStudyCard>0&&!done;
-      extra='<button class="btn btn-gray btn-sm" style="display:'+(showFree?'block':'none')+'" onclick="useStudyFreeCard(\''+it.id+'\')">免背卡</button>';
+      extra='<button class="btn btn-gray btn-sm" style="display:'+(showFree?'block':'none')+'" onclick="useStudyFreeCard(\''+it.id+'\')">'+L('免背卡','Free pass')+'</button>';
     }
-    var labelText=(it.emoji?it.emoji+' ':'')+it.label;
+    var labelText=(it.emoji?it.emoji+' ':'')+taskLabel(cat,it.id);
     if(t&&t[it.id]!=null&&SPORT_TARGET_SUFFIX[it.id]){
-      labelText+=' <b>'+t[it.id]+'</b> '+SPORT_TARGET_SUFFIX[it.id];
+      labelText+=' <b>'+t[it.id]+'</b> '+L(SPORT_TARGET_SUFFIX[it.id],SPORT_TARGET_SUFFIX_EN[it.id]||SPORT_TARGET_SUFFIX[it.id]);
     }
     var mainBtn;
     if(cat==='study'&&it.id==='sentence'){
       /* 每日句子可以反复练习：第一次点"完成"照常给金币+经验；之后按钮不会变灰，
          而是变成"再练一次"，每次额外只给经验、不给金币，练习次数有上限 */
       if(!done){
-        mainBtn='<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
+        mainBtn='<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">'+L('完成 +'+it.coins+'金币','Done +'+it.coins+' coins')+'</button>';
       }else{
         var repeatCnt=(dayCat.sentenceRepeatCount||0);
-        mainBtn='<button class="btn btn-success" onclick="completeSentenceRepeat()">🔁 再练一次 +经验</button>'
-          +'<div class="small" style="margin-top:2px">今日已练 '+(repeatCnt+1)+' 次</div>';
+        mainBtn='<button class="btn btn-success" onclick="completeSentenceRepeat()">'+L('🔁 再练一次 +经验','🔁 Practice again +EXP')+'</button>'
+          +'<div class="small" style="margin-top:2px">'+L('今日已练 '+(repeatCnt+1)+' 次','Practiced '+(repeatCnt+1)+' time(s) today')+'</div>';
       }
     }else if(cat==='sport'&&EX_CFG[it.id]){
       // 平板支撑/单腿平衡/仰卧起坐这几项运动任务，要真的跟着计时/计数做完才能打卡，不能直接一点就完成
-      mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="startExerciseTimer(\''+cat+'\',\''+it.id+'\')">▶️ 开始计时打卡</button>';
+      mainBtn=done?('<button class="btn btn-success" disabled>'+doneBtnText+'</button>'):('<button class="btn btn-success" onclick="startExerciseTimer(\''+cat+'\',\''+it.id+'\')">'+L('▶️ 开始计时打卡','▶️ Start timed check-in')+'</button>');
     }else if(cat==='study'&&it.id==='hanzi'){
       // 中文词组打字练习：今天5个词都打对了才能点"完成"（见hanziTypingAllDone），逼小朋友真的动手打一遍
       if(done){
-        mainBtn='<button class="btn btn-success" disabled>✔已完成</button>';
+        mainBtn='<button class="btn btn-success" disabled>'+doneBtnText+'</button>';
       }else if(hanziTypingAllDone()){
-        mainBtn='<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
+        mainBtn='<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">'+L('完成 +'+it.coins+'金币','Done +'+it.coins+' coins')+'</button>';
       }else{
-        mainBtn='<button class="btn btn-gray" disabled>⌨️先在上面把5个词都打一遍</button>';
+        mainBtn='<button class="btn btn-gray" disabled>'+L('⌨️先在上面把5个词都打一遍','⌨️ Finish typing all 5 above first')+'</button>';
       }
     }else{
-      mainBtn=done?'<button class="btn btn-success" disabled>✔已完成</button>':'<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">完成 +'+it.coins+'金币</button>';
+      mainBtn=done?('<button class="btn btn-success" disabled>'+doneBtnText+'</button>'):('<button class="btn btn-success" onclick="completeTask(\''+cat+'\',\''+it.id+'\')">'+L('完成 +'+it.coins+'金币','Done +'+it.coins+' coins')+'</button>');
     }
     html+='<div class="item'+(done?' done':'')+'">'
       +'<div class="label">'+labelText+'</div>'
