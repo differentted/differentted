@@ -1563,6 +1563,19 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-10新增：NAPLAN模拟测试独立弹窗——家长要求做成跟"守卫家园"(植物大战僵尸)一样点开是
+     一个新窗口，而不是挤在NAPLAN题库练习卡片里。跟守卫家园不一样的是，模拟测试没有canvas/
+     实时游戏循环这些需要完全隔离执行环境的东西，就是普通的答题UI，所以不需要像守卫家园那样
+     用iframe+srcdoc单独起一个文档，用app本来就有的"modal-mask+modal"弹窗样式就够了——
+     视觉上同样是"点一下按钮，弹出一个独立的大窗口"，体验是一致的。 -->
+<div class="modal-mask" id="naplanqenTestModal">
+  <div class="modal" style="max-width:640px;text-align:left;max-height:88vh;overflow-y:auto">
+    <button class="modal-close" onclick="closeNaplanqenTestModal()">✕</button>
+    <h3 style="margin:2px 0 10px;color:#5e35b1">📝 NAPLAN Mock Test</h3>
+    <div id="naplanqenTestModalBody"></div>
+  </div>
+</div>
+
 <!-- 宠物每日金币消耗预测弹窗 -->
 <div class="modal-mask" id="coinForecastModal">
   <div class="modal" style="max-width:340px;text-align:left">
@@ -34313,13 +34326,30 @@ function naplanqenSubmitTest(){
     });
   });
   result.overall={correct:result.reading.correct+result.language.correct+result.numeracy.correct,total:ids.length};
+  /* 2026-10新增：交卷奖励改成按"正确率"分档，而不是只看答对题数——
+     正确率≥80%算"优质完成"：金币多给+5奖励，学习能力值走highQuality档(基础期+5/专精期+2)；
+     正确率≥50%(及格线)算"合格完成"：金币多给+2奖励，学习能力值走普通档(基础期+3/专精期+1)；
+     正确率<50%：只拿答对题数对应的金币，暂不计入"学习"能力值(避免随便蒙几题就能加分)。 */
+  var accuracyRate=result.overall.total>0 ? result.overall.correct/result.overall.total : 0;
+  var ACCURACY_HIGH=0.8, ACCURACY_PASS=0.5;
+  var bonusCoins=accuracyRate>=ACCURACY_HIGH ? 5 : (accuracyRate>=ACCURACY_PASS ? 2 : 0);
+  var coinGain=result.overall.correct+bonusCoins;
+  var abilityGain=0;
+  if(coinGain>0){
+    earnCoins(coinGain,'NAPLAN Mock Test');
+  }
+  if(accuracyRate>=ACCURACY_PASS){
+    abilityGain=gainAbilityPoint('study',{highQuality:accuracyRate>=ACCURACY_HIGH})||0;
+  }
+  result.coinGain=coinGain;
+  result.abilityGain=abilityGain;
   t.submitted=true;
   t.result=result;
-  if(result.overall.correct>0){
-    earnCoins(result.overall.correct,'NAPLAN Mock Test');
-    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct, +'+result.overall.correct+' coins');
+  var pctText=Math.round(accuracyRate*100)+'%';
+  if(coinGain>0 || abilityGain>0){
+    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct ('+pctText+'), +'+coinGain+' coins'+(abilityGain>0?(', +'+abilityGain+' study pts'):''));
   }else{
-    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct');
+    addLog('📝 NAPLAN Mock Test finished: '+result.overall.correct+'/'+result.overall.total+' correct ('+pctText+')');
   }
   save();
   renderStudyAids();
@@ -34328,6 +34358,23 @@ function naplanqenCloseTest(){
   state.naplanqenTest=null;
   save();
   renderStudyAids();
+}
+/* 2026-10新增：弹窗里的"🔄 New Test"——跟naplanqenCloseTest()不一样，不只是清空当前测试，
+   而是清空之后立刻又生成一套新的，一步到位，不用用户再点一次"开始测试" */
+function naplanqenRestartTest(){
+  state.naplanqenTest=null;
+  naplanqenStartTest();
+}
+/* 2026-10新增：弹窗开关——家长要求"模拟测试做成跟守卫家园一样的新窗口"。打开时如果还没有
+   进行中的测试就顺手生成一套，关闭时只是隐藏弹窗、不会清空答题进度，下次打开能接着上次没
+   做完的测试继续做。 */
+function openNaplanqenTestModal(){
+  if(!state.naplanqenTest) naplanqenStartTest();
+  renderNaplanqenTestModalBody();
+  showModal('naplanqenTestModal');
+}
+function closeNaplanqenTestModal(){
+  hideModal('naplanqenTestModal');
 }
 function naplanqenTestOptionHtml(q,picked,submitted){
   var html='<div class="quiz-select">';
@@ -34347,10 +34394,35 @@ function naplanqenTestOptionHtml(q,picked,submitted){
   html+='</div>';
   return html;
 }
-function renderNaplanqenTestHtml(){
+/* 2026-10改版：模拟测试做成跟"守卫家园"(植物大战僵尸)一样的独立弹窗，不再把15道题全部
+   挤在NAPLAN题库练习卡片里——卡片里只留一个小小的入口/状态摘要(naplanqenTestSummaryHtml)，
+   点"开始/继续/查看结果"会弹出#naplanqenTestModal这个大窗口，具体的15道题/选项/判分/解析
+   全部渲染在弹窗内部(renderNaplanqenTestModalBody)。 */
+function naplanqenTestSummaryHtml(){
   var t=state.naplanqenTest;
   var html='<div style="margin:8px 0 10px;border:1px solid #e1bee7;border-radius:10px;padding:8px;background:#fdf7ff">';
   html+='<div style="font-weight:700;color:#5e35b1">📝 NAPLAN Mock Test</div>';
+  if(!t){
+    html+='<div class="small" style="margin:4px 0 6px">A quick 15-question check (5 Reading + 5 Language + 5 Numeracy) in its own window, scored right away.</div>';
+    html+='<button class="btn btn-primary btn-sm" onclick="openNaplanqenTestModal()">▶️ Start Mock Test</button>';
+  }else if(!t.submitted){
+    var ids=naplanqenTestAllIds();
+    var answeredCount=ids.filter(function(id){ return !!t.picks[id]; }).length;
+    html+='<div class="small" style="margin:4px 0 6px">In progress — answered '+answeredCount+'/'+ids.length+'</div>';
+    html+='<button class="btn btn-primary btn-sm" onclick="openNaplanqenTestModal()">▶️ Continue Test</button>';
+  }else{
+    var r=t.result;
+    html+='<div class="small" style="margin:4px 0 6px">Last score: '+r.overall.correct+'/'+r.overall.total+' ('+Math.round(r.overall.correct/r.overall.total*100)+'%) · +'+(r.coinGain||0)+' coins'+((r.abilityGain>0)?(' · +'+r.abilityGain+' study pts'):'')+'</div>';
+    html+='<button class="btn btn-primary btn-sm" onclick="openNaplanqenTestModal()">👀 View Results</button>';
+  }
+  html+='</div>';
+  return html;
+}
+function renderNaplanqenTestModalBody(){
+  var body=document.getElementById('naplanqenTestModalBody');
+  if(!body) return;
+  var t=state.naplanqenTest;
+  var html='';
   if(!t){
     html+='<div class="small" style="margin:4px 0 6px">A quick 15-question check (5 Reading + 5 Language + 5 Numeracy), scored right away.</div>';
     html+='<button class="btn btn-primary btn-sm" onclick="naplanqenStartTest()">▶️ Start Mock Test</button>';
@@ -34381,6 +34453,7 @@ function renderNaplanqenTestHtml(){
     var r=t.result;
     html+='<div class="small" style="margin:4px 0 6px;font-weight:600">Score: '+r.overall.correct+'/'+r.overall.total+' ('+Math.round(r.overall.correct/r.overall.total*100)+'%)</div>';
     html+='<div class="small">Reading '+r.reading.correct+'/'+r.reading.total+' · Language '+r.language.correct+'/'+r.language.total+' · Numeracy '+r.numeracy.correct+'/'+r.numeracy.total+'</div>';
+    html+='<div class="small" style="margin:2px 0 6px;color:#2e7d32;font-weight:600">🎁 Reward: +'+(r.coinGain||0)+' coins'+((r.abilityGain>0)?(' · +'+r.abilityGain+' 📖 Study points'):' · (score ≥50% to also earn Study points)')+'</div>';
     ['reading','language','numeracy'].forEach(function(part){
       t.qids[part].forEach(function(qid){
         var q=naplanqenFindById(part,qid);
@@ -34393,10 +34466,9 @@ function renderNaplanqenTestHtml(){
           +'</div>';
       });
     });
-    html+='<button class="btn btn-gray btn-sm" onclick="naplanqenCloseTest()">🔄 New Test</button>';
+    html+='<button class="btn btn-gray btn-sm" onclick="naplanqenRestartTest()">🔄 New Test</button>';
   }
-  html+='</div>';
-  return html;
+  body.innerHTML=html;
 }
 
 function renderNaplanqenBox(){
@@ -34409,7 +34481,7 @@ function renderNaplanqenBox(){
     +'📊 Overall progress: '+overallLearned+'/'+overallTotal+' items learned ('+Math.round(overallLearned/overallTotal*100)+'%)'
     +' · Reading '+prog.reading+'/20 passages · Writing '+prog.writing+'/40 prompts · Language '+prog.language+'/100 · Numeracy '+prog.numeracy+'/160'
     +'</div>';
-  html+=renderNaplanqenTestHtml();
+  html+=naplanqenTestSummaryHtml();
   html+='<div style="margin:8px 0 2px;font-weight:700;color:#7b1fa2">📖 Part 1: Reading</div>';
   html+=naplanqenRenderSingle('reading','NAPLAN Reading');
   html+='<div style="margin:10px 0 2px;font-weight:700;color:#7b1fa2">📝 Part 2: Writing</div>';
@@ -35514,6 +35586,10 @@ function renderStudyAids(){
   if(naplanQEnBox) naplanQEnBox.style.display=isEn?'':'none';
   if(naplanQEnBox && isEn){
     renderNaplanqenBox();
+    // 弹窗内容跟卡片里的小摘要用的是同一份state.naplanqenTest，这里顺手保持弹窗同步刷新——
+    // 弹窗没打开时renderNaplanqenTestModalBody()只是更新一个隐藏元素的innerHTML，没有任何
+    // 看得到的副作用，可以放心每次都调用
+    renderNaplanqenTestModalBody();
   }
   var phraseBox=document.getElementById('commPhraseBox');
   if(phraseBox){
@@ -39177,7 +39253,8 @@ function gainAbilityPoint(cat, opts){
   else if(cat==='comm') state.abilitySocial=(state.abilitySocial||0)+1;
   else if(cat==='custom') state.abilityChar=(state.abilityChar||0)+1;
   var dim=ABILITY_CAT_TO_DIM[cat];
-  if(dim) gainAbilityDimPoint(dim, opts);
+  if(dim) return gainAbilityDimPoint(dim, opts);
+  return 0;
 }
 /* 老版本"次数->0~100"的渐进曲线，新版只用来给新维度做一次性迁移基准（把老玩家已经攒的次数换算成
    一个合理的起始pts，不让长期玩家一次改版就"归零"），本身不再直接驱动任何UI */
