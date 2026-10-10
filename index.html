@@ -1459,7 +1459,9 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div id="allowanceSpendBreakdownBox" class="small"></div>
   </div>
   <div class="card">
-    <h3 style="margin:0 0 6px">🏆 赚取零花钱排行榜</h3>
+    <h3 style="margin:0 0 6px" id="allowanceBoardTitle">🏆 零花钱排行榜</h3>
+    <div class="small" style="text-align:center;color:#999;margin:-2px 0 6px">跟"🚪串门"一样，不用任何码，能看到其他已经养了宠物的小朋友</div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:6px;flex-wrap:wrap" id="allowanceBoardMetricBar"></div>
     <div style="display:flex;gap:6px;justify-content:center;margin-bottom:8px;flex-wrap:wrap" id="allowanceBoardRangeBar"></div>
     <div id="allowanceLeaderboardBox"></div>
   </div>
@@ -42569,6 +42571,12 @@ function allowanceEarnedTotalFor(ledger,sinceTs){
   for(var i=0;i<ledger.length;i++){ var e=ledger[i]; if(e.type==='earn' && (!sinceTs||e.t>=sinceTs)) total+=e.amount; }
   return Math.round(total*100)/100;
 }
+// 2026-10新增：花费排行榜要用到——跟上面赚取总额是镜像的一份，只是挑type==='spend'
+function allowanceSpentTotalFor(ledger,sinceTs){
+  var total=0;
+  for(var i=0;i<ledger.length;i++){ var e=ledger[i]; if(e.type==='spend' && (!sinceTs||e.t>=sinceTs)) total+=e.amount; }
+  return Math.round(total*100)/100;
+}
 // 花费去哪了——按家长自定义分类统计这一段时间（sinceTs=0表示历史总计）里支出的占比
 function allowanceSpendByCategory(sinceTs){
   var ledger=(state.allowance&&state.allowance.ledger)||[];
@@ -42589,17 +42597,110 @@ function allowanceSpendByCategory(sinceTs){
   rows.sort(function(a,b){ return b.amount-a.amount; });
   return { total: Math.round(total*100)/100, rows: rows };
 }
-// 小朋友之间比"赚取零花钱"排行榜——只统计同一个账号(store.accounts)下的所有小朋友档案，
-// 当前选中的孩子要读live的state（还没saveStore()回存到store.accounts里），其他孩子读各自存档里的state
-function allowanceLeaderboard(range){
+/* 2026-10新增：圆形占比图(甜甜圈)用的分类色板——取自Claude数据可视化规范里跑过验证脚本的8色
+   分类色板(按这个顺序排列，相邻两色在色弱模式下也分得清)，分类数一旦超过8个，排名靠后的全部
+   合并成"其他"一份，不再继续生成新颜色(超过8个之后色板就没法保证互相分得清了) */
+var ALLOWANCE_CHART_COLORS=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#6250d6','#e34948'];
+function allowanceFoldOthers(rows,total){
+  var MAXSLOT=8;
+  if(rows.length<=MAXSLOT) return rows;
+  var head=rows.slice(0,MAXSLOT-1);
+  var restAmt=0;
+  rows.slice(MAXSLOT-1).forEach(function(r){ restAmt+=r.amount; });
+  head.push({id:'__others',label:L('其他','Other'),amount:Math.round(restAmt*100)/100,pct: total>0?(restAmt/total*100):0});
+  return head;
+}
+// 纯画图：按rows(每项要有pct 0~100)顺序画一圈甜甜圈，各段之间留2px缝隙方便区分(跟上面色板
+// 验证脚本配套的"相邻色块之间留出表面间隙"规范一致)。中心文字由调用方自己叠加，这里只管画圆环。
+function allowanceDonutSvg(rows,size){
+  var r=size/2, strokeW=Math.round(size*0.26), innerR=r-strokeW/2;
+  var circumference=2*Math.PI*innerR;
+  var offset=0, segs='';
+  rows.forEach(function(row,i){
+    var frac=Math.max(0,Math.min(1,(row.pct||0)/100));
+    if(frac<=0) return;
+    var gapPx=rows.length>1?2:0;
+    var dash=Math.max(0, frac*circumference-gapPx);
+    var gap=Math.max(0, circumference-dash);
+    var color=ALLOWANCE_CHART_COLORS[i%ALLOWANCE_CHART_COLORS.length];
+    segs+='<circle cx="'+r+'" cy="'+r+'" r="'+innerR+'" fill="none" stroke="'+color+'" stroke-width="'+strokeW+'" '
+      +'stroke-dasharray="'+dash.toFixed(2)+' '+gap.toFixed(2)+'" stroke-dashoffset="'+(-offset).toFixed(2)+'" '
+      +'transform="rotate(-90 '+r+' '+r+')"><title>'+escapeHtmlSafe(row.label)+' '+row.pct.toFixed(0)+'%</title></circle>';
+    offset+=frac*circumference;
+  });
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="display:block;margin:0 auto">'
+    +'<circle cx="'+r+'" cy="'+r+'" r="'+innerR+'" fill="none" stroke="#f0e6f5" stroke-width="'+strokeW+'"></circle>'
+    +segs+'</svg>';
+}
+// 甜甜圈+图例(每个分类一行：色块+名称+金额+百分比)，中心叠一个"共花费¥xx"的大字——
+// 图例本身就是"直接标注"，颜色不是唯一的识别方式，色弱也能靠文字看懂每一块是什么
+function allowanceDonutWithLegend(rows,total){
+  var size=132;
+  var html='<div style="position:relative;width:'+size+'px;margin:0 auto">'+allowanceDonutSvg(rows,size)
+    +'<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">'
+    +'<div style="font-size:11px;color:#999">'+L('共花费','Total')+'</div>'
+    +'<div style="font-size:17px;font-weight:800;color:#7b1fa2">¥'+formatMoney(total)+'</div>'
+    +'</div></div><div style="margin-top:10px">';
+  rows.forEach(function(row,i){
+    var color=ALLOWANCE_CHART_COLORS[i%ALLOWANCE_CHART_COLORS.length];
+    html+='<div class="row-between" style="font-size:12px;padding:3px 0">'
+      +'<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:'+color+';display:inline-block;flex-shrink:0"></span>'+escapeHtmlSafe(row.label)+'</span>'
+      +'<span>¥'+formatMoney(row.amount)+'（'+row.pct.toFixed(0)+'%）</span>'
+      +'</div>';
+  });
+  html+='</div>';
+  return html;
+}
+/* ========================================================================
+   2026-10新增：排行榜(赚取/花费)不再只看自己这个家庭码——家长反馈想跟"🚪串门"一样，不用任何码，
+   直接看到其他已经养了宠物的小朋友。实现上完全复用"串门"那一套公开目录(fetchPetHomeDirectory，
+   跟串门列表是同一份登记数据)，拿到别人家的rowId/childId之后，逐个fetchRowData()读一次那一家的
+   真实零花钱流水——这跟串门点进某个小朋友家查看完全一样，只是单纯的GET只读请求，不会写、也改不了
+   对方任何数据。每次切"本周/本月/历史总计"都要重新跑一遍这些网络请求会很卡，所以把每个小朋友完整
+   的流水缓存下来(ALLOWANCE_DIR_TTL内直接复用)，切换时间范围只在本地重新算一遍，不重新发请求。
+   ======================================================================== */
+// 本机这个家庭码下的所有小朋友档案(通常只有1个，极少数是老版本遗留的多档案)
+function allowanceLocalEntries(range,metric){
   var sinceTs=allowanceRangeSinceTs(range);
   var ids=Object.keys(store.accounts||{});
-  var list=ids.map(function(cid){
+  return ids.map(function(cid){
     var acc=store.accounts[cid];
     var st=(cid===store.currentChildId)? state : (acc&&acc.state);
     var ledger=(st&&st.allowance&&st.allowance.ledger)||[];
-    return { cid:cid, name:(acc&&acc.name)||'？', avatar:(acc&&acc.avatar)||'🐱', total: allowanceEarnedTotalFor(ledger,sinceTs) };
+    var total = metric==='spend'? allowanceSpentTotalFor(ledger,sinceTs) : allowanceEarnedTotalFor(ledger,sinceTs);
+    return { key:'self:'+cid, cid:cid, name:(acc&&acc.name)||'？', avatar:(acc&&acc.avatar)||'🐱', total:total, isSelf:true };
   });
+}
+var _allowanceDirCache=null; // {ts, list:[{rowId,childId,name,avatar,ledger}]}——别人家的流水缓存
+var ALLOWANCE_DIR_TTL=120000;
+function fetchAllowanceDirectoryData(force){
+  if(!force && _allowanceDirCache && (Date.now()-_allowanceDirCache.ts)<ALLOWANCE_DIR_TTL){
+    return Promise.resolve(_allowanceDirCache.list);
+  }
+  return fetchPetHomeDirectory().then(function(dirList){
+    var tasks=(dirList||[]).map(function(d){
+      return fetchRowData(d.rowId).then(function(row){
+        var acc=row&&row.data&&row.data.accounts&&row.data.accounts[d.childId];
+        var ledger=(acc&&acc.state&&acc.state.allowance&&acc.state.allowance.ledger)||[];
+        return { rowId:d.rowId, childId:d.childId, name:d.name, avatar:d.avatar, ledger:ledger };
+      }).catch(function(){ return null; }); // 某一家连不上/档案被删了，这一条跳过，不影响其它家正常显示
+    });
+    return Promise.all(tasks).then(function(results){
+      var list=results.filter(function(r){ return !!r; });
+      _allowanceDirCache={ts:Date.now(), list:list};
+      return list;
+    });
+  }).catch(function(){ return (_allowanceDirCache&&_allowanceDirCache.list)||[]; }); // 整个目录都连不上，退回上次缓存(没有缓存就是空列表，只显示本机自己)
+}
+function allowanceOtherEntries(range,metric,dirList){
+  var sinceTs=allowanceRangeSinceTs(range);
+  return (dirList||[]).map(function(d){
+    var total = metric==='spend'? allowanceSpentTotalFor(d.ledger,sinceTs) : allowanceEarnedTotalFor(d.ledger,sinceTs);
+    return { key:'other:'+d.rowId+'#'+d.childId, cid:d.childId, name:d.name||L('一位小朋友','A kid'), avatar:d.avatar||'🐱', total:total, isSelf:false };
+  });
+}
+function allowanceLeaderboardCombined(range,metric,dirList){
+  var list=allowanceLocalEntries(range,metric).concat(allowanceOtherEntries(range,metric,dirList));
   list.sort(function(a,b){ return b.total-a.total; });
   return list;
 }
@@ -42689,13 +42790,47 @@ function removeAllowanceCategory(id){
 }
 var allowanceSpendRange='week';
 var allowanceBoardRange='week';
-var ALLOWANCE_BAR_COLORS=['purple','pink','blue','yellow','green','orange'];
+var allowanceBoardMetric='earn'; // 2026-10新增：排行榜现在分"赚取"/"花费"两种榜单
 function switchAllowanceSpendRange(r){ allowanceSpendRange=r; renderAllowancePage(); }
 function switchAllowanceBoardRange(r){ allowanceBoardRange=r; renderAllowancePage(); }
+function switchAllowanceBoardMetric(m){ allowanceBoardMetric=(m==='spend')?'spend':'earn'; renderAllowancePage(); }
 function allowanceRangeBarHtml(cur,onClickFn){
   return ['week','month','all'].map(function(r){
     return '<button class="btn btn-sm '+(cur===r?'btn-primary':'btn-gray')+'" onclick="'+onClickFn+'(\''+r+'\')">'+allowanceRangeLabel(r)+'</button>';
   }).join('');
+}
+function allowanceBoardMetricBarHtml(cur){
+  return ['earn','spend'].map(function(m){
+    var label = m==='earn'? L('🏆 赚取排行','🏆 Earned') : L('💸 花费排行','💸 Spent');
+    return '<button class="btn btn-sm '+(cur===m?'btn-primary':'btn-gray')+'" onclick="switchAllowanceBoardMetric(\''+m+'\')">'+label+'</button>';
+  }).join('');
+}
+// 排行榜实际渲染，跟renderAllowancePage()分开成单独函数——因为"别人家"的数据要等一次网络请求
+// 回来才有，这个函数会先用本机已有的数据(dirList缺省时只有自己)同步画一次，网络请求回来之后
+// 再拿真正的dirList重新调一次；哪怕用户这段时间已经切走了页面，这里先查DOM元素还在不在，
+// 不在就什么都不做，不会报错
+function renderAllowanceLeaderboardBox(dirList,loading){
+  var lbox=document.getElementById('allowanceLeaderboardBox');
+  if(!lbox) return;
+  var board=allowanceLeaderboardCombined(allowanceBoardRange,allowanceBoardMetric,dirList);
+  var titleEl=document.getElementById('allowanceBoardTitle');
+  if(titleEl) titleEl.innerText = allowanceBoardMetric==='spend'? L('🏆 花费零花钱排行榜','🏆 Spending Leaderboard') : L('🏆 赚取零花钱排行榜','🏆 Earning Leaderboard');
+  if(!board.length){
+    lbox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+L('还没有小朋友档案','No child profiles yet')+'</div>';
+    return;
+  }
+  var medalArr=['🥇','🥈','🥉'];
+  var lhtml='';
+  board.forEach(function(it,i){
+    lhtml+='<div style="display:flex;align-items:center;gap:6px;background:'+(it.isSelf?'#f3e5f5':'#faf7fb')+';border-radius:8px;padding:6px 8px;margin-bottom:4px">'
+      +'<span style="width:22px;text-align:center">'+(medalArr[i]||('#'+(i+1)))+'</span>'
+      +'<span>'+avatarHtml(it.avatar,20)+'</span>'
+      +'<span style="flex:1">'+escapeHtmlSafe(it.name)+(it.isSelf?L('（我）',' (me)'):'')+'</span>'
+      +'<b style="color:#7b1fa2">¥'+formatMoney(it.total)+'</b>'
+      +'</div>';
+  });
+  if(loading) lhtml+='<div class="small" style="text-align:center;color:#999;padding:4px 0">'+L('正在加载其他小朋友的数据…','Loading other kids…')+'</div>';
+  lbox.innerHTML=lhtml;
 }
 function renderAllowancePage(){
   ensureAllowanceCategories();
@@ -42711,36 +42846,16 @@ function renderAllowancePage(){
   if(!brk.rows.length){
     bbox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+allowanceRangeLabel(allowanceSpendRange)+L('还没有支出记录','：No spending yet')+'</div>';
   } else {
-    var html='<div style="margin-bottom:6px">'+allowanceRangeLabel(allowanceSpendRange)+L('一共花了 ¥','：Total spent ¥')+formatMoney(brk.total)+'</div>';
-    brk.rows.forEach(function(r,i){
-      var color=ALLOWANCE_BAR_COLORS[i%ALLOWANCE_BAR_COLORS.length];
-      html+='<div style="margin-bottom:6px">'
-        +'<div class="row-between" style="font-size:12px"><span>'+escapeHtmlSafe(r.label)+'</span><span>¥'+formatMoney(r.amount)+'（'+r.pct.toFixed(0)+'%）</span></div>'
-        +'<div class="progress-wrap"><div class="progress-bar '+color+'" style="width:'+Math.max(2,r.pct)+'%"></div></div>'
-        +'</div>';
-    });
-    bbox.innerHTML=html;
+    bbox.innerHTML=allowanceDonutWithLegend(allowanceFoldOthers(brk.rows,brk.total),brk.total);
   }
 
+  document.getElementById('allowanceBoardMetricBar').innerHTML=allowanceBoardMetricBarHtml(allowanceBoardMetric);
   document.getElementById('allowanceBoardRangeBar').innerHTML=allowanceRangeBarHtml(allowanceBoardRange,'switchAllowanceBoardRange');
-  var board=allowanceLeaderboard(allowanceBoardRange);
-  var lbox=document.getElementById('allowanceLeaderboardBox');
-  if(!board.length){
-    lbox.innerHTML='<div style="text-align:center;color:#999;padding:8px 0">'+L('还没有小朋友档案','No child profiles yet')+'</div>';
-  } else {
-    var medalArr=['🥇','🥈','🥉'];
-    var lhtml='';
-    board.forEach(function(it,i){
-      var isCur=it.cid===store.currentChildId;
-      lhtml+='<div style="display:flex;align-items:center;gap:6px;background:'+(isCur?'#f3e5f5':'#faf7fb')+';border-radius:8px;padding:6px 8px;margin-bottom:4px">'
-        +'<span style="width:22px;text-align:center">'+(medalArr[i]||('#'+(i+1)))+'</span>'
-        +'<span>'+avatarHtml(it.avatar,20)+'</span>'
-        +'<span style="flex:1">'+escapeHtmlSafe(it.name)+(isCur?L('（我）',' (me)'):'')+'</span>'
-        +'<b style="color:#7b1fa2">¥'+formatMoney(it.total)+'</b>'
-        +'</div>';
-    });
-    lbox.innerHTML=lhtml;
-  }
+  var dirFresh=_allowanceDirCache && (Date.now()-_allowanceDirCache.ts)<ALLOWANCE_DIR_TTL;
+  renderAllowanceLeaderboardBox(dirFresh?_allowanceDirCache.list:null, !dirFresh);
+  fetchAllowanceDirectoryData().then(function(dirList){
+    renderAllowanceLeaderboardBox(dirList,false);
+  });
 
   var ledger=(state.allowance.ledger||[]).slice().reverse().slice(0,50);
   var cats=store.allowanceCategories||[];
