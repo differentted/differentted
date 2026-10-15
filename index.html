@@ -1264,6 +1264,15 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="small" style="margin-bottom:6px" data-i18n="wheel_paid_desc">💰 免费次数用完了也可以花金币抽——不限次数，但每抽一次下一次要花的金币都会翻倍；金币抽奖保底不会抽到"再来一次"</div>
       <button class="btn btn-gray btn-sm" id="btnSpinPaid" onclick="spinWheelPaid()"><span data-i18n="wheel_paid_btn_prefix">💰 花 </span><b id="wheelPaidCost">5</b><span data-i18n="wheel_paid_btn_suffix"> 金币抽一次</span></button>
     </div>
+    <!-- 2026-10新增：抽奖记录——每日自动重置（跟着state.day一起换新），方便核对指针停的格子和
+         实际发放的奖励是不是一致 -->
+    <div style="margin-top:10px;border-top:1px solid #eee;padding-top:10px">
+      <div class="row-between" style="cursor:pointer" onclick="toggleWheelHistory()">
+        <span><span data-i18n="wheel_history_title_prefix">📜 今日抽奖记录（</span><span id="wheelHistoryCount">0</span><span data-i18n="wheel_history_title_suffix">条，每日自动重置）</span></span>
+        <span id="wheelHistoryToggleIcon">▼</span>
+      </div>
+      <div id="wheelHistoryList" style="margin-top:6px;max-height:180px;overflow-y:auto;display:none;font-size:13px"></div>
+    </div>
   </div>
 </div>
 
@@ -2066,6 +2075,9 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="pet-stage" id="petStage">🥚 宠物蛋 · 攒经验孵化中</div>
     <div class="small" id="petDungeonTitle" style="display:none;color:#7b1fa2;font-weight:700;margin:-2px 0 2px">🎖️ ——</div>
     <div id="petPersonalityTags" style="display:none;margin:-2px 0 4px"></div>
+    <!-- 2026-10新增：能力维度连续没打卡的捣乱提醒——只要还有维度被"没收"了金币没还，就一直显示，
+         不是一次性弹窗，关掉弹窗/切页面也不会看不到 -->
+    <div id="abilityMischiefBanner" style="display:none;margin:-2px 0 4px"></div>
     <div class="exp-line" title="经验值：用🎯训练道具（+30经验）或🏆高级训练道具（+60经验）提升，也可以靠每日打卡获得"><span>📈Lv<span id="petLevel">0</span></span><div class="progress-wrap"><div class="progress-bar yellow" id="expBar"></div></div><span id="expText" class="val">0/50</span></div>
     <div id="eggTip" class="small">完成每日打卡任务可获得经验，攒满 50 经验破壳！</div>
     <div class="stat-line" title="吃饱饱：用🍖宠物粮食（+18）或🥛牛奶（+11）喂食可以提升" data-i18n-title="tt_stat_food"><span class="ico">🍖</span><div class="progress-wrap"><div class="progress-bar orange" id="foodBar"></div></div><span class="val" id="foodVal">100</span></div>
@@ -2667,9 +2679,14 @@ var PET_LIBRARY = {
      里挑的一帧自然站立、表情温和的画面。
      2026-10再更新：家长又提供了一张新的"角色三视图"参考图（AI插画风格，侧视图是自然站立的
      侧面姿势）——run换成了从这张图的侧视图抠出来的真实素材（风格上是AI插画，跟happy/跳舞的
-     实拍照片不是同一个风格，但家长要求"补全部"，先把能补的补上）。sad依然没法从这张三视图里
-     找到素材（三个角度的表情都是微笑，没有伤心表情），暂时还是沿用最早的AI卡通图，等家长之后
-     补充专门的"伤心"参考图/视频再换掉 */
+     实拍照片不是同一个风格，但家长要求"补全部"，先把能补的补上）。
+     2026-10三更：家长补上了专门拍的"开心"+"伤心"两段表情参考视频（真人实拍，但只是半身/
+     胸上构图，不是全身）。试过两种做法：①直接把半身截图当成happy/sad整张图（会导致切换
+     表情时身高明显变矮一截）；②"换脸不换身"，把新视频里的脸拼到原来的全身图上（happy是
+     真人实拍全身照+真人新脸，拼接自然；但sad的原身体是风格化3D卡通渲染，跟真人新脸拼在
+     一起画风不统一，看起来比较违和）。家长反馈这个"写实脸+卡通身体"的搭配不好看，先暂时
+     撤回，happy/sad维持最初的原始素材不变（happy=真人实拍全身照，sad=AI卡通全身图）。
+     两段表情参考视频先留着，等家长想好要哪种方案（比如sad也补拍一张同风格的全身照）再处理。 */
   shuangyu: {
     name: '双鱼宝宝',
     pickDesc: '爱做梦的双鱼宝宝，心思细腻又敏感，一会儿笑一会儿哭，陪你一起体验满满的小情绪～',
@@ -3888,6 +3905,8 @@ var I18N_EN = {
   wheel_paid_btn_suffix: ' coins',
   wheel_pity_label: '⚡ Jackpot Pity Meter',
   wheel_pity_hint: 'Hover or tap the meter to see how many more spins until a guaranteed jackpot',
+  wheel_history_title_prefix: '📜 Today\'s Spin History (',
+  wheel_history_title_suffix: ' entries, resets daily)',
   checkin_settings_title: '📅 Today\'s Settings',
   checkin_mode_label: 'Check-in Mode',
   btn_morning: 'Morning',
@@ -5092,6 +5111,11 @@ function freshDay(key){
     wheelUsed:0,
     // 2026-10变更：金币抽奖的翻倍计数(wheelPaidCount)搬到顶层state了（按凌晨1点重置，不跟这里的
     // 自然日0点绑定），这里不再需要
+    // 2026-10新增：家长反馈"转盘指针显示的奖励和实际发放的不对应"，排查后发现除了上面指针渲染角度
+    // 的bug，更想要一个"抽奖记录"方便肉眼核对每次抽中的到底是什么——这里放进state.day（而不是顶层
+    // state），就是为了借用state.day本来就有的"每天自动换新"机制（见freshDay()的调用处），不用
+    // 额外写一套单独的每日重置逻辑；免费抽奖+金币抽奖都记在同一个列表里，按paid字段区分
+    wheelHistory:[],
     gotFreeCard:false,
     freeCardUsed:false,
     discountActive:null,
@@ -5130,6 +5154,17 @@ function defaultState(){
     // 2026-10新增：幸运转盘大奖保底——累计抽奖次数（免费+金币都算）满100次，保底必中一次大奖；
     // 提前凭真实概率抽中大奖的话，这个计数也会跟着清零重新开始攒，见pickWheelResult()
     wheelPityCount:0,
+    // 2026-10新增：家长要求"不能觉得哪个打卡简单就只做哪些，能力值低的要让宠物有点破坏力去捣乱"——
+    // 这里记"每个能力维度连续多少天没有完成对应打卡"（跨天时在onNewDay()里结算，见
+    // evaluateAbilityNeglectOnRollover()），跟abilityDim（分数本身）是两套独立的数据，
+    // 分数低不代表最近就在逃避，这里只关心"最近是不是连续没打卡"，哪怕分数还凑合，连续不打卡
+    // 照样会触发宠物捣乱——逼着小朋友不能只挑分数已经很高、早就不缺打卡的那几类躺赢
+    // 2026-10再更新：加上"等级"概念——每连续2天没打卡就升一级（见ABILITY_NEGLECT_LEVEL_STEP_DAYS），
+    // 等级越高没收的金币越多、提醒也越频繁，等级本身是从这个连续天数直接算出来的，不用单独存
+    abilityNeglectStreak:{},
+    // 捣乱触发后，宠物会从余额里"没收"一小笔金币，暂存在这里（按维度分开记，随等级升高累加），
+    // 补上对应打卡的那天跨天结算时会如数归还，归还逻辑同样在evaluateAbilityNeglectOnRollover()里
+    abilityMischiefHidden:{},
     moneyBalance:0,
     coinLedger:[], // 金币变化流水账：每一笔+/-都记一条{t,delta,reason,bal}，方便排查"钱为什么变了"
     itemLedger:[], // 2026-10新增：道具（商店物品/背包用品）购买&使用流水账，每一条记一次{t,itemId,itemName,qty,action,reason}
@@ -37062,6 +37097,7 @@ function migrateState(s){
   // undefined 参与减法得到 NaN，"NaN<=0"恒为false，会让"今日抽奖次数用完"的限制在这个窗口期内完全失效，
   // 可以无限转动幸运转盘。这里统一补上默认值0，跟其它 day.* 字段一样兜底。
   if(typeof s.day.wheelUsed!=='number') s.day.wheelUsed=0;
+  if(!Array.isArray(s.day.wheelHistory)) s.day.wheelHistory=[]; // 2026-10新增：抽奖记录，老存档当天的day对象里还没有这个字段，兜底补上，不倒推历史
   // 2026-10变更：金币抽奖的翻倍计数从state.day搬到顶层了（按凌晨1点重置，见wheelPaidCostPeriodKey）；
   // 老存档的state.day.wheelPaidCount如果还有值，迁移过去当作顶层的起始值，然后删掉这个老字段
   if(typeof s.wheelPaidCount!=='number'){
@@ -37071,6 +37107,9 @@ function migrateState(s){
   if(s.day) delete s.day.wheelPaidCount;
   // 2026-10新增：幸运转盘大奖保底的累计抽奖次数，老存档没有这个字段时从0开始攒，不倒推历史
   if(typeof s.wheelPityCount!=='number') s.wheelPityCount=0;
+  // 2026-10新增：能力维度"连续没打卡"捣乱机制，老存档没有这两个字段时补空对象，从0开始攒，不倒推历史
+  if(!s.abilityNeglectStreak || typeof s.abilityNeglectStreak!=='object') s.abilityNeglectStreak={};
+  if(!s.abilityMischiefHidden || typeof s.abilityMischiefHidden!=='object') s.abilityMischiefHidden={};
   if(!s.day.trainBought) s.day.trainBought={train:false,train2:false};
   if(!s.sportStudyFullDays) s.sportStudyFullDays=[];
   if(!s.restCardMonthKey) s.restCardMonthKey=getMonthKey();
@@ -37392,7 +37431,7 @@ function showPage(name){
   });
   syncPetImmersive();
   syncPetSprite();
-  if(name==='wheel'){ drawWheel(); updateWheelPityUI(); }
+  if(name==='wheel'){ drawWheel(); updateWheelPityUI(); renderWheelHistory(); }
   if(name==='board') renderWish();
   if(name==='weekly') renderWeeklyPage();
   if(name==='cottage') renderCottagePage();
@@ -37716,6 +37755,7 @@ function onNewDay(){
     applyDecayAcrossDays(state.day.key, today);
     maybeTriggerCoinWipe(today);
     enforceHoardSpendCapOnNewDay();
+    evaluateAbilityNeglectOnRollover(state.day); // 必须在state.day被freshDay()换掉之前调用，见该函数注释
     var carry=state.nextBurpeeBonus||0;
     state.day=freshDay(today);
     state.day.burpeeBonus=carry;
@@ -37852,6 +37892,222 @@ function renderPetPersonalityTags(pet){
     var color=t.kind==='high'?'#2e7d32':'#9a6b00';
     var safeDesc=String(t.desc).replace(/"/g,'&quot;');
     return '<span title="'+safeDesc+'" style="display:inline-block;background:'+bg+';color:'+color+';border-radius:12px;padding:2px 8px;margin:2px 4px 2px 0;font-size:11px;white-space:nowrap">'+t.emoji+' '+t.name+'</span>';
+  }).join('');
+}
+/* ========== 2026-10新增：能力维度"连续没打卡"捣乱机制（2026-10再升级：分级+倒计时） ==========
+   家长要求："不能让小朋友觉得哪个打卡简单就只做哪些，能力值较低的要让宠物有一些破坏力去捣乱"——
+   第一版做成了"连续3天不打卡，固定没收8金币，直到补卡才还"。家长后续又补充了更具体的要求：
+   ①要分级——按连续天数的比例，捣乱的后果应该逐级加重，而不是一次性固定；②要有"捣乱倒计时"，
+   多久没去补救，就会升级一次，升级后捣乱的频率和破坏力都要加强；③捣乱的"情形"（文案+没收/
+   乱花的说法）要按每个能力维度各自的词义去衍生，不能6个维度共用一模一样的台词。
+   跟家长进一步确认过细节："多久升一级"选的是每2天（见ABILITY_NEGLECT_LEVEL_STEP_DAYS）；
+   "怎么变本加厉"选的是"没收/乱花金币的量逐级加重，且等级越高提醒也越频繁"（不升级成冻结
+   其它权益那种更重的惩罚，避免对小朋友挫败感太强）；"维度要不要各自不同"选的是"除了台词，
+   每个维度还有专属的主题小效果"——这里的"专属主题小效果"具体落地成：①每个维度在没收/乱花
+   金币的这条叙事里，瞎折腾的"方式"跟这个维度的词义相关（运动→瘫在沙发上吃垃圾食品、
+   学习→脑子生锈干着急、家务→把家里弄得更乱、音律→自己在角落哼哼发闷、共情爱心→孤单委屈、
+   创造力→自己乱捣鼓东西把钱当材料造掉了）；②每个维度配的emoji图标和没收/乱花的说法各不相同，
+   見下面 ABILITY_MISCHIEF_FLAVORS。
+   等级计算规则（levelOf）：连续没打卡的天数streak，每满2天升1级，封顶4级（level 1~4），
+   streak<2时是level 0（还没真正触发，只是"预警期"）。等级是从streak直接算出来的纯函数，
+   不需要额外存一份"当前等级"——下次要改"多久升一级"，直接改ABILITY_NEGLECT_LEVEL_STEP_DAYS
+   这一个常量就行。
+   没收金额（ABILITY_MISCHIEF_LEVEL_HIDE_INCREMENTS）：每升一级，在原有"没收/乱花掉"的金额基础上
+   再额外没收一笔，级别越高这一笔越大（6→14→24→36），金额会一直累加在abilityMischiefHidden[dim]
+   里，直到补上那一类打卡才会连本带利一次性归还——这笔钱不是真的凭空消失，哪怕文案写的是"乱花掉"，
+   机制上也保持跟原来一样"可以要回来"，避免不同维度的孩子因为文案不同、实际待遇却不一样而觉得不公平。
+   提醒频率（也是家长要求的"加强捣乱的频率"）：level 1只在刚触发的那一天弹一次提醒，中间的
+   "平静期"（还没到下一次升级）不重复打扰；从level 2开始，只要还没补上，每天跨天都会继续弹提醒，
+   频率明显比level 1更高，升到满级(level 4)后会一直保持这个最高频率提醒，直到补上为止。
+   "捣乱倒计时"：renderAbilityMischiefBanner()里，不管是还没真正触发的"预警期"(streak=1，
+   明天再不打卡就要开始没收了)，还是已经在捣乱中的维度，都会显示"还有几天会…"的倒计时文案，
+   这样小朋友/家长不用靠猜，随时能看到还有多久会变得更严重。
+   6个维度各自独立判定（不含courage，原因同上面ABILITY_TAG_DIMS的注释——副本系统还没开放，
+   永远不可能"完成"，不能也跟着被捣乱）；判定"今天有没有做这一类"复用转盘已有的
+   isXxxFull()系列函数（完全一致，没有另外发明一套标准）：
+     运动(sport)←isSportFull｜学习(study)←isStudyFull｜家务(house)←isHouseFull｜
+     音律(music)←isFunFull(唱歌/跳舞)｜创造力(creativity)←自定义加分项满5次(跟转盘给次的标准一致)｜
+     共情爱心(empathy)←isDiaryFull 或 isCommFull 任一满足就算（日记、沟通两类打卡只要做了一类即可，
+     不用两类都做，因为转盘那边本来也是"日记完成+1次"和"沟通打卡全完成+1次"分开算的两件事）。 */
+var ABILITY_NEGLECT_LEVEL_STEP_DAYS=2; // 连续几天没打卡升一级，家长要求"每2天升一级"
+var ABILITY_NEGLECT_MAX_LEVEL=4; // 封顶等级，到了之后不再继续升级（但没收/提醒会一直按满级的频率和力度持续，直到补卡）
+var ABILITY_MISCHIEF_LEVEL_HIDE_INCREMENTS=[6,14,24,36]; // 下标0=升到1级时额外没收多少，下标1=升到2级时额外没收多少，以此类推
+function abilityNeglectLevelOf(streak){
+  if(streak<ABILITY_NEGLECT_LEVEL_STEP_DAYS) return 0; // 还没到第一次升级的天数，只是"预警期"，不算正式进入等级
+  return Math.min(ABILITY_NEGLECT_MAX_LEVEL, Math.floor(streak/ABILITY_NEGLECT_LEVEL_STEP_DAYS));
+}
+// 倒计时：距离下一次升级还差几天没打卡（已经封顶的话返回null，没有"下一级"了）
+function abilityNeglectDaysToNextLevel(streak){
+  var level=abilityNeglectLevelOf(streak);
+  if(level>=ABILITY_NEGLECT_MAX_LEVEL) return null;
+  var nextLevelStreak=(level+1)*ABILITY_NEGLECT_LEVEL_STEP_DAYS;
+  return Math.max(0,nextLevelStreak-streak);
+}
+/* 每个维度专属的"捣乱情形"——emoji、没收/乱花的说法都按这个能力的词义去衍生，4个等级逐级升级，
+   语气从"有点小闹腾"到"闹得比较凶"，金额由调用方（evaluateAbilityNeglectOnRollover）拼接进去，
+   这里只放"发生了什么"的叙事文案，不含具体数字，复用性更好、以后要调金额也不用动这些文案。 */
+var ABILITY_MISCHIEF_FLAVORS={
+  sport:{
+    level:[
+      {zh:'😴 宠物嫌你好几天没运动，自己赖在沙发上啃零食，顺手把你的钱摸走了', en:"😴 Your pet is annoyed you've skipped sport for days, so it sprawled on the couch snacking and swiped some of your coins"},
+      {zh:'🦥 运动打卡又被拖了好几天，宠物都开始长胖长懒了，趁你不注意又顺走了', en:"🦥 Sport check-ins have been skipped for more days - your pet is getting pudgy and lazy, and swiped even more coins while you weren't looking"},
+      {zh:'🛌 宠物已经"瘫"得完全不想动了，见你还是不运动，干脆破罐破摔又多拿走了', en:'🛌 Your pet has gone totally limp from lying around - seeing you still haven\'t exercised, it gave up and took even more coins'},
+      {zh:'🚨 运动打卡已经被忽略太久啦！宠物整天窝着不动，这次又多扣了', en:'🚨 Sport check-ins have been neglected for way too long! Your pet just lies around all day, and took even more coins this time'}
+    ],
+    cured:{zh:'🏃 你终于去运动打卡啦！宠物开心地蹦跳起来，把之前顺走的金币全部还给你', en:"🏃 You finally did your sport check-in! Your pet happily bounces around and returns every coin it swiped"}
+  },
+  study:{
+    level:[
+      {zh:'📚 宠物担心你好几天没学习，脑子都要生锈了，急得偷偷把你的钱藏进了课本缝里', en:"📚 Your pet is worried your brain is getting rusty from days without studying, and anxiously hid some of your coins in a textbook"},
+      {zh:'🧠 学习打卡又被拖了好几天，宠物急得直挠头，趁乱又摸走了', en:'🧠 Study check-ins have been skipped for more days - your pet is scratching its head in a panic and swiped even more coins'},
+      {zh:'😵 宠物觉得再不学习脑子真的要变笨了，着急忙慌又多藏了', en:'😵 Your pet is convinced your brain will really turn to mush without studying, and frantically hid even more coins'},
+      {zh:'🚨 学习打卡已经被忽略太久！宠物都替你着急上火了，这次又多扣了', en:'🚨 Study check-ins have been neglected for way too long! Your pet is burning with worry, and took even more coins this time'}
+    ],
+    cured:{zh:'📖 你终于去学习打卡啦！宠物松了一大口气，把之前藏起来的金币全部还给你', en:"📖 You finally did your study check-in! Your pet breathes a huge sigh of relief and returns every coin it hid"}
+  },
+  house:{
+    level:[
+      {zh:'🧹 家务好几天没人做，家里都快变猪窝了，宠物一边嫌弃一边顺走了你的钱', en:"🧹 Nobody's done chores for days and the house is turning into a pigsty - your pet, disgusted, swiped some of your coins"},
+      {zh:'🗑️ 家里越堆越乱，宠物踩着满地的东西，又摸走了', en:'🗑️ The mess keeps piling up and your pet is tripping over clutter everywhere - it swiped even more coins'},
+      {zh:'😤 家务已经拖了好久，宠物嫌弃到不行，干脆多拿走了', en:'😤 Chores have been skipped for way too long, and your thoroughly disgusted pet took even more coins'},
+      {zh:'🚨 家里乱得宠物都不想进门了！这次又多扣了', en:'🚨 The house is so messy your pet doesn\'t even want to come inside! It took even more coins this time'}
+    ],
+    cured:{zh:'🧺 你终于去做家务啦！宠物开心地在干净的屋子里打滚，把之前顺走的金币全部还给你', en:"🧺 You finally did your chores! Your pet happily rolls around the tidy house and returns every coin it swiped"}
+  },
+  music:{
+    level:[
+      {zh:'🎤 好几天没听你唱歌跳舞了，宠物自己在角落小声哼哼，顺手拿走了你的钱', en:"🎤 It's been days without any singing or dancing - your pet hums quietly in the corner and swiped some of your coins"},
+      {zh:'🎵 唱歌跳舞打卡又被忽略了好几天，宠物越来越闷闷不乐，又顺走了', en:'🎵 Singing and dancing check-ins have been skipped for more days - your increasingly mopey pet swiped even more coins'},
+      {zh:'🔇 家里安静得宠物都不习惯了，它憋得难受，多拿走了你的钱出气', en:"🔇 The house has gotten so quiet your pet can't stand it, and in frustration took even more of your coins"},
+      {zh:'🚨 已经太久没有歌声笑声啦！宠物这次又多扣了', en:'🚨 There\'s been no singing or laughter for way too long! Your pet took even more coins this time'}
+    ],
+    cured:{zh:'🎶 你终于去唱歌跳舞打卡啦！宠物开心地跟着扭了起来，把之前顺走的金币全部还给你', en:"🎶 You finally did your singing/dancing check-in! Your pet happily grooves along and returns every coin it swiped"}
+  },
+  empathy:{
+    level:[
+      {zh:'💔 好几天没问候家人、没写日记了，宠物觉得你有点冷淡，悄悄拿走了你的钱', en:"💔 Days without checking in on family or writing in the diary - your pet feels a bit neglected, and quietly took some of your coins"},
+      {zh:'😢 关心家人的打卡又被拖了好几天，宠物感觉有点孤单，又顺走了', en:'😢 Caring check-ins have been skipped for more days - your pet feels a bit lonely, and swiped even more coins'},
+      {zh:'🥺 宠物觉得被冷落好久了，难过地多拿走了', en:'🥺 Your pet feels like it\'s been ignored for way too long, and sadly took even more coins'},
+      {zh:'🚨 太久没有关心身边的人啦！宠物这次又多扣了', en:'🚨 It\'s been way too long without showing care for the people around you! Your pet took even more coins this time'}
+    ],
+    cured:{zh:'💗 你终于去关心家人/写日记啦！宠物开心地扑过来撒娇，把之前拿走的金币全部还给你', en:"💗 You finally checked in on family or wrote in the diary! Your pet happily snuggles up and returns every coin it took"}
+  },
+  creativity:{
+    level:[
+      {zh:'🎨 好几天没有自定义加分的小点子了，宠物自己瞎琢磨，不小心花掉了你的一点钱', en:"🎨 No creative bonus activities for days - your pet tinkered around on its own and accidentally spent some of your coins"},
+      {zh:'✂️ 创意打卡又被忽略了好几天，宠物自己闷头乱捣鼓，又花掉了', en:'✂️ Creative check-ins have been skipped for more days - your pet keeps tinkering on its own and spent even more coins'},
+      {zh:'🧵 宠物已经开始瞎捣鼓各种怪东西了，这次又花掉了', en:'🧵 Your pet has started tinkering with all sorts of odd things, and spent even more coins this time'},
+      {zh:'🚨 创意打卡已经被忽略太久！宠物这次又花掉了', en:'🚨 Creative check-ins have been neglected for way too long! Your pet spent even more coins on its latest "invention"'}
+    ],
+    cured:{zh:'🖍️ 你终于去完成自定义加分项啦！宠物开心地展示它的新点子，把之前花掉的金币全部还给你', en:"🖍️ You finally did a creative bonus check-in! Your pet happily shows off its new idea and returns every coin it spent"}
+  }
+};
+function abilityNeglectDoneMap(d){
+  return {
+    sport: isSportFull(d),
+    study: isStudyFull(d),
+    house: isHouseFull(d),
+    music: isFunFull(d),
+    empathy: isDiaryFull(d) || isCommFull(d),
+    creativity: !!(d.custom && d.custom.count>=5)
+  };
+}
+function abilityNeglectDimLabel(dim){
+  var def=ABILITY_TAG_DEFS[dim];
+  return def ? (def.low.emoji+' '+L(def.low.name,dim)) : dim;
+}
+/* 跨天结算：oldDay是即将被freshDay()换掉的、"刚刚过去的那一天"的day对象，必须在
+   state.day=freshDay(today)之前调用，不然就读不到刚过去那一天的真实完成情况了。 */
+function evaluateAbilityNeglectOnRollover(oldDay){
+  if(!state.abilityNeglectStreak || typeof state.abilityNeglectStreak!=='object') state.abilityNeglectStreak={};
+  if(!state.abilityMischiefHidden || typeof state.abilityMischiefHidden!=='object') state.abilityMischiefHidden={};
+  var doneMap=abilityNeglectDoneMap(oldDay);
+  var noticeParts=[];
+  ABILITY_TAG_DIMS.forEach(function(dim){
+    var done=!!doneMap[dim];
+    var prevStreak=state.abilityNeglectStreak[dim]||0;
+    var label=abilityNeglectDimLabel(dim);
+    var flavor=ABILITY_MISCHIEF_FLAVORS[dim];
+    if(done){
+      state.abilityNeglectStreak[dim]=0;
+      var hidden=state.abilityMischiefHidden[dim]||0;
+      if(hidden>0){
+        state.abilityMischiefHidden[dim]=0;
+        addCoinChange(hidden, L('宠物归还没收/乱花的金币（'+label+'打卡补上了）','Pet returned confiscated coins ('+label+' check-in caught up)'));
+        var curedText=flavor?L(flavor.cured.zh,flavor.cured.en):L('🎉 你终于去补上了「'+label+'」打卡，宠物乖乖把之前拿走的金币还给你啦！','🎉 You finally caught up on your ['+label+'] check-in - your pet happily returned the coins it took!');
+        noticeParts.push(curedText+L('（还回 <b>'+hidden+' 金币</b>）','(returned <b>'+hidden+' coins</b>)'));
+      }
+    }else{
+      var newStreak=prevStreak+1;
+      state.abilityNeglectStreak[dim]=newStreak;
+      var prevLevel=abilityNeglectLevelOf(prevStreak);
+      var newLevel=abilityNeglectLevelOf(newStreak);
+      var daysToNext=abilityNeglectDaysToNextLevel(newStreak);
+      var countdownText=daysToNext!=null
+        ? L('还有 <b>'+daysToNext+'天</b> 没补上的话，捣乱还会再升级！','If not caught up within <b>'+daysToNext+' more day(s)</b>, the mischief will escalate again!')
+        : L('已经是最严重的程度了，再不补上会一直这样下去！','This is already the most severe level - it\'ll keep going until you catch up!');
+      if(newLevel>prevLevel){
+        var incAmt=Math.min(state.moneyBalance||0, ABILITY_MISCHIEF_LEVEL_HIDE_INCREMENTS[newLevel-1]||0);
+        if(incAmt>0){
+          addCoinChange(-incAmt, L('宠物捣乱没收/乱花了金币（「'+label+'」连续'+newStreak+'天没打卡，升到'+newLevel+'级）','Pet confiscated/wasted coins ('+label+' skipped for '+newStreak+' days, escalated to level '+newLevel+')'));
+          state.abilityMischiefHidden[dim]=(state.abilityMischiefHidden[dim]||0)+incAmt;
+        }
+        var totalHidden=state.abilityMischiefHidden[dim]||0;
+        var onsetFlavor=flavor?flavor.level[newLevel-1]:null;
+        var onsetText=onsetFlavor?L(onsetFlavor.zh,onsetFlavor.en):L('😈 宠物因为「'+label+'」连续没打卡生气了','😈 Your pet is upset that ['+label+'] has been skipped');
+        noticeParts.push(onsetText+L(' <b>'+incAmt+'金币</b>（已经没收/乱花了累计 <b>'+totalHidden+'金币</b>）！已经连续 <b>'+newStreak+'天</b> 没打卡，升到了 <b>'+newLevel+'级</b>。'+countdownText+' 赶紧去补上「'+label+'」打卡，它就会乖乖还给你～',
+          ' <b>'+incAmt+' coins</b> (total confiscated/wasted so far: <b>'+totalHidden+' coins</b>)! ['+label+'] has now been skipped for <b>'+newStreak+' days</b>, escalating to <b>level '+newLevel+'</b>. '+countdownText+' Go catch up on your ['+label+'] check-in and it\'ll give everything back~'));
+      }else if(newLevel>=2){
+        // 2级及以上：哪怕这一天没有升级，只要还没补上，也要继续每天提醒（这就是家长要求的"加强捣乱的频率"）
+        var stillHidden=state.abilityMischiefHidden[dim]||0;
+        noticeParts.push(L('😤 「'+label+'」已经连续 <b>'+newStreak+'天</b> 没打卡了（目前 <b>'+newLevel+'级</b>），宠物还攥着没收/乱花的 <b>'+stillHidden+'金币</b> 没还呢。'+countdownText+' 赶紧去打卡吧！',
+          '😤 ['+label+'] has now been skipped for <b>'+newStreak+' days</b> in a row (currently <b>level '+newLevel+'</b>) - your pet is still holding onto the <b>'+stillHidden+' coins</b> it took. '+countdownText+' Go check in!'));
+      }
+      // newLevel===prevLevel 且 newLevel<2（也就是level0的"预警期"，或者level1里还没到下一次升级的那个平静日）：
+      // 不弹一次性提醒，只靠下面renderAbilityMischiefBanner()里的常驻倒计时横幅提醒，避免level1就被天天打扰
+    }
+  });
+  if(noticeParts.length){
+    var msg=noticeParts.join('<br><br>');
+    state.pendingOfflineNotice=state.pendingOfflineNotice?(state.pendingOfflineNotice+'<br><br>'+msg):msg;
+  }
+}
+/* 持续显示的提醒横幅（不是一次性弹窗）：挂在宠物状态HUD里，只要还有维度处于"捣乱中"
+   （金币还没还回来）或者正处在"预警期"（streak=1，明天再不打卡就要开始被没收了），就会一直显示，
+   不会因为关掉弹窗/切换页面就看不到提醒，逼着小朋友真的去补打卡，而不是看一眼弹窗、关掉就忘了。
+   这里也是"捣乱倒计时"真正常驻展示的地方——不管有没有已经触发，都能看到"还有几天会…"。 */
+function renderAbilityMischiefBanner(){
+  var box=document.getElementById('abilityMischiefBanner');
+  if(!box) return;
+  var hidden=(state.abilityMischiefHidden && typeof state.abilityMischiefHidden==='object') ? state.abilityMischiefHidden : {};
+  var streaks=(state.abilityNeglectStreak && typeof state.abilityNeglectStreak==='object') ? state.abilityNeglectStreak : {};
+  var dims=ABILITY_TAG_DIMS.filter(function(dim){ return (hidden[dim]||0)>0 || (streaks[dim]||0)>0; });
+  if(!dims.length){ box.style.display='none'; box.innerHTML=''; return; }
+  var dimToCat={sport:'sport',study:'study',house:'house',music:'fun',empathy:'diary',creativity:'custom'};
+  box.style.display='block';
+  box.innerHTML=dims.map(function(dim){
+    var label=abilityNeglectDimLabel(dim);
+    var amt=hidden[dim]||0;
+    var streak=streaks[dim]||0;
+    var level=abilityNeglectLevelOf(streak);
+    var daysToNext=abilityNeglectDaysToNextLevel(streak);
+    var cat=dimToCat[dim]||'sport';
+    var bg = level>=3 ? '#ffebee' : (level>=1 ? '#fff3e0' : '#fff8e1'); // 等级越高背景越偏"警示红"，预警期是浅黄
+    var color = level>=3 ? '#c62828' : (level>=1 ? '#9a6b00' : '#8d6e00');
+    var lineText;
+    if(level>=1){
+      var countdownText=daysToNext!=null
+        ? L('还有<b>'+daysToNext+'天</b>会升级','escalates in <b>'+daysToNext+' day(s)</b>')
+        : L('已经满级','already at max level');
+      lineText='😈 '+L('「'+label+'」没收/乱花了你 <b>'+amt+'</b> 金币（<b>Lv.'+level+'</b>，'+countdownText+'）','['+label+'] - <b>'+amt+'</b> coins confiscated/wasted (<b>Lv.'+level+'</b>, '+countdownText+')');
+    }else{
+      // 预警期（streak===1，level还是0）：还没真正扣钱，只是倒计时提醒
+      lineText='⚠️ '+L('「'+label+'」已经1天没打卡，'+(daysToNext!=null?('明天再不打卡就要被没收金币啦（还有<b>'+daysToNext+'天</b>）'):'再不打卡要被没收金币啦'),'['+label+'] skipped for 1 day - '+(daysToNext!=null?('coins will be confiscated if not done soon (<b>'+daysToNext+' day(s)</b>)'):'coins will be confiscated if not done soon'));
+    }
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:'+bg+';color:'+color+';border-radius:10px;padding:5px 9px;margin:2px 0;font-size:12px">'
+      +'<span>'+lineText+'</span>'
+      +'<button class="btn btn-gray btn-sm" style="padding:2px 8px;font-size:11px" onclick="showPage(\'home\');showCheckinCategory(\''+cat+'\')">'+L('去打卡','Check in')+'</button>'
+      +'</div>';
   }).join('');
 }
 var OFFLINE_EVENT_MIN_HOURS=0.5; // 2026-09：从2小时改成半小时——离线只要够半小时，一上线就会有描述"宠物做了什么"的提示，让小朋友更有惦记着要上线看看的动力
@@ -41648,12 +41904,18 @@ function drawWheel(){
   drawWheelPointer();
 }
 // 转动的指针：从圆心附近一直指向外圈，wheelRotation（度）决定指针当前转到哪个角度
+// 2026-10修复："转盘指针指的格子和实际发放的奖励不一致"——根因在这里：指针本身是沿着本地坐标系的
+// "正上方"（local (0,-r)，这个方向本身在canvas坐标系里就已经是-90°）画出来的，下面却又额外多转了
+// 一次"-90"，相当于把指针又多转了一个-90°，导致指针最终视觉指向的角度和wheelRotation想要对准的
+// 格子中心角度，永远错开一个固定的90°夹角（n不是4的倍数时，这个偏差甚至不是整数个格子，每次都会
+// 指在邻近格子的边缘甚至隔壁格子上）。runWheelSpinAnimation()里早就按"wheelRotation最终会停在
+// (idx+0.5)*每格角度"来设计目标角度了，这里的旋转量应该直接用wheelRotation本身，不能再叠加-90。
 function drawWheelPointer(){
   var ctx=wheelCanvas.getContext('2d');
   var cx=130,cy=130,rOuter=122,rInner=26;
   ctx.save();
   ctx.translate(cx,cy);
-  ctx.rotate((-90+wheelRotation)*Math.PI/180);
+  ctx.rotate(wheelRotation*Math.PI/180);
   ctx.strokeStyle='#d32f2f';ctx.lineWidth=5;ctx.lineCap='round';
   ctx.beginPath();ctx.moveTo(0,-rInner);ctx.lineTo(0,-(rOuter-16));ctx.stroke();
   ctx.fillStyle='#d32f2f';
@@ -41875,7 +42137,54 @@ function applyReward(seg,opts){
   if(!opts.paid && !skipWheelUsedIncrement) state.day.wheelUsed++; // 金币抽奖不占用免费次数；"再来一次"也不占用（见上面注释）
   addLog((opts.paid?L('💰金币抽奖：','💰 Coin Spin: '):L('🎡幸运转盘：','🎡 Lucky Wheel: '))+msg);
   showReward(seg.emoji+L(' 抽奖结果',' Spin Result'),msg);
+  // 2026-10新增：每次抽奖（不管免费还是金币）都在这里——也就是真正发奖励的这一个入口——记一笔
+  // "抽奖记录"，而不是在spinWheel()/spinWheelPaid()各自记一份：这样记录下来的seg永远是实际发放
+  // 的那个奖励对象本身，不会出现"指针动画显示的格子"和"记录里写的奖励"还是两套数据、继续对不上
+  // 的问题（这正是家长反馈的那个bug的核心——以前只能凭肉眼看指针停在哪格，现在有据可查）。
+  if(!state.day.wheelHistory) state.day.wheelHistory=[];
+  state.day.wheelHistory.push({time:Date.now(),id:seg.id,emoji:seg.emoji,label:seg.label,labelEn:seg.labelEn||seg.label,paid:!!opts.paid});
+  if(state.day.wheelHistory.length>200) state.day.wheelHistory.splice(0,state.day.wheelHistory.length-200); // 防御性上限，正常一天不可能抽这么多次
+  renderWheelHistory();
   save();
+}
+/* ========== 2026-10新增：抽奖记录面板 ==========
+   家长要求"能否做一个抽奖记录，每日会重置"——展示今天抽过的每一次奖励（时间+图标+名称+
+   免费/金币标记），数据来自state.day.wheelHistory（见applyReward()里的记录逻辑），借助
+   state.day本身每天跨天就会被freshDay()整个换掉这一点，天然做到"每日重置"，不用额外写定时
+   清空的代码。默认收起，点标题栏展开/收起，避免转盘页面默认就很长。 */
+var wheelHistoryOpen=false;
+function toggleWheelHistory(){
+  wheelHistoryOpen=!wheelHistoryOpen;
+  renderWheelHistory();
+}
+function wheelHistoryEntryTimeStr(ts){
+  var d=new Date(ts);
+  var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+  return hh+':'+mm;
+}
+function renderWheelHistory(){
+  var list=document.getElementById('wheelHistoryList');
+  if(!list) return; // 转盘页面不在DOM里（比如还没切到这一页）时安全跳过
+  var icon=document.getElementById('wheelHistoryToggleIcon');
+  if(icon) icon.innerText=wheelHistoryOpen?'▲':'▼';
+  list.style.display=wheelHistoryOpen?'block':'none';
+  var countEl=document.getElementById('wheelHistoryCount');
+  var hist=(state.day&&state.day.wheelHistory)||[];
+  if(countEl) countEl.innerText=''+hist.length;
+  if(!wheelHistoryOpen) return; // 收起状态不用渲染列表内容，省点事
+  if(!hist.length){
+    list.innerHTML='<div style="color:#999;padding:4px 0">'+L('今天还没有抽奖记录','No spins yet today')+'</div>';
+    return;
+  }
+  var html='';
+  for(var i=hist.length-1;i>=0;i--){
+    var h=hist[i];
+    html+='<div class="row-between" style="padding:4px 0;border-bottom:1px solid #f3f3f3">'
+      +'<span>'+wheelHistoryEntryTimeStr(h.time)+' '+h.emoji+' '+L(h.label,h.labelEn||h.label)+'</span>'
+      +'<span style="color:#999;white-space:nowrap;margin-left:8px">'+(h.paid?L('💰金币','Coin'):L('🎲免费','Free'))+'</span>'
+      +'</div>';
+  }
+  list.innerHTML=html;
 }
 /* ========== 2026-10新增：转盘大奖"大奖·休息一天"的使用 ==========
    跟库洛米休息卡(useRestCard，只豁免家务、不给奖励)是完全不同的两种卡：这张卡用掉以后，
@@ -42944,6 +43253,7 @@ function renderPet(){
     syncPetSprite();syncPetImmersive();return;
   }
   btn.style.display='none';main.style.display='block';
+  renderAbilityMischiefBanner(); // 跟宠物是不是还是蛋无关——没打卡被没收的金币是真实存在的后果，蛋阶段也要能看到提醒
   var info=petLevelInfo(),stage=stageOf(info.level);
   var eggEl=document.getElementById('petEggEmoji');
   var eggImgEl=document.getElementById('petEggImg');
