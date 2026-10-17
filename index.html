@@ -219,6 +219,10 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
    要看四维状态/经验条再自己点这个箭头展开，状态记在本机，下次打开还是保持上次的收起/展开选择 */
 #petStats .pet-stats-toggle-btn{margin:0;padding:1px 5px;font-size:11px;flex-shrink:0;pointer-events:auto;color:#7b1fa2;background:rgba(123,31,162,.1);border-radius:6px}
 #petStatsDetail.collapsed{display:none}
+/* 2026-10新增：这个悬浮状态卡片本身没有高度上限，内容一多（称号标签+捣乱提醒+四条状态条叠一起）
+   就会一直往下长，在小屏幕上把宠物本体和喂养/互动区域挡住。这里兜底加一个上限，超出就在卡片
+   内部自己滚动，不会再无限占用屏幕高度——跟能力捣乱横幅的收起/展开是两道独立的保险 */
+#petStatsDetail{max-height:min(62vh,440px);overflow-y:auto;overflow-x:hidden;pointer-events:auto}
 #petActions{
   position:fixed; left:10px; top:50%; z-index:49; /* 要比下面的透明背景层(47)和展开面板(48)都高，不然面板打开时背景层会挡住这颗切换按钮，点不到 */
   display:flex; flex-direction:column; gap:10px;
@@ -249,9 +253,11 @@ h1{text-align:center;color:#7b1fa2;font-size:21px;margin:8px 0 2px}
   max-height:min(60vh,420px); overflow-y:auto;
 }
 .pet-actions-list.open{ display:flex }
-/* 副本挑战入口：从"点开🐾才能看到的互动小面板"里独立出来，单独常驻悬浮按钮，方便小朋友/家长一眼看到、直接点进去挑战，
-   不用再多点一次🐾展开面板才能找到；位置放在能力雷达按钮正上方，同一列不冲突 */
-#dungeonEntryBtn{
+/* "对战乐园"统一入口：原本副本挑战单独占一个常驻悬浮按钮，后来又加了宠物格斗挑战——
+   2026-10改成把副本挑战/PK挑战/宠物格斗挑战这三个"打架相关"的玩法收进同一个按钮，点开弹出
+   小菜单选一个玩，不再占用好几个悬浮按钮的位置、挤占宠物本体和喂养互动区域的显示空间；
+   位置沿用原来副本挑战按钮的位置（能力雷达按钮正上方，同一列不冲突） */
+#battleEntryBtn{
   position:fixed; right:10px; bottom:158px; z-index:58; font-size:20px;
   background:linear-gradient(135deg,#ffe0b2,#ffcc80);
 }
@@ -922,6 +928,65 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   .checkin-tab-btn{font-size:13.5px; padding:7px 14px}
 }
 </style>
+<style>
+/* ============================================================
+   2026-10新增：宠物格斗挑战——纯好玩的独立单人小游戏，参照《拳皇》系列的对战画面
+   感觉（擂台、血条、气槛、ROUND提示、受击闪白/震屏），但角色用的是App自己的宠物形象
+   （奶龙/小金龙/小金麟/双鱼宝宝的happy/run/sad三张已有素材做姿态切换），不涉及任何
+   拳皇官方人物/логo/美术。回合制点击：拳/腿/必杀技三个固定技能按钮，点一下=一次攻击
+   动画+伤害结算，对手自动反击。这个小游戏的所有数值（HP/气槛/回合）都只存在内存变量
+   fight里，完全不进state/不进云同步，跟金币、排行榜、宠物真实数值毫无关系，纯粹好玩。 */
+.fight-stage{position:relative;height:208px;border-radius:14px;overflow:hidden;margin:8px 0;
+  background:linear-gradient(180deg,#2b1055 0%,#4a148c 55%,#7b1fa2 100%);box-shadow:inset 0 0 40px rgba(0,0,0,.4)}
+.fight-stage::after{content:'';position:absolute;left:0;right:0;bottom:0;height:32%;
+  background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.18),transparent 70%),linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.35))}
+.fight-floor-line{position:absolute;left:0;right:0;bottom:32%;height:2px;background:rgba(255,255,255,.25)}
+.fight-fighter-box{position:absolute;bottom:16%;width:116px;height:132px}
+.fight-fighter-box.fight-left{left:5%}
+.fight-fighter-box.fight-right{right:5%}
+.fight-fighter-img{position:absolute;left:0;bottom:0;width:100%;height:100%;object-fit:contain;
+  filter:drop-shadow(0 6px 6px rgba(0,0,0,.4));transition:transform .15s ease-out}
+.fight-right .fight-fighter-img{transform:scaleX(-1)}
+.fight-fighter-box.fight-lunge .fight-fighter-img{transform:translateX(16px) scale(1.06)}
+.fight-fighter-box.fight-right.fight-lunge .fight-fighter-img{transform:scaleX(-1) translateX(16px) scale(1.06)}
+.fight-hit-flash{position:absolute;inset:0;background:rgba(255,70,70,.6);opacity:0;border-radius:10px;pointer-events:none}
+.fight-fighter-box.fight-hit .fight-hit-flash{animation:fightHitFlash .28s ease-out}
+@keyframes fightHitFlash{0%{opacity:0}25%{opacity:.85}100%{opacity:0}}
+.fight-arena-shake{animation:fightShake .3s}
+@keyframes fightShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.fight-dmg-pop{position:absolute;top:6px;left:50%;font-weight:800;font-size:19px;color:#fff59d;
+  text-shadow:0 2px 3px rgba(0,0,0,.65);pointer-events:none;animation:fightDmgPop .75s ease-out forwards;white-space:nowrap}
+@keyframes fightDmgPop{0%{opacity:0;transform:translate(-50%,0) scale(.7)}15%{opacity:1;transform:translate(-50%,-6px) scale(1.2)}100%{opacity:0;transform:translate(-50%,-48px) scale(1)}}
+.fight-banner-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:5}
+.fight-banner-txt{font-size:27px;font-weight:900;color:#fff;text-shadow:0 2px 0 #4a148c,0 4px 12px rgba(0,0,0,.55);
+  letter-spacing:2px;opacity:0;transform:scale(.4);animation:fightBannerPop 1s ease forwards;text-align:center;padding:0 10px}
+@keyframes fightBannerPop{0%{opacity:0;transform:scale(.3) rotate(-6deg)}28%{opacity:1;transform:scale(1.15) rotate(2deg)}50%{transform:scale(1) rotate(0)}78%{opacity:1}100%{opacity:0;transform:scale(1.25)}}
+.fight-name-row{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:#5a3a68;margin-bottom:2px}
+.fight-hp-wrap{position:relative;height:14px;background:#3a2048;border-radius:8px;overflow:hidden;border:1.5px solid rgba(123,31,162,.35)}
+.fight-hp-chip{position:absolute;inset:0;background:linear-gradient(90deg,#ffd54f,#ffb300);transition:width .5s ease .25s;width:100%}
+.fight-hp-fill{position:absolute;inset:0;background:linear-gradient(90deg,#66bb6a,#2e7d32);transition:width .15s linear;width:100%}
+.fight-hp-fill.fight-hp-low{background:linear-gradient(90deg,#ef5350,#b71c1c)}
+.fight-pow-wrap{height:9px;background:#3a2048;border-radius:6px;overflow:hidden;border:1px solid rgba(123,31,162,.3);margin-top:5px}
+.fight-pow-fill{height:100%;width:0%;background:linear-gradient(90deg,#4fc3f7,#0288d1);transition:width .25s}
+.fight-pow-fill.fight-pow-full{background:linear-gradient(90deg,#fff176,#ffb300);box-shadow:0 0 8px #ffd54f}
+.fight-btn-row{display:flex;gap:8px;margin-top:10px;justify-content:center;flex-wrap:wrap}
+.fight-btn{flex:1;min-width:82px;border:none;border-radius:12px;padding:11px 6px;font-size:13.5px;font-weight:700;
+  color:#fff;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.25);transition:transform .08s}
+.fight-btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.fight-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+.fight-btn-punch{background:linear-gradient(180deg,#42a5f5,#1565c0)}
+.fight-btn-kick{background:linear-gradient(180deg,#ffa726,#ef6c00)}
+.fight-btn-special{background:linear-gradient(180deg,#ec407a,#ad1457)}
+.fight-log{max-height:64px;overflow-y:auto;margin-top:8px;background:#fbf6fd;border-radius:8px;padding:5px 8px;line-height:1.5;font-size:12px;color:#7a5a88}
+.fight-opp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.fight-opp-card{border:2px solid #e1bee7;border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;
+  background:#fbf6fd;transition:transform .1s,border-color .1s}
+.fight-opp-card:hover{transform:translateY(-2px);border-color:#ab47bc}
+.fight-opp-card img{width:58px;height:58px;object-fit:contain;margin-bottom:3px}
+.fight-opp-card .fight-opp-name{font-size:12.5px;font-weight:700;color:#5a3a68}
+.fight-result-wrap{text-align:center;margin-top:8px}
+.fight-result-title{font-size:19px;font-weight:800;margin-bottom:6px}
+</style>
 </head>
 <body>
 
@@ -1491,6 +1556,65 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
+<!-- 2026-10新增：宠物格斗挑战——独立单人小游戏，纯好玩，不影响金币/排行榜/宠物真实数值 -->
+<div class="page" id="page-fight">
+  <div class="card" id="fightSelectCard">
+    <div class="row-between">
+      <h2 style="margin:0">🥊 宠物格斗挑战</h2>
+      <button class="btn btn-gray btn-sm" onclick="exitFightGame()">⬅ 返回宠物</button>
+    </div>
+    <div class="small" style="text-align:center;color:#999;margin:-2px 0 8px">这是一个纯好玩的小游戏，输赢都不会扣金币、不影响排行榜和宠物真实数值～</div>
+    <div class="small" style="text-align:center;margin-bottom:6px">选一个对手，点击拳/腿/必杀技出招，看谁先把对方打趴下！</div>
+    <div class="fight-opp-grid" id="fightOpponentGrid"></div>
+  </div>
+  <div class="card" id="fightArenaCard" style="display:none">
+    <div class="row-between">
+      <h2 style="margin:0" id="fightArenaTitle">🥊 对战中</h2>
+      <button class="btn btn-gray btn-sm" onclick="exitFightGame()">⬅ 退出</button>
+    </div>
+    <div style="margin-top:6px">
+      <div class="fight-name-row"><span id="fightPlayerName">我方</span><span id="fightOppName">对手</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div style="flex:1">
+          <div class="fight-hp-wrap"><div class="fight-hp-chip" id="fightPlayerHpChip"></div><div class="fight-hp-fill" id="fightPlayerHpFill"></div></div>
+          <div class="fight-pow-wrap"><div class="fight-pow-fill" id="fightPlayerPow"></div></div>
+        </div>
+        <div style="flex:1">
+          <div class="fight-hp-wrap"><div class="fight-hp-chip" id="fightOppHpChip"></div><div class="fight-hp-fill" id="fightOppHpFill"></div></div>
+          <div class="fight-pow-wrap" style="visibility:hidden"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fight-stage" id="fightStage">
+      <div class="fight-floor-line"></div>
+      <div class="fight-fighter-box fight-left" id="fightPlayerBox">
+        <img class="fight-fighter-img" id="fightPlayerImg" src="" alt="">
+        <div class="fight-hit-flash"></div>
+      </div>
+      <div class="fight-fighter-box fight-right" id="fightOppBox">
+        <img class="fight-fighter-img" id="fightOppImg" src="" alt="">
+        <div class="fight-hit-flash"></div>
+      </div>
+      <div class="fight-banner-wrap" id="fightBannerWrap"></div>
+    </div>
+    <div class="small" style="text-align:center;margin-top:2px" id="fightTimeText">⏱️ 60s</div>
+    <div class="fight-btn-row" id="fightBtnRow">
+      <button class="fight-btn fight-btn-punch" id="fightBtnPunch" onclick="fightPlayerAttack('punch')">👊 拳</button>
+      <button class="fight-btn fight-btn-kick" id="fightBtnKick" onclick="fightPlayerAttack('kick')">🦵 腿</button>
+      <button class="fight-btn fight-btn-special" id="fightBtnSpecial" onclick="fightPlayerAttack('special')" disabled>⚡ 必杀技</button>
+    </div>
+    <div class="fight-log" id="fightLog"></div>
+    <div class="fight-result-wrap" id="fightResultWrap" style="display:none">
+      <div class="fight-result-title" id="fightResultTitle"></div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="fightRematch()">🔁 再来一局</button>
+        <button class="btn btn-gray btn-sm" onclick="renderFightSelect()">🔀 换个对手</button>
+        <button class="btn btn-gray btn-sm" onclick="exitFightGame()">⬅ 返回宠物</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="small" style="text-align:center;padding:8px 0 4px">💜 仅供家庭私密使用 · 数据保存在本机浏览器</div>
 </div>
 
@@ -1546,6 +1670,17 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <h3>🎽 宠物装饰</h3>
     <div class="small" style="margin:-4px 0 8px">去副本挑战获得的装饰可以在这里给宠物戴上，随时可以换</div>
     <div class="acc-grid" id="wardrobeGrid"></div>
+  </div>
+</div>
+
+<!-- 2026-10新增："对战乐园"统一入口弹窗——把副本挑战/PK挑战/宠物格斗挑战这三个"打架相关"的功能
+     收进同一个悬浮按钮里，不再各自占一个常驻悬浮按钮，挤占宠物页面的显示空间 -->
+<div class="modal-mask" id="battleMenuModal">
+  <div class="modal">
+    <button class="modal-close" onclick="hideModal('battleMenuModal')">✕</button>
+    <h3 data-i18n="battle_menu_title">⚔️ 对战乐园</h3>
+    <div class="small" style="margin:-4px 0 10px" data-i18n="battle_menu_desc">选一个你想玩的对战玩法</div>
+    <div id="battleMenuBody"></div>
   </div>
 </div>
 
@@ -2131,7 +2266,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <div id="petInjuryTip"></div>
 <div id="petPkInjuryBadge" style="display:none" onmouseenter="showPetPkInjuryTip()" onmouseleave="hidePetPkInjuryTip()" onclick="petPkInjuryBadgeTap()">🤕 PK轻伤</div>
 <div id="petPkInjuryTip" onmouseenter="clearTimeout(petPkInjuryTipAutoHideTimer)" onmouseleave="hidePetPkInjuryTip()"></div>
-<button class="hud-act-btn" id="dungeonEntryBtn" onclick="petQuickAction('openDungeon2')" title="副本挑战" data-i18n-title="tt_dungeon_entry" style="display:none">⚔️</button>
+<button class="hud-act-btn" id="battleEntryBtn" onclick="openBattleMenu()" title="对战乐园" style="display:none">⚔️</button>
 <button class="hud-act-btn" id="equipEntryBtn" onclick="petQuickAction('openEquipPanel')" title="装备面板" style="display:none">🛡️</button>
 <button class="hud-act-btn" id="auctionEntryBtn" onclick="petQuickAction('openAuctionHouse')" title="拍卖行" data-i18n-title="tt_auction_entry" style="display:none">🏛️</button>
 <button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" data-i18n-title="ability_radar_title" style="display:none">📊</button>
@@ -2716,6 +2851,296 @@ function idleImgForCurrentStage(){
   if(pet.stageImg && pet.stageImg[stage]) return pet.stageImg[stage];
   return pet.img.happy;
 }
+
+/* ============================================================
+   宠物格斗挑战（独立单人小游戏，参照拳皇系列的对战画面效果搭建，但用的是App自己的
+   宠物素材，不是拳皇官方人物）。所有数值都只存在下面这个内存变量fight里，不进state、
+   不进云同步、不影响金币/排行榜/宠物真实七维能力值，纯粹好玩，随便输随便玩。
+   回合制点击：拳(👊)/腿(🦵)/必杀技(⚡，攢满气槛才能放)三个固定按钮，点一下=一次
+   攻击动画+伤害结算，对手会在短暂延迟后自动反击一次，如此往复直到一方HP清零或者
+   60秒倒计时结束（倒计时结束按剩余HP多的一方获胜，一样算平手）。 */
+var FIGHT_MAX_HP=100;
+var FIGHT_ROUND_SECONDS=60;
+var FIGHT_PUNCH_DMG=[4,7];
+var FIGHT_KICK_DMG=[9,14];
+var FIGHT_SPECIAL_DMG=[20,28];
+var FIGHT_PUNCH_POW_GAIN=10;
+var FIGHT_KICK_POW_GAIN=16;
+var FIGHT_POW_MAX=100;
+var FIGHT_OPP_PUNCH_DMG=[3,7];
+var FIGHT_OPP_KICK_DMG=[7,13];
+var FIGHT_OPP_SPECIAL_DMG=[14,20];
+var fight=null; // 当前这一局的内存状态，不在对战中时为null
+function fightRandInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function fightPetImg(typeKey,pose){
+  var lib=PET_LIBRARY[typeKey] || PET_LIBRARY.xiaojinlin;
+  return (lib.img && lib.img[pose]) || lib.img.happy;
+}
+function fightPetName(typeKey){
+  var lib=PET_LIBRARY[typeKey] || PET_LIBRARY.xiaojinlin;
+  return lib.name;
+}
+function openFightGame(){
+  if(!(state.pet && state.pet.chosen)){
+    alert(L('先孵化/选择一只宠物，才能开始格斗挑战哦～','Hatch or choose a pet first before you can start a fight!'));
+    return;
+  }
+  try{ closePetActionsPanel(); }catch(e){}
+  showPage('fight');
+  renderFightSelect();
+}
+function exitFightGame(){
+  fightStopTimer();
+  fight=null;
+  showPage('pet');
+}
+function renderFightSelect(){
+  fightStopTimer();
+  fight=null;
+  var selCard=document.getElementById('fightSelectCard');
+  var arenaCard=document.getElementById('fightArenaCard');
+  if(arenaCard) arenaCard.style.display='none';
+  if(selCard) selCard.style.display='block';
+  var grid=document.getElementById('fightOpponentGrid');
+  if(!grid) return;
+  var myType=(state.pet && state.pet.type) || 'xiaojinlin';
+  var html='';
+  PET_ORDER.forEach(function(key){
+    var lib=PET_LIBRARY[key];
+    html+='<div class="fight-opp-card" onclick="startFight(\''+key+'\')">'
+      +'<img src="'+lib.img.happy+'" alt="">'
+      +'<div class="fight-opp-name">'+lib.name+(key===myType?L(' (你)',' (you)'):'')+'</div>'
+      +'</div>';
+  });
+  grid.innerHTML=html;
+}
+function startFight(oppType){
+  var myType=(state.pet && state.pet.type) || 'xiaojinlin';
+  fight={
+    playerType: myType,
+    oppType: oppType,
+    playerHp: FIGHT_MAX_HP, oppHp: FIGHT_MAX_HP,
+    playerHpShown: FIGHT_MAX_HP, oppHpShown: FIGHT_MAX_HP,
+    pow: 0,
+    busy: true, // 开场ROUND/FIGHT动画播放期间先不能出招
+    over: false,
+    timeLeft: FIGHT_ROUND_SECONDS,
+    timer: null
+  };
+  var selCard=document.getElementById('fightSelectCard');
+  var arenaCard=document.getElementById('fightArenaCard');
+  if(selCard) selCard.style.display='none';
+  if(arenaCard) arenaCard.style.display='block';
+  var resWrap=document.getElementById('fightResultWrap');
+  if(resWrap) resWrap.style.display='none';
+  var logEl=document.getElementById('fightLog');
+  if(logEl) logEl.innerHTML='';
+  document.getElementById('fightPlayerName').textContent='🧒 '+fightPetName(fight.playerType);
+  document.getElementById('fightOppName').textContent='🤖 '+fightPetName(fight.oppType);
+  document.getElementById('fightPlayerImg').src=fightPetImg(fight.playerType,'happy');
+  document.getElementById('fightOppImg').src=fightPetImg(fight.oppType,'happy');
+  fightUpdateBars(true);
+  fightUpdateButtons();
+  fightSetBusy(true);
+  fightShowBanner('ROUND 1', function(){
+    fightShowBanner('FIGHT!', function(){
+      fight.busy=false;
+      fightSetBusy(false);
+      fightStartTimer();
+      fightLog(L('💥 比赛开始！点按钮出招吧～','💥 Fight starts! Tap a move to attack~'));
+    });
+  });
+}
+function fightRematch(){
+  if(!fight) return;
+  startFight(fight.oppType);
+}
+function fightSetBusy(busy){
+  ['fightBtnPunch','fightBtnKick'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.disabled=!!busy;
+  });
+  fightUpdateButtons();
+}
+function fightUpdateButtons(){
+  var specialBtn=document.getElementById('fightBtnSpecial');
+  if(!specialBtn) return;
+  var busy=!fight || fight.busy || fight.over;
+  var powReady=fight && fight.pow>=FIGHT_POW_MAX;
+  specialBtn.disabled=busy || !powReady;
+}
+function fightShowBanner(text,cb){
+  var wrap=document.getElementById('fightBannerWrap');
+  if(wrap){
+    wrap.innerHTML='<div class="fight-banner-txt">'+text+'</div>';
+  }
+  setTimeout(function(){
+    if(wrap) wrap.innerHTML='';
+    if(cb) cb();
+  }, 900);
+}
+function fightLog(text){
+  var logEl=document.getElementById('fightLog');
+  if(!logEl) return;
+  var line=document.createElement('div');
+  line.textContent=text;
+  logEl.appendChild(line);
+  logEl.scrollTop=logEl.scrollHeight;
+}
+function fightUpdateBars(instant){
+  if(!fight) return;
+  var pHp=Math.max(0,fight.playerHp), oHp=Math.max(0,fight.oppHp);
+  var pFill=document.getElementById('fightPlayerHpFill');
+  var pChip=document.getElementById('fightPlayerHpChip');
+  var oFill=document.getElementById('fightOppHpFill');
+  var oChip=document.getElementById('fightOppHpChip');
+  if(pFill){ pFill.style.width=(pHp/FIGHT_MAX_HP*100)+'%'; pFill.classList.toggle('fight-hp-low', pHp<=FIGHT_MAX_HP*0.25); }
+  if(oFill){ oFill.style.width=(oHp/FIGHT_MAX_HP*100)+'%'; oFill.classList.toggle('fight-hp-low', oHp<=FIGHT_MAX_HP*0.25); }
+  if(instant){
+    if(pChip) pChip.style.width=(pHp/FIGHT_MAX_HP*100)+'%';
+    if(oChip) oChip.style.width=(oHp/FIGHT_MAX_HP*100)+'%';
+  } else {
+    // 黄色"追击"条故意延迟再掉下来，拳皇系列那种"被打掉的血先欠着"的经典效果
+    setTimeout(function(){
+      if(pChip) pChip.style.width=(pHp/FIGHT_MAX_HP*100)+'%';
+      if(oChip) oChip.style.width=(oHp/FIGHT_MAX_HP*100)+'%';
+    }, 260);
+  }
+  var powFill=document.getElementById('fightPlayerPow');
+  if(powFill){
+    var pct=Math.min(100,fight.pow);
+    powFill.style.width=pct+'%';
+    powFill.classList.toggle('fight-pow-full', fight.pow>=FIGHT_POW_MAX);
+  }
+  fightUpdateButtons();
+}
+function fightShowDmgPopup(side,dmg){
+  var box=document.getElementById(side==='player'?'fightPlayerBox':'fightOppBox');
+  if(!box) return;
+  var pop=document.createElement('div');
+  pop.className='fight-dmg-pop';
+  pop.textContent='-'+dmg;
+  box.appendChild(pop);
+  setTimeout(function(){ if(pop.parentNode) pop.parentNode.removeChild(pop); }, 760);
+}
+function fightPlayHitEffect(side){
+  var box=document.getElementById(side==='player'?'fightPlayerBox':'fightOppBox');
+  var stage=document.getElementById('fightStage');
+  if(box){
+    box.classList.remove('fight-hit');
+    void box.offsetWidth; // 强制reflow，保证同一side连续两次受击都能重新触发动画
+    box.classList.add('fight-hit');
+    setTimeout(function(){ box.classList.remove('fight-hit'); }, 300);
+  }
+  if(stage){
+    stage.classList.remove('fight-arena-shake');
+    void stage.offsetWidth;
+    stage.classList.add('fight-arena-shake');
+    setTimeout(function(){ stage.classList.remove('fight-arena-shake'); }, 320);
+  }
+}
+function fightPlayLunge(side,cb){
+  var box=document.getElementById(side==='player'?'fightPlayerBox':'fightOppBox');
+  if(box){
+    box.classList.add('fight-lunge');
+    setTimeout(function(){
+      box.classList.remove('fight-lunge');
+      if(cb) cb();
+    }, 260);
+  } else if(cb) cb();
+}
+function fightStartTimer(){
+  fightStopTimer();
+  fightUpdateTimeText();
+  fight.timer=setInterval(function(){
+    if(!fight || fight.over){ fightStopTimer(); return; }
+    fight.timeLeft--;
+    fightUpdateTimeText();
+    if(fight.timeLeft<=0){
+      fightStopTimer();
+      if(fight.playerHp===fight.oppHp) fightEndRound('draw');
+      else fightEndRound(fight.playerHp>fight.oppHp?'win':'lose');
+    }
+  }, 1000);
+}
+function fightStopTimer(){
+  if(fight && fight.timer){ clearInterval(fight.timer); fight.timer=null; }
+}
+function fightUpdateTimeText(){
+  var el=document.getElementById('fightTimeText');
+  if(el && fight) el.textContent='⏱️ '+Math.max(0,fight.timeLeft)+'s';
+}
+function fightPlayerAttack(kind){
+  if(!fight || fight.busy || fight.over) return;
+  var dmgRange, powGain, lines;
+  if(kind==='special'){
+    if(fight.pow<FIGHT_POW_MAX) return;
+    dmgRange=FIGHT_SPECIAL_DMG; powGain=0; fight.pow=0;
+  } else if(kind==='kick'){
+    dmgRange=FIGHT_KICK_DMG; powGain=FIGHT_KICK_POW_GAIN;
+  } else {
+    dmgRange=FIGHT_PUNCH_DMG; powGain=FIGHT_PUNCH_POW_GAIN;
+  }
+  fight.busy=true;
+  fightSetBusy(true);
+  var dmg=fightRandInt(dmgRange[0],dmgRange[1]);
+  fightPlayLunge('player', function(){
+    if(!fight) return;
+    fight.oppHp=Math.max(0,fight.oppHp-dmg);
+    if(powGain) fight.pow=Math.min(FIGHT_POW_MAX,fight.pow+powGain);
+    fightPlayHitEffect('opp');
+    fightShowDmgPopup('opp',dmg);
+    fightUpdateBars(false);
+    var moveLabel=kind==='special'?L('⚡必杀技','⚡ Special'):(kind==='kick'?L('🦵一记重腿','🦵 Heavy kick'):L('👊一记直拳','👊 Quick punch'));
+    fightLog(L('🧒 我方'+moveLabel+'命中！对手掉了'+dmg+'血','🧒 You landed '+moveLabel+'! Opponent -'+dmg+' HP'));
+    if(fight.oppHp<=0){
+      setTimeout(function(){ fightEndRound('win'); }, 450);
+      return;
+    }
+    setTimeout(function(){ fightOpponentAttack(); }, 650);
+  });
+}
+function fightOpponentAttack(){
+  if(!fight || fight.over) return;
+  var roll=Math.random();
+  var kind, dmgRange;
+  if(roll<0.15){ kind='special'; dmgRange=FIGHT_OPP_SPECIAL_DMG; }
+  else if(roll<0.55){ kind='kick'; dmgRange=FIGHT_OPP_KICK_DMG; }
+  else { kind='punch'; dmgRange=FIGHT_OPP_PUNCH_DMG; }
+  var dmg=fightRandInt(dmgRange[0],dmgRange[1]);
+  fightPlayLunge('opp', function(){
+    if(!fight) return;
+    fight.playerHp=Math.max(0,fight.playerHp-dmg);
+    fightPlayHitEffect('player');
+    fightShowDmgPopup('player',dmg);
+    fightUpdateBars(false);
+    var moveLabel=kind==='special'?L('⚡必杀技','⚡ special'):(kind==='kick'?L('🦵重腿','🦵 kick'):L('👊直拳','👊 punch'));
+    fightLog(L('🤖 对手用'+moveLabel+'反击，我方掉了'+dmg+'血','🤖 Opponent countered with '+moveLabel+'! You -'+dmg+' HP'));
+    if(fight.playerHp<=0){
+      setTimeout(function(){ fightEndRound('lose'); }, 450);
+      return;
+    }
+    fight.busy=false;
+    fightSetBusy(false);
+  });
+}
+function fightEndRound(result){
+  if(!fight || fight.over) return;
+  fight.over=true;
+  fightStopTimer();
+  fightSetBusy(true);
+  var titleEl=document.getElementById('fightResultTitle');
+  var resWrap=document.getElementById('fightResultWrap');
+  var bannerText, titleText, titleColor;
+  if(result==='win'){ bannerText='K.O.!'; titleText=L('🎉 你赢了！','🎉 You Win!'); titleColor='#2e7d32'; }
+  else if(result==='lose'){ bannerText='K.O.!'; titleText=L('😵 可惜，输了～再来一局试试！','😵 You Lose~ Try again!'); titleColor='#ad1457'; }
+  else { bannerText=L('时间到!','TIME UP!'); titleText=L('🤝 打成平手！','🤝 Draw!'); titleColor='#7b1fa2'; }
+  fightShowBanner(bannerText, function(){
+    if(titleEl){ titleEl.textContent=titleText; titleEl.style.color=titleColor; }
+    if(resWrap) resWrap.style.display='block';
+  });
+}
 function poseFor(state, opts){
   opts=opts||{};
   var pet=currentPetType();
@@ -2881,8 +3306,10 @@ function syncPetImmersive(){
     var arT=document.getElementById('abilityRadarToggle');
     if(arT) arT.style.display='none';
     closeAbilityRadarPanel();
-    var dgT=document.getElementById('dungeonEntryBtn');
+    var dgT=document.getElementById('battleEntryBtn');
     if(dgT) dgT.style.display='none';
+    var bmM=document.getElementById('battleMenuModal');
+    if(bmM) bmM.classList.remove('show');
     var eqT=document.getElementById('equipEntryBtn');
     if(eqT) eqT.style.display='none';
     var aucT=document.getElementById('auctionEntryBtn');
@@ -3907,6 +4334,8 @@ var I18N_EN = {
   wheel_pity_hint: 'Hover or tap the meter to see how many more spins until a guaranteed jackpot',
   wheel_history_title_prefix: '📜 Today\'s Spin History (',
   wheel_history_title_suffix: ' entries, resets daily)',
+  battle_menu_title: '⚔️ Battle Hub',
+  battle_menu_desc: 'Pick the battle mode you want to play',
   checkin_settings_title: '📅 Today\'s Settings',
   checkin_mode_label: 'Check-in Mode',
   btn_morning: 'Morning',
@@ -37422,7 +37851,7 @@ function currentChild(){ return store.accounts[store.currentChildId]; }
 
 /* ========== 页面切换 ========== */
 function showPage(name){
-  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage','profile','allowance'].forEach(function(p){
+  ['home','pet','wheel','shop','bag','board','visit','weekly','cottage','profile','allowance','fight'].forEach(function(p){
     var el=document.getElementById('page-'+p);
     el.classList.toggle('active', p===name);
   });
@@ -38076,39 +38505,73 @@ function evaluateAbilityNeglectOnRollover(oldDay){
    （金币还没还回来）或者正处在"预警期"（streak=1，明天再不打卡就要开始被没收了），就会一直显示，
    不会因为关掉弹窗/切换页面就看不到提醒，逼着小朋友真的去补打卡，而不是看一眼弹窗、关掉就忘了。
    这里也是"捣乱倒计时"真正常驻展示的地方——不管有没有已经触发，都能看到"还有几天会…"。 */
+var abilityMischiefBannerExpanded=false; // 不进存档，纯前端临时UI状态，跟wheelHistoryOpen同一个思路
+function toggleAbilityMischiefBanner(){
+  abilityMischiefBannerExpanded=!abilityMischiefBannerExpanded;
+  renderAbilityMischiefBanner();
+}
+function abilityMischiefDimCardHtml(dim,hidden,streaks,dimToCat){
+  var label=abilityNeglectDimLabel(dim);
+  var amt=hidden[dim]||0;
+  var streak=streaks[dim]||0;
+  var level=abilityNeglectLevelOf(streak);
+  var daysToNext=abilityNeglectDaysToNextLevel(streak);
+  var cat=dimToCat[dim]||'sport';
+  var bg = level>=3 ? '#ffebee' : (level>=1 ? '#fff3e0' : '#fff8e1'); // 等级越高背景越偏"警示红"，预警期是浅黄
+  var color = level>=3 ? '#c62828' : (level>=1 ? '#9a6b00' : '#8d6e00');
+  var lineText;
+  if(level>=1){
+    var countdownText=daysToNext!=null
+      ? L('还有<b>'+daysToNext+'天</b>会升级','escalates in <b>'+daysToNext+' day(s)</b>')
+      : L('已经满级','already at max level');
+    lineText='😈 '+L('「'+label+'」没收/乱花了你 <b>'+amt+'</b> 金币（<b>Lv.'+level+'</b>，'+countdownText+'）','['+label+'] - <b>'+amt+'</b> coins confiscated/wasted (<b>Lv.'+level+'</b>, '+countdownText+')');
+  }else{
+    // 预警期（streak===1，level还是0）：还没真正扣钱，只是倒计时提醒
+    lineText='⚠️ '+L('「'+label+'」已经1天没打卡，'+(daysToNext!=null?('明天再不打卡就要被没收金币啦（还有<b>'+daysToNext+'天</b>）'):'再不打卡要被没收金币啦'),'['+label+'] skipped for 1 day - '+(daysToNext!=null?('coins will be confiscated if not done soon (<b>'+daysToNext+' day(s)</b>)'):'coins will be confiscated if not done soon'));
+  }
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:'+bg+';color:'+color+';border-radius:10px;padding:5px 9px;margin:2px 0;font-size:12px">'
+    +'<span>'+lineText+'</span>'
+    +'<button class="btn btn-gray btn-sm" style="padding:2px 8px;font-size:11px" onclick="showPage(\'home\');showCheckinCategory(\''+cat+'\')">'+L('去打卡','Check in')+'</button>'
+    +'</div>';
+}
+/* 2026-10修复：家长反馈"同时好几项能力被捣乱时，这一块卡片越摞越高，会把下面宠物身上的
+   喂养/互动区域挡住"——原来是每个被影响的维度各占一整张卡片、没有高度上限地往下摞。
+   只有1个维度被影响时还是摊开显示完整的那张卡片（不会有遮挡风险，直接看最清楚）；
+   2个及以上维度同时被影响时，收起成一行可点击的汇总条（跟"今日抽奖记录"那个展开/收起是
+   同一个交互习惯），默认收起，点一下才展开完整列表，并且展开后的列表本身也带了
+   max-height+滚动条上限，这样不管同时捣乱几项能力，这一块的占屏高度都是可控的，
+   不会再无限制地往下长、挡住宠物和喂养按钮。 */
 function renderAbilityMischiefBanner(){
   var box=document.getElementById('abilityMischiefBanner');
   if(!box) return;
   var hidden=(state.abilityMischiefHidden && typeof state.abilityMischiefHidden==='object') ? state.abilityMischiefHidden : {};
   var streaks=(state.abilityNeglectStreak && typeof state.abilityNeglectStreak==='object') ? state.abilityNeglectStreak : {};
   var dims=ABILITY_TAG_DIMS.filter(function(dim){ return (hidden[dim]||0)>0 || (streaks[dim]||0)>0; });
-  if(!dims.length){ box.style.display='none'; box.innerHTML=''; return; }
+  if(!dims.length){ box.style.display='none'; box.innerHTML=''; abilityMischiefBannerExpanded=false; return; }
   var dimToCat={sport:'sport',study:'study',house:'house',music:'fun',empathy:'diary',creativity:'custom'};
   box.style.display='block';
-  box.innerHTML=dims.map(function(dim){
-    var label=abilityNeglectDimLabel(dim);
-    var amt=hidden[dim]||0;
-    var streak=streaks[dim]||0;
-    var level=abilityNeglectLevelOf(streak);
-    var daysToNext=abilityNeglectDaysToNextLevel(streak);
-    var cat=dimToCat[dim]||'sport';
-    var bg = level>=3 ? '#ffebee' : (level>=1 ? '#fff3e0' : '#fff8e1'); // 等级越高背景越偏"警示红"，预警期是浅黄
-    var color = level>=3 ? '#c62828' : (level>=1 ? '#9a6b00' : '#8d6e00');
-    var lineText;
-    if(level>=1){
-      var countdownText=daysToNext!=null
-        ? L('还有<b>'+daysToNext+'天</b>会升级','escalates in <b>'+daysToNext+' day(s)</b>')
-        : L('已经满级','already at max level');
-      lineText='😈 '+L('「'+label+'」没收/乱花了你 <b>'+amt+'</b> 金币（<b>Lv.'+level+'</b>，'+countdownText+'）','['+label+'] - <b>'+amt+'</b> coins confiscated/wasted (<b>Lv.'+level+'</b>, '+countdownText+')');
-    }else{
-      // 预警期（streak===1，level还是0）：还没真正扣钱，只是倒计时提醒
-      lineText='⚠️ '+L('「'+label+'」已经1天没打卡，'+(daysToNext!=null?('明天再不打卡就要被没收金币啦（还有<b>'+daysToNext+'天</b>）'):'再不打卡要被没收金币啦'),'['+label+'] skipped for 1 day - '+(daysToNext!=null?('coins will be confiscated if not done soon (<b>'+daysToNext+' day(s)</b>)'):'coins will be confiscated if not done soon'));
-    }
-    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:'+bg+';color:'+color+';border-radius:10px;padding:5px 9px;margin:2px 0;font-size:12px">'
-      +'<span>'+lineText+'</span>'
-      +'<button class="btn btn-gray btn-sm" style="padding:2px 8px;font-size:11px" onclick="showPage(\'home\');showCheckinCategory(\''+cat+'\')">'+L('去打卡','Check in')+'</button>'
+  if(dims.length<=1){
+    // 只有1项被影响：没有"越摞越高"的风险，直接摊开显示，信息最直接
+    box.innerHTML=dims.map(function(dim){ return abilityMischiefDimCardHtml(dim,hidden,streaks,dimToCat); }).join('');
+    return;
+  }
+  var totalHidden=dims.reduce(function(sum,d){ return sum+(hidden[d]||0); },0);
+  var maxLevel=dims.reduce(function(m,d){ return Math.max(m,abilityNeglectLevelOf(streaks[d]||0)); },0);
+  var sumBg = maxLevel>=3 ? '#ffebee' : (maxLevel>=1 ? '#fff3e0' : '#fff8e1');
+  var sumColor = maxLevel>=3 ? '#c62828' : (maxLevel>=1 ? '#9a6b00' : '#8d6e00');
+  var summaryText = totalHidden>0
+    ? L(dims.length+'项能力被捣蛋了（最高<b>Lv.'+maxLevel+'</b>，共没收<b>'+totalHidden+'</b>金币）', dims.length+' abilities got mischief (up to <b>Lv.'+maxLevel+'</b>, <b>'+totalHidden+'</b> coins confiscated)')
+    : L(dims.length+'项能力明天再不打卡就要被捣蛋啦', dims.length+' abilities will get mischief if not checked in soon');
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;background:'+sumBg+';color:'+sumColor+';border-radius:10px;padding:5px 9px;cursor:pointer" onclick="toggleAbilityMischiefBanner()">'
+    +'<span>😈 '+summaryText+'</span>'
+    +'<span style="flex-shrink:0">'+(abilityMischiefBannerExpanded?'▲':'▼')+'</span>'
+    +'</div>';
+  if(abilityMischiefBannerExpanded){
+    html+='<div style="max-height:150px;overflow-y:auto;margin-top:2px">'
+      + dims.map(function(dim){ return abilityMischiefDimCardHtml(dim,hidden,streaks,dimToCat); }).join('')
       +'</div>';
-  }).join('');
+  }
+  box.innerHTML=html;
 }
 var OFFLINE_EVENT_MIN_HOURS=0.5; // 2026-09：从2小时改成半小时——离线只要够半小时，一上线就会有描述"宠物做了什么"的提示，让小朋友更有惦记着要上线看看的动力
 /* 2026-09新增："金币攒太多"会让宠物乱花钱的概率大幅提高——注意这个机制是按"账号金币余额"判定的，
@@ -40378,26 +40841,63 @@ function dungeonPetBattleStats(level){
   return { hpMax:hpMax, dmgMin:Math.round(dmgBase*0.82), dmgMax:Math.round(dmgBase*1.18) };
 }
 function renderDungeonEntry(){
-  // 2026-09起：入口按钮改由 dungeon2（新版"投入+概率结算"副本）驱动，老的回合制 dungeon 永久隐藏
-  // 同时从"点🐾才展开"的互动小面板里独立出来，改成宠物界面单独常驻的悬浮按钮，点一下直接进副本，不用先展开面板；
+  // 2026-09起：入口按钮改由 dungeon2（新版"投入+概率结算"副本）驱动，老的回合制 dungeon 永久隐藏，
+  // 同时从"点🐾才展开"的互动小面板里独立出来，改成宠物界面单独常驻的悬浮按钮；
   // 跟能力雷达按钮同一个规矩——只在"宠物"这个专门页面显示，切到打卡/棋盘/商店等其它页面时收起来，
   // 不然会跟那些页面自己的内容重叠、挡住东西
-  var btn=document.getElementById('dungeonEntryBtn');
+  // 2026-10再更新：这颗按钮不再是"副本挑战"专属入口了——后来又加了PK挑战、宠物格斗挑战，
+  // 如果每个都单独占一个悬浮按钮，宠物页面会被挤得到处都是圆圈按钮。现在统一改成"对战乐园"入口，
+  // 点一下弹出小菜单，三个打架相关的玩法从这一个按钮里选，函数名字没改(renderDungeonEntry)是为了
+  // 少改几处调用点，但它现在管的是#battleEntryBtn这颗综合入口按钮，不只是副本挑战了
+  var btn=document.getElementById('battleEntryBtn');
   if(!btn) return;
   btn.style.display=(state.pet&&state.pet.chosen&&pageActive('pet'))?'flex':'none';
-  if(!CONFIG.dungeon2Enabled){
-    btn.style.opacity=.35;
-    btn.innerHTML='🔒';
-    btn.title='副本挑战（暂时关闭，维护中）';
-    return;
-  }
   var pet=state.pet;
   var hatched=pet&&pet.chosen&&pet.hatched;
   btn.style.opacity=hatched?1:.45;
-  var cnt=(state.day&&state.day.dungeon2&&state.day.dungeon2.count)||0;
+  var cnt=(CONFIG.dungeon2Enabled && state.day && state.day.dungeon2 && state.day.dungeon2.count)||0;
   btn.innerHTML='⚔️'+(cnt>0?('<span class="care-badge show">'+cnt+'</span>'):'');
-  btn.title=cnt>0?('副本挑战（今日已挑战 '+cnt+' 次）'):'副本挑战';
+  btn.title=L('对战乐园：副本挑战 / PK挑战 / 宠物格斗挑战','Battle Hub: Dungeon / PK / Pet Fight');
   renderEquipEntryBtn(); // 2026-09新增：装备面板入口，跟副本按钮同一个显示规则（只在宠物页出现），顺路一起刷新
+}
+/* 2026-10新增："对战乐园"统一入口的小菜单——点开悬浮按钮弹出来，把副本挑战/PK挑战/宠物格斗挑战
+   三个打架相关玩法集中在一起选，点完直接关掉菜单去对应功能，不用再找好几个分散的按钮 */
+function openBattleMenu(){
+  if(!(state.pet&&state.pet.chosen)){
+    alert(L('先孵化/选择一只宠物，才能开始对战玩法哦～','Hatch or choose a pet first before you can battle!'));
+    return;
+  }
+  renderBattleMenuBody();
+  showModal('battleMenuModal');
+}
+function renderBattleMenuBody(){
+  var body=document.getElementById('battleMenuBody');
+  if(!body) return;
+  var cnt=(CONFIG.dungeon2Enabled && state.day && state.day.dungeon2 && state.day.dungeon2.count)||0;
+  var dungeonExtra=cnt>0 ? L('（今日已挑战 '+cnt+' 次）',' (today: '+cnt+')') : '';
+  var dungeonLocked=!CONFIG.dungeon2Enabled;
+  body.innerHTML=''
+    +'<button class="btn btn-primary btn-block" style="margin-bottom:8px" onclick="battleMenuGoDungeon()"'+(dungeonLocked?' disabled':'')+'>🗺️ '
+      +(dungeonLocked?L('副本挑战（暂时关闭，维护中）','Dungeon Challenge (temporarily closed)'):L('副本挑战','Dungeon Challenge')+dungeonExtra)
+      +'</button>'
+    +'<button class="btn btn-danger btn-block" style="margin-bottom:8px" onclick="battleMenuGoPk()">⚔️ '+L('PK挑战（去好友家发起）','PK Challenge (start from a friend\'s page)')+'</button>'
+    +'<button class="btn btn-gray btn-block" onclick="battleMenuGoFight()">🥊 '+L('宠物格斗挑战','Pet Fight Challenge')+'</button>'
+    +'<div class="small" style="margin-top:8px;color:#999;text-align:center">'+L('🥊宠物格斗挑战是纯好玩的小游戏，不影响金币/排行榜/宠物真实数值哦','🥊 Pet Fight is just for fun - it won\'t affect coins, leaderboards, or your pet\'s real stats')+'</div>';
+}
+function battleMenuGoDungeon(){
+  if(!CONFIG.dungeon2Enabled) return;
+  hideModal('battleMenuModal');
+  petQuickAction('openDungeon2');
+}
+function battleMenuGoPk(){
+  hideModal('battleMenuModal');
+  showPage('visit');
+  try{ renderFriendList(); closeVisitDetail(); markPkInboxRead(); }catch(e){}
+  ttsToast(L('去好友家里找TA，点进详情页就能发起PK挑战啦～','Visit a friend and open their profile to start a PK challenge~'),3200);
+}
+function battleMenuGoFight(){
+  hideModal('battleMenuModal');
+  openFightGame();
 }
 /* 2026-09新增：装备面板悬浮入口，跟能力雷达/副本挑战按钮同一排规矩——只在"宠物"页显示 */
 function renderEquipEntryBtn(){
