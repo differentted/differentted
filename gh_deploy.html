@@ -750,6 +750,22 @@ body.pet-fs-active #wechatWarnBar{display:none !important}
 .dg-mon-img.lunge-l{animation:dgLungeL .3s}
 @keyframes dgLungeR{0%{transform:translateX(0)}45%{transform:translateX(24px) scale(1.06)}100%{transform:translateX(0)}}
 @keyframes dgLungeL{0%{transform:translateX(0)}45%{transform:translateX(-24px) scale(1.06)}100%{transform:translateX(0)}}
+/* 2026-10新增：秘境/BOSS副本"两只宠物一起上场"——槛位2（队友宠物）的图片/血条卡/装饰默认display:none，
+   只有真的凑够两只能战斗的宠物时，JS才会给.dg-field加上.dual这个类，下面几条.dg-field.dual专用规则
+   才会生效、把槛位0挪个位置、显示槛位1。不加.dual的时候（没有队友或队友没法出战），.dg-pet-img/
+   .dg-hpcard-pet/.dg-pet-acc这几个原有选择器的表现跟以前一模一样——老的单宠物副本和"好友对战"口令
+   功能画面完全不受影响，这是保证零回归的关键 */
+.dg-pet-img2{display:none;position:absolute;bottom:12px;left:16px;width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 6px 6px rgba(0,0,0,.32));transition:transform .12s,filter .2s}
+.dg-hpcard-pet2{display:none;position:absolute;bottom:9px;right:9px;background:rgba(255,255,255,.94);border-radius:10px;padding:6px 9px;width:128px;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.dg-pet-acc2{display:none;position:absolute;left:56px;bottom:104px;font-size:22px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+.dg-pet-acc2.show{display:block}
+.dg-field.dual .dg-pet-img{bottom:98px;left:10px;width:76px;height:76px}
+.dg-field.dual .dg-pet-img2{display:block;bottom:10px;left:10px;width:76px;height:76px}
+.dg-field.dual .dg-hpcard-pet{bottom:98px;right:9px;width:112px}
+.dg-field.dual .dg-hpcard-pet2{display:block;bottom:10px;right:9px;width:112px}
+.dg-field.dual .dg-pet-acc{left:46px;bottom:172px}
+.dg-field.dual .dg-pet-acc2{display:block;left:46px;bottom:84px}
+.dg-pet-img.down,.dg-pet-img2.down{filter:grayscale(1);opacity:.42}
 .dg-dmgfloat{position:absolute;transform:translate(-50%,-50%);font-size:18px;font-weight:800;color:#ff5252;text-shadow:0 1px 2px rgba(0,0,0,.35),0 0 4px #fff;pointer-events:none;z-index:21;white-space:nowrap;animation:dgDmgRise .75s ease-out forwards}
 .dg-dmgfloat.crit{font-size:24px;color:#ff9100;text-shadow:0 1px 3px rgba(0,0,0,.4),0 0 8px #fff176}
 @keyframes dgDmgRise{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}18%{opacity:1;transform:translate(-50%,-62%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-140%) scale(1)}}
@@ -1824,14 +1840,24 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
           <div class="progress-wrap"><div class="progress-bar pink" id="dgPetHpBar" style="width:100%"></div></div>
           <div class="val" id="dgPetHpVal">0/0</div>
         </div>
+        <!-- 2026-10新增：秘境/BOSS副本"两只宠物一起上场"的队友槛位——默认隐藏（见CSS .dg-hpcard-pet2等），
+             只有真的凑够两只能战斗的宠物时，startDungeon2Battle才会给.dg-field加.dual类显示出来，
+             不影响老的单宠物副本和"好友对战"口令功能画面 -->
+        <div class="dg-hpcard dg-hpcard-pet2" id="dgPet2HpCard">
+          <div class="dg-hpname" id="dgPet2Name">队友</div>
+          <div class="progress-wrap"><div class="progress-bar pink" id="dgPet2HpBar" style="width:100%"></div></div>
+          <div class="val" id="dgPet2HpVal">0/0</div>
+        </div>
         <img id="dgMonsterImg" class="dg-mon-img" src="" alt="怪物">
         <img id="dgPetImg" class="dg-pet-img" src="" alt="我方">
+        <img id="dgPet2Img" class="dg-pet-img2" src="" alt="队友">
         <div id="dgPetAccBadge" class="dg-pet-acc"></div>
+        <div id="dgPet2AccBadge" class="dg-pet-acc2"></div>
       </div>
       <div id="dgLog" class="dg-log"></div>
       <div id="dgBtnRow" style="display:flex;gap:8px;justify-content:center;margin-top:10px">
-        <button class="btn btn-primary" id="dgAttackBtn" onclick="dungeonAttack()">👊 攻击</button>
-        <button class="btn btn-warning" id="dgSpecialBtn" onclick="dungeonSpecial()" style="display:none">✨ 必杀技</button>
+        <button class="btn btn-primary" id="dgAttackBtn" onclick="dgOnAttackClick()">👊 攻击</button>
+        <button class="btn btn-warning" id="dgSpecialBtn" onclick="dgOnSpecialClick()" style="display:none">✨ 必杀技</button>
       </div>
       <div id="dgResultBox" style="display:none;margin-top:10px"></div>
     </div>
@@ -5311,23 +5337,47 @@ function petInjuryStatus(){
   var remainHours=Math.max(0,limit-elapsed);
   return {remainHours:remainHours, severity:pet.injurySeverity||'light', limitHours:limit};
 }
+// 2026-10新增：秘境/BOSS副本现在两只宠物会真的一起上场战斗，受伤有可能发生在"队友"宠物身上
+// （不是当前切换器选中的state.pet）——如果小红点/提示气泡只看petInjuryStatus()（只认state.pet），
+// 队友宠物受伤会完全看不到任何提示，容易悄悄拖到"伤心变回蛋"。这里新增一个单独的"扫描全部宠物"
+// 版本，只给下面renderPetInjuryBadge/showPetInjuryTip这两个纯提醒用的地方用；商城买药相关的
+// petInjuryStatus()本身保持不变——买药本来就只能治当前切换器选中的那只，不应该被这个改动影响。
+function anyPetInjuryStatus(){
+  var best=petInjuryStatus(), bestPet=state.pet;
+  if(state.pets && state.pets.length){
+    state.pets.forEach(function(p){
+      if(!p||p===state.pet||!p.chosen||!p.hatched||!p.injured||!p.injuredAt) return;
+      var limit=petInjuryLimitHours(p);
+      var elapsed=Math.max(0,(Date.now()-p.injuredAt)/3600000);
+      var st={remainHours:Math.max(0,limit-elapsed), severity:p.injurySeverity||'light', limitHours:limit};
+      // 重伤优先于轻伤展示；同等级（都重伤或都轻伤）时，剩余时间更紧急（更少）的优先展示
+      if(!best || (st.severity==='severe'&&best.severity!=='severe') || (st.severity===best.severity && st.remainHours<best.remainHours)){
+        best=st; bestPet=p;
+      }
+    });
+  }
+  if(best) best.petName=(bestPet&&bestPet!==state.pet)?bestPet.name:null;
+  return best;
+}
 function renderPetInjuryBadge(){
   var badge=document.getElementById('petInjuryBadge');
   if(!badge) return;
-  var st=petInjuryStatus();
+  var st=anyPetInjuryStatus();
   if(!st){ badge.style.display='none'; hidePetInjuryTip(); return; }
   badge.style.display='block';
-  badge.innerText=(st.severity==='severe'?L('🚨 重伤·','🚨 Severe Injury · '):L('🤕 受伤·','🤕 Injured · '))+formatRemainHours(st.remainHours);
+  var who=st.petName?(st.petName+' '):'';
+  badge.innerText=who+(st.severity==='severe'?L('🚨 重伤·','🚨 Severe Injury · '):L('🤕 受伤·','🤕 Injured · '))+formatRemainHours(st.remainHours);
 }
 var petInjuryTipAutoHideTimer=null;
 function showPetInjuryTip(){
   var tip=document.getElementById('petInjuryTip');
   if(!tip) return;
-  var st=petInjuryStatus();
+  var st=anyPetInjuryStatus();
   if(!st) return;
-  var line1 = st.severity==='severe'
+  var who=st.petName?(escapeAttr(st.petName)+' '):'';
+  var line1 = who+(st.severity==='severe'
     ? (L('🚨 重伤！还剩 ','🚨 Severe Injury! ')+formatRemainHours(st.remainHours)+L('，必须买【高级特效药】，不然会伤心地变回蛋……',' left — you must buy [Premium Medicine], or it will sadly turn back into an egg...'))
-    : (L('还剩 ','Remaining: ')+formatRemainHours(st.remainHours)+L('，没治好会伤心地变回蛋……',' — if not healed in time, it will sadly turn back into an egg...'));
+    : (L('还剩 ','Remaining: ')+formatRemainHours(st.remainHours)+L('，没治好会伤心地变回蛋……',' — if not healed in time, it will sadly turn back into an egg...')));
   tip.innerHTML='<div class="pnt-line1">'+line1+'</div><div class="pnt-line2">'+petInjuryPickMsg()+'</div>';
   tip.classList.add('show');
 }
@@ -61875,6 +61925,19 @@ function openDungeon(){
    （老版'dungeon'模式本来打输就没有惩罚，走一遍onEnd(false)也不会额外扣什么，不影响老逻辑）；
    要是只是点开看了一眼、还没真的出手就关掉，维持原样不算数。 */
 function closeDungeonModal(){
+  // 2026-10新增：两只宠物双战模式（dg.pets存在）——前置分支，判断"算不算已经交手过"时要同时看
+  // 两只宠物的血量+怪物血量，不能只看单宠物的dg.petHp（双战模式下这个字段根本不存在）。
+  // 下面原有的单宠物分支一个字都不改，双战模式走完这里就直接return，不会往下执行到。
+  if(dg && dg.pets){
+    if(!dg.ended){
+      var dualEngaged=(dg.monsterHp<dg.monsterHpMax) || dg.pets.some(function(p){ return p.hp<p.hpMax; });
+      if(dualEngaged && typeof dg.onEnd==='function') dg.onEnd(false);
+    }
+    dgResetDualVisuals();
+    hideModal('dungeonModal');
+    dg=null;
+    return;
+  }
   if(dg && !dg.ended){
     var engaged=(dg.petHp<dg.petHpMax) || (dg.monsterHp<dg.monsterHpMax);
     if(engaged && typeof dg.onEnd==='function') dg.onEnd(false);
@@ -61882,6 +61945,11 @@ function closeDungeonModal(){
   hideModal('dungeonModal');
   dg=null;
 }
+// 2026-10新增：攻击/必杀技按钮现在是共用的（单宠物副本/好友对战口令/双宠物副本都用同一组按钮），
+// 这两个函数只是个小小的分发器——按当前dg是不是双宠物模式，转去调用对应的函数；dg.pets不存在时
+// 原样调用原来的dungeonAttack/dungeonSpecial，这两个老函数本身一个字都不改。
+function dgOnAttackClick(){ if(dg&&dg.pets) dungeon2AttackDual(); else dungeonAttack(); }
+function dgOnSpecialClick(){ if(dg&&dg.pets) dungeon2SpecialDual(); else dungeonSpecial(); }
 function switchDungeonTab(tab){
   var isDungeon=tab!=='pvp';
   document.getElementById('dungeonListView').style.display=isDungeon?'block':'none';
@@ -62144,6 +62212,17 @@ function backToDungeonList(){
    就能拿满 +20% 胜率；宠物数量不够就按比例打折（比如推荐4只、只有2只，就只能拿到一半 +10%）。
    只看"养了几只"，不需要真的换上场战斗——出战动画依然只用当前这一只宠物，凑数量代表的是
    "家底厚不厚"，不是要重做多宠物同屏作战的战斗画面。 */
+// 2026-10新增：秘境/BOSS副本"两只宠物一起上场真打"——找一个可以当"队友"一起出战的宠物：
+// 不是当前切换器选中的那只(state.pet)，自己已经破壳、没在受伤。找不到就返回null，调用的地方
+// 会自动退回成跟以前完全一样的单宠物战斗。固定取第一个符合条件的（宠物最多6只，不需要额外排序）。
+function findDungeonCompanionPet(){
+  if(!state.pets) return null;
+  for(var i=0;i<state.pets.length;i++){
+    var p=state.pets[i];
+    if(p && p!==state.pet && p.chosen && p.hatched && !p.injured) return p;
+  }
+  return null;
+}
 function dungeon2TeamBonus(petsReq){
   var reqd=petsReq||1;
   var owned=0;
@@ -62153,8 +62232,15 @@ function dungeon2TeamBonus(petsReq){
       if(p && p.chosen && p.hatched) owned++;
     }
   }
-  var ratio=Math.min(1, owned/reqd);
-  return { bonus: ratio*0.20, owned: owned, reqd: reqd };
+  // 2026-10fix：两只宠物现在是真的一起上场战斗了（不再只是"养着"），这里"家底厚"的胜率加成
+  // 只应该算在"没有上场战斗"的那些宠物身上——不然两只已经在真刀真枪打的宠物，会在这里又重复
+  // 吃一次胜率加成，等于同一份战力被算了两遍。能凑够几只真正出战（findDungeonCompanionPet()
+  // 能找到队友时是2只，否则是1只）就从owned里先扣掉，再按比例算加成；owned本身原样返回，
+  // 给UI展示"家里一共养了几只"用，不受这个扣减影响。
+  var combatants=findDungeonCompanionPet()?2:1;
+  var effectiveOwned=Math.max(0, owned-combatants);
+  var ratio=Math.min(1, effectiveOwned/reqd);
+  return { bonus: ratio*0.20, owned: owned, reqd: reqd, effectiveOwned: effectiveOwned };
 }
 function dungeon2WinProb(tier, level, courageScore){
   var team=dungeon2TeamBonus(tier.petsReq);
@@ -62209,7 +62295,10 @@ function renderDungeon2List(){
     var tier=CONFIG.dungeon2[i];
     var pct=Math.round(dungeon2WinProb(tier, info.level, courageScore)*100);
     var team=dungeon2TeamBonus(tier.petsReq);
-    var teamOk=team.owned>=team.reqd;
+    // 2026-10fix：teamOk/差距现在要按"没上场战斗的宠物数"(effectiveOwned)来判断，不能再用养了几只
+    // 的家底数(owned)——否则"两只都上场真打"的家庭会被误报"胜率加成已满"，其实已经被这两只上场的
+    // 宠物抵掉了，实际加成是0。
+    var teamOk=team.effectiveOwned>=team.reqd;
     // 2026-09fix：以前不管仓位够不够，永远只提示"还差N只才能拿满加成"，容易误导——如果当前仓位上限
     // （petSlotCapacity()，需要先刷够困难/英雄副本次数才能解锁更多）本身就小于这一关推荐的宠物数，
     // 孩子/家长看提示会以为直接去孵蛋/领养就行，结果一点"领养"就被canAddAnotherPet()拦下，
@@ -62230,7 +62319,7 @@ function renderDungeon2List(){
       +'<div class="dc-info">'
         +'<div class="dc-name">'+(cleared?'✅ ':'')+L(tier.name,tier.nameEn||tier.name)+'（'+L(tier.monster,tier.monsterEn||tier.monster)+'）</div>'
         +'<div class="dc-desc">'+L('预计胜率 ','Est. win rate ')+pct+'%'+(info.level<tier.lvReq?L('　·　推荐Lv'+tier.lvReq+'以上再来，等级不够会更容易失败','  ·  Recommended Lv'+tier.lvReq+'+, too low a level makes this harder to win'):'')+(firstTry?L('　·　首次挑战失败不扣东西','  ·  First attempt has no penalty on a loss'):'')
-          +'<br>🐾'+L('推荐同行 '+team.reqd+' 只宠物（当前已养 '+team.owned+' 只，'+(teamOk?'胜率加成已满':(slotLimited?'仓位目前最多养'+slotCap+'只，'+petSlotUnlockHint():'还差 '+(team.reqd-team.owned)+' 只才能拿满胜率加成'))+'）','Recommended party: '+team.reqd+' pet(s) (currently have '+team.owned+', '+(teamOk?'bonus already maxed':(slotLimited?'slots currently cap at '+slotCap+', '+petSlotUnlockHint():'need '+(team.reqd-team.owned)+' more for the full bonus'))+')')
+          +'<br>🐾'+L('推荐同行 '+team.reqd+' 只宠物（当前已养 '+team.owned+' 只，'+(teamOk?'胜率加成已满':(slotLimited?'仓位目前最多养'+slotCap+'只，'+petSlotUnlockHint():'还差 '+(team.reqd-team.effectiveOwned)+' 只才能拿满胜率加成'))+(team.owned>=2?'　·　现在已经能叫一只队友一起上场真打～':'')+'）','Recommended party: '+team.reqd+' pet(s) (currently have '+team.owned+', '+(teamOk?'bonus already maxed':(slotLimited?'slots currently cap at '+slotCap+', '+petSlotUnlockHint():'need '+(team.reqd-team.effectiveOwned)+' more for the full bonus'))+(team.owned>=2?'  ·  You can now bring a companion pet into the real fight~':'')+')')
           +'<br>'+L('胜利：'+tier.coinMin+'~'+tier.coinMax+'金币 + '+matNames+(cleared?'（装饰「'+tier.accessory.name+'」已获得）':'　首通额外送 '+tier.accessory.emoji+tier.accessory.name),'Reward: '+tier.coinMin+'~'+tier.coinMax+' coins + '+matNamesEn+(cleared?' (decoration \u300c'+(tier.accessory.nameEn||tier.accessory.name)+'\u300d already obtained)':'  first clear also gives '+tier.accessory.emoji+(tier.accessory.nameEn||tier.accessory.name)))+'</div>'
         +(clearedToday?'<div class="dc-desc" style="color:#66bb6a;font-weight:700">'+L('🎉 今日已通关，明天再来挑战～','🎉 Cleared today, come back tomorrow~')+'</div>':'')
       +'</div>'
@@ -62289,6 +62378,14 @@ function startDungeon2Battle(idx){
   // 现在只在这里算出"这次算不算首次挑战"（用来决定这一场万一打输了要不要豁免），真正把"已挑战过+
   // 今日挑战次数+1"落盘，挪到 dungeonEnd2() 里——确认战斗真的分出胜负那一刻才算数。
   var firstTry=!pet.dungeon2Tried[idx];
+  // 2026-10新增：先看看凑不凑得出一只队友宠物一起上场——凑得出就转去走全新的双宠物战斗流程
+  // （startDungeon2BattleDual），下面原来这一整套单宠物流程一个字都不改、原样保留，凑不出
+  // 队友（比如只孵化了一只，或另一只正在受伤/还是蛋）时继续原样执行，画面和数值跟以前完全一样。
+  var companion=findDungeonCompanionPet();
+  if(companion){
+    startDungeon2BattleDual(idx, baseSt, rewardSt, pet, companion, winProb, info, courageScore, firstTry);
+    return;
+  }
   dg={ idx:idx, stage:stage2, petHp:stats.hpMax, petHpMax:stats.hpMax, dmgMin:scaledDmgMin, dmgMax:scaledDmgMax,
        monsterHp:baseSt.hp, monsterHpMax:baseSt.hp, combo:0, busy:false, ended:false, mode:'dungeon2', onEnd:dungeonEnd2, firstTry:firstTry };
   closeDungeon2Modal();
@@ -62405,7 +62502,261 @@ function dungeonEnd2(win){
   save();
   render();
 }
+/* ========================================================================
+   2026-10新增：秘境/BOSS副本"两只宠物真正一起上场战斗"——不碰上面任何一个已有的共享函数
+   （dungeonAttack/dungeonSpecial/dungeonMonsterCounter/dungeonEnd2这几个一个字都没改，
+   "好友对战"口令功能、老版单宠物副本继续原样调用它们），这里新建一整套平行函数，只有
+   startDungeon2Battle()凑够两只能战斗的宠物时才会被用到。
+   ======================================================================== */
+// 离开双宠物战斗画面（关闭弹窗 / 点"好的"返回列表）时，把.dg-field上的.dual类和两只宠物图片上
+// 可能残留的"倒下"灰色效果清理掉——不然下一次打老的单宠物副本/好友对战口令功能（复用同一套
+// #dungeonModal/.dg-field DOM），画面会带着上一场双战的痕迹一起冒出来。
+function dgResetDualVisuals(){
+  var field=document.querySelector('.dg-field');
+  if(field) field.classList.remove('dual');
+  var img1=document.getElementById('dgPetImg'), img2=document.getElementById('dgPet2Img');
+  if(img1) img1.classList.remove('down');
+  if(img2) img2.classList.remove('down');
+}
+function startDungeon2BattleDual(idx, baseSt, rewardSt, pet, companion, winProb, info, courageScore, firstTry){
+  var mul=dungeon2DifficultyMul(winProb);
+  var stats=dungeonPetBattleStats(info.level);
+  var eb=petEquipBonus(pet, state);
+  var dmgMin1=Math.max(1,Math.round(stats.dmgMin*mul.pet)+eb.atk);
+  var dmgMax1=Math.max(dmgMin1,Math.round(stats.dmgMax*mul.pet)+eb.atk);
+  var info2=petLevelInfo(companion);
+  var stats2=dungeonPetBattleStats(info2.level);
+  var eb2=petEquipBonus(companion, state);
+  var dmgMin2=Math.max(1,Math.round(stats2.dmgMin*mul.pet)+eb2.atk);
+  var dmgMax2=Math.max(dmgMin2,Math.round(stats2.dmgMax*mul.pet)+eb2.atk);
+  var stage2={}; for(var k in baseSt) stage2[k]=baseSt[k]; // 浅拷贝，不改动 CONFIG.dungeon 原始数据
+  // 2026-10新增：双宠物模式下，怪物反击谁就扣谁自己的防御——不能像单宠物那样提前把defMul焙进
+  // stage2.dmg（那是只认一只宠物的防御），这里只按mul.monster缩放，defMul挪到
+  // dungeon2MonsterCounterDual()命中那一刻，按实际被打中的那只宠物自己的防御现算
+  stage2.dmg=[Math.max(1,Math.round(baseSt.dmg[0]*mul.monster)), Math.max(1,Math.round(baseSt.dmg[1]*mul.monster))];
+  dg={ idx:idx, stage:stage2, monsterHp:baseSt.hp, monsterHpMax:baseSt.hp, combo:0, busy:false, ended:false,
+       mode:'dungeon2dual', onEnd:dungeon2EndDual, firstTry:firstTry,
+       pets:[
+         { pet:pet, hp:stats.hpMax, hpMax:stats.hpMax, dmgMin:dmgMin1, dmgMax:dmgMax1, def:eb.def, down:false,
+           imgId:'dgPetImg', hpBarId:'dgPetHpBar', hpValId:'dgPetHpVal', nameId:'dgPetName', accId:'dgPetAccBadge' },
+         { pet:companion, hp:stats2.hpMax, hpMax:stats2.hpMax, dmgMin:dmgMin2, dmgMax:dmgMax2, def:eb2.def, down:false,
+           imgId:'dgPet2Img', hpBarId:'dgPet2HpBar', hpValId:'dgPet2HpVal', nameId:'dgPet2Name', accId:'dgPet2AccBadge' }
+       ] };
+  closeDungeon2Modal();
+  document.getElementById('dgTabs').style.display='none';
+  document.getElementById('dungeonListView').style.display='none';
+  document.getElementById('dungeonPvpView').style.display='none';
+  document.getElementById('dungeonBattleView').style.display='block';
+  document.getElementById('dgResultBox').style.display='none';
+  document.getElementById('dgBtnRow').style.display='flex';
+  document.getElementById('dgSpecialBtn').style.display='none';
+  document.getElementById('dgAttackBtn').disabled=false;
+  document.getElementById('dgBattleTitle').innerText='⚔️ '+L(baseSt.name,baseSt.nameEn||baseSt.name)+' 👯';
+  dgResetDualVisuals();
+  document.querySelector('.dg-field').classList.add('dual');
+  dg.pets.forEach(function(slot){
+    var infoX=petLevelInfo(slot.pet);
+    var imgEl=document.getElementById(slot.imgId);
+    imgEl.src=dungeonPetArtSrc(slot.pet, infoX);
+    imgEl.style.filter=dirtyFilterFor(slot.pet.clean)||'';
+    document.getElementById(slot.nameId).innerText=slot.pet.name;
+    var accBadge=document.getElementById(slot.accId);
+    var acc=slot.pet.equippedAccessory?DUNGEON_ACC_BY_ID[slot.pet.equippedAccessory]:null;
+    if(acc){ accBadge.textContent=acc.emoji; accBadge.classList.add('show'); }
+    else{ accBadge.classList.remove('show'); }
+    dgSetBar(slot.hpBarId, slot.hpValId, slot.hp, slot.hpMax, 'pink');
+  });
+  var monImgEl=document.getElementById('dgMonsterImg');
+  monImgEl.src=dungeonMonsterArtSrc(baseSt.petKey);
+  monImgEl.style.filter=baseSt.tint||'';
+  document.getElementById('dgMonsterName').innerText=L(baseSt.monster,baseSt.monsterEn||baseSt.monster);
+  dgSetBar('dgMonsterHpBar','dgMonsterHpVal',dg.monsterHp,dg.monsterHpMax,'orange');
+  document.getElementById('dgLog').innerHTML='';
+  if(baseSt.intro) dgLog('📖 '+L(baseSt.intro,baseSt.introEn||baseSt.intro));
+  dgLog(L('👀 遇到了野生的 '+baseSt.monster+'！','👀 A wild '+L(baseSt.monster,baseSt.monsterEn||baseSt.monster)+' appears!'));
+  dgLog(L('👯 这次 '+pet.name+' 和 '+companion.name+' 要一起上场战斗啦！','👯 '+pet.name+' and '+companion.name+' are fighting together this time!'));
+  showModal('dungeonModal');
+}
+// 按一次"👊攻击"，两只还活着（没倒下）的宠物一起出手，动画错开一点先后各打一下；
+// 等两只都打完了再统一判断一次怪物是不是被打死了，避免多个setTimeout互相抢着判定的时序问题
+function dungeon2AttackDual(){
+  if(!dg||!dg.pets||dg.ended||dg.busy) return;
+  dg.busy=true;
+  document.getElementById('dgAttackBtn').disabled=true;
+  document.getElementById('dgSpecialBtn').disabled=true;
+  var living=dg.pets.filter(function(p){ return !p.down; });
+  var STAGGER=180;
+  living.forEach(function(slot,i){
+    setTimeout(function(){
+      if(!dg||dg.ended) return;
+      var dmg=dgRandDmg(slot.dmgMin,slot.dmgMax);
+      dg.monsterHp=Math.max(0,dg.monsterHp-dmg);
+      dgLunge(slot.imgId,'r');
+      setTimeout(function(){
+        dgShake('dgMonsterImg');
+        dgBurst('dgMonsterImg');
+        dgDmgFloat('dgMonsterImg',dmg);
+      },120);
+      dgLog(L('👊 '+slot.pet.name+' 发起攻击，造成 '+dmg+' 点伤害！','👊 '+slot.pet.name+' attacks for '+dmg+' damage!'));
+      dgSetBar('dgMonsterHpBar','dgMonsterHpVal',dg.monsterHp,dg.monsterHpMax,'orange');
+    }, i*STAGGER);
+  });
+  var totalDelay=Math.max(0,living.length-1)*STAGGER+120+260;
+  setTimeout(function(){
+    if(!dg||dg.ended) return;
+    dg.combo++;
+    var specialBtn=document.getElementById('dgSpecialBtn');
+    if(dg.combo>=3 && specialBtn.style.display==='none'){ specialBtn.style.display='inline-block'; }
+    if(dg.monsterHp<=0){ dg.onEnd(true); return; }
+    setTimeout(dungeon2MonsterCounterDual,400);
+  }, totalDelay);
+}
+function dungeon2SpecialDual(){
+  if(!dg||!dg.pets||dg.ended||dg.busy||dg.combo<3) return;
+  dg.busy=true;
+  document.getElementById('dgAttackBtn').disabled=true;
+  document.getElementById('dgSpecialBtn').disabled=true;
+  dg.combo=0;
+  document.getElementById('dgSpecialBtn').style.display='none';
+  dgFlash('gold');
+  var living=dg.pets.filter(function(p){ return !p.down; });
+  var STAGGER=180;
+  living.forEach(function(slot,i){
+    setTimeout(function(){
+      if(!dg||dg.ended) return;
+      var dmg=dgRandDmg(Math.round(slot.dmgMin*2.1),Math.round(slot.dmgMax*2.3));
+      dg.monsterHp=Math.max(0,dg.monsterHp-dmg);
+      dgLunge(slot.imgId,'r');
+      setTimeout(function(){
+        dgShake('dgMonsterImg');
+        dgBurst('dgMonsterImg',{big:true});
+        dgDmgFloat('dgMonsterImg',dmg,{crit:true});
+      },140);
+      dgLog(L('✨ '+slot.pet.name+' 使出必杀技，造成 '+dmg+' 点大伤害！','✨ '+slot.pet.name+' unleashes a special move for '+dmg+' massive damage!'));
+      dgSetBar('dgMonsterHpBar','dgMonsterHpVal',dg.monsterHp,dg.monsterHpMax,'orange');
+    }, i*STAGGER);
+  });
+  var totalDelay=Math.max(0,living.length-1)*STAGGER+140+280;
+  setTimeout(function(){
+    if(!dg||dg.ended) return;
+    if(dg.monsterHp<=0){ dg.onEnd(true); return; }
+    setTimeout(dungeon2MonsterCounterDual,440);
+  }, totalDelay);
+}
+// 怪物每回合依然只反击一下（不会因为我方多一只就打两下）——随机挑一个还活着的宠物当目标，
+// 这样"多一只攻击"才是真正的增益，不会被"怪物也多打一下"抵消掉；血量到0就标记"倒下"，
+// 之后不再出手、也不会再被选中当目标，但只有两只都倒下才算输
+function dungeon2MonsterCounterDual(){
+  if(!dg||!dg.pets) return;
+  var living=dg.pets.filter(function(p){ return !p.down; });
+  if(!living.length){ dg.busy=false; return; } // 理论上不会走到这里——两只都倒下时应该已经在攻击阶段判负了，这里只是兜底
+  var target=living[Math.floor(Math.random()*living.length)];
+  var st=dg.stage;
+  var dmgRaw=dgRandDmg(st.dmg[0],st.dmg[1]);
+  var defMul=equipDefReduceMul(target.def);
+  var dmg=Math.max(1,Math.round(dmgRaw*defMul));
+  target.hp=Math.max(0,target.hp-dmg);
+  dgLunge('dgMonsterImg','l');
+  setTimeout(function(){
+    dgShake(target.imgId);
+    dgBurst(target.imgId);
+    dgDmgFloat(target.imgId,dmg);
+  },120);
+  dgLog(L('💢 '+st.monster+' 反击 '+target.pet.name+'，造成 '+dmg+' 点伤害！','💢 '+L(st.monster,st.monsterEn||st.monster)+' counterattacks '+target.pet.name+' for '+dmg+' damage!'));
+  dgSetBar(target.hpBarId,target.hpValId,target.hp,target.hpMax,'pink');
+  if(target.hp<=0){
+    target.down=true;
+    var img=document.getElementById(target.imgId);
+    if(img) img.classList.add('down');
+    dgLog(L('😢 '+target.pet.name+' 倒下了！','😢 '+target.pet.name+' went down!'));
+    var stillAlive=dg.pets.some(function(p){ return !p.down; });
+    if(!stillAlive){ setTimeout(function(){ dg.onEnd(false); },380); return; }
+  }
+  dg.busy=false;
+  document.getElementById('dgAttackBtn').disabled=false;
+  document.getElementById('dgSpecialBtn').disabled=false;
+}
+function dungeon2EndDual(win){
+  if(!dg||dg.ended) return;
+  dg.ended=true;
+  document.getElementById('dgBtnRow').style.display='none';
+  var pet=state.pet, idx=dg.idx;
+  var companionSlot=dg.pets[1];
+  var companion=companionSlot?companionSlot.pet:null;
+  if(!pet.dungeon2Tried) pet.dungeon2Tried={};
+  pet.dungeon2Tried[idx]=true;
+  state.day.dungeon2.count=(state.day.dungeon2.count||0)+1;
+  renderDungeonEntry();
+  var baseSt=CONFIG.dungeon[idx], rewardSt=CONFIG.dungeon2[idx];
+  var box=document.getElementById('dgResultBox');
+  if(win){
+    var coin=dungeon2RandInt(rewardSt.coinMin,rewardSt.coinMax);
+    addCoinChange(coin, '新版副本挑战通关奖励（第'+(idx+1)+'关，队友协战）');
+    state.day.earned+=coin;
+    var mat=rewardSt.materialPool[dungeon2RandInt(0,rewardSt.materialPool.length-1)];
+    state.backpack.materials[mat.id]=(state.backpack.materials[mat.id]||0)+1;
+    var dgExp=rewardSt.exp||15;
+    gainExp(dgExp,'新版副本挑战通关奖励（第'+(idx+1)+'关，队友协战）');
+    // 2026-10新增：队友宠物也真的上场打了，一起分经验——复用已有的gainExpForPet()，跟gainExp()
+    // 本身就是调用gainExpForPet(state.pet,...)是同一套逻辑，零新增风险
+    if(companion) gainExpForPet(companion, dgExp, L('协助副本挑战通关奖励（第'+(idx+1)+'关）','Co-op dungeon clear reward (Stage '+(idx+1)+')'));
+    if(!pet.dungeon2ClearedDate) pet.dungeon2ClearedDate={};
+    pet.dungeon2ClearedDate[idx]=todayKey();
+    var firstClear=!pet.dungeon2Cleared[idx];
+    var newAcc=null;
+    if(firstClear){
+      pet.dungeon2Cleared[idx]=true;
+      if(!pet.accessories) pet.accessories=[];
+      if(pet.accessories.indexOf(rewardSt.accessory.id)<0){
+        pet.accessories.push(rewardSt.accessory.id);
+        newAcc=rewardSt.accessory;
+        if(!pet.equippedAccessory) pet.equippedAccessory=rewardSt.accessory.id;
+      }
+    }
+    gainAbilityPoint('dungeon',{highQuality:firstClear});
+    if(!state.dungeonClearCounts) state.dungeonClearCounts={hard:0,hero:0};
+    var clearTier=EQUIP_DUNGEON_TIER_BY_IDX[idx];
+    if(clearTier==='hard') state.dungeonClearCounts.hard=(state.dungeonClearCounts.hard||0)+1;
+    else if(clearTier==='hero') state.dungeonClearCounts.hero=(state.dungeonClearCounts.hero||0)+1;
+    var newEquip=tryDropEquipmentOnDungeonClear(idx);
+    var newEquipItem=newEquip?EQUIP_ITEMS[newEquip.defId]:null;
+    dgLog(L('🎉 两只宠物合力打败了 '+baseSt.monster+'！','🎉 Together, your pets defeated '+L(baseSt.monster,baseSt.monsterEn||baseSt.monster)+'!'));
+    addLog(L('🗺️新版副本挑战成功【'+baseSt.name+'】（两只宠物协战）：+'+coin+'金币，+'+dgExp+'经验，+'+mat.emoji+mat.name+(newAcc?'，获得装饰【'+newAcc.name+'】':'')+(newEquipItem?'，获得装备【'+newEquipItem.name+'】':''),'🗺️Dungeon cleared 【'+(baseSt.nameEn||baseSt.name)+'】(2-pet co-op): +'+coin+' coins, +'+dgExp+' EXP, +'+mat.emoji+(mat.nameEn||mat.name)+(newAcc?', got decoration 【'+(newAcc.nameEn||newAcc.name)+'】':'')+(newEquipItem?', got equipment 【'+(newEquipItem.nameEn||newEquipItem.name)+'】':'')));
+    box.innerHTML='<div style="font-size:15px;font-weight:700;color:#66bb6a">🎉 '+L('挑战成功！','Success!')+'</div>'
+      +'<div style="margin:6px 0">💰 '+L('获得 '+coin+' 金币','Got '+coin+' coins')+'　'+mat.emoji+' '+L('获得 '+mat.name+' ×1','Got '+(mat.nameEn||mat.name)+' x1')+'　✨ '+L('两只宠物各获得 '+dgExp+' 经验','Both pets got '+dgExp+' EXP each')
+      +(newAcc?'<br>'+newAcc.emoji+' '+L('获得新装饰【'+newAcc.name+'】，可以去衣柜给宠物戴上～','Got new decoration 【'+(newAcc.nameEn||newAcc.name)+'】, equip it from the wardrobe~'):'')
+      +(firstClear&&!newAcc?'<br>🎖️ '+L('首次通关【'+baseSt.name+'】！','First clear of 【'+(baseSt.nameEn||baseSt.name)+'】!'):'')
+      +(newEquipItem?'<br><span style="color:'+EQUIP_QUALITY_INFO[newEquipItem.quality].color+';font-weight:700">'+newEquipItem.emoji+' '+L('掉落装备【'+newEquipItem.name+'】！','Equipment dropped 【'+(newEquipItem.nameEn||newEquipItem.name)+'】!')+'</span>':'')
+      +'</div>'
+      +(newEquipItem?'<button class="btn btn-warning btn-block" style="margin-bottom:6px" onclick="hideModal(\'dungeonModal\');openEquipPanel()">🛡️ '+L('马上去装备面板穿上','Go equip it now')+'</button>':'')
+      +'<button class="btn btn-primary btn-block" onclick="backToDungeon2List()">'+L('好的！','OK!')+'</button>';
+  }else{
+    var penaltyLines=[];
+    if(!dg.firstTry){
+      dg.pets.forEach(function(slot){
+        var p=slot.pet;
+        var severeChance=(typeof rewardSt.severeChance==='number')?rewardSt.severeChance:0.2;
+        var severity=(Math.random()<severeChance)?'severe':'light';
+        p.injured=true; p.injuredAt=Date.now(); p.injurySeverity=severity;
+        penaltyLines.push(L(escapeAttr(p.name)+(severity==='severe'?' 受了重伤（1小时内要买高级特效药）':' 受伤了（3小时内要买特效药）'), escapeAttr(p.name)+(severity==='severe'?' got severely injured (buy Advanced Medicine within 1 hour)':' got injured (buy Medicine within 3 hours)')));
+      });
+      renderPetInjuryBadge();
+    }
+    var penaltyText=dg.firstTry
+      ? L('第一次挑战这里失败不会扣任何东西，多攒点经验、多练练勇气探险，再来试试！','Your first loss here has no penalty — build up more EXP and Courage, then try again!')
+      : penaltyLines.join(L('；','; '))+L('，不然都会伤心地变回蛋……',' — or they will sadly turn back into eggs...');
+    dgLog(L('😢 两只宠物都被打倒了……','😢 Both pets were defeated...'));
+    addLog(L('🗺️新版副本挑战失败【'+baseSt.name+'】（两只宠物协战）'+(dg.firstTry?'（首次豁免，无惩罚）':''),'🗺️Dungeon attempt failed 【'+(baseSt.nameEn||baseSt.name)+'】(2-pet co-op)'+(dg.firstTry?' (first try, no penalty)':'')));
+    box.innerHTML='<div style="font-size:15px;font-weight:700;color:#ef5350">😢 '+L('没有打赢……','Didn\'t win...')+'</div>'
+      +'<div style="margin:6px 0">'+penaltyText+'</div>'
+      +'<button class="btn btn-gray btn-block" onclick="backToDungeon2List()">'+L('好的','OK')+'</button>';
+  }
+  box.style.display='block';
+  save();
+  render();
+}
 function backToDungeon2List(){
+  dgResetDualVisuals();
   document.getElementById('dungeonBattleView').style.display='none';
   hideModal('dungeonModal');
   // 如果这一把打输受伤了/前置条件不满足了，不用再弹一次alert重复提醒（结算框里已经说明白了），
