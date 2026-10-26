@@ -5603,6 +5603,17 @@ function ensureStudyThemes(){
       });
     }
     if(Array.isArray(t.sentences) && Array.isArray(src.sentences)){
+      /* 2026-10新增：2200句"This is a/an X."句型全部换成了有知识点的新句子（见下方同一天的提交）——
+         但这次是"整句替换"，不是"新增句子"，而上面这套同步机制只认"新句子的英文原文没在家长存档里
+         出现过就追加"，认不出"这句话其实是在替换老内容"，于是老的"This is a pizza."这类句子
+         会一直原样留在每个已经有过存档的家庭自己的studyThemes里，永远不会被清掉——家长看到的还是
+         老句子，新句子只是被追加到了句库末尾，要等"换一批"轮到后面才会露出来，表现就是"改了却好像
+         没生效"。这里先把这种已经确认报废的占位句型过滤掉（全局THEMES里这次之后已经不会再有任何
+         "This is a/an X."这种句子了，所以可以放心整批清除，不会误删家长自己手写的正常内容），
+         再按老办法把新句子追加进去，这样已经存档过的家庭下次打开也能看到新句子，不用等很久或者
+         手动点"↩️恢复默认全部内容"。 */
+      var isOldPlaceholder=function(s){ return /^this is (a|an) [^".]+\.$/i.test(String(s.en||'').trim()); };
+      t.sentences=t.sentences.filter(function(s){ return !isOldPlaceholder(s); });
       var sSeen={};
       t.sentences.forEach(function(s){ sSeen[String(s.en).toLowerCase()]=true; });
       src.sentences.forEach(function(s){
