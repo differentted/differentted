@@ -1916,28 +1916,13 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   </div>
 </div>
 
-<!-- 检测到本机没有任何存档（很可能是刚打开了新版本/新文件，浏览器存储是跟文件路径绑定的，不是跟内容绑定的，
-     所以老版本存档不会自动带过来）时，先问一句要不要导入备份，而不是直接让"创建新档案"挡在最前面 -->
-<div class="modal-mask" id="freshDataModal">
-  <div class="modal">
-    <h3 style="text-align:center">👋 欢迎回来</h3>
-    <div class="small" style="text-align:left;margin-bottom:10px;line-height:1.7">
-      这台设备/这个文件里现在没有找到任何存档。如果这是你刚打开的新版本文件（比如从聊天软件重新下载了一次），
-      之前的小朋友档案、宠物、金币都不会自动跟过来，需要用备份手动恢复一下。<br>
-      如果有之前导出的备份，可以在下面导入；如果是第一次使用，直接点最下面"开始创建新档案"就可以了。
-    </div>
-    <div class="small" id="freshDataWechatHint" style="display:none;text-align:left;margin-bottom:10px;line-height:1.7;background:#fff6db;border:1px solid rgba(255,193,7,.55);border-radius:10px;padding:8px 10px;color:#8a5a00">
-      👀 检测到你是在<b>微信</b>里打开的：微信自带的小窗口浏览器经常会把网页存的数据悄悄清掉，导致"明明已经恢复过备份，怎么每次打开又要重新恢复一次"。<br>
-      恢复这次之后，建议点右上角「<b>···</b>」选择「<b>在浏览器打开</b>」（比如 Safari），存档才会稳定保留，不会一直反复要求恢复。
-    </div>
-    <button class="btn btn-info btn-block" onclick="document.getElementById('freshDataBackupFile').click()">📂 从备份文件恢复</button>
-    <input type="file" id="freshDataBackupFile" accept=".txt,.json,text/plain,application/json" style="display:none" onchange="importFreshDataFromFile(this)" />
-    <textarea id="freshDataImportText" rows="3" placeholder="或者把之前导出的备份文本粘贴到这里"></textarea>
-    <button class="btn btn-success btn-block" onclick="importFreshDataFromTextarea()">📋 导入这段备份文本</button>
-    <div style="margin-top:12px;border-top:1px dashed #e1bee7;padding-top:10px">
-      <button class="btn btn-gray btn-block" onclick="dismissFreshDataModalAndCreateFirstChild()">➕ 没有备份，开始创建新档案</button>
-    </div>
-  </div>
+<!-- 2026-11fix【家长要求：彻底去掉"欢迎回来/要不要导入备份"这个需要人决定的弹窗】：原来这里是一个
+     要家长自己判断"导入备份还是创建新档案"的弹窗，反馈说太打扰、不想每次都要自己做选择。现在这个决定
+     完全交给代码自己判断（见 load() 里 hasRowEverBeenUsed() 那段逻辑），家长这边只会看到下面这条
+     不需要做任何选择的安静提示——真的是全新家庭会直接跳去创建档案，老家庭则会在后台一直安静重试，
+     直到连上云端自动恢复，全程没有按钮可点、不会打断正在做的事。 -->
+<div id="quietCloudWaitingBar" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;background:rgba(40,20,55,.88);color:#fff;font-size:13px;line-height:1.6;border-radius:12px;padding:8px 16px;max-width:86%;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.25)">
+  🔄 正在连接云端、恢复你的存档，请稍候…
 </div>
 
 <!-- 家庭空间码：首次使用强制输入 / 之后可在"数据备份"里更换 -->
@@ -9378,32 +9363,34 @@ function load(){
     bgmEnabled=store.musicOn!==false;
     saveStore();
     /* 2026-09新增：本机是全新/空存储时，先去云端问一下有没有别的设备已经同步过的存档——
-       比如孩子平板本来就在用，这是家长手机第一次打开这个链接，直接就该看到跟平板一样的数据，
-       而不是走"要不要导入备份"这条老路（那是给"没有云同步"的旧场景准备的兜底）。
-       云端没有数据、请求失败/超时（比如这台设备网络也连不上supabase.co），才退回老的"导入备份/
-       新建档案"提示——不会因为这一步卡住不给任何反馈。 */
+       比如孩子平板本来就在用，这是家长手机第一次打开这个链接，直接就该看到跟平板一样的数据。
+       2026-11fix【家长要求：彻底去掉"欢迎回来/要不要导入备份"这个需要人决定的弹窗】：以前这里
+       拉不到数据就弹窗问"导入备份还是创建新档案"，家长反馈这个决定太烦人、不想每次都要自己判断
+       点哪个。但不能简单粗暴地改成"拉不到就直接创建新档案"——如果这其实是一个用了很久的老家庭，
+       只是这一次网络不好/云端暂时查不到，自动创建一个空白新档案会在家长完全不知情的情况下，
+       之后一旦有真实操作触发推送，就把云端真正的存档覆盖掉（跟"茜茜账号消失"那次事故是同一种
+       机制）。所以这里先去查一下这个家庭码对应的行"是不是真的从来没被用过"（看有没有登记记录，
+       哪怕是已经被后台"移除"过的也算用过）——确实是全新家庭，才直接进入创建第一个小朋友档案，
+       不用再多问一句（反正本来就没有东西可以导入）；如果是老家庭，绝不自动创建新档案，
+       而是安安静静地在后台持续重试，页面上只给一条不需要做任何选择的提示文字，直到连上云端
+       为止——全程不需要家长自己判断、点任何按钮。 */
     cloudPullWithRetry(2).then(function(row){
-      _cloudSyncReady=true;
       if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
-        store=row.data;
-        resetPetClocksOnAdopt(store);
-        if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
-        state=store.accounts[store.currentChildId].state||defaultState();
-        migrateState(state);
-        applyRealTimeDecay();
-        onNewDay();
-        cleanDiscounts();
-        autoBackupOnLoad();
-        saveStore();
-        try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
-        finishLoadRender();
-        markActiveNow();
+        _cloudSyncReady=true;
+        adoptCloudRowOnFreshDevice(row);
       }else{
-        // 先问一句"要不要导入备份"，而不是直接跳去创建新档案——本机存储是跟这个文件的路径/文件名绑定的，
-        // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因。
-        // 2026-11fix：走到这里说明上面cloudPullWithRetry(2)已经连着试了3次、每次间隔1.5秒都没拉到
-        // 真实数据，基本可以确定不是一次性网络抖动了，这时候才值得弹出来真的问一下
-        showModal('freshDataModal');
+        hasRowEverBeenUsed(SUPA_ROW_ID).then(function(everUsed){
+          _cloudSyncReady=true;
+          if(!everUsed){
+            openChildCreate(true); // 真的是全新家庭，第一次用，直接去创建档案，不用问
+          }else{
+            keepRetryingCloudUntilFound(); // 老家庭，云端大概率有数据，安静地持续重试，不打扰、不自动创建
+          }
+        }).catch(function(){
+          _cloudSyncReady=true;
+          // 连"是不是老用户"都没查清楚（网络更差）——保守起见，也按"老用户"处理，绝不贸然自动创建新档案
+          keepRetryingCloudUntilFound();
+        });
       }
     });
     return;
@@ -65176,39 +65163,64 @@ function importFromText(t){
     maybeShowOfflineNotice();
   }catch(e){ ttsToast('❌ 导入失败，文件或文本格式不对', 6000); }
 }
-/* ========== 首次打开/换了新版本文件时的"欢迎回来"备份恢复提示 ========== */
-function importFreshDataFromFile(input){
-  var file=input.files&&input.files[0];
-  if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(){
-    importFromText(String(reader.result));
-    finishFreshDataImportIfSucceeded();
-  };
-  reader.readAsText(file,'utf-8');
-  input.value='';
+/* 2026-11fix【家长要求：彻底去掉"欢迎回来/要不要导入备份"弹窗，换成完全不需要人决定的自动逻辑】
+   见 load() 里的调用处。这里是配套的几个辅助函数。 */
+// 本机是空存储、云端也暂时拉不到数据时，用来判断这到底是"全新家庭第一次用"还是"老家庭只是暂时连不上"：
+// 查一下这个rowId名下有没有出现过登记记录（reg:<rowId>#*）——哪怕是已经被后台"移除"打了tombstone
+// 标记的也算数，只要存在过就说明这一行真的被用过，不是全新的。查询本身失败（网络更差）时往上抛异常，
+// 交给调用方按"老用户"的保守方式处理，不能把"没查清楚"当成"是新用户"。
+function hasRowEverBeenUsed(rowId){
+  var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=like.'+encodeURIComponent('reg:'+rowId+'#*')+'&select=id&limit=1';
+  return supaFetch(url,{method:'GET',headers:supaHeaders()},7000).then(function(res){
+    if(!res.ok) throw new Error('http '+res.status);
+    return res.json();
+  }).then(function(rows){ return !!(rows && rows.length>0); });
 }
-function importFreshDataFromTextarea(){
-  var t=document.getElementById('freshDataImportText').value;
-  if(!t || !t.trim()){ ttsToast('请先粘贴备份文本，或者点上面的按钮从文件导入', 5000); return; }
-  importFromText(t);
-  finishFreshDataImportIfSucceeded();
+// 本机是全新空存储时，成功从云端拉到真实数据后的采用逻辑——首次拉取和下面"持续安静重试"成功时共用
+function adoptCloudRowOnFreshDevice(row){
+  store=row.data;
+  resetPetClocksOnAdopt(store);
+  if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
+  state=store.accounts[store.currentChildId].state||defaultState();
+  migrateState(state);
+  applyRealTimeDecay();
+  onNewDay();
+  cleanDiscounts();
+  autoBackupOnLoad();
+  saveStore();
+  try{localStorage.setItem(SUPA_LAST_SYNCED_KEY,row.updated_at);}catch(e){}
+  finishLoadRender();
+  markActiveNow();
 }
-function finishFreshDataImportIfSucceeded(){
-  if(store && store.accounts && Object.keys(store.accounts).length>0){
-    hideModal('freshDataModal');
-    showPage('home');
-  }
+function showQuietCloudWaitingState(){
+  var bar=document.getElementById('quietCloudWaitingBar');
+  if(bar) bar.style.display='block';
 }
-function dismissFreshDataModalAndCreateFirstChild(){
-  hideModal('freshDataModal');
-  openChildCreate(true);
+function hideQuietCloudWaitingState(){
+  var bar=document.getElementById('quietCloudWaitingBar');
+  if(bar) bar.style.display='none';
+}
+// 确认是老家庭、云端大概率有真实数据之后，绝不自动创建新档案——安静地每隔几秒重试一次，
+// 不出现任何需要人判断/点击的东西，连上云端那一刻自动采用数据、自己把提示条收起来
+var _quietRetryTimer=null;
+function keepRetryingCloudUntilFound(){
+  showQuietCloudWaitingState();
+  clearTimeout(_quietRetryTimer);
+  _quietRetryTimer=setTimeout(function(){
+    cloudPull().then(function(row){
+      if(row && row.data && row.data.accounts && Object.keys(row.data.accounts).length>0){
+        hideQuietCloudWaitingState();
+        adoptCloudRowOnFreshDevice(row);
+      }else{
+        keepRetryingCloudUntilFound(); // 还没连上，继续安静重试，不打扰
+      }
+    });
+  }, 8000);
 }
 
 /* 微信内置浏览器存档不稳定/缓存不及时的提示：微信小窗口浏览器不是真正独立的Safari/Chrome，
    经常会清掉网页自己存的数据，也经常缓存住旧版本页面不给更新，是"每次打开都要重新恢复备份"、
-   "改了内容但打开还是老样子"这两类反馈的最常见原因。这里做UA检测，命中就露出提示条，
-   并且在"欢迎回来/需要恢复备份"弹窗里额外补一句更具体的说明（这一刻用户最需要看到解释）。 */
+   "改了内容但打开还是老样子"这两类反馈的最常见原因。这里做UA检测，命中就露出提示条。 */
 function isWechatBrowser(){
   try{ return /MicroMessenger/i.test(navigator.userAgent||''); }catch(e){ return false; }
 }
@@ -65216,8 +65228,6 @@ function checkWechatWarnBar(){
   if(!isWechatBrowser()) return;
   var bar=document.getElementById('wechatWarnBar');
   if(bar) bar.style.display='flex';
-  var hint=document.getElementById('freshDataWechatHint');
-  if(hint) hint.style.display='block';
 }
 checkWechatWarnBar();
 
