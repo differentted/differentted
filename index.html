@@ -2024,6 +2024,19 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="document.getElementById('adminItemLedgerBox').style.display='none'">收起明细</button>
     </div>
     <h4 style="margin:14px 0 4px">👪 各家数据（查看/修复/回档用）</h4>
+    <!-- 2026-11新增：下面这个列表只会显示"登记目录(reg:)里还查得到"的家庭——如果某个家庭的登记记录
+         因为某种原因（比如管理员点过"移除"，或者登记记录本身出了问题）不在这个列表里了，单靠上面
+         的列表是完全没法查到/修复这家数据的，哪怕这家的真实存档数据其实还好好地在数据库里。
+         这里加一个"直接按家庭码/行ID查"的输入框，不依赖登记目录，只要知道家庭码或者行ID，
+         随时都能直接查到这一行的原始数据——这正是排查"某个家庭从列表里消失了"这种事故时最需要的工具。 -->
+    <div style="background:#eef7ff;border-radius:10px;padding:8px;margin-bottom:8px">
+      <div class="small" style="margin-bottom:6px">🔎 按家庭码或行ID直接查（不依赖上面的登记列表，哪怕这家已经从列表里消失了也能查到）</div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="adminManualLookupInput" placeholder="输入家庭码，或者 fam_xxx 这种行ID" autocomplete="off" style="flex:1;min-width:0;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid #c3dcf0;font-size:14px" />
+        <button class="btn btn-info btn-sm" onclick="adminLookupRowByCodeOrId()">查看</button>
+        <button class="btn btn-warning btn-sm" onclick="adminRollbackByCodeOrId()">⏪回档</button>
+      </div>
+    </div>
     <div id="adminFamilyList" class="small">加载中…</div>
     <div id="adminFamilyEditBox" style="display:none;margin-top:10px;border-top:1px dashed #e1bee7;padding-top:10px">
       <div class="small" style="font-weight:600" id="adminFamilyEditLabel"></div>
@@ -7393,6 +7406,51 @@ function adminRollbackFamilyToYesterday(rowId,namesLabel){
     ttsToast('❌ 没连上云端，回档没成功，检查网络再试一次', 5000);
   });
 }
+/* 2026-11新增：配合上面"按家庭码/行ID直接查"的输入框——不依赖reg:登记目录，专门用来排查
+   "某个家庭从列表里消失了，但数据库里那一行到底有没有东西"这种情况。不管输入的是家庭码还是行ID，
+   都试着查一下：先直接当行ID查，查到了有accounts字段的数据就直接显示；查不到/不像账户数据，
+   再当成家庭码去解析出对应的行ID，解析成功也直接显示那一行的数据 */
+// 共用的解析逻辑：输入可能是家庭码，也可能是行ID，统一解析成一个确定的rowId（解析不出来就是null）
+function resolveManualLookupRowId(raw){
+  return fetchRowData(raw).then(function(row){
+    if(row && row.data && row.data.accounts && typeof row.data.accounts==='object'){
+      return raw; // 直接当行ID就查到了看起来正常的账户数据
+    }
+    var code=normalizeFamilyCode(raw);
+    return checkFamilyCodeApproved(code).then(function(rowId){
+      if(rowId) return rowId;
+      if(row) return raw; // 行本身确实存在，只是data结构不是预期的账户数据——仍然当作有效行ID返回
+      return null;
+    }).catch(function(){ return row?raw:null; });
+  }).catch(function(){ return null; });
+}
+function adminLookupRowByCodeOrId(){
+  var input=document.getElementById('adminManualLookupInput');
+  var raw=(input&&input.value||'').trim();
+  if(!raw){ ttsToast('请先输入家庭码或者行ID', 4000); return; }
+  resolveManualLookupRowId(raw).then(function(rowId){
+    if(!rowId){ ttsToast('❌ 没查到——这既不是一个有数据的行ID，也不是一个已经批准过的家庭码，确认一下有没有输入错', 6000); return; }
+    if(rowId!==raw) ttsToast('ℹ️ 这个家庭码对应的行ID是：'+rowId, 5000);
+    adminViewFamilyData(rowId);
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，查询失败，检查网络再试一次', 5000);
+  });
+}
+// 2026-11新增：配合上面的手动查找框，补一个不依赖登记列表也能用的"回档至前一天"入口——
+// 原来的回档按钮挂在"各家数据"列表每一行上，一旦这家的登记记录从列表里消失，就彻底点不到这个按钮了，
+// 这正是这次排查"茜茜账号消失"事故时发现的缺口。逻辑完全复用adminRollbackFamilyToYesterday，
+// 只是rowId的来源换成手动输入+解析，namesLabel就直接用rowId本身顶替（没有注册目录里的姓名可用）
+function adminRollbackByCodeOrId(){
+  var input=document.getElementById('adminManualLookupInput');
+  var raw=(input&&input.value||'').trim();
+  if(!raw){ ttsToast('请先输入家庭码或者行ID', 4000); return; }
+  resolveManualLookupRowId(raw).then(function(rowId){
+    if(!rowId){ ttsToast('❌ 没查到对应的行——确认一下家庭码/行ID有没有输入错', 6000); return; }
+    adminRollbackFamilyToYesterday(rowId, rowId);
+  }).catch(function(){
+    ttsToast('❌ 没连上云端，查询失败，检查网络再试一次', 5000);
+  });
+}
 function adminViewFamilyData(rowId){
   fetchRowData(rowId).then(function(row){
     _adminEditingRowId=rowId;
@@ -9057,10 +9115,60 @@ function cloudPull(){
     .then(function(rows){ return (rows&&rows[0])?rows[0]:null; })
     .catch(function(){ return null; });
 }
+// 2026-11新增：家长反馈"欢迎回来/要不要导入备份"这个弹窗出现得太频繁、每次还要自己判断该点哪个
+// 选项——绝大多数情况下根本不是真的没有数据，只是这一次cloudPull()恰好网络慢/抖了一下没拉到。
+// 这里在"本机是全新空存储"这一条路径上，拉不到数据时不再立刻就认输弹窗问人，而是安静地自动多试
+// 几次（间隔1.5秒），真金白银地给网络多一点时间——只有连试3次都真的拉不到，才退回弹窗这条路，
+// 这种情况下才值得真的让人决定"导入备份"还是"创建新档案"，不会再因为一次性的网络小抖动就打扰人 */
+function cloudPullWithRetry(retriesLeft){
+  return cloudPull().then(function(row){
+    if(row && row.data && row.data.accounts && Object.keys(row.data.accounts).length>0) return row;
+    if(retriesLeft<=0) return row;
+    return new Promise(function(resolve){
+      setTimeout(function(){ resolve(cloudPullWithRetry(retriesLeft-1)); }, 1500);
+    });
+  });
+}
 /* 推送本机存档到云端（整份JSON覆盖式upsert）。推送失败静默忽略——反正下次数据一变动还会再触发，
    不会因为这次没推成功就一直重试骚扰网络，也不会弹任何报错打扰孩子正常使用 */
 function cloudPush(){
   if(!store||!store.accounts) return;
+  // 2026-11fix【关键安全修复——"茜茜账号数据消失"事故的根本原因】：这里以前是无条件直接把本机
+  // store整份覆盖式推到云端。但有些调用路径（比如saveStore()写本机存储失败时的兜底、或者
+  // load()里"本机是全新空存储"这个分支）会在store.accounts还是空对象{}的时候就调用到这里——
+  // 典型触发场景是：某台设备本机存储写不进去（无痕/隐私模式、存储空间满、或者微信内置浏览器
+  // 这类容器本身就会清掉网页数据），每次打开都会命中这条"本机没数据"的分支，而旧代码会在还没等
+  // cloudPull()真正确认云端情况之前，就先把这份空壳store推上去，直接把云端原本好好的真实数据
+  // 整行覆盖成空的——而且这种设备往往会反复触发，不是一次性事故。
+  // 现在加一层安全闸门：只要发现本机store.accounts是空的，先去云端看一眼这一行现在是不是已经
+  // 有真实数据——如果有，坚决不覆盖（只留一条console警告，不打扰孩子正常使用，云端数据原样保留，
+  // 下次这台设备真的拉到云端数据后自然会恢复正常）；如果云端也确实是空的（比如全新家庭第一次用，
+  // 两边都没数据，覆盖无害），才正常推送。非空store完全不受影响，还是走原来"直接推"这条路，
+  // 不会多一次网络请求、不会变慢。
+  if(Object.keys(store.accounts).length===0){
+    // 这里故意不直接调用 cloudPull()——cloudPull() 查询失败时会把异常吞掉、统一当成"云端没数据"
+    // 返回 null（这对它原本的用途是对的，查不到就走"导入备份"兜底，不能卡死），但对这里的安全检查
+    // 来说恰恰相反：查不清云端现状，必须当成"有风险、不能确定"，宁可这次不推送，也不能把"网络故障"
+    // 误判成"云端确实是空的"而继续覆盖——这里自己写一遍查询，确认失败时保守地直接放弃这次推送。
+    var checkUrl=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?id=eq.'+encodeURIComponent(SUPA_ROW_ID)+'&select=data,updated_at';
+    return supaFetch(checkUrl,{method:'GET',headers:supaHeaders()},7000)
+      .then(function(res){ if(!res.ok) throw new Error('http '+res.status); return res.json(); })
+      .then(function(rows){
+        var row=(rows&&rows[0])?rows[0]:null;
+        var cloudHasRealData=row && row.data && row.data.accounts && Object.keys(row.data.accounts).length>0;
+        if(cloudHasRealData){
+          try{ console.warn('[安全拦截] 本机存档是空的，云端这一行('+SUPA_ROW_ID+')已经有真实数据，已阻止这次推送，避免覆盖云端数据'); }catch(e){}
+          return;
+        }
+        return doCloudPushNow();
+      })
+      .catch(function(){
+        try{ console.warn('[安全拦截] 本机存档是空的，但这次没能确认云端现状（可能是网络问题），保守起见先不推送，避免在看不清楚的情况下冒险覆盖'); }catch(e){}
+      });
+  }
+  return doCloudPushNow();
+}
+function doCloudPushNow(){
   var nowIso=new Date().toISOString();
   var body=JSON.stringify({id:SUPA_ROW_ID,data:store,updated_at:nowIso});
   var url=SUPA_URL+'/rest/v1/'+SUPA_TABLE+'?on_conflict=id';
@@ -9274,7 +9382,7 @@ function load(){
        而不是走"要不要导入备份"这条老路（那是给"没有云同步"的旧场景准备的兜底）。
        云端没有数据、请求失败/超时（比如这台设备网络也连不上supabase.co），才退回老的"导入备份/
        新建档案"提示——不会因为这一步卡住不给任何反馈。 */
-    cloudPull().then(function(row){
+    cloudPullWithRetry(2).then(function(row){
       _cloudSyncReady=true;
       if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
         store=row.data;
@@ -9292,7 +9400,9 @@ function load(){
         markActiveNow();
       }else{
         // 先问一句"要不要导入备份"，而不是直接跳去创建新档案——本机存储是跟这个文件的路径/文件名绑定的，
-        // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因
+        // 换了新版本文件（哪怕内容一样）就会变成全新的空存储，这是最常见的"数据突然没了"的原因。
+        // 2026-11fix：走到这里说明上面cloudPullWithRetry(2)已经连着试了3次、每次间隔1.5秒都没拉到
+        // 真实数据，基本可以确定不是一次性网络抖动了，这时候才值得弹出来真的问一下
         showModal('freshDataModal');
       }
     });
