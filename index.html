@@ -62351,9 +62351,17 @@ function dungeon2WinProb(tier, level, courageScore){
 function dungeon2RandInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; } // 注意：不能直接叫 randInt——那是"数学挑战小游戏"内嵌iframe源码里自己的同名函数，跟外层页面是两个独立作用域，外层这里拿不到
 // 2026-09update：副本挑战前置条件——今天必须先完成"背单词"和"波比跳"打卡，练好基本功才能去闯关；
 // 宠物受伤（不管轻伤重伤）期间也不能挑战，得先去商城买药治好
+// 2026-11新增：家长要求把"背句子"也加进这个前置条件里——跟"背单词"同一个学习打卡模块，
+// 完成方式/数据结构也完全一样(state.day.study.sentence)，所以这里跟word同样处理。
+// 唯一要注意的是：英文界面模式下"句子"这个学习项整个被隐藏、替换成了NAPLAN练习（纯中文内容，
+// 英文界面下根本没有可打卡的入口，见studyTaskVisible()），如果死板地一直要求sentence完成，
+// 英文模式下的孩子会被永久卡在副本门口、连打的可能都没有——所以这里跟studyTaskVisible()保持
+// 同样的判断：英文模式下改成要求完成naplan练习，中文模式下才要求句子打卡，不会两个都要。
 function dungeon2PrereqMissing(){
   var d=state.day||{};
+  var en=getUiLang()==='en';
   var studyDone=!!(d.study&&d.study.word);
+  var sentenceDone = en ? !!(d.study&&d.study.naplan) : !!(d.study&&d.study.sentence);
   // 2026-10fix：正常流程下，"今天免打卡波比跳"会由onNewDay()在新的一天开始时就把d.sport.burpee置成1，
   // 这里再加一层保险——哪怕burpee因为某种边界情况（比如用户数据是从更早版本迁移过来、这一步被跳过了）
   // 没被正确置1，只要当前真实需要做的波比跳数量(targets().burpee)已经降到0或以下（免打卡），
@@ -62361,6 +62369,7 @@ function dungeon2PrereqMissing(){
   var sportDone=!!(d.sport&&d.sport.burpee>0) || targets().burpee<=0;
   var missing=[];
   if(!studyDone) missing.push(L('📖 背单词打卡','📖 Vocabulary check-in'));
+  if(!sentenceDone) missing.push(en ? L('🇦🇺 NAPLAN练习打卡','🇦🇺 NAPLAN practice check-in') : L('📝 背句子打卡','📝 Sentence check-in'));
   if(!sportDone) missing.push(L('💪 波比跳打卡','💪 Burpees check-in'));
   return missing;
 }
