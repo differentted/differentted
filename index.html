@@ -1190,6 +1190,8 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="small" id="studySentenceLabel" style="margin:6px 0 2px" data-i18n="label_sentences">💬 句子：</div>
     <div id="studySentenceBox"></div>
     <div id="studyGate_sentence" style="margin:2px 0 8px;text-align:center"></div>
+    <!-- 2026-11新增：学完自测入口（ADHD友好：限时、一屏一题、点选作答、即时反馈），见renderSelfTestEntry() -->
+    <div id="selfTestEntry"></div>
     <!-- 2026-10新增：英文模式下取代汉字/句子的NAPLAN语言知识练习（见renderStudyAids()里的studyTaskVisible分支），
          中文模式下整组隐藏；跟word/hanzi/sentence用同一套"5个一组，换一批要先看完"的批次机制 -->
     <div class="small" id="studyNaplanLabel" style="margin:6px 0 2px">🇦🇺 NAPLAN Language Practice:</div>
@@ -34675,6 +34677,7 @@ function markStudyItemViewed(type,key){
   if(!state.day.studyViewed[type]) state.day.studyViewed[type]={};
   if(state.day.studyViewed[type][key]) return false; // 已经点开过了，不用重复记录/存档
   state.day.studyViewed[type][key]=true;
+  try{ logLearned(type,key); }catch(eLog){} // 2026-11新增：同时写进长期学习记录（不会每天清空）
   saveStore(); // 只存档，不整页重渲染（跟toggleSentenceMeaning一样，展开/收起这种小交互没必要触发整页render）
   return true;
 }
@@ -34690,9 +34693,402 @@ function toggleStudyItemBody(headEl,type,key){
     if(changed){
       var badge=headEl.querySelector('.study-viewed-badge');
       if(badge) badge.style.display='inline';
+      // 2026-11新增：第一次点开后，这一行马上换成"学过"的颜色，自测入口的数字也跟着更新
+      try{ var rowEl=headEl.parentNode; if(rowEl&&LEARN_TYPES.indexOf(type)>=0){ rowEl.style.background=(learnRowStyle(type,key).match(/background:([^;]+)/)||[])[1]||''; } renderSelfTestEntry(); }catch(eRow){}
       refreshStudyGateButton(type);
     }
   }
+}
+/* ========== 2026-11新增：学习记录 + 学完自测（针对ADHD小朋友设计） ==========
+   1) 学习记录 state.learnLog：每个单词/汉字/句子第一次点开、每天点开过几次、自测对错都记下来，
+      不会每天清空（studyViewed是"今天"的，每天会重置；learnLog是长期的）。
+      列表里按状态显示不同颜色：
+        📖 学过（浅蓝）— 以前学过，还没在自测里考过
+        🔁 要复习（浅橙）— 最近一次自测答错了
+        ⭐ 已掌握（浅绿）— 最近一次自测答对，且累计答对≥2次
+   2) 学完自测：从"今天点开学过的内容"出题，再混进几道"以前答错要复习的"，
+      ADHD友好设计：
+        - 题量少（最多8题），一屏只显示一道题，大按钮点选，不用打字
+        - 有倒计时进度条（默认3分钟，可选2/3/5分钟/不限时），剩30秒变橙色提醒，时间到温和结束，
+          没答的题不算错
+        - 开始前3秒倒数"准备好了吗"，帮助收心
+        - 每题答完马上有反馈：答对→宠物开心+连对🔥计数，自动进入下一题；
+          答错→显示正确答案，要自己点"我记住了"才继续（主动确认，加深印象）
+        - 可以暂停（倒计时停住），防止被打断后时间白白流走
+        - 每天第一次完成按答对题数奖励金币，之后可以无限重做练习（不再给金币，避免刷币）
+   3) 测验记录 state.selfTests：每次自测的时间、得分、用时、答错的内容，最近成绩用柱状图显示 */
+var LEARN_TYPES=['word','hanzi','sentence'];
+function learnLogEntry(type,key){
+  var L0=state&&state.learnLog;
+  return (L0&&L0[type]&&L0[type][key])||null;
+}
+function logLearned(type,key){
+  if(!state||LEARN_TYPES.indexOf(type)<0) return;
+  if(!state.learnLog) state.learnLog={word:{},hanzi:{},sentence:{}};
+  if(!state.learnLog[type]) state.learnLog[type]={};
+  var e=state.learnLog[type][key];
+  var today=todayKey();
+  if(!e){ e=state.learnLog[type][key]={n:0,first:today,last:'',ok:0,bad:0,lr:null}; }
+  if(e.last!==today){ e.n++; e.last=today; }
+}
+function learnStatus(type,key){
+  var e=learnLogEntry(type,key);
+  if(!e) return 'new';
+  if(e.lr===0) return 'review';
+  if(e.lr===1 && e.ok>=2) return 'mastered';
+  if(e.lr===1) return 'tested';
+  return e.first===todayKey()&&e.n<=1?'today':'learned';
+}
+function learnRowStyle(type,key){
+  var st=learnStatus(type,key);
+  if(st==='review') return 'background:#fff3e0;';
+  if(st==='mastered') return 'background:#e8f5e9;';
+  if(st==='tested') return 'background:#f1f8e9;';
+  if(st==='learned'||st==='today') return 'background:#e3f2fd;';
+  return '';
+}
+function learnTagHtml(type,key){
+  var st=learnStatus(type,key), e=learnLogEntry(type,key);
+  var tag=function(bg,fg,t){ return ' <span style="font-size:10px;background:'+bg+';color:'+fg+';border-radius:6px;padding:0 5px;white-space:nowrap">'+t+'</span>'; };
+  if(st==='review') return tag('#ffcc80','#8a4b00',L('🔁要复习','🔁 Review'));
+  if(st==='mastered') return tag('#a5d6a7','#1b5e20',L('⭐已掌握','⭐ Mastered'));
+  if(st==='tested') return tag('#c5e1a5','#33691e',L('👍答对过','👍 Correct once'));
+  if(st==='learned') return tag('#bbdefb','#0d47a1',L('📖学过'+e.n+'次','📖 Seen '+e.n+'x'));
+  if(st==='today') return tag('#bbdefb','#0d47a1',L('📖今天学的','📖 New today'));
+  return '';
+}
+function learnStats(){
+  var out={word:{all:0,mastered:0,review:0},hanzi:{all:0,mastered:0,review:0},sentence:{all:0,mastered:0,review:0}};
+  LEARN_TYPES.forEach(function(t){
+    var m=(state&&state.learnLog&&state.learnLog[t])||{};
+    Object.keys(m).forEach(function(k){
+      out[t].all++;
+      var st=learnStatus(t,k);
+      if(st==='mastered') out[t].mastered++;
+      if(st==='review') out[t].review++;
+    });
+  });
+  return out;
+}
+// 根据key在所有主题里找回原始条目（单词/汉字/句子）
+function findStudyItem(type,key){
+  var themes=activeThemes();
+  var field=type==='word'?'words':type==='hanzi'?'hanzi':'sentences';
+  for(var i=0;i<themes.length;i++){
+    var arr=themes[i][field]||[];
+    for(var j=0;j<arr.length;j++){ if(studyItemKey(type,arr[j])===key) return {item:arr[j],theme:themes[i]}; }
+  }
+  return null;
+}
+function stShuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+function stDistractors(type,field,correct,theme,n){
+  var pool=[];
+  var src=type==='word'?'words':type==='hanzi'?'hanzi':'sentences';
+  var push=function(arr){ (arr||[]).forEach(function(x){ var v=x[field]; if(v&&v!==correct&&pool.indexOf(v)<0) pool.push(v); }); };
+  push(theme&&theme[src]);
+  if(pool.length<n+2) activeThemes().forEach(function(t){ push(t[src]); });
+  return stShuffle(pool).slice(0,n);
+}
+function stMakeQuestion(type,key){
+  var f=findStudyItem(type,key); if(!f) return null;
+  var it=f.item, th=f.theme, r=Math.random();
+  if(type==='word'){
+    if(r<0.4) return {type:type,key:key,kind:'choice',prompt:L('这个单词是什么意思？','What does this word mean?'),big:it.en,speak:it.en,lang:'en-US',answer:it.cn,options:stShuffle([it.cn].concat(stDistractors('word','cn',it.cn,th,3)))};
+    if(r<0.7) return {type:type,key:key,kind:'choice',prompt:L('听一听，是哪个单词？','Listen. Which word is it?'),big:'🔊',speak:it.en,lang:'en-US',autoSpeak:true,answer:it.en,options:stShuffle([it.en].concat(stDistractors('word','en',it.en,th,3)))};
+    return {type:type,key:key,kind:'choice',prompt:L('“'+it.cn+'”用英语怎么说？','How do you say "'+it.cn+'" in English?'),big:it.cn,answer:it.en,options:stShuffle([it.en].concat(stDistractors('word','en',it.en,th,3))),speakAnswer:true,lang:'en-US'};
+  }
+  if(type==='hanzi'){
+    if(r<0.5) return {type:type,key:key,kind:'choice',prompt:'这个词怎么读？',big:it.zi,answer:it.py,options:stShuffle([it.py].concat(stDistractors('hanzi','py',it.py,th,3)))};
+    return {type:type,key:key,kind:'choice',prompt:'哪个词的意思是：“'+it.cn+'”？',big:'🤔',answer:it.zi,options:stShuffle([it.zi].concat(stDistractors('hanzi','zi',it.zi,th,3)))};
+  }
+  // sentence
+  var words=String(it.en).replace(/\s+/g,' ').trim().split(' ');
+  if(words.length>=3 && words.length<=9 && r<0.6){
+    return {type:type,key:key,kind:'order',prompt:L('按顺序点单词，拼出这句话：','Tap the words in order:'),big:it.cn,answer:it.en,tiles:stShuffle(words.map(function(w,i){return {w:w,i:i};})),speak:it.en,lang:'en-US'};
+  }
+  return {type:type,key:key,kind:'choice',prompt:L('这句话是什么意思？','What does this sentence mean?'),big:it.en,speak:it.en,lang:'en-US',answer:it.cn,options:stShuffle([it.cn].concat(stDistractors('sentence','cn',it.cn,th,2)))};
+}
+function stTodayKeys(){
+  var v=(state&&state.day&&state.day.studyViewed)||{};
+  var out=[];
+  LEARN_TYPES.forEach(function(t){ Object.keys(v[t]||{}).forEach(function(k){ out.push([t,k]); }); });
+  return out;
+}
+function stReviewKeys(){
+  var out=[];
+  LEARN_TYPES.forEach(function(t){
+    var m=(state&&state.learnLog&&state.learnLog[t])||{};
+    Object.keys(m).forEach(function(k){ if(m[k].lr===0) out.push([t,k]); });
+  });
+  return out;
+}
+function stMinutes(){ var m=store&&store.selfTestMinutes; return (typeof m==='number'&&m>=0)?m:3; }
+function setSelfTestMinutes(m){ store.selfTestMinutes=m; try{saveStore();}catch(e){} renderSelfTestIntro(); }
+
+var ST=null; // 当前这一次自测的运行状态
+function ensureSelfTestModal(){
+  if(document.getElementById('selfTestModal')) return;
+  var d=document.createElement('div');
+  d.className='modal-mask'; d.id='selfTestModal';
+  d.innerHTML='<div class="modal" style="max-width:440px;text-align:center;padding:16px 14px">'
+    +'<button class="modal-close" onclick="closeSelfTest()">✕</button>'
+    +'<div id="selfTestBody"></div></div>';
+  document.body.appendChild(d);
+}
+function openSelfTest(){
+  if(!state) return;
+  ensureSelfTestModal();
+  renderSelfTestIntro();
+  showModal('selfTestModal');
+}
+function stBody(html){ var b=document.getElementById('selfTestBody'); if(b) b.innerHTML=html; }
+function renderSelfTestIntro(){
+  var todayN=stTodayKeys().length, revN=stReviewKeys().length;
+  var m=stMinutes();
+  var btns=[2,3,5,0].map(function(x){
+    return '<button class="btn '+(x===m?'btn-primary':'btn-gray')+' btn-sm" style="flex:1" onclick="setSelfTestMinutes('+x+')">'+(x?x+L('分钟',' min'):L('不限时','No limit'))+'</button>';
+  }).join('');
+  var can=todayN+revN>=3;
+  stBody('<h3 style="margin:4px 0 6px">📝 '+L('学完自测','Self-Test')+'</h3>'
+    +'<div style="font-size:14px;line-height:1.7;color:#5e35b1">'
+    +L('今天学了 <b>'+todayN+'</b> 个内容','You learned <b>'+todayN+'</b> items today')
+    +(revN?L('，还有 <b>'+revN+'</b> 个要复习',', <b>'+revN+'</b> to review'):'')+'</div>'
+    +'<div class="small" style="margin:10px 0 4px;color:#7b1fa2">⏱️ '+L('测验时间','Time limit')+'</div>'
+    +'<div style="display:flex;gap:6px">'+btns+'</div>'
+    +'<div class="small" style="margin-top:10px;color:#888;line-height:1.6;text-align:left">'
+    +L('• 最多8道题，一次只看一道，点选答案就行<br>• 答对自动下一题，答错看一眼正确答案再继续<br>• 中途有事可以按 ⏸ 暂停','• Up to 8 questions, one at a time<br>• Correct → next automatically; wrong → see the answer first<br>• Tap ⏸ to pause anytime')+'</div>'
+    +(can?'<button class="btn btn-primary btn-block" style="margin-top:14px;font-size:18px;padding:12px" onclick="startSelfTest()">🚀 '+L('开始！','Start!')+'</button>'
+         :'<div style="margin-top:14px;padding:10px;background:#fff3e0;border-radius:10px;color:#8a4b00">'+L('先去把今天的单词/句子点开学一学（至少3个），再来自测吧～','Open and learn at least 3 words/sentences first, then come back~')+'</div>')
+    +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="renderSelfTestHistory()">📈 '+L('看测验记录和学习记录','Test history & learning record')+'</button>');
+}
+function startSelfTest(){
+  var today=stShuffle(stTodayKeys()), rev=stShuffle(stReviewKeys());
+  var picked=[], seen={};
+  var add=function(p){ var k=p[0]+'|'+p[1]; if(seen[k]) return; seen[k]=1; picked.push(p); };
+  rev.slice(0,3).forEach(add);
+  today.forEach(function(p){ if(picked.length<8) add(p); });
+  rev.forEach(function(p){ if(picked.length<8) add(p); });
+  var qs=stShuffle(picked).map(function(p){ return stMakeQuestion(p[0],p[1]); }).filter(Boolean);
+  if(!qs.length){ renderSelfTestIntro(); return; }
+  var m=stMinutes();
+  ST={qs:qs,i:0,correct:0,streak:0,best:0,wrong:[],limit:m*60,left:m*60,paused:false,timer:null,started:Date.now(),answered:0,locked:false,orderPick:[]};
+  var n=3;
+  var tick=function(){
+    if(!ST) return;
+    if(n<=0){ stRenderQ(); stStartTimer(); return; }
+    stBody('<div style="padding:30px 0"><div style="font-size:15px;color:#7b1fa2">'+L('准备好了吗？深呼吸～','Ready? Take a deep breath~')+'</div>'
+      +'<div style="font-size:64px;font-weight:800;color:#8e24aa;margin-top:10px">'+n+'</div></div>');
+    n--; setTimeout(tick,800);
+  };
+  tick();
+}
+function stStartTimer(){
+  clearInterval(ST.timer);
+  if(!ST.limit) return;
+  ST.timer=setInterval(function(){
+    if(!ST||ST.paused) return;
+    ST.left--;
+    stUpdateTimerBar();
+    if(ST.left<=0){ clearInterval(ST.timer); stFinish(true); }
+  },1000);
+}
+function stUpdateTimerBar(){
+  var bar=document.getElementById('stTimeBar'), txt=document.getElementById('stTimeTxt');
+  if(!bar||!ST||!ST.limit) return;
+  var pct=Math.max(0,ST.left/ST.limit*100);
+  bar.style.width=pct+'%';
+  bar.style.background=ST.left<=30?'#ff9800':'#ab47bc';
+  if(txt) txt.textContent=Math.floor(ST.left/60)+':'+('0'+(ST.left%60)).slice(-2);
+}
+function stHeader(){
+  var dots=ST.qs.map(function(q,i){
+    var c=i<ST.i?(q.res===1?'#66bb6a':'#ffa726'):(i===ST.i?'#8e24aa':'#e1bee7');
+    return '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin:0 2px"></span>';
+  }).join('');
+  var timer=ST.limit?'<div style="display:flex;align-items:center;gap:6px;margin:6px 26px 4px 0">'
+      +'<div style="flex:1;height:10px;background:#f3e5f5;border-radius:6px;overflow:hidden"><div id="stTimeBar" style="height:100%;width:100%;background:#ab47bc;transition:width 1s linear"></div></div>'
+      +'<span id="stTimeTxt" style="font-size:13px;color:#6a1b9a;min-width:34px">0:00</span>'
+      +'<button class="btn btn-gray btn-sm" style="padding:2px 8px" onclick="stTogglePause()">'+(ST.paused?'▶':'⏸')+'</button></div>'
+    :'<div style="margin:6px 26px 4px 0;text-align:right"><button class="btn btn-gray btn-sm" style="padding:2px 8px" onclick="stTogglePause()">'+(ST.paused?'▶':'⏸')+'</button></div>';
+  return timer+'<div style="margin:2px 0 8px">'+dots+(ST.streak>=2?' <span style="font-size:13px;color:#e65100">🔥'+L('连对'+ST.streak,ST.streak+' in a row')+'</span>':'')+'</div>';
+}
+function stTogglePause(){
+  if(!ST) return;
+  ST.paused=!ST.paused;
+  if(ST.paused){
+    stBody(stHeader()+'<div style="padding:30px 0;font-size:18px;color:#7b1fa2">⏸ '+L('暂停中，休息一下～','Paused. Take a short break~')+'</div>'
+      +'<button class="btn btn-primary btn-block" style="font-size:17px;padding:10px" onclick="stTogglePause()">▶ '+L('继续','Continue')+'</button>');
+    stUpdateTimerBar();
+  }else{ stRenderQ(); }
+}
+function stRenderQ(){
+  var q=ST.qs[ST.i]; ST.locked=false; ST.orderPick=[];
+  var html=stHeader()
+    +'<div style="font-size:14px;color:#7b1fa2;margin-bottom:6px">'+(ST.i+1)+'/'+ST.qs.length+'　'+q.prompt+'</div>'
+    +'<div style="font-size:'+(String(q.big).length>20?'17':'26')+'px;font-weight:700;color:#4a148c;margin:8px 0 12px;line-height:1.4">'+escapeAttr(q.big)
+    +(q.speak?' <button style="border:none;background:#f3e5f5;border-radius:10px;padding:2px 10px;cursor:pointer;font-size:18px" onclick="studySpeak(\''+studyEscape(q.speak)+'\',\''+q.lang+'\')">🔊</button>':'')+'</div>';
+  if(q.kind==='choice'){
+    html+=q.options.map(function(o,i){
+      return '<button class="btn btn-gray btn-block st-opt" style="font-size:16px;padding:12px 8px;margin:6px 0;white-space:normal;line-height:1.35" onclick="stAnswer('+i+',this)">'+escapeAttr(o)+'</button>';
+    }).join('');
+  }else{
+    html+='<div id="stOrderLine" style="min-height:44px;border:2px dashed #ce93d8;border-radius:10px;padding:6px;margin-bottom:8px;font-size:16px;text-align:left"></div>'
+      +'<div id="stTiles">'+q.tiles.map(function(t,i){
+        return '<button class="btn btn-gray" style="font-size:16px;padding:8px 10px;margin:4px" data-ti="'+i+'" onclick="stTapTile('+i+',this)">'+escapeAttr(t.w)+'</button>';
+      }).join('')+'</div>'
+      +'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="stUndoTile()">↩️ '+L('退一步','Undo')+'</button>';
+  }
+  html+='<div id="stFeedback" style="min-height:30px;margin-top:8px"></div>';
+  stBody(html);
+  stUpdateTimerBar();
+  if(q.autoSpeak){ try{ studySpeak(q.speak,q.lang); }catch(e){} }
+}
+function stTapTile(i,btn){
+  if(!ST||ST.locked) return;
+  var q=ST.qs[ST.i];
+  ST.orderPick.push(i); btn.style.visibility='hidden';
+  document.getElementById('stOrderLine').textContent=ST.orderPick.map(function(k){ return q.tiles[k].w; }).join(' ');
+  if(ST.orderPick.length===q.tiles.length){
+    var built=ST.orderPick.map(function(k){ return q.tiles[k].w; }).join(' ');
+    stJudge(built===q.answer.replace(/\s+/g,' ').trim());
+  }
+}
+function stUndoTile(){
+  if(!ST||ST.locked||!ST.orderPick.length) return;
+  var q=ST.qs[ST.i], k=ST.orderPick.pop();
+  var b=document.querySelector('#stTiles [data-ti="'+k+'"]'); if(b) b.style.visibility='visible';
+  document.getElementById('stOrderLine').textContent=ST.orderPick.map(function(x){ return q.tiles[x].w; }).join(' ');
+}
+function stAnswer(i,btn){
+  if(!ST||ST.locked) return;
+  var q=ST.qs[ST.i];
+  var ok=q.options[i]===q.answer;
+  Array.prototype.forEach.call(document.querySelectorAll('.st-opt'),function(b,k){
+    if(q.options[k]===q.answer){ b.style.background='#66bb6a'; b.style.color='#fff'; }
+  });
+  if(!ok){ btn.style.background='#ef9a9a'; }
+  stJudge(ok);
+}
+var ST_PRAISE_ZH=['太棒了！','答对啦！','好厉害！','真聪明！','继续保持！'];
+var ST_PRAISE_EN=['Great!','Well done!','Awesome!','Super!','Nice job!'];
+function stJudge(ok){
+  var q=ST.qs[ST.i]; ST.locked=true; q.res=ok?1:0; ST.answered++;
+  // 写进长期学习记录
+  logLearned(q.type,q.key);
+  var e=state.learnLog[q.type][q.key];
+  e.lr=ok?1:0; if(ok) e.ok++; else e.bad++;
+  var fb=document.getElementById('stFeedback');
+  if(ok){
+    ST.correct++; ST.streak++; ST.best=Math.max(ST.best,ST.streak);
+    var k=Math.floor(Math.random()*5);
+    if(fb) fb.innerHTML='<div style="font-size:20px;color:#2e7d32;font-weight:700">✅ '+L(ST_PRAISE_ZH[k],ST_PRAISE_EN[k])+(ST.streak>=3?' 🔥x'+ST.streak:'')+'</div>';
+    try{ petSay(L(ST_PRAISE_ZH[k],ST_PRAISE_EN[k]),1500); setPetAnim('happy',{duration:1500}); petHeartFx(3); }catch(e1){}
+    if(q.speakAnswer){ try{ studySpeak(q.answer,q.lang); }catch(e2){} }
+    setTimeout(stNext, q.kind==='order'?1600:1100);
+  }else{
+    ST.streak=0;
+    var wf=findStudyItem(q.type,q.key), wi=wf&&wf.item;
+    ST.wrong.push(!wi?q.key:(q.type==='hanzi'?wi.zi+' '+wi.py:(wi.en+' — '+wi.cn)));
+    if(fb) fb.innerHTML='<div style="font-size:15px;color:#e65100;margin-bottom:6px">'+L('没关系！正确答案是：','No worries! The answer is:')+'<br><b style="font-size:17px">'+escapeAttr(q.answer)+'</b></div>'
+      +'<button class="btn btn-primary btn-block" style="font-size:16px;padding:10px" onclick="stNext()">👌 '+L('我记住了','Got it')+'</button>';
+    if(q.speak||q.speakAnswer){ try{ studySpeak(q.kind==='order'||q.speakAnswer?q.answer:q.speak,q.lang); }catch(e3){} }
+  }
+  saveStore();
+}
+function stNext(){
+  if(!ST) return;
+  ST.i++;
+  if(ST.i>=ST.qs.length){ stFinish(false); return; }
+  stRenderQ();
+}
+function stFinish(timeout){
+  if(!ST) return;
+  clearInterval(ST.timer);
+  var total=ST.qs.length, used=Math.round((Date.now()-ST.started)/1000);
+  var rec={t:Date.now(),day:todayKey(),score:ST.correct,total:total,answered:ST.answered,secs:ST.limit?Math.min(used,ST.limit):used,limit:ST.limit,timeout:!!timeout,best:ST.best,wrong:ST.wrong.slice(0,10)};
+  if(!state.selfTests) state.selfTests=[];
+  state.selfTests.push(rec);
+  if(state.selfTests.length>100) state.selfTests=state.selfTests.slice(-100);
+  var coinMsg='';
+  if(!state.day.selfTestRewarded && ST.correct>0){
+    state.day.selfTestRewarded=true;
+    var coins=Math.min(8,ST.correct);
+    try{ earnCoins(coins,L('学完自测','Self-test')); coinMsg='<div style="margin-top:6px;color:#f57f17;font-size:15px">🪙 +'+coins+L(' 金币（今天第一次自测奖励）',' coins (first test today)')+'</div>'; }catch(e){}
+  }
+  saveStore();
+  var pct=Math.round(ST.correct/total*100);
+  var face=pct>=90?'🏆':pct>=70?'🌟':pct>=40?'💪':'🌱';
+  var words=pct>=90?L('超级棒！几乎全对！','Amazing! Almost perfect!'):pct>=70?L('很不错哦！','Really good!'):pct>=40?L('有进步！错的再看看就记住啦','Good effort! Review the wrong ones~'):L('慢慢来，多复习几次就会啦','Take it easy, a bit more review and you\'ll get it');
+  ST=null;
+  stBody('<div style="font-size:56px;margin-top:6px">'+face+'</div>'
+    +(timeout?'<div style="color:#e65100;font-size:14px">⏰ '+L('时间到啦！','Time\'s up!')+'</div>':'')
+    +'<div style="font-size:30px;font-weight:800;color:#6a1b9a;margin:4px 0">'+rec.score+' / '+total+'</div>'
+    +'<div style="font-size:15px;color:#7b1fa2">'+words+'</div>'
+    +'<div class="small" style="margin-top:6px;color:#888">'+L('用时 ','Time ')+Math.floor(rec.secs/60)+L('分','m ')+(rec.secs%60)+L('秒','s')+(rec.best>=2?L('　最多连对 ','　Best streak ')+rec.best:'')+'</div>'
+    +coinMsg
+    +(rec.wrong.length?'<div style="margin-top:10px;text-align:left;background:#fff3e0;border-radius:10px;padding:8px 10px;font-size:13px"><b>🔁 '+L('要复习的：','To review:')+'</b><br>'+rec.wrong.map(escapeAttr).join('<br>')+'</div>':'')
+    +'<button class="btn btn-primary btn-block" style="margin-top:12px" onclick="startSelfTest()">🔄 '+L('再测一次','Try again')+'</button>'
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="renderSelfTestHistory()">📈 '+L('看测验记录','View history')+'</button>'
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="closeSelfTest()">'+L('完成','Done')+'</button>');
+  try{ if(pct>=70){ setPetAnim('happy',{duration:2500}); petHeartFx(8); } }catch(e4){}
+}
+function closeSelfTest(){
+  if(ST){
+    clearInterval(ST.timer);
+    if(ST.answered>0){ stFinish(true); hideModal('selfTestModal'); try{renderStudyAids();}catch(e){} return; }
+    ST=null;
+  }
+  hideModal('selfTestModal');
+  try{ renderStudyAids(); }catch(e){}
+}
+function renderSelfTestHistory(){
+  var list=(state.selfTests||[]).slice().reverse();
+  var last=list.slice(0,10).reverse();
+  var bars=last.map(function(r){
+    var pct=r.total?Math.round(r.score/r.total*100):0;
+    var d=new Date(r.t);
+    return '<div style="flex:1;max-width:44px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:110px">'
+      +'<div style="font-size:10px;color:#6a1b9a">'+pct+'%</div>'
+      +'<div style="width:70%;height:'+Math.max(4,pct*0.8)+'px;background:'+(pct>=70?'#66bb6a':pct>=40?'#ffa726':'#ef9a9a')+';border-radius:4px 4px 0 0"></div>'
+      +'<div style="font-size:9px;color:#999;margin-top:2px">'+(d.getMonth()+1)+'/'+d.getDate()+'</div></div>';
+  }).join('');
+  var st=learnStats();
+  var rows=list.slice(0,30).map(function(r){
+    var d=new Date(r.t);
+    var ds=(d.getMonth()+1)+'/'+d.getDate()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    return '<div style="border-bottom:1px dashed #eee;padding:5px 0;font-size:13px;text-align:left">'
+      +'<b>'+ds+'</b>　'+L('得分','Score')+' <b style="color:#6a1b9a">'+r.score+'/'+r.total+'</b>　'+L('用时','Time')+' '+Math.floor(r.secs/60)+':'+('0'+(r.secs%60)).slice(-2)
+      +(r.timeout?' <span style="color:#e65100">⏰</span>':'')
+      +(r.wrong&&r.wrong.length?'<div style="color:#a0522d;font-size:12px">'+L('错：','Wrong: ')+r.wrong.map(escapeAttr).join('；')+'</div>':'')+'</div>';
+  }).join('')||'<div class="small" style="color:#999">'+L('还没有测验记录','No tests yet')+'</div>';
+  var reviewList=stReviewKeys().map(function(p){ var f=findStudyItem(p[0],p[1]); return f?(p[0]==='hanzi'?f.item.zi+' '+f.item.cn:(f.item.en+' — '+f.item.cn)):p[1]; });
+  stBody('<h3 style="margin:4px 0 8px">📈 '+L('测验记录','Test history')+'</h3>'
+    +(last.length?'<div style="display:flex;gap:2px;justify-content:center;align-items:flex-end;background:#faf5fc;border-radius:10px;padding:6px 4px">'+bars+'</div>':'')
+    +'<div style="margin-top:10px;text-align:left;background:#f3e5f5;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.7">'
+    +'<b>📚 '+L('学习记录','Learning record')+'</b><br>'
+    +L('单词：学过 ','Words: ')+st.word.all+L(' 个，已掌握 ',' seen, ')+st.word.mastered+L('，要复习 ',' mastered, ')+st.word.review+L('',' to review')+'<br>'
+    +L('句子：学过 ','Sentences: ')+st.sentence.all+L(' 个，已掌握 ',' seen, ')+st.sentence.mastered+L('，要复习 ',' mastered, ')+st.sentence.review+L('',' to review')+'<br>'
+    +(st.hanzi.all?('汉字词语：学过 '+st.hanzi.all+' 个，已掌握 '+st.hanzi.mastered+'，要复习 '+st.hanzi.review+'<br>'):'')
+    +'<span style="font-size:11px;color:#888">'+L('颜色说明：','Colours: ')+'<span style="background:#e3f2fd;padding:0 4px">📖'+L('学过','seen')+'</span> <span style="background:#f1f8e9;padding:0 4px">👍'+L('答对过','correct once')+'</span> <span style="background:#e8f5e9;padding:0 4px">⭐'+L('已掌握','mastered')+'</span> <span style="background:#fff3e0;padding:0 4px">🔁'+L('要复习','review')+'</span></span>'
+    +(reviewList.length?'<div style="margin-top:6px"><b>🔁 '+L('要复习的：','To review:')+'</b><br>'+reviewList.slice(0,20).map(escapeAttr).join('<br>')+'</div>':'')
+    +'</div>'
+    +'<div style="margin-top:10px;max-height:240px;overflow:auto">'+rows+'</div>'
+    +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="renderSelfTestIntro()">⬅ '+L('返回','Back')+'</button>');
+}
+function renderSelfTestEntry(){
+  var box=document.getElementById('selfTestEntry');
+  if(!box||!state) return;
+  var todayN=stTodayKeys().length, revN=stReviewKeys().length;
+  var tests=state.selfTests||[];
+  var todayTests=tests.filter(function(r){ return r.day===todayKey(); });
+  var lastT=tests[tests.length-1];
+  var info=todayTests.length
+    ?L('今天已测 '+todayTests.length+' 次，最近一次 '+lastT.score+'/'+lastT.total,'Tested '+todayTests.length+'x today, last '+lastT.score+'/'+lastT.total)
+    :(todayN>=3?L('今天学了'+todayN+'个，来测一测吧！','Learned '+todayN+' today, test yourself!'):L('先点开学几个内容，再来自测','Learn a few items first'));
+  box.innerHTML='<div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#f3e5f5,#ede7f6);border-radius:12px;padding:8px 10px;margin:6px 0 10px">'
+    +'<div style="flex:1;font-size:13px;color:#6a1b9a;line-height:1.5"><b>📝 '+L('学完自测','Self-test')+'</b>'+(revN?' <span style="font-size:11px;background:#ffcc80;color:#8a4b00;border-radius:6px;padding:0 5px">🔁'+revN+'</span>':'')+'<br><span class="small">'+info+'</span></div>'
+    +'<button class="btn btn-primary btn-sm" style="flex-shrink:0;font-size:14px;padding:8px 12px" onclick="openSelfTest()">'+(todayTests.length?L('再测','Again'):L('开始自测','Start'))+'</button>'
+    +'</div>';
 }
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
@@ -36293,6 +36689,7 @@ function updateStudyReading(themeId,field,val){
   afterStudyContentChange();
 }
 function renderStudyAids(){
+  try{ renderSelfTestEntry(); }catch(eSte){}
   var theme=dailyTheme();
   // 2026-10新增：英文UI模式下，汉字/句子/古诗这几项纯中文内容整组隐藏，换成NAPLAN英语语言知识练习；
   // 单词/日常用语保留展示但去掉"必须填中文意思才算完成"的强制小测验（改成跟句子一样纯浏览），
@@ -36320,9 +36717,9 @@ function renderStudyAids(){
       var key=studyItemKey('word',w);
       var viewed=isStudyItemViewed('word',key);
       var qkey='quiz:word:'+theme.id+':'+w.en;
-      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 6px;border-radius:8px;'+learnRowStyle('word',key)+'">'
         +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'word\',\''+studyEscape(key)+'\')">'
-        +'<span class="study-arrow">▶</span> <b>'+w.en+'</b> <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'<span class="study-arrow">▶</span> <b>'+w.en+'</b> <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'+learnTagHtml('word',key)
         +'</div>'
         +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
         +'<span style="color:#9c7ab0">'+w.ph+'</span>'
@@ -36357,9 +36754,9 @@ function renderStudyAids(){
       var key=studyItemKey('hanzi',h);
       var viewed=isStudyItemViewed('hanzi',key);
       var tkey='typecopy:hanzi:'+theme.id+':'+h.zi;
-      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 6px;border-radius:8px;'+learnRowStyle('hanzi',key)+'">'
         +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'hanzi\',\''+studyEscape(key)+'\')">'
-        +'<span class="study-arrow">▶</span> <b>'+h.zi+'</b>'+(isRequired?'':' <span class="small" style="color:#ad7bbf">（加练，非必须）</span>')+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'<span class="study-arrow">▶</span> <b>'+h.zi+'</b>'+(isRequired?'':' <span class="small" style="color:#ad7bbf">（加练，非必须）</span>')+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'+learnTagHtml('hanzi',key)
         +'</div>'
         +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
         +'<span style="color:#9c7ab0">'+h.py+'</span>'
@@ -36387,9 +36784,9 @@ function renderStudyAids(){
     sentBox.innerHTML=sentBatch.map(function(s){
       var key=studyItemKey('sentence',s);
       var viewed=isStudyItemViewed('sentence',key);
-      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 0">'
+      return '<div class="study-item-row" style="border-bottom:1px dashed #f0e1f5;padding:4px 6px;border-radius:8px;'+learnRowStyle('sentence',key)+'">'
         +'<div class="study-item-head" style="cursor:pointer;font-size:13px" onclick="toggleStudyItemBody(this,\'sentence\',\''+studyEscape(key)+'\')">'
-        +'<span class="study-arrow">▶</span> '+(s.l?'<span style="font-size:10px;color:#fff;background:#9c7ab0;border-radius:6px;padding:0 4px;margin-right:3px">L'+s.l+'</span>':'')+s.en+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'
+        +'<span class="study-arrow">▶</span> '+(s.l?'<span style="font-size:10px;color:#fff;background:#9c7ab0;border-radius:6px;padding:0 4px;margin-right:3px">L'+s.l+'</span>':'')+s.en+' <span class="study-viewed-badge" style="display:'+(viewed?'inline':'none')+';color:#2e7d32">✅</span>'+learnTagHtml('sentence',key)
         +'</div>'
         +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
         +'<button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(s.en)+'\',\'en-US\')">🔊</button>'
