@@ -2383,6 +2383,10 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
 <button class="hud-act-btn" id="battleEntryBtn" onclick="openBattleMenu()" title="对战乐园" style="display:none">⚔️</button>
 <button class="hud-act-btn" id="equipEntryBtn" onclick="petQuickAction('openEquipPanel')" title="装备面板" style="display:none">🛡️</button>
 <button class="hud-act-btn" id="auctionEntryBtn" onclick="petQuickAction('openAuctionHouse')" title="拍卖行" data-i18n-title="tt_auction_entry" style="display:none">🏛️</button>
+<!-- 2026-11新增：宠物全屏小窝模式下 #page-pet 被整个隐藏，原来放在页面里的「3D小屋」「精灵图鉴」按钮看不到，
+     这里跟拍卖行/装备/对战按钮放在同一列悬浮按钮里，显示/隐藏跟着拍卖行按钮走 -->
+<button class="hud-act-btn" id="house3dEntryBtn" onclick="openHouseBuild()" title="3D小屋" style="display:none;position:fixed;right:10px;bottom:320px;z-index:58;font-size:21px;background:linear-gradient(135deg,#b3e5fc,#b39ddb)">🏠</button>
+<button class="hud-act-btn" id="creatureEntryBtn" onclick="openCreatures()" title="精灵图鉴" style="display:none;position:fixed;right:10px;bottom:374px;z-index:58;font-size:20px;background:linear-gradient(135deg,#fff59d,#f8bbd0)">✨</button>
 <button class="hud-act-btn" id="abilityRadarToggle" onclick="toggleAbilityRadarPanel()" title="能力雷达图" data-i18n-title="ability_radar_title" style="display:none">📊</button>
 <div id="abilityRadarBackdrop" onclick="closeAbilityRadarPanel()"></div>
 <!-- 七维能力值雷达图面板：故意放在 #page-pet 外面（跟护体灵光/互动按钮等悬浮元素同一层级），
@@ -39092,6 +39096,16 @@ document.addEventListener('visibilitychange',function(){
     try{ stTogglePause(); var b=document.getElementById('selfTestBody'); if(b){ var d=document.createElement('div'); d.style.cssText='color:#e65100;font-size:14px;margin-top:8px'; d.textContent='⚠️ 考试中离开了页面（已记录 '+ST.leaves+' 次），回来后点「继续」接着考'; b.appendChild(d); } }catch(e){}
   }
 });
+
+/* 3D小屋/精灵图鉴悬浮按钮：跟拍卖行按钮同时显示/隐藏（宠物页才出现） */
+setInterval(function(){
+  try{
+    var ref=document.getElementById('auctionEntryBtn'), show=ref&&ref.style.display!=='none'&&getComputedStyle(ref).display!=='none';
+    ['house3dEntryBtn','creatureEntryBtn'].forEach(function(id){ var b=document.getElementById(id); if(b){ var want=show?'flex':'none'; if(b.style.display!==want) b.style.display=want; } });
+    var hb=document.getElementById('house3dEntryBtn');
+    if(hb&&state&&state.house3d){ var cur=hbCurrentTier(), ready=cur&&cur.parts.some(function(p){ return !state.house3d.parts[p.id]&&p.f()>=p.g; }); hb.style.boxShadow=ready?'0 0 0 3px #ffeb3b,0 3px 10px rgba(0,0,0,.24)':''; }
+  }catch(e){}
+},600);
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
