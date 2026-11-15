@@ -39473,7 +39473,10 @@ function famMakeEvent(force){
   var a=ps[Math.floor(Math.random()*ps.length)], b=null;
   if(e.two){ var rest=ps.filter(function(x){ return x!==a; }); b=rest[Math.floor(Math.random()*rest.length)]; }
   var order=e.opts.map(function(o,i){ return i; }).sort(function(){ return Math.random()-0.5; });
-  return {id:e.id,ai:a.i,bi:b?b.i:-1,an:famName(a.p),bn:b?famName(b.p):'',t:Date.now(),order:order};
+  var an=famName(a.p), bn=b?famName(b.p):'';
+  if(b&&an===bn){ var la=(PET_LIBRARY[a.p.type]||{}).name, lb=(PET_LIBRARY[b.p.type]||{}).name;
+    if(la&&lb&&la!==lb){ an=an+'（'+la+'）'; bn=bn+'（'+lb+'）'; } else { an='大'+an; bn='小'+bn; } }
+  return {id:e.id,ai:a.i,bi:b?b.i:-1,an:an,bn:bn,t:Date.now(),order:order};
 }
 function famDef(ev){ return FAM_EVENTS.filter(function(e){ return e.id===ev.id; })[0]; }
 function famPet(i){ var ps=(state.pets&&state.pets.length)?state.pets:[state.pet]; return ps[i]||null; }
@@ -40032,6 +40035,209 @@ cnRenderMathWP=function(){
   }catch(e){}
   return r;
 };
+/* ========== 2026-11新增：3D小屋 DIY 装修商店（像买车选配一样：标配 / 高配 / 豪华） ==========
+   5 个可以装修的项目：座驾、游乐场、花园、彩灯、宠物别墅。每样有高配和豪华两档，
+   越高档越漂亮、越贵（用打卡赚的金币买）。买过的可以随时换装/卸下，不用重复花钱。
+   东西都放在房子外面的空地上（不挡住屋里），建好的任何一级小屋都能装。 */
+var DIY_ITEMS=[
+  {id:'car',icon:'🚗',name:'座驾',lv:[null,{n:'可爱小汽车',d:'圆滚滚的马卡龙色小车，车灯会亮',p:200,e:'🚙'},{n:'粉色敞篷跑车',d:'金色轮毂、尾翼、发光车灯，闪闪发亮',p:800,e:'🏎️'}]},
+  {id:'play',icon:'🛝',name:'游乐场',lv:[null,{n:'秋千 + 沙坑',d:'木头秋千会轻轻晃，还有一个小沙坑',p:120,e:'🪀'},{n:'城堡滑梯 + 蹦床',d:'带尖顶的城堡滑梯、蹦床和彩旗',p:500,e:'🏰'}]},
+  {id:'garden',icon:'🌷',name:'花园',lv:[null,{n:'门前花坛',d:'房子前面种一排五颜六色的花',p:80,e:'🌼'},{n:'玫瑰拱门花园',d:'玫瑰花拱门、更多花、蝴蝶飞来飞去',p:350,e:'🌹'}]},
+  {id:'lights',icon:'💡',name:'彩灯',lv:[null,{n:'彩色串灯',d:'房檐挂一串彩色小灯泡，晚上会亮',p:60,e:'🎈'},{n:'星星灯 + 光晕',d:'金色星星灯，晚上亮晶晶有光晕',p:260,e:'🌟'}]},
+  {id:'pethouse',icon:'🐶',name:'宠物别墅',lv:[null,{n:'木头小狗屋',d:'红屋顶的小木屋，门口有软垫',p:100,e:'🛖'},{n:'双层宠物城堡',d:'两层猫爬架城堡，顶上有金皇冠',p:450,e:'👑'}]}
+];
+function diyState(){ var h=hbState(); if(!h.diy) h.diy={own:{},eq:{}}; if(!h.diy.own) h.diy.own={}; if(!h.diy.eq) h.diy.eq={}; return h.diy; }
+function diyOwns(id,lv){ return (diyState().own[id]||[]).indexOf(lv)>=0; }
+function diyMat(color,o){ o=o||{}; return new THREE.MeshStandardMaterial({color:color,roughness:o.r!=null?o.r:0.6,metalness:o.m||0,emissive:o.e||0x000000,emissiveIntensity:o.ei||1}); }
+function diyAnchors(){
+  var W=(H3.tier||3)>=2;
+  return W?{car:(H3.tier||3)>=4?[11.3,2.9,-0.9]:[8.0,1.5,-1.25],play:[10.1,-0.3,0],pet:[7.6,-0.9,-0.6],x0:-6.2,x1:6.2}
+          :{car:[1.6,1.9,-0.6],play:[3.6,-1.2,0],pet:[0.7,-1.7,-0.4],x0:-6.2,x1:-0.85};
+}
+function diyNightAnim(mats,day,night){ H3.anims.push(function(){ var v=H3.night?night:day; mats.forEach(function(m){ m.emissiveIntensity=v; }); }); }
+function diyBuildCar(g,lv,a){
+  var grp=new THREE.Group(); grp.position.set(a[0],0,a[1]); grp.rotation.y=a[2]; g.add(grp);
+  var wheelM=diyMat('#2b2b30',{r:0.6}), lamp=diyMat('#fff8e1',{e:0xfff3c4,ei:0.6});
+  if(lv===1){
+    var paint=hqM('#7fd1c8',{r:0.35,m:0.15}), paint2=hqM('#fff3e0',{r:0.4});
+    hqRB(grp,2.0,0.55,1.05,0,0.55,0,paint,0.24); hqRB(grp,1.1,0.55,0.95,-0.2,1.07,0,paint2,0.22);
+    hqRB(grp,1.12,0.38,0.97,-0.2,1.1,0,hqM('#9fd3f0',{r:0.05,m:0.3}),0.16);
+    hqRB(grp,0.06,0.18,0.9,1.0,0.6,0,hqM('#e0e0e0',{m:0.8,r:0.2}),0.03);
+  }else{
+    var pk=hqM('#ff5fa2',{r:0.2,m:0.55}), gold=hqM('#d4af37',{m:0.95,r:0.2});
+    hqRB(grp,2.5,0.42,1.15,0,0.5,0,pk,0.2); hqRB(grp,1.2,0.2,1.1,0.55,0.75,0,pk,0.12);
+    var ws=hqRB(grp,0.05,0.38,1.0,0.1,0.95,0,hqM('#bbdefb',{r:0.05,m:0.3}),0.02); ws.rotation.z=0.55;
+    hqRB(grp,0.45,0.45,0.42,-0.35,0.82,0.25,hqM('#fff8e1',{r:0.7}),0.1); hqRB(grp,0.45,0.45,0.42,-0.35,0.82,-0.25,hqM('#fff8e1',{r:0.7}),0.1);
+    hqBox(grp,0.08,0.3,0.06,-1.15,0.85,0.4,gold); hqBox(grp,0.08,0.3,0.06,-1.15,0.85,-0.4,gold); hqRB(grp,0.3,0.05,1.2,-1.18,1.02,0,pk,0.02);
+    var gl=luxGlow(grp,0,0.5,0,3.2,0xff80c0,0.12); gl.position.y=0.4;
+    H3.anims.push(function(dt,t){ grp.position.y=Math.sin(t*2)*0.01; });
+  }
+  [[0.68,0.55],[0.68,-0.55],[-0.68,0.55],[-0.68,-0.55]].forEach(function(w){
+    var wh=hqCyl(grp,0.29,0.29,0.22,w[0]*(lv===2?1.1:1),0.29,w[1]*(lv===2?1.02:1),wheelM,24); wh.rotation.x=Math.PI/2;
+    var rim=hqCyl(grp,0.15,0.15,0.24,w[0]*(lv===2?1.1:1),0.29,w[1]*(lv===2?1.02:1),lv===2?hqM('#d4af37',{m:0.95,r:0.15}):hqM('#eceff1',{m:0.7,r:0.25}),16); rim.rotation.x=Math.PI/2;
+  });
+  var L1=hqSph(grp,0.09,lv===2?1.25:1.0,0.62,0.32,lamp), L2=hqSph(grp,0.09,lv===2?1.25:1.0,0.62,-0.32,lamp);
+  diyNightAnim([lamp],0.4,2.2);
+}
+function diyBuildPlay(g,lv,a){
+  var grp=new THREE.Group(); grp.position.set(a[0],0,a[1]); g.add(grp);
+  var wood=hqM('#b07848',{r:0.7}), red=hqM('#ef5350',{r:0.5});
+  if(lv===1){
+    [[-0.9,1],[0.9,1]].forEach(function(s){ [-0.45,0.45].forEach(function(o){ var l=hqCyl(grp,0.05,0.05,2.2,s[0],1.05,o,wood,10); l.rotation.x=o>0?-0.2:0.2; }); });
+    var bar=hqCyl(grp,0.06,0.06,1.9,0,2.1,0,wood,10); bar.rotation.z=Math.PI/2;
+    var sw=new THREE.Group(); sw.position.set(0,2.1,0); grp.add(sw);
+    [-0.25,0.25].forEach(function(o){ hqCyl(sw,0.012,0.012,1.4,o,-0.7,0,hqM('#d7ccc8'),6); });
+    hqRB(sw,0.7,0.06,0.3,0,-1.42,0,red,0.03);
+    H3.anims.push(function(dt,t){ sw.rotation.x=Math.sin(t*1.6)*0.35; });
+    hqRB(grp,1.3,0.18,1.0,0,0.09,1.3,wood,0.04);
+    var sand=new THREE.Mesh(new THREE.PlaneGeometry(1.1,0.8),hqM('#f2d49b',{r:1})); sand.rotation.x=-Math.PI/2; sand.position.set(0,0.17,1.3); grp.add(sand);
+    hqSph(grp,0.12,0.25,0.2,1.2,hqM('#42a5f5',{r:0.4})); hqCyl(grp,0.08,0.12,0.18,-0.25,0.25,1.4,hqM('#ffca28',{r:0.4}),12);
+  }else{
+    var st=hqM('#f8bbd0',{r:0.6}), roof=hqM('#7e57c2',{r:0.4});
+    hqRB(grp,1.2,1.6,1.2,-0.5,0.8,-0.3,st,0.06);
+    for(var c=0;c<4;c++){ hqBox(grp,0.25,0.25,0.25,-0.95+c*0.3,1.73,0.17,st); hqBox(grp,0.25,0.25,0.25,-0.95+c*0.3,1.73,-0.77,st); }
+    var cone=new THREE.Mesh(new THREE.ConeGeometry(0.55,1.0,24),roof); cone.position.set(-0.5,2.4,-0.3); cone.castShadow=true; grp.add(cone);
+    hqCyl(grp,0.015,0.015,0.6,-0.5,3.1,-0.3,hqM('#5d4037'),6); var fl=hqBox(grp,0.4,0.25,0.02,-0.3,3.25,-0.3,hqM('#ffeb3b',{r:0.5}));
+    var sl=hqRB(grp,0.6,0.07,2.0,0.55,0.85,-0.3,hqM('#4dd0e1',{r:0.25}),0.03); sl.rotation.z=-0.55; sl.rotation.y=Math.PI/2;
+    var tr=hqCyl(grp,0.8,0.8,0.08,0.3,0.42,1.45,hqM('#263238',{r:0.8}),32);
+    var rim=new THREE.Mesh(new THREE.TorusGeometry(0.82,0.07,10,40),hqM('#29b6f6',{r:0.4})); rim.rotation.x=Math.PI/2; rim.position.set(0.3,0.45,1.45); grp.add(rim);
+    for(var k=0;k<6;k++){ var a2=k/6*Math.PI*2; hqCyl(grp,0.03,0.03,0.42,0.3+Math.cos(a2)*0.78,0.21,1.45+Math.sin(a2)*0.78,hqM('#90a4ae',{m:0.6}),6); }
+    var cols=['#ef5350','#ffca28','#66bb6a','#42a5f5','#ab47bc'];
+    for(var f=0;f<9;f++){ var tri=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.22,3),hqM(cols[f%5],{r:0.6})); tri.rotation.x=Math.PI; tri.position.set(-0.5+Math.cos(f/9*Math.PI)*0.1-0.0+f*0.14-0.6,2.0-Math.sin(f/8*Math.PI)*0.25,0.6); grp.add(tri); }
+    var ballM=hqM('#ff7043',{r:0.4}), ball=hqSph(grp,0.16,0.3,0.7,1.45,ballM);
+    H3.anims.push(function(dt,t){ ball.position.y=0.62+Math.abs(Math.sin(t*3))*0.7; });
+  }
+}
+function diyBuildGarden(g,lv,an){
+  var cols=['#ff80ab','#ffeb3b','#ba68c8','#ff7043','#4fc3f7','#f06292','#fff176'], i=0;
+  for(var x=an.x0+0.4;x<=an.x1-0.3;x+=lv===2?0.32:0.45){
+    if((H3.tier||3)>=4&&x>-4.6&&x<-2.8) continue;
+    hqFlower(g,x,3.42,cols[i%cols.length]); if(lv===2) hqFlower(g,x+0.16,3.62,cols[(i+3)%cols.length]); i++;
+  }
+  var soil=hqM('#795548',{r:1}); hqBox(g,an.x1-an.x0-0.4,0.06,lv===2?0.55:0.3,(an.x0+an.x1)/2,0.03,lv===2?3.52:3.42,soil);
+  if(lv===2){
+    var arch=new THREE.Group(); arch.position.set(-7.0,0,1.2); arch.rotation.y=Math.PI/2; g.add(arch);
+    var wM=hqM('#ffffff',{r:0.5});
+    [-0.78,0.78].forEach(function(o){ hqCyl(arch,0.05,0.05,1.9,o,0.95,0,wM,8); });
+    var top=new THREE.Mesh(new THREE.TorusGeometry(0.78,0.05,8,30,Math.PI),wM); top.position.set(0,1.9,0); arch.add(top);
+    var rose=['#e91e63','#ff4081','#f8bbd0','#ffffff'];
+    for(var r=0;r<26;r++){ var t=r/25*Math.PI, px, py; if(r<6){ px=-0.78; py=0.4+r*0.27; } else if(r>19){ px=0.78; py=0.4+(25-r)*0.27; } else { var aa=(r-6)/13*Math.PI; px=-Math.cos(aa)*0.78; py=1.9+Math.sin(aa)*0.78; }
+      hqSph(arch,0.08,px,py,(r%2?0.05:-0.05),hqM(rose[r%4],{r:0.6})); if(r%3===0) hqSph(arch,0.07,px+0.05,py+0.05,0.08,hqM('#43a047',{r:0.8})); }
+    var flyM=['#ffb300','#e040fb','#40c4ff'].map(function(c){ return new THREE.MeshStandardMaterial({color:c,side:THREE.DoubleSide,roughness:0.5}); });
+    var bfs=[]; for(var b=0;b<5;b++){ var bf=new THREE.Group(); var w1=new THREE.Mesh(new THREE.CircleGeometry(0.09,10),flyM[b%3]), w2=w1.clone(); w1.position.x=-0.07; w2.position.x=0.07; bf.add(w1); bf.add(w2); g.add(bf); bfs.push({g:bf,w1:w1,w2:w2,cx:an.x0+1+b*((an.x1-an.x0-2)/4),ph:b*1.3}); }
+    H3.anims.push(function(dt,t){ bfs.forEach(function(q){ q.g.position.set(q.cx+Math.sin(t*0.7+q.ph)*0.8,0.8+Math.sin(t*1.3+q.ph)*0.3,3.5+Math.cos(t*0.9+q.ph)*0.4); var f=Math.sin(t*14+q.ph)*0.9; q.w1.rotation.y=f; q.w2.rotation.y=-f; }); });
+  }
+}
+function diyBuildLights(g,lv,an){
+  var two=(H3.tier||3)>=3, rows=two?[2.92,5.92]:[2.92], mats=[];
+  var cols=lv===1?['#ff5252','#ffeb3b','#69f0ae','#40c4ff','#e040fb']:['#ffd54f'];
+  rows.forEach(function(y){
+    var n=Math.round((an.x1-an.x0)/0.42);
+    for(var i=0;i<=n;i++){
+      var x=an.x0+i*(an.x1-an.x0)/n, sag=Math.sin((i%6)/6*Math.PI)*0.18, c=cols[i%cols.length];
+      var m=diyMat(c,{e:new THREE.Color(c),ei:0.5,r:0.3}); mats.push(m);
+      var bulb=lv===1?new THREE.Mesh(new THREE.SphereGeometry(0.06,10,8),m):new THREE.Mesh(new THREE.OctahedronGeometry(0.09),m);
+      bulb.position.set(x,y-0.12-sag,3.12); g.add(bulb);
+      if(lv===2&&i%2===0) luxGlow(g,x,y-0.12-sag,3.14,0.7,0xffd27a,0.25);
+    }
+  });
+  diyNightAnim(mats,0.5,lv===2?3.2:2.4);
+  if(lv===2) H3.anims.push(function(dt,t){ mats.forEach(function(m,i){ if(H3.night) m.emissiveIntensity=2.4+Math.sin(t*3+i)*0.9; }); });
+}
+function diyBuildPet(g,lv,a){
+  var grp=new THREE.Group(); grp.position.set(a[0],0,a[1]); grp.rotation.y=a[2]; g.add(grp);
+  if(lv===1){
+    var wood=hqM('#d7a46b',{r:0.7});
+    hqRB(grp,1.0,0.8,0.9,0,0.4,0,wood,0.04);
+    var roof=new THREE.Mesh(new THREE.ConeGeometry(0.85,0.55,4),hqM('#e53935',{r:0.5})); roof.position.set(0,1.07,0); roof.rotation.y=Math.PI/4; roof.castShadow=true; grp.add(roof);
+    var door=new THREE.Mesh(new THREE.CircleGeometry(0.25,20),hqM('#3e2723',{r:1})); door.position.set(0,0.38,0.456); grp.add(door);
+    hqRB(grp,0.6,0.08,0.4,0,0.04,0.7,hqM('#f48fb1',{r:0.9}),0.04); hqCyl(grp,0.13,0.1,0.07,0.45,0.04,0.75,hqM('#90caf9',{r:0.3}),16);
+  }else{
+    var pk=hqM('#f3e5f5',{r:0.7}), post=hqM('#d7ccc8',{r:1}), gold=hqM('#d4af37',{m:0.95,r:0.2});
+    [[-0.45,-0.35],[0.45,-0.35],[-0.45,0.35],[0.45,0.35]].forEach(function(q){ hqCyl(grp,0.07,0.07,1.9,q[0],0.95,q[1],post,10); });
+    hqRB(grp,1.25,0.12,1.0,0,0.7,0,pk,0.04); hqRB(grp,1.25,0.12,1.0,0,1.5,0,pk,0.04);
+    hqRB(grp,0.8,0.6,0.7,0,0.36,0,hqM('#ce93d8',{r:0.6}),0.12); var d2=new THREE.Mesh(new THREE.CircleGeometry(0.2,20),hqM('#4a148c',{r:1})); d2.position.set(0,0.33,0.356); grp.add(d2);
+    hqRB(grp,0.7,0.12,0.55,0,1.62,0,hqM('#f48fb1',{r:0.9}),0.05);
+    [[-0.55,0.42],[0.55,0.42]].forEach(function(q){ var c=new THREE.Mesh(new THREE.ConeGeometry(0.2,0.45,16),hqM('#7e57c2',{r:0.4})); c.position.set(q[0],2.12,q[1]-0.77); c.castShadow=true; grp.add(c); });
+    var crown=new THREE.Group(); crown.position.set(0,2.05,0); grp.add(crown);
+    hqCyl(crown,0.22,0.22,0.14,0,0,0,gold,20);
+    for(var k=0;k<6;k++){ var ag=k/6*Math.PI*2; var sp=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.16,6),gold); sp.position.set(Math.cos(ag)*0.2,0.14,Math.sin(ag)*0.2); crown.add(sp); hqSph(crown,0.025,Math.cos(ag)*0.2,0.23,Math.sin(ag)*0.2,hqM(['#e91e63','#40c4ff'][k%2],{r:0.1,m:0.3})); }
+    luxGlow(grp,0,2.15,0,1.2,0xffd54f,0.3);
+    H3.anims.push(function(dt,t){ crown.rotation.y=t*0.6; });
+    var toy=hqSph(grp,0.08,0.55,1.25,0.45,hqM('#ff7043',{r:0.4})); hqCyl(grp,0.005,0.005,0.3,0.55,1.42,0.45,hqM('#ffffff'),4);
+    H3.anims.push(function(dt,t){ toy.position.x=0.55+Math.sin(t*2)*0.06; });
+  }
+}
+function diyBuild(scene){
+  var eq=diyState().eq, an=diyAnchors();
+  try{ if(eq.car) diyBuildCar(scene,eq.car,an.car); }catch(e){ console.warn(e); }
+  try{ if(eq.play) diyBuildPlay(scene,eq.play,an.play); }catch(e){ console.warn(e); }
+  try{ if(eq.garden) diyBuildGarden(scene,eq.garden,an); }catch(e){ console.warn(e); }
+  try{ if(eq.lights) diyBuildLights(scene,eq.lights,an); }catch(e){ console.warn(e); }
+  try{ if(eq.pethouse) diyBuildPet(scene,eq.pethouse,an.pet); }catch(e){ console.warn(e); }
+}
+var _diyOrigBuild=h3BuildHouse;
+h3BuildHouse=function(scene){ var r=_diyOrigBuild.apply(this,arguments); if(!H3.preview){ try{ diyBuild(scene); H3._diyJustBuilt=true; }catch(e){} } return r; };
+// ---- 装修商店 ----
+function diyOpen(){
+  var m=document.getElementById('diyModal');
+  if(!m){ m=document.createElement('div'); m.className='modal-mask'; m.id='diyModal'; m.innerHTML='<div class="modal" style="max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:14px"><button class="modal-close" onclick="hideModal(\'diyModal\')">✕</button><div id="diyBody"></div></div>'; document.body.appendChild(m); }
+  diyRender(); showModal('diyModal'); m.style.zIndex='10060';
+}
+function diyRender(){
+  var s=diyState(), bal=state.moneyBalance||0;
+  var html='<h3 style="margin:0 0 2px;color:#6a1b9a">🛠️ 小屋装修 DIY</h3><div class="small" style="color:#6d4c41;margin-bottom:6px">像买车选配一样：每样都有 <b>标配 / 高配 / 豪华</b>，越高档越漂亮，也越贵。买过的可以随时换回来，不用再花钱。</div>'
+    +'<div style="background:#fff8e1;border-radius:12px;padding:6px 10px;margin-bottom:8px;font-weight:800;color:#e65100">🪙 我的金币：'+bal+'</div>';
+  DIY_ITEMS.forEach(function(it){
+    var cur=s.eq[it.id]||0;
+    html+='<div style="border:2px solid #e1bee7;border-radius:16px;padding:8px;margin-bottom:10px;background:#fff">'
+      +'<div style="font-weight:800;font-size:16px;color:#4a148c;margin-bottom:6px">'+it.icon+' '+it.name+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">';
+    [0,1,2].forEach(function(lv){
+      var o=it.lv[lv], on=cur===lv, own=lv===0||diyOwns(it.id,lv);
+      var tag=['标配','高配','豪华'][lv], tc=['#78909c','#1e88e5','#d4a017'][lv];
+      var btn;
+      if(on) btn='<div style="background:#43a047;color:#fff;border-radius:10px;padding:5px;font-weight:800;font-size:13px">✅ 正在用</div>';
+      else if(own) btn='<button class="btn btn-sm btn-info" style="width:100%" onclick="diyEquip(\''+it.id+'\','+lv+')">'+(lv?'换上':'不装')+'</button>';
+      else btn='<button class="btn btn-sm '+(bal>=o.p?'btn-warning':'btn-gray')+'" style="width:100%" onclick="diyBuy(\''+it.id+'\','+lv+')">🪙 '+o.p+' 购买</button>';
+      html+='<div style="border:2px solid '+(on?'#43a047':'#eee')+';border-radius:12px;padding:6px;text-align:center;background:'+(lv===2?'linear-gradient(180deg,#fffde7,#fff)':'#fafafa')+'">'
+        +'<div style="display:inline-block;background:'+tc+';color:#fff;border-radius:8px;padding:0 8px;font-size:12px;font-weight:800">'+tag+'</div>'
+        +'<div style="font-size:30px;line-height:1.3">'+(lv?o.e:'⬜')+'</div>'
+        +'<div style="font-weight:700;font-size:13px;min-height:34px">'+(lv?o.n:'什么都不装')+'</div>'
+        +'<div class="small" style="color:#8d6e63;min-height:46px;font-size:11px;line-height:1.35">'+(lv?o.d:'空地')+'</div>'
+        +btn+'</div>';
+    });
+    html+='</div></div>';
+  });
+  html+='<div class="small" style="text-align:center;color:#9e9e9e">金币不够？多完成打卡任务、背单词、做题就能赚金币～</div>';
+  document.getElementById('diyBody').innerHTML=html;
+}
+function diyRebuild(){ try{ if(H3.open&&!H3.preview){ H3.builtTier=null; h3Init(); } }catch(e){} }
+function diyBuy(id,lv){
+  var it=DIY_ITEMS.filter(function(x){ return x.id===id; })[0], o=it&&it.lv[lv]; if(!o) return;
+  var bal=state.moneyBalance||0;
+  if(bal<o.p){ ttsToast('金币还差 '+(o.p-bal)+' 个哦～多完成打卡任务就能攒够！',3200); return; }
+  if(!confirm('花 '+o.p+' 金币买「'+o.n+'」（'+['','高配','豪华'][lv]+'）吗？')) return;
+  addCoinChange(-o.p,'小屋装修：'+it.name+'·'+o.n);
+  var s=diyState(); (s.own[id]=s.own[id]||[]).push(lv); s.eq[id]=lv;
+  try{ saveStore(); }catch(e){}
+  ttsToast('🎉 买好啦！「'+o.n+'」已经装到小屋里了',2800);
+  diyRender(); diyRebuild();
+}
+function diyEquip(id,lv){ var s=diyState(); if(lv&&!diyOwns(id,lv)) return; if(lv) s.eq[id]=lv; else delete s.eq[id]; try{ saveStore(); }catch(e){} diyRender(); diyRebuild(); }
+// 3D小屋里加「🛠️ 装修」按钮（全屏模式在顶栏，嵌入模式在底部那排按钮里）
+function diyAddButtons(){
+  var w=document.getElementById('h3Wrap'); if(!w||H3.preview) return;
+  var nb=document.getElementById('h3NightBtn');
+  if(nb&&!document.getElementById('diyBtnTop')){ var b=document.createElement('button'); b.id='diyBtnTop'; b.className='btn btn-success btn-sm'; b.textContent='🛠️ 装修DIY'; b.onclick=diyOpen; nb.parentNode.insertBefore(b,nb); nb.parentNode.insertBefore(document.createTextNode(' '),nb); }
+  var ctl=document.getElementById('h3EmbedCtl');
+  if(ctl&&!document.getElementById('diyBtnEmb')){ var b2=document.createElement('button'); b2.id='diyBtnEmb'; b2.className='btn btn-success btn-sm'; b2.textContent='🛠️ 装修DIY'; b2.onclick=diyOpen; ctl.insertBefore(b2,ctl.children[1]||null); }
+  ['diyBtnTop','diyBtnEmb'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=H3.preview?'none':''; });
+}
+var _diyOrigInit=h3Init;
+h3Init=function(){ var r=_diyOrigInit.apply(this,arguments); try{ diyAddButtons(); }catch(e){}
+  // 右边院子装了车/游乐场/宠物别墅时，镜头稍微往右挪一点，整套都看得到
+  try{ if(H3._diyJustBuilt){ H3._diyJustBuilt=false; var eq=diyState().eq; if((eq.car||eq.play||eq.pethouse)&&H3.target&&H3W()/H3H()>=0.85){ if((H3.tier||3)>=2){ H3.target.x+=1.3; H3.dist=Math.min(30,H3.dist*1.08); } else { H3.target.x+=2.6; H3.dist=Math.max(H3.dist,13.5); } } } }catch(e){}
+  return r; };
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
