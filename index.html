@@ -1732,7 +1732,6 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')" data-i18n="tab_shop"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')" data-i18n="tab_bag"><span class="t-emoji">🎒</span>背包</button>
   <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();markPkInboxRead();"><span data-i18n="tab_visit"><span class="t-emoji">🚪</span>串门</span><span class="tab-badge" id="visitTabBadge">0</span></button>
-  <button class="tab-btn" data-page="allowance" onclick="showPage('allowance')" data-i18n="tab_allowance"><span class="t-emoji">💰</span>零花钱</button>
   <button class="tab-btn" data-page="profile" onclick="showPage('profile')" data-i18n="tab_profile"><span class="t-emoji">👤</span>角色管理</button>
 </nav>
 
@@ -39800,7 +39799,8 @@ function rcRenderBar(){
   bar.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f1f8e9;border:1.5px dashed #9ccc65;border-radius:12px;padding:6px 10px;margin:4px 0 6px;font-size:12px;color:#33691e">'
     +'<span>📋 背熟清单：今天背熟 <b>'+today+'</b> 个 · 等妈妈考 <b>'+due+'</b> 个 · 已过关 <b>'+passed+'</b> 个</span>'
     +'<button class="btn btn-sm '+(due?'btn-warning':'btn-gray')+'" onclick="rcOpenTest()">👩 妈妈考一考'+(due?'（'+due+'）':'')+'</button>'
-    +'<button class="btn btn-sm btn-gray" onclick="rcOpenList()">📖 看清单</button></div>';
+    +'<button class="btn btn-sm btn-gray" onclick="rcOpenList()">📖 看清单</button>'
+    +'<button class="btn btn-sm '+(bankLinked()?'btn-gray':'btn-warning')+'" onclick="bankOpenLink()">'+(bankLinked()?'✅ 已连存钱银行':'🔗 连接存钱银行')+'</button></div>';
 }
 var _rcOrigAids=renderStudyAids;
 renderStudyAids=function(){ var r=_rcOrigAids.apply(this,arguments); try{ rcRenderBar(); rcPaintButtons(); }catch(e){} return r; };
@@ -39857,11 +39857,11 @@ function rcTestFinish(){
   });
   T.fail.forEach(function(it){ it.lastFail=today; it.tries=(it.tries||0)+1; });
   sum=Math.round(sum*100)/100;
-  if(sum>0) addAllowanceEntry('earn',sum,'背熟+默写过关（妈妈考的）：第1次过关'+n1+'个、第2次过关'+n2+'个');
+  if(sum>0) rcPayout(sum,'背熟+默写过关（妈妈考的）：第1次过关'+n1+'个、第2次过关'+n2+'个');
   try{ saveStore(); }catch(e){}
   bankPushRecite();
   rcShow('<h3 style="margin:0 0 6px">🎉 考完啦！</h3><div style="font-size:16px;line-height:1.8">过关 <b style="color:#2e7d32">'+T.pass.length+'</b> 个（第1次 '+n1+' 个、第2次 '+n2+' 个），没过关 <b style="color:#c62828">'+T.fail.length+'</b> 个<br>'
-    +(sum>0?'💰 零花钱 +<b>'+rcFmt(sum)+'</b>（已记进「零花钱」'+(bankLinked()?'，并发到存钱银行等妈妈确认':'')+'）':'这次没有过关的，再加油背～')+'</div>'
+    +(sum>0?'💰 零花钱 +<b>'+rcFmt(sum)+'</b>'+(bankLinked()?'（已发到存钱银行，妈妈在「零花钱待确认」里确认后进钱包）':'（还没连接存钱银行，先存着；家长点「🔗 连接存钱银行」连好后会自动发过去）'):'这次没有过关的，再加油背～')+'</div>'
     +(n1?'<div class="small" style="margin-top:4px;color:#2e7d32">第1次过关的，明天再考第2次，还能再得另一半！</div>':'')
     +(T.fail.length?'<div class="small" style="margin-top:6px;color:#c62828">没过关的：'+T.fail.map(function(i){ return escapeHtmlSafe(i.en); }).join('，')+'<br>再背熟一点，可以再让妈妈考。</div>':'')
     +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="hideModal(\'rcModal\')">好的</button>');
@@ -39908,7 +39908,7 @@ function bankOpenLink(){
     var cur=state.bankLink;
     rcShow('<h3 style="margin:0 0 6px">🐷 连接「小小存钱银行」</h3>'
       +(cur&&cur.fam?'<div style="background:#e8f5e9;border-radius:10px;padding:8px;margin-bottom:8px">✅ 已连接：存钱银行里的 <b>'+escapeHtmlSafe(cur.kidName||cur.kid)+'</b><br><span class="small">'+(Object.keys(bankQueue()).length?'还有 '+Object.keys(bankQueue()).length+' 条等网络好了再发':'数据都已经发过去了')+'</span><br><button class="btn btn-sm btn-gray" style="margin-top:4px" onclick="bankUnlink()">断开连接</button></div>':'')
-      +'<div style="font-size:14px;line-height:1.7">连上以后：<br>· 这里记的<b>零花钱</b>（包括背熟过关赚的）会自动发到存钱银行，等妈妈在那边确认<br>· 孩子勾选的<b>背熟清单</b>，妈妈在存钱银行里也能看到</div>'
+      +'<div style="font-size:14px;line-height:1.7">连上以后：<br>· 背熟考过关赚的<b>零花钱</b>会自动发到存钱银行，等妈妈在那边确认<br>· 孩子勾选的<b>背熟清单</b>，妈妈在存钱银行里也能看到</div>'
       +'<div style="margin-top:8px">存钱银行的「家庭暗号」：<input id="bankFamInput" type="password" style="width:100%;padding:8px;border-radius:10px;border:1px solid #ccc;font-size:16px" value="'+escapeAttr((cur&&cur.fam)||'')+'"></div>'
       +'<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="bankLoadKids()">下一步：读取孩子名单</button><div id="bankKidList" style="margin-top:8px"></div>');
   });
@@ -39930,11 +39930,11 @@ function bankChooseKid(i){
   var k=window._bankKids[i];
   state.bankLink={fam:window._bankFam,kid:k.id,kidName:k.name||'',since:Date.now()};
   try{ saveStore(); }catch(e){}
-  bankPushRecite();
-  rcShow('<h3>✅ 连接好了！</h3><div style="font-size:15px;line-height:1.7">以后这里记的零花钱、背熟清单，会自动发到存钱银行里的 <b>'+escapeHtmlSafe(k.name||'')+'</b>。<br>（连接之前的旧零花钱记录不会发过去，免得重复）</div><button class="btn btn-primary btn-block" onclick="hideModal(\'rcModal\')">好的</button>');
-  try{ bankRenderAllowanceBtn(); }catch(e){}
+  bankPushRecite(); rcFlushPayouts();
+  rcShow('<h3>✅ 连接好了！</h3><div style="font-size:15px;line-height:1.7">以后背熟考过关赚的零花钱、背熟清单，会自动发到存钱银行里的 <b>'+escapeHtmlSafe(k.name||'')+'</b>，妈妈在那边确认。</div><button class="btn btn-primary btn-block" onclick="hideModal(\'rcModal\')">好的</button>');
+  try{ rcRenderBar(); }catch(e){}
 }
-function bankUnlink(){ if(!confirm('确定断开和存钱银行的连接吗？')) return; state.bankLink=null; try{ saveStore(); }catch(e){} hideModal('rcModal'); try{ bankRenderAllowanceBtn(); }catch(e){} }
+function bankUnlink(){ if(!confirm('确定断开和存钱银行的连接吗？')) return; state.bankLink=null; try{ saveStore(); }catch(e){} hideModal('rcModal'); try{ rcRenderBar(); }catch(e){} }
 function bankRenderAllowanceBtn(){
   var pg=document.getElementById('page-allowance'); if(!pg) return;
   var b=document.getElementById('bankLinkBtn');
@@ -39944,6 +39944,23 @@ function bankRenderAllowanceBtn(){
 var _bankOrigShow=showPage;
 showPage=function(name){ var r=_bankOrigShow.apply(this,arguments); try{ if(name==='allowance') bankRenderAllowanceBtn(); }catch(e){} return r; };
 
+function rcPayout(amount,note){
+  var r=rcState(); if(!r.payouts) r.payouts=[];
+  r.payouts.push({id:'rc'+Date.now()+Math.floor(Math.random()*1000),t:Date.now(),type:'earn',amount:Math.round(amount*100)/100,note:note,sent:false});
+  rcFlushPayouts();
+}
+function rcFlushPayouts(){
+  if(!bankLinked()) return; var r=rcState(), L0=state.bankLink;
+  (r.payouts||[]).forEach(function(e){
+    if(e.sent) return; var d=new Date(e.t);
+    bankPut('klm/money/'+e.id,{from:'kuromi',id:e.id,kid:L0.kid,kidName:L0.kidName||'',date:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2),at:e.t,type:'earn',amount:e.amount,cur:'CNY',note:e.note,status:'pending'});
+    e.sent=true;
+  });
+  try{ saveStore(); }catch(e){}
+}
+// 打卡乐园自己的「零花钱」页已经去掉（钱都在存钱银行里管），旧入口一律回到打卡页
+var _alGoneShow=showPage;
+showPage=function(name){ if(name==='allowance') name='home'; return _alGoneShow.call(this,name); };
 /* ---- ③ 精英班数学（全英文，OC / Selective 考试风格） ---- */
 var MATH_ELITE=[
  {en:'A number is multiplied by 6, then 14 is added. The result is 80. What is the number?',zh:'一个数乘6再加14，结果是80，这个数是多少？',ans:'11'},
