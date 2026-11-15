@@ -39764,6 +39764,263 @@ function goBank(){
   var h=document.getElementById('page-home'); if(h) h.insertBefore(card('存零花钱、定期存款、攒星星、心愿单、学习计划'),h.firstChild);
   var a=document.getElementById('page-allowance'); if(a) a.insertBefore(card('真实零花钱存进银行，还能存定期赚利息哦'),a.firstChild);
 })();
+/* ========== 2026-11新增：①「我默写并背熟了」勾选 + 第二天妈妈考一考（过关给零花钱）
+                         ②零花钱同步到「小小存钱银行」 ③精英班英文数学题 ==========
+   规则（妈妈定的）：背熟+默写一个单词 = 1毛；一个句子按难度 1~4毛（句子越长越难，钱越多）。
+   当天勾选 → 第二天妈妈考（家长密码）→ 过关的自动记进「零花钱」收入 → 同步到存钱银行，妈妈在那边确认。
+   金币还是打卡乐园自己的规则，星星是存钱银行自己的规则，两边互不影响。 */
+var RC_WORD_MONEY=0.1;
+function rcSentMoney(en){ var n=(en||'').trim().split(/\s+/).length; return n<=4?0.1:n<=7?0.2:n<=10?0.3:0.4; }
+function rcState(){ if(!state.recite) state.recite={items:{}}; if(!state.recite.items) state.recite.items={}; return state.recite; }
+function rcKey(type,en){ return type+':'+en; }
+function rcFmt(m){ return '¥'+(Math.round(m*100)/100).toFixed(2); }
+function rcToggle(type,en,cn,ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  var r=rcState(), k=rcKey(type,en), it=r.items[k], today=todayKey();
+  if(it&&it.status==='checked'&&it.day===today){ delete r.items[k]; }
+  else if(it&&it.status==='pass'){ ttsToast('这个已经考过关啦 🎉',2000); return; }
+  else { r.items[k]={type:type,en:en,cn:cn||'',day:today,at:Date.now(),status:'checked',money:type==='word'?RC_WORD_MONEY:rcSentMoney(en),tries:(it&&it.tries)||0}; ttsToast('✅ 记下啦！明天让妈妈考考你，过关就有零花钱 '+rcFmt(r.items[k].money),2600); }
+  try{ saveStore(); }catch(e){}
+  rcPaintButtons(); rcRenderBar(); bankPushRecite();
+}
+function rcBtnHtml(type,en,cn){
+  var it=rcState().items[rcKey(type,en)], on=!!it, st=it&&it.status;
+  var label=!on?'☐ 我默写并背熟了':st==='pass'?'🏆 考过关 '+rcFmt(it.money):st==='fail'?'↻ 没过关，再背一遍':(it.day===todayKey()?'☑ 已背熟（明天考）':'☑ 等妈妈考');
+  var bg=!on?'#fff':st==='pass'?'#fff8e1':st==='fail'?'#ffebee':'#e8f5e9', col=!on?'#7b1fa2':st==='pass'?'#ef6c00':st==='fail'?'#c62828':'#2e7d32';
+  return '<button class="rc-btn" data-type="'+type+'" data-en="'+escapeAttr(en)+'" data-cn="'+escapeAttr(cn||'')+'" style="margin-left:6px;border:1.5px solid '+col+';background:'+bg+';color:'+col+';border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'+label+'</button>';
+}
+function rcPaintButtons(){
+  try{
+    var th=dailyTheme();
+    var w=document.getElementById('studyWordBox'), s=document.getElementById('studySentenceBox');
+    var pairs=[[w,'word',currentWordBatch(th)],[s,'sentence',currentSentenceBatch()]];
+    pairs.forEach(function(p){
+      if(!p[0]||p[0].style.display==='none') return;
+      var rows=p[0].querySelectorAll('.study-item-row');
+      rows.forEach(function(row,i){
+        var item=p[2][i]; if(!item) return;
+        var head=row.querySelector('.study-item-head'); if(!head) return;
+        var old=head.querySelector('.rc-btn'); if(old) old.remove();
+        head.insertAdjacentHTML('beforeend',rcBtnHtml(p[1],item.en,item.cn));
+        var b=head.querySelector('.rc-btn'); b.onclick=function(ev){ rcToggle(p[1],item.en,item.cn,ev); };
+      });
+    });
+  }catch(e){}
+}
+function rcDue(){ var r=rcState(), t=todayKey(); return Object.keys(r.items).map(function(k){ return r.items[k]; }).filter(function(it){ return it.status==='checked'&&it.day!==t; }); }
+function rcRenderBar(){
+  var host=document.getElementById('studyWordBox'); if(!host) return;
+  var bar=document.getElementById('rcBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='rcBar'; host.parentNode.insertBefore(bar,host); }
+  var r=rcState(), all=Object.keys(r.items).map(function(k){ return r.items[k]; });
+  var today=all.filter(function(it){ return it.status==='checked'&&it.day===todayKey(); }).length, due=rcDue().length;
+  var passed=all.filter(function(it){ return it.status==='pass'; }).length;
+  bar.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f1f8e9;border:1.5px dashed #9ccc65;border-radius:12px;padding:6px 10px;margin:4px 0 6px;font-size:12px;color:#33691e">'
+    +'<span>📋 背熟清单：今天背熟 <b>'+today+'</b> 个 · 等妈妈考 <b>'+due+'</b> 个 · 已过关 <b>'+passed+'</b> 个</span>'
+    +'<button class="btn btn-sm '+(due?'btn-warning':'btn-gray')+'" onclick="rcOpenTest()">👩 妈妈考一考'+(due?'（'+due+'）':'')+'</button>'
+    +'<button class="btn btn-sm btn-gray" onclick="rcOpenList()">📖 看清单</button></div>';
+}
+var _rcOrigAids=renderStudyAids;
+renderStudyAids=function(){ var r=_rcOrigAids.apply(this,arguments); try{ rcRenderBar(); rcPaintButtons(); }catch(e){} return r; };
+// 家长密码（第一次用时设置）
+function rcParentGate(cb){
+  if(!store.parentPin){
+    var p1=prompt('请家长设置一个4位数字密码（以后妈妈考试、连接存钱银行都要用，小朋友不要偷看哦）'); if(p1===null) return;
+    if(!/^\d{4}$/.test(p1)){ alert('要4位数字哦'); return; }
+    var p2=prompt('再输入一遍确认'); if(p2!==p1){ alert('两次不一样，请重新设置'); return; }
+    store.parentPin=p1; try{ saveStore(); }catch(e){} cb(); return;
+  }
+  var p=prompt('请家长输入4位密码'); if(p===null) return;
+  if(p===store.parentPin) cb(); else alert('密码不对哦');
+}
+function rcEnsureModal(){
+  var m=document.getElementById('rcModal'); if(m) return m;
+  m=document.createElement('div'); m.className='modal-mask'; m.id='rcModal';
+  m.innerHTML='<div class="modal" style="max-width:560px;width:100%;max-height:88vh;overflow:auto"><button class="modal-close" onclick="hideModal(\'rcModal\')">✕</button><div id="rcBody"></div></div>';
+  document.body.appendChild(m); return m;
+}
+function rcShow(html){ rcEnsureModal(); document.getElementById('rcBody').innerHTML=html; showModal('rcModal'); }
+function rcOpenList(){
+  var r=rcState(), all=Object.keys(r.items).map(function(k){ return r.items[k]; }).sort(function(a,b){ return b.at-a.at; });
+  var stTxt={checked:'☑ 等考',pass:'🏆 过关',fail:'❌ 没过'};
+  rcShow('<h3 style="margin:0 0 6px">📖 我的背熟清单</h3><div class="small" style="margin-bottom:6px">单词过关 1毛/个，句子过关 1~4毛/句（越长越难钱越多）。今天背熟的明天才能考。</div>'
+    +(all.length?all.slice(0,200).map(function(it){ return '<div style="border-bottom:1px dashed #eee;padding:4px 0;font-size:13px">'+(it.type==='word'?'🔤':'💬')+' <b>'+escapeHtmlSafe(it.en)+'</b> <span style="color:#7b1fa2">'+escapeHtmlSafe(it.cn)+'</span><br><span class="small">'+it.day+' 背熟 · '+(stTxt[it.status]||'')+' · '+rcFmt(it.money)+(it.testDay?' · '+it.testDay+' 考':'')+'</span></div>'; }).join(''):'<div class="small">还没有背熟的单词和句子，去点「☐ 我默写并背熟了」吧～</div>'));
+}
+var RC_TEST=null;
+function rcOpenTest(){
+  var due=rcDue();
+  if(!due.length){ rcShow('<h3>👩 妈妈考一考</h3><div style="font-size:15px;line-height:1.7">现在没有要考的。<br>今天背熟的单词/句子，<b>明天</b>才能考哦（隔一天还记得才算真的背熟了）。</div>'); return; }
+  rcParentGate(function(){ RC_TEST={list:due.slice(0,30),i:0,pass:[],fail:[]}; rcTestRender(); });
+}
+function rcTestRender(){
+  var T=RC_TEST; if(!T) return;
+  if(T.i>=T.list.length){ rcTestFinish(); return; }
+  var it=T.list[T.i];
+  rcShow('<h3 style="margin:0 0 4px">👩 妈妈考一考（'+(T.i+1)+' / '+T.list.length+'）</h3>'
+    +'<div class="small" style="color:#6d4c41">妈妈念中文意思，让孩子背出来并默写在纸上（或者孩子背给妈妈听），然后对答案。</div>'
+    +'<div style="background:#fff3e0;border-radius:14px;padding:14px;margin:8px 0;text-align:center"><div class="small">'+(it.type==='word'?'单词':'句子')+' · 过关得 '+rcFmt(it.money)+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#6a1b9a;margin:6px 0">'+escapeHtmlSafe(it.cn||'（没有中文意思，念英文让孩子默写）')+'</div>'
+    +'<button class="btn btn-sm btn-gray" onclick="studySpeak(\''+studyEscape(it.cn||'')+'\',\'zh-CN\')">🔊 念中文</button> '
+    +'<button class="btn btn-sm btn-info" onclick="this.nextElementSibling.style.display=\'block\';this.remove()">👀 看答案</button>'
+    +'<div style="display:none;font-size:20px;font-weight:800;color:#2e7d32;margin-top:8px">'+escapeHtmlSafe(it.en)+'</div></div>'
+    +'<div style="display:flex;gap:8px"><button class="btn btn-success" style="flex:1;font-size:17px" onclick="rcTestMark(1)">✅ 背出来+默写对了</button><button class="btn btn-danger" style="flex:1;font-size:17px" onclick="rcTestMark(0)">❌ 没过关</button></div>');
+}
+function rcTestMark(ok){ var T=RC_TEST; if(!T) return; (ok?T.pass:T.fail).push(T.list[T.i]); T.i++; rcTestRender(); }
+function rcTestFinish(){
+  var T=RC_TEST; RC_TEST=null; var today=todayKey(), sum=0;
+  T.pass.forEach(function(it){ it.status='pass'; it.testDay=today; sum+=it.money; });
+  T.fail.forEach(function(it){ it.status='fail'; it.testDay=today; it.tries=(it.tries||0)+1; });
+  sum=Math.round(sum*100)/100;
+  var w=T.pass.filter(function(i){ return i.type==='word'; }).length, s=T.pass.length-w;
+  if(sum>0) addAllowanceEntry('earn',sum,'背熟+默写过关：单词'+w+'个、句子'+s+'句（妈妈考的）');
+  try{ saveStore(); }catch(e){}
+  bankPushRecite();
+  rcShow('<h3 style="margin:0 0 6px">🎉 考完啦！</h3><div style="font-size:16px;line-height:1.8">过关 <b style="color:#2e7d32">'+T.pass.length+'</b> 个，没过关 <b style="color:#c62828">'+T.fail.length+'</b> 个<br>'
+    +(sum>0?'💰 零花钱 +<b>'+rcFmt(sum)+'</b>（已记进「零花钱」'+(bankLinked()?'，并发到存钱银行等妈妈确认':'')+'）':'这次没有过关的，再加油背～')+'</div>'
+    +(T.fail.length?'<div class="small" style="margin-top:6px;color:#c62828">没过关的：'+T.fail.map(function(i){ return escapeHtmlSafe(i.en); }).join('，')+'<br>重新背熟后再点一次勾选，第二天再考。</div>':'')
+    +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="hideModal(\'rcModal\')">好的</button>');
+  try{ rcPaintButtons(); rcRenderBar(); }catch(e){}
+}
+
+/* ---- 和「小小存钱银行」的数据互通（用存钱银行自己的数据库接口 pb_put / pb_get） ---- */
+var BANK_API='https://zlhvmtivifzuvpwmlgyl.supabase.co/rest/v1/rpc/', BANK_KEY='sb_publishable_5QIGn5queV9tno67RoAowA_h-qoY6ap';
+function bankLinked(){ return !!(state&&state.bankLink&&state.bankLink.fam&&state.bankLink.kid); }
+function bankRpc(fn,body){
+  return fetch(BANK_API+fn,{method:'POST',headers:{'Content-Type':'application/json',apikey:BANK_KEY,Authorization:'Bearer '+BANK_KEY},body:JSON.stringify(body)})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); }).then(function(t){ try{ return t?JSON.parse(t):null; }catch(e){ return t; } });
+}
+function bankQueue(){ if(!state.bankQueue) state.bankQueue={}; return state.bankQueue; }
+function bankPut(k,v){ if(!bankLinked()) return; bankQueue()[k]=v; try{ saveStoreLocalOnly(); }catch(e){} bankFlush(); }
+var BANK_FLUSHING=false;
+function bankFlush(){
+  if(BANK_FLUSHING||!bankLinked()) return; var q=bankQueue(), keys=Object.keys(q); if(!keys.length) return;
+  BANK_FLUSHING=true; var fam=state.bankLink.fam;
+  (function next(){
+    var k=keys.shift(); if(!k){ BANK_FLUSHING=false; try{ saveStoreLocalOnly(); }catch(e){} if(Object.keys(q).length) setTimeout(bankFlush,800); return; }
+    var v=q[k];
+    bankRpc('pb_put',{p_fam:fam,p_k:k,p_v:v}).then(function(){ if(q[k]===v) delete q[k]; next(); }).catch(function(){ BANK_FLUSHING=false; });
+  })();
+}
+setInterval(function(){ try{ if(state&&!document.hidden) bankFlush(); }catch(e){} },60000);
+function bankPushRecite(){
+  if(!bankLinked()) return; var r=rcState(), L0=state.bankLink;
+  var items=Object.keys(r.items).map(function(k){ var it=r.items[k]; return {type:it.type,en:it.en,cn:it.cn,day:it.day,status:it.status,testDay:it.testDay||'',money:it.money}; }).sort(function(a,b){ return a.day<b.day?1:-1; }).slice(0,300);
+  bankPut('klm/recite/'+L0.kid,{from:'kuromi',kid:L0.kid,kidName:L0.kidName||'',at:Date.now(),items:items});
+}
+function bankPushMoney(e){
+  if(!bankLinked()||!e||e.t<(state.bankLink.since||0)) return; var L0=state.bankLink, d=new Date(e.t);
+  bankPut('klm/money/'+e.id,{from:'kuromi',id:e.id,kid:L0.kid,kidName:L0.kidName||'',date:d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2),at:e.t,type:e.type,amount:e.amount,cur:'CNY',note:e.note||'',status:'pending'});
+}
+var _bankOrigAddAl=addAllowanceEntry;
+addAllowanceEntry=function(type){
+  var r=_bankOrigAddAl.apply(this,arguments);
+  try{ if(r){ var l=state.allowance.ledger; bankPushMoney(l[l.length-1]); } }catch(e){}
+  return r;
+};
+function bankOpenLink(){
+  rcParentGate(function(){
+    var cur=state.bankLink;
+    rcShow('<h3 style="margin:0 0 6px">🐷 连接「小小存钱银行」</h3>'
+      +(cur&&cur.fam?'<div style="background:#e8f5e9;border-radius:10px;padding:8px;margin-bottom:8px">✅ 已连接：存钱银行里的 <b>'+escapeHtmlSafe(cur.kidName||cur.kid)+'</b><br><span class="small">'+(Object.keys(bankQueue()).length?'还有 '+Object.keys(bankQueue()).length+' 条等网络好了再发':'数据都已经发过去了')+'</span><br><button class="btn btn-sm btn-gray" style="margin-top:4px" onclick="bankUnlink()">断开连接</button></div>':'')
+      +'<div style="font-size:14px;line-height:1.7">连上以后：<br>· 这里记的<b>零花钱</b>（包括背熟过关赚的）会自动发到存钱银行，等妈妈在那边确认<br>· 孩子勾选的<b>背熟清单</b>，妈妈在存钱银行里也能看到</div>'
+      +'<div style="margin-top:8px">存钱银行的「家庭暗号」：<input id="bankFamInput" type="password" style="width:100%;padding:8px;border-radius:10px;border:1px solid #ccc;font-size:16px" value="'+escapeAttr((cur&&cur.fam)||'')+'"></div>'
+      +'<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="bankLoadKids()">下一步：读取孩子名单</button><div id="bankKidList" style="margin-top:8px"></div>');
+  });
+}
+function bankLoadKids(){
+  var fam=(document.getElementById('bankFamInput').value||'').trim(), box=document.getElementById('bankKidList');
+  if(fam.length<8){ box.innerHTML='<div style="color:#c62828">家庭暗号至少8位，请检查一下</div>'; return; }
+  box.innerHTML='⏳ 正在连接存钱银行…';
+  bankRpc('pb_get',{p_fam:fam,p_k:'bank/family'}).then(function(v){
+    var F=null; try{ F=v&&v.json?JSON.parse(v.json):v; }catch(e){}
+    var kids=(F&&F.kids)||[];
+    if(!kids.length){ box.innerHTML='<div style="color:#c62828">没找到这个家庭，暗号可能不对</div>'; return; }
+    window._bankKids=kids; window._bankFam=fam;
+    box.innerHTML='<div style="font-weight:700;margin-bottom:4px">这个打卡账号对应存钱银行里的哪个孩子？</div>'
+      +kids.map(function(k,i){ return '<button class="btn btn-info" style="margin:3px" onclick="bankChooseKid('+i+')">'+escapeHtmlSafe(k.name||k.id)+'</button>'; }).join('');
+  }).catch(function(){ box.innerHTML='<div style="color:#c62828">连不上存钱银行，请检查网络后再试</div>'; });
+}
+function bankChooseKid(i){
+  var k=window._bankKids[i];
+  state.bankLink={fam:window._bankFam,kid:k.id,kidName:k.name||'',since:Date.now()};
+  try{ saveStore(); }catch(e){}
+  bankPushRecite();
+  rcShow('<h3>✅ 连接好了！</h3><div style="font-size:15px;line-height:1.7">以后这里记的零花钱、背熟清单，会自动发到存钱银行里的 <b>'+escapeHtmlSafe(k.name||'')+'</b>。<br>（连接之前的旧零花钱记录不会发过去，免得重复）</div><button class="btn btn-primary btn-block" onclick="hideModal(\'rcModal\')">好的</button>');
+  try{ bankRenderAllowanceBtn(); }catch(e){}
+}
+function bankUnlink(){ if(!confirm('确定断开和存钱银行的连接吗？')) return; state.bankLink=null; try{ saveStore(); }catch(e){} hideModal('rcModal'); try{ bankRenderAllowanceBtn(); }catch(e){} }
+function bankRenderAllowanceBtn(){
+  var pg=document.getElementById('page-allowance'); if(!pg) return;
+  var b=document.getElementById('bankLinkBtn');
+  if(!b){ b=document.createElement('div'); b.id='bankLinkBtn'; b.style.cssText='text-align:center;margin:-4px 0 8px'; var c=pg.querySelector('.bank-link-card'); if(c) c.parentNode.insertBefore(b,c.nextSibling); else pg.insertBefore(b,pg.firstChild); }
+  b.innerHTML='<button class="btn btn-sm '+(bankLinked()?'btn-success':'btn-warning')+'" onclick="bankOpenLink()">'+(bankLinked()?'✅ 已连接存钱银行（'+escapeHtmlSafe(state.bankLink.kidName||'')+'）· 零花钱自动同步':'🔗 家长设置：连接存钱银行，零花钱自动同步过去')+'</button>';
+}
+var _bankOrigShow=showPage;
+showPage=function(name){ var r=_bankOrigShow.apply(this,arguments); try{ if(name==='allowance') bankRenderAllowanceBtn(); }catch(e){} return r; };
+
+/* ---- ③ 精英班数学（全英文，OC / Selective 考试风格） ---- */
+var MATH_ELITE=[
+ {en:'A number is multiplied by 6, then 14 is added. The result is 80. What is the number?',zh:'一个数乘6再加14，结果是80，这个数是多少？',ans:'11'},
+ {en:'Mia is 3 times as old as her brother. In 4 years she will be twice as old as him. How old is Mia now?',zh:'米娅的年龄是弟弟的3倍，4年后她的年龄是弟弟的2倍。米娅现在几岁？',ans:'12'},
+ {en:'The sum of three consecutive whole numbers is 72. What is the largest number?',zh:'三个连续整数的和是72，最大的数是多少？',ans:'25'},
+ {en:'A rectangle has a perimeter of 36 cm. Its length is twice its width. What is its area (cm²)?',zh:'长方形周长36厘米，长是宽的2倍，面积是多少平方厘米？',ans:'72'},
+ {en:'A shop sells pencils at 3 for $2. How many dollars do 18 pencils cost?',zh:'铅笔3支2元，18支多少元？',ans:'12'},
+ {en:'What is the smallest number greater than 1 that leaves a remainder of 1 when divided by 2, 3, 4 and 5?',zh:'除以2、3、4、5都余1的最小的数（大于1）是多少？',ans:'61'},
+ {en:'Tom reads 12 pages on Monday. Each day after that he reads 3 more pages than the day before. How many pages has he read in total by the end of Friday?',zh:'汤姆周一读12页，之后每天比前一天多读3页，到周五一共读了多少页？',ans:'90'},
+ {en:'A tank is 2/5 full. After 30 litres are added it is 4/5 full. How many litres does the full tank hold?',zh:'水箱装了2/5，再加30升后装了4/5，水箱装满是多少升？',ans:'75'},
+ {en:'If 5 machines make 5 toys in 5 minutes, how many minutes do 10 machines take to make 10 toys?',zh:'5台机器5分钟做5个玩具，10台机器做10个玩具要几分钟？',ans:'5'},
+ {en:'The average of four numbers is 15. Three of them are 12, 18 and 10. What is the fourth number?',zh:'四个数的平均数是15，其中三个是12、18、10，第四个数是多少？',ans:'20'},
+ {en:'What is the smaller angle between the hands of a clock at 3:00 (in degrees)?',zh:'3点整时，时针和分针的夹角是多少度？',ans:'90'},
+ {en:'How many minutes are there from 9:45 am to 1:20 pm?',zh:'从上午9:45到下午1:20一共多少分钟？',ans:'215'},
+ {en:'Jack has 5 more marbles than Lily. Together they have 37 marbles. How many marbles does Jack have?',zh:'杰克比莉莉多5颗弹珠，两人一共37颗，杰克有几颗？',ans:'21'},
+ {en:'A square has an area of 81 cm². What is its perimeter (cm)?',zh:'正方形面积81平方厘米，周长是多少厘米？',ans:'36'},
+ {en:'In a class the ratio of boys to girls is 3:4. There are 12 girls. How many students are in the class?',zh:'班里男女生人数比是3:4，女生12人，全班多少人？',ans:'21'},
+ {en:'The pattern goes 2, 5, 11, 23, 47, ... What is the next number?',zh:'数列2, 5, 11, 23, 47, ……下一个数是多少？',ans:'95'},
+ {en:'What is 25% of 3/5 of 200?',zh:'200的3/5的25%是多少？',ans:'30'},
+ {en:'How many 1 cm cubes are needed to build a solid cube with edges of 3 cm?',zh:'搭一个棱长3厘米的实心正方体，需要多少个1厘米的小正方体？',ans:'27'},
+ {en:'Ella spent 1/3 of her money on a book and 1/4 of it on lunch. She has $25 left. How many dollars did she have at first?',zh:'艾拉用1/3的钱买书，1/4的钱买午饭，还剩25元，她原来有多少元？',ans:'60'},
+ {en:'There are chickens and cows in a field: 10 heads and 28 legs. How many cows are there?',zh:'鸡和牛一共10个头、28条腿，牛有几头？',ans:'4'},
+ {en:'A rope 84 m long is cut into two pieces. One piece is 3 times as long as the other. How long is the longer piece (m)?',zh:'84米的绳子剪成两段，一段是另一段的3倍，长的一段多少米？',ans:'63'},
+ {en:'The price of a toy goes up by 10% to $55. What was the original price in dollars?',zh:'玩具涨价10%后是55元，原价多少元？',ans:'50'},
+ {en:'How many whole numbers from 1 to 100 are divisible by both 4 and 6?',zh:'1到100中，既能被4整除又能被6整除的整数有几个？',ans:'8'},
+ {en:'A car uses 6 L of fuel every 100 km. How many litres does it use for 250 km?',zh:'汽车每100千米用油6升，250千米用油多少升？',ans:'15'},
+ {en:'Two angles of a triangle are 47° and 68°. What is the third angle (degrees)?',zh:'三角形两个角是47°和68°，第三个角是多少度？',ans:'65'},
+ {en:'A bag has 3 red, 5 blue and 2 green marbles. What is the probability of picking a blue marble? Write it as a decimal.',zh:'袋子里有3红5蓝2绿弹珠，摸到蓝色的概率是多少？（写小数）',ans:'0.5'},
+ {en:'Sam is 4th from the front and 9th from the back of a line. How many people are in the line?',zh:'山姆从前数第4，从后数第9，这一排有几人？',ans:'12'},
+ {en:'A number is doubled, then halved, then 7 is subtracted. The answer is 18. What was the number?',zh:'一个数先乘2再除以2，再减7，得18，这个数是多少？',ans:'25'},
+ {en:'A pizza is cut into 12 equal slices. Ann eats 1/4 of it and Ben eats 1/3 of it. How many slices are left?',zh:'披萨切成12块，安吃了1/4，本吃了1/3，还剩几块？',ans:'5'},
+ {en:'Water fills a pool at 15 litres per minute. How many hours does it take to fill an 1800-litre pool?',zh:'每分钟注水15升，注满1800升的水池要几小时？',ans:'2'},
+ {en:'A garden is 12 m by 8 m. A path 1 m wide goes all the way around the outside. What is the area of the path (m²)?',zh:'花园长12米宽8米，外面围一圈1米宽的小路，小路面积是多少平方米？',ans:'44'},
+ {en:'What is the smallest 3-digit number that is a multiple of 7?',zh:'最小的三位数中是7的倍数的是多少？',ans:'105'},
+ {en:'Two numbers multiply to make 108. One number is 3 times the other. What is their sum?',zh:'两个数的积是108，一个数是另一个的3倍，它们的和是多少？',ans:'24'},
+ {en:'A movie starts at 6:40 pm and lasts 105 minutes. How many minutes after 8:00 pm does it end?',zh:'电影晚上6:40开始，放105分钟，在8:00之后多少分钟结束？',ans:'25'},
+ {en:'7 notebooks cost $28. How many dollars do 12 notebooks cost?',zh:'7本笔记本28元，12本多少元？',ans:'48'},
+ {en:'Lucy scored 85, 90 and 78 in three tests. What must she score in the 4th test to have an average of 85?',zh:'露西三次测验85、90、78分，第四次考多少分平均分才是85？',ans:'87'}
+];
+var _wpOrigRender=cnRenderMathWP;
+cnRenderMathWP=function(){
+  var r=_wpOrigRender.apply(this,arguments);
+  try{
+    var box=document.getElementById('studyMathWPBox'); if(!box) return r;
+    var elite=state.wpLevel==='elite';
+    var bar='<div style="display:flex;gap:6px;margin:2px 0 6px;flex-wrap:wrap"><button class="btn btn-sm '+(elite?'btn-gray':'btn-primary')+'" onclick="state.wpLevel=\'normal\';save();renderStudyAids()">📘 普通（按年级）</button><button class="btn btn-sm '+(elite?'btn-warning':'btn-gray')+'" onclick="state.wpLevel=\'elite\';save();renderStudyAids()">🏆 精英班（全英文考试题）</button></div>';
+    if(!elite){ box.insertAdjacentHTML('afterbegin',bar); return r; }
+    var off=state.wpOffset||0, n=MATH_ELITE.length, s=(cnDayIdx()*3+off*3)%n, items=[];
+    for(var i=0;i<3;i++) items.push(MATH_ELITE[(s+i)%n]);
+    var lab=document.getElementById('studyMathWPBoxLabel'); if(lab) lab.innerHTML='📝 精英班数学（OC / Selective 考试风格）：';
+    box.innerHTML=bar+'<div class="small" style="color:#ef6c00;margin-bottom:4px">精英班考试都是英文题，先自己读懂再做；实在看不懂可以点「👀 中文」</div>'
+      +'<button class="btn btn-gray btn-sm" onclick="state.wpOffset=(state.wpOffset||0)+1;save();renderStudyAids()">🔄 换一组</button>'
+      +items.map(function(m,i){
+        var key='quiz:wpelite:'+m.en;
+        return '<div style="padding:6px 0;border-bottom:1px dashed #f0e1f5;font-size:14px;line-height:1.6">'+(i+1)+'. '+m.en
+          +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(m.en)+'\',\'en-US\')">🔊</button>'
+          +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 中文</button><span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+m.zh+'</span>'
+          +quizFillHtml(key,m.ans,'Elite maths','Answer (number only)',{expBonus:typeof QUIZ_MATH_EXP_BONUS!=='undefined'?QUIZ_MATH_EXP_BONUS:0,celebrate:true,coinMult:2})
+          +'</div>';
+      }).join('');
+  }catch(e){}
+  return r;
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
