@@ -36087,6 +36087,7 @@ function cpDrawOne(e,now){
   if(RIGS[rigKeyOf(img.src)]){ try{ rr=rgRender(img,anim,t+e.idx*1.7,ts,ext,drawW*dpr); }catch(eR){ rr=null; } }
   if(rr){ var kk=drawW/rr.w; ctx.drawImage(rr.canvas,0,0,rr.cw,rr.ch,-drawW/2-rr.x*kk,-drawH-rr.y*kk,rr.cw*kk,rr.ch*kk); }
   else ctx.drawImage(img,-drawW/2,-drawH,drawW,drawH);
+  try{ lpDrawInjury(ctx,state.pets&&state.pets[e.idx],img.src,drawW,drawH,t); }catch(eInj){}
   ctx.restore();
 }
 // —— 覆盖原来的"其它宠物"创建：改用画布 + 骨骼动画 ——
@@ -36527,6 +36528,10 @@ function lpDraw(img,P,dir,t){
     }
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=a; ctx.drawImage(LP.off,0,0); ctx.restore();
   }
+  // 受伤效果（创可贴/纱布/拐杖…）
+  try{ ctx.save(); if(LP.carry){ var pvY2=cssH-drawH*1.02; ctx.translate(cssW/2,pvY2); ctx.rotate(LP.carryAng); ctx.translate(-cssW/2,-pvY2); }
+    ctx.translate(footX,footY-hopPx); ctx.rotate(P.tilt+P.rot); ctx.scale(P.sx*(dir<0?-1:1)*P.flipX,P.sy);
+    lpDrawInjury(ctx,state&&state.pet,img.src,drawW,drawH,t); ctx.restore(); }catch(eInj){ try{ ctx.restore(); }catch(e2){} }
   // 睡觉冒💤
   if(LP.sleepy){
     ctx.save(); ctx.globalAlpha=0.85; ctx.fillStyle='#7e57c2'; ctx.font='bold '+Math.round(drawW*0.16)+'px sans-serif';
@@ -37641,6 +37646,7 @@ function h3DrawPet(a,t,moving){
   var rr=null; if(RIGS[rigKeyOf(img.src)]){ try{ rr=rgRender(img,ext.st,t+a.idx*1.3,ts,ext,drawW*1.4); }catch(e){} }
   if(rr){ var k=drawW/rr.w; ctx.drawImage(rr.canvas,0,0,rr.cw,rr.ch,-drawW/2-rr.x*k,-drawH-rr.y*k,rr.cw*k,rr.ch*k); }
   else ctx.drawImage(img,-drawW/2,-drawH,drawW,drawH);
+  try{ lpDrawInjury(ctx,a.pet,img.src,drawW,drawH,t); }catch(eInj){}
   if(anim==='sleep'){ ctx.setTransform(1,0,0,1,0,0); ctx.font='bold 30px sans-serif'; ctx.fillStyle='#7e57c2'; var z=(t*0.6)%1; ctx.globalAlpha=Math.sin(z*Math.PI); ctx.fillText('Z',W*0.68+z*20,H*0.35-z*30); ctx.globalAlpha=1; }
   a.tex.needsUpdate=true;
 }
@@ -38905,6 +38911,187 @@ hbRender=function(){
   var target=Array.prototype.filter.call(firstCard,function(d){ return d.textContent.indexOf(cur.name.split(' ')[1])>=0; })[0];
   if(target) target.appendChild(btn); else body.appendChild(btn);
 };
+/* ========== 2026-11新增：宠物受伤的画面效果 ==========
+   宠物打副本/PK受伤后，身上会按伤势画出受伤的样子（主宠物、其它宠物、3D小屋里都一样），提醒赶快去救治：
+   - PK小伤（pkInjured）：脸被打肿（一边脸颊红肿鼓起来）+ 头上贴一张创可贴
+   - 轻伤（injurySeverity='light'）：脸肿 + 头上、身上贴好几张创可贴 + 额头缠一圈纱布
+   - 重伤（injurySeverity='severe'）：头上缠满绷带（渗着红点）、身上缠纱布、手臂吊着三角巾、
+     拄着拐杖（会跟着身体晃）
+   治好以后（吃药）这些效果自动消失。 */
+function petInjuryLevel(p){
+  if(!p) return 0;
+  if(p.injured&&p.injurySeverity==='severe') return 3;
+  if(p.injured) return 2;
+  if(p.pkInjured) return 1;
+  return 0;
+}
+function lpInjuryAnchors(src){
+  var r=(typeof RIGS!=='undefined')&&RIGS[rigKeyOf(src||'')];
+  var head=r?r.head:[0.5,0.3], neck=r?r.neck:[0.5,0.5], pelvis=r?r.pelvis:[0.5,0.8];
+  var arm=r&&r.arms&&r.arms.length?r.arms[r.arms.length-1]:[[0.7,0.55],[0.8,0.65]];
+  return {head:head,neck:neck,pelvis:pelvis,arm:arm};
+}
+function lpBandAid(ctx,x,y,w,ang){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+  ctx.fillStyle='#f3c79c'; ctx.strokeStyle='rgba(150,100,60,.5)'; ctx.lineWidth=Math.max(1,w*0.04);
+  var h=w*0.32; if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(-w/2,-h/2,w,h,h/2); ctx.fill(); ctx.stroke(); } else { ctx.fillRect(-w/2,-h/2,w,h); }
+  ctx.fillStyle='#fbe3cb'; ctx.fillRect(-w*0.17,-h*0.38,w*0.34,h*0.76);
+  ctx.fillStyle='rgba(150,100,60,.35)'; for(var i=0;i<4;i++) for(var j=0;j<2;j++){ ctx.beginPath(); ctx.arc(-w*0.38+i*w*0.07+(i>1?w*0.62:0),-h*0.15+j*h*0.3,w*0.012,0,7); ctx.fill(); }
+  ctx.restore();
+}
+function lpDrawInjury(ctx,pet,src,drawW,drawH,t){
+  var lv=petInjuryLevel(pet); if(!lv) return;
+  var a=lpInjuryAnchors(src);
+  var P=function(q){ return [-drawW/2+q[0]*drawW,-drawH+q[1]*drawH]; };
+  var hd=P(a.head), nk=P(a.neck), pv=P(a.pelvis);
+  var hr=Math.max(drawW*0.12,Math.hypot(hd[0]-nk[0],hd[1]-nk[1])*0.95);
+  t=t||0;
+  ctx.save();
+  // 脸肿：一边脸颊鼓起一个红肿的包
+  var cx=hd[0]+hr*0.42, cy=hd[1]+hr*0.38;
+  var g=ctx.createRadialGradient(cx-hr*0.06,cy-hr*0.06,hr*0.02,cx,cy,hr*0.36);
+  g.addColorStop(0,'rgba(255,170,170,.95)'); g.addColorStop(0.6,'rgba(240,90,100,.75)'); g.addColorStop(1,'rgba(220,60,80,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(cx,cy,hr*0.36*(1+Math.sin(t*3)*0.03),hr*0.3,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(cx-hr*0.1,cy-hr*0.1,hr*0.07,hr*0.04,-0.5,0,7); ctx.fill();
+  // 头上的创可贴
+  lpBandAid(ctx,hd[0]-hr*0.35,hd[1]-hr*0.55,hr*0.75,-0.5);
+  if(lv>=2){
+    lpBandAid(ctx,hd[0]-hr*0.35,hd[1]-hr*0.55,hr*0.75,0.5);
+    lpBandAid(ctx,(nk[0]+pv[0])/2+drawW*0.06,(nk[1]+pv[1])/2,hr*0.7,0.3);
+    lpBandAid(ctx,pv[0]-drawW*0.12,pv[1]+drawH*0.05,hr*0.6,-0.4);
+  }
+  if(lv>=2){
+    // 额头缠一圈纱布（重伤更宽、有红点）
+    var bw=hr*(lv>=3?0.5:0.3), by=hd[1]-hr*(lv>=3?0.45:0.55);
+    ctx.fillStyle='rgba(255,255,255,.96)'; ctx.strokeStyle='rgba(180,180,190,.9)'; ctx.lineWidth=Math.max(1,hr*0.03);
+    ctx.beginPath(); ctx.ellipse(hd[0],by,hr*1.05,bw,0,Math.PI,0,false); ctx.ellipse(hd[0],by+bw*0.6,hr*1.08,bw*0.5,0,0,Math.PI,false); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle='rgba(190,190,200,.8)'; for(var s=-3;s<=3;s++){ ctx.beginPath(); ctx.moveTo(hd[0]+s*hr*0.28,by-bw*0.8); ctx.lineTo(hd[0]+s*hr*0.28+hr*0.15,by+bw*0.9); ctx.stroke(); }
+    if(lv>=3){ ctx.fillStyle='rgba(220,40,50,.75)'; ctx.beginPath(); ctx.ellipse(hd[0]+hr*0.35,by,hr*0.13,hr*0.09,0.3,0,7); ctx.fill(); }
+    // 纱布尾巴
+    ctx.fillStyle='rgba(255,255,255,.96)'; ctx.beginPath(); ctx.moveTo(hd[0]-hr*1.0,by); ctx.lineTo(hd[0]-hr*1.35,by+bw*1.2+Math.sin(t*4)*hr*0.05); ctx.lineTo(hd[0]-hr*1.15,by+bw*1.5); ctx.lineTo(hd[0]-hr*0.9,by+bw*0.4); ctx.fill(); ctx.stroke();
+  }
+  if(lv>=3){
+    // 身上缠纱布
+    ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.lineWidth=drawW*0.05; ctx.lineCap='round';
+    for(var k=0;k<3;k++){ var yy=nk[1]+(pv[1]-nk[1])*(0.3+k*0.22); ctx.beginPath(); ctx.moveTo(pv[0]-drawW*0.24,yy+drawH*0.03); ctx.quadraticCurveTo(pv[0],yy-drawH*0.02,pv[0]+drawW*0.24,yy+drawH*0.01); ctx.stroke(); }
+    ctx.strokeStyle='rgba(190,190,200,.7)'; ctx.lineWidth=Math.max(1,drawW*0.006);
+    for(var k2=0;k2<3;k2++){ var yy2=nk[1]+(pv[1]-nk[1])*(0.3+k2*0.22); ctx.beginPath(); ctx.moveTo(pv[0]-drawW*0.24,yy2+drawH*0.03+drawW*0.02); ctx.quadraticCurveTo(pv[0],yy2-drawH*0.02+drawW*0.02,pv[0]+drawW*0.24,yy2+drawH*0.01+drawW*0.02); ctx.stroke(); }
+    // 三角巾吊着手臂
+    var sh=P(a.arm[0]), hand=P(a.arm[a.arm.length-1]);
+    ctx.fillStyle='rgba(255,255,255,.93)'; ctx.strokeStyle='rgba(170,170,185,.9)'; ctx.lineWidth=Math.max(1,drawW*0.008);
+    ctx.beginPath(); ctx.moveTo(nk[0]-drawW*0.08,nk[1]); ctx.lineTo(sh[0]+drawW*0.12,(sh[1]+pv[1])/2); ctx.lineTo(sh[0]-drawW*0.12,(sh[1]+pv[1])/2+drawH*0.04); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 拐杖（放在身体另一侧，跟着身体轻轻晃）
+    var side=a.arm[0][0]>0.5?-1:1, cxx=pv[0]+side*drawW*0.46, sway=Math.sin(t*2)*0.04;
+    ctx.save(); ctx.translate(cxx,0); ctx.rotate(sway*side);
+    ctx.strokeStyle='#9c6b3f'; ctx.lineWidth=drawW*0.035; ctx.lineCap='round';
+    var topY=nk[1]+drawH*0.03;
+    ctx.beginPath(); ctx.moveTo(0,-drawH*0.02); ctx.lineTo(0,topY+drawH*0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-drawW*0.05,topY+drawH*0.1); ctx.lineTo(0,topY); ctx.lineTo(drawW*0.05,topY+drawH*0.1); ctx.stroke();
+    ctx.strokeStyle='#e0c09a'; ctx.lineWidth=drawW*0.05; ctx.beginPath(); ctx.moveTo(-drawW*0.07,topY); ctx.lineTo(drawW*0.07,topY); ctx.stroke();
+    ctx.strokeStyle='#555'; ctx.lineWidth=drawW*0.045; ctx.beginPath(); ctx.moveTo(0,-drawH*0.04); ctx.lineTo(0,0); ctx.stroke();
+    ctx.strokeStyle='#9c6b3f'; ctx.lineWidth=drawW*0.03; ctx.beginPath(); ctx.moveTo(-drawW*0.035,(topY-drawH*0.02)*0.45); ctx.lineTo(drawW*0.035,(topY-drawH*0.02)*0.45); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ========== 2026-11改版：学完自测 = 复习 → 正式考试（防作弊） ==========
+   家长反馈：自测是弹窗盖在学习页上面，孩子能关掉弹窗/透过去偷看单词。现在：
+   1) 自测整屏不透明，盖住整个页面，看不到下面的学习内容
+   2) 点"开始"先进【复习页】：把今天学过的+要复习的内容全部列出来，可以慢慢看，也可以直接点下一步
+   3) 点「开始正式考试」后进入考试：右上角✕隐藏、ESC键无效，想中途离开只能点「🚪退出考试」，
+      退出就按已答的题直接交卷；切到别的App/页面会自动暂停并记录"离开了几次"，显示在成绩里
+   4) 考试中答错只会在答完这题后告诉正确答案，之前的单词表看不到 */
+ensureSelfTestModal=function(){
+  if(document.getElementById('selfTestModal')) return;
+  var d=document.createElement('div');
+  d.className='modal-mask'; d.id='selfTestModal';
+  d.style.background='linear-gradient(180deg,#f3e5f5 0%,#ede7f6 100%)';
+  d.innerHTML='<div class="modal" style="max-width:560px;text-align:center;padding:16px 14px;max-height:96vh;box-shadow:0 10px 40px rgba(106,27,154,.18)">'
+    +'<button class="modal-close" id="stCloseBtn" onclick="closeSelfTest()">✕</button>'
+    +'<div id="selfTestBody"></div></div>';
+  document.body.appendChild(d);
+};
+function stPool(){
+  var seen={}, out=[];
+  stTodayKeys().concat(stReviewKeys()).forEach(function(p){ var k=p[0]+'|'+p[1]; if(seen[k]) return; seen[k]=1; out.push(p); });
+  return out;
+}
+startSelfTest=function(){
+  var today=stShuffle(stTodayKeys()), rev=stShuffle(stReviewKeys());
+  var picked=[], seen={};
+  var add=function(p){ var k=p[0]+'|'+p[1]; if(seen[k]) return; seen[k]=1; picked.push(p); };
+  rev.slice(0,3).forEach(add);
+  today.forEach(function(p){ if(picked.length<8) add(p); });
+  rev.forEach(function(p){ if(picked.length<8) add(p); });
+  var qs=stShuffle(picked).map(function(p){ return stMakeQuestion(p[0],p[1]); }).filter(Boolean);
+  if(!qs.length){ renderSelfTestIntro(); return; }
+  var m=stMinutes();
+  ST={qs:qs,i:0,correct:0,streak:0,best:0,wrong:[],limit:m*60,left:m*60,paused:false,timer:null,started:Date.now(),answered:0,locked:false,orderPick:[],exam:false,leaves:0};
+  stRenderReview();
+};
+function stRenderReview(){
+  var pool=stPool();
+  var groups={word:[],hanzi:[],sentence:[]};
+  pool.forEach(function(p){ var f=findStudyItem(p[0],p[1]); if(f) groups[p[0]].push({it:f.item,rev:learnStatus(p[0],p[1])==='review'}); });
+  var sec=function(title,arr,fmt){ if(!arr.length) return ''; return '<div style="text-align:left;margin:10px 0 4px;font-weight:800;color:#6a1b9a">'+title+'（'+arr.length+'）</div>'
+    +arr.map(function(x){ return '<div style="text-align:left;background:'+(x.rev?'#fff3e0':'#faf5fc')+';border-radius:10px;padding:7px 10px;margin:4px 0;font-size:15px;line-height:1.5">'+fmt(x.it)+(x.rev?' <span style="font-size:11px;background:#ffcc80;color:#8a4b00;border-radius:6px;padding:0 5px">🔁要复习</span>':'')+'</div>'; }).join(''); };
+  stBody('<h3 style="margin:2px 0 4px">📖 考前复习</h3>'
+    +'<div class="small" style="color:#7b1fa2">下面是今天学过的和需要复习的内容，先看一遍再考试吧～</div>'
+    +'<div style="max-height:58vh;overflow:auto;margin-top:6px;padding:2px">'
+    +sec('🔤 单词',groups.word,function(w){ return '<b style="font-size:17px">'+escapeAttr(w.en)+'</b> <span style="color:#9c7ab0">'+escapeAttr(w.ph||'')+'</span> <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(w.en)+'\',\'en-US\')">🔊</button><br><span style="color:#4a148c">'+escapeAttr(w.cn)+'</span>'; })
+    +sec('🀄 汉字',groups.hanzi,function(h){ return '<b style="font-size:19px">'+escapeAttr(h.zi)+'</b> <span style="color:#9c7ab0">'+escapeAttr(h.py||'')+'</span>　<span style="color:#4a148c">'+escapeAttr(h.cn||'')+'</span>'; })
+    +sec('💬 句子',groups.sentence,function(t){ return escapeAttr(t.en)+' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(t.en)+'\',\'en-US\')">🔊</button><br><span style="color:#4a148c">'+escapeAttr(t.cn)+'</span>'; })
+    +'</div>'
+    +'<div style="background:#fff3e0;border-radius:10px;padding:6px 10px;margin-top:8px;font-size:12px;color:#8a4b00">⚠️ 点了「开始正式考试」以后，就不能再看这些内容了哦</div>'
+    +'<button class="btn btn-primary btn-block" style="margin-top:8px;font-size:18px;padding:12px" onclick="stBeginExam()">📝 我复习好了，开始正式考试 →</button>'
+    +'<button class="btn btn-gray btn-block" onclick="ST=null;renderSelfTestIntro()">⬅ 返回</button>');
+}
+function stBeginExam(){
+  if(!ST) return;
+  ST.exam=true; ST.started=Date.now();
+  try{ ttsStopAll(); }catch(e){}
+  var cb=document.getElementById('stCloseBtn'); if(cb) cb.style.display='none';
+  var n=3;
+  var tick=function(){
+    if(!ST) return;
+    if(n<=0){ stRenderQ(); stStartTimer(); return; }
+    stBody('<div style="padding:30px 0"><div style="font-size:15px;color:#7b1fa2">'+L('正式考试马上开始，深呼吸～','The test starts now, take a deep breath~')+'</div>'
+      +'<div style="font-size:64px;font-weight:800;color:#8e24aa;margin-top:10px">'+n+'</div></div>');
+    n--; setTimeout(tick,800);
+  };
+  tick();
+}
+var _stOrigHeader=stHeader;
+stHeader=function(){ return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:-4px"><span class="small" style="color:#6a1b9a;font-weight:700">📝 正式考试中'+(ST&&ST.leaves?'　<span style="color:#e65100">离开过'+ST.leaves+'次</span>':'')+'</span><button class="btn btn-gray btn-sm" onclick="stExitExam()">🚪 退出考试</button></div>'+_stOrigHeader(); };
+function stExitExam(){
+  if(!ST) return;
+  if(!confirm('确定要退出考试吗？\n退出后会按已经答完的题直接交卷，没答的题算错。')) return;
+  ST.exited=true;
+  // 没答的题都算错
+  ST.qs.forEach(function(q,i){ if(i>=ST.i&&q.res==null){ q.res=0; } });
+  stFinish(false);
+}
+var _stOrigFinish=stFinish;
+stFinish=function(timeout){
+  var leaves=ST?ST.leaves:0, exited=ST&&ST.exited;
+  _stOrigFinish.apply(this,arguments);
+  var cb=document.getElementById('stCloseBtn'); if(cb) cb.style.display='';
+  try{ var last=state.selfTests[state.selfTests.length-1]; if(last){ last.leaves=leaves; if(exited) last.exited=true; saveStore(); } }catch(e){}
+  if(leaves||exited){ var b=document.getElementById('selfTestBody'); if(b){ var d=document.createElement('div'); d.style.cssText='background:#fff3e0;border-radius:10px;padding:6px 10px;margin-top:8px;font-size:13px;color:#8a4b00'; d.textContent=(exited?'🚪 这次是中途退出交卷的。':'')+(leaves?'⚠️ 考试中离开页面 '+leaves+' 次。':''); b.appendChild(d); } }
+};
+// 考试中：不能用✕/ESC关闭
+var _stOrigHideModal=hideModal;
+hideModal=function(id){ if(id==='selfTestModal'&&ST&&ST.exam) return; return _stOrigHideModal.apply(this,arguments); };
+var _stOrigClose=closeSelfTest;
+closeSelfTest=function(){ if(ST&&ST.exam){ stExitExam(); return; } return _stOrigClose.apply(this,arguments); };
+// 考试中切到别的App/页面：自动暂停并记录
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'&&ST&&ST.exam&&!ST.paused){
+    ST.leaves=(ST.leaves||0)+1;
+    try{ stTogglePause(); var b=document.getElementById('selfTestBody'); if(b){ var d=document.createElement('div'); d.style.cssText='color:#e65100;font-size:14px;margin-top:8px'; d.textContent='⚠️ 考试中离开了页面（已记录 '+ST.leaves+' 次），回来后点「继续」接着考'; b.appendChild(d); } }catch(e){}
+  }
+});
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
