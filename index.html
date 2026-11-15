@@ -1754,6 +1754,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
     <div class="ex-timer-groups" id="exTimerGroupsLabel">第 1/4 组</div>
     <div class="ex-timer-big" id="exTimerBigNum">30</div>
     <div class="ex-timer-sub" id="exTimerSubText"></div>
+    <div id="exTimerOpts" style="margin:6px 0"></div>
     <button class="btn btn-primary btn-block" id="exTimerActionBtn" onclick="exActionBtnClick()">▶️ 开始第1组</button>
   </div>
 </div>
@@ -37334,6 +37335,100 @@ function cnRenderMathWP(){
         +'</div>';
     }).join('');
 }
+
+/* ========== 2026-11新增：运动计数「真人报数」——兼容科大讯飞学习机 ==========
+   以前的"滴"声用Web Audio(AudioContext)，在科大讯飞等安卓学习机上一创建就会抢走系统发声通道，
+   导致整个网页朗读都哑掉，只好把声音全关了；而这类设备的浏览器也没有文字转语音(speechSynthesis)。
+   但它们能正常播放普通mp3（背景音乐就能放）。count_sprite.mp3是一段1~60的报数录音（每个数字占1秒），
+   这里用一个普通<audio>元素，每做一个就跳到对应那一秒播放这个数字——不碰AudioContext、不用TTS。
+   - 计数类（波比跳/仰卧起坐）：按设定的节奏（每个几秒，可调）报"1、2、3……"，一直数到目标个数
+   - 计时类（平板支撑/单腿平衡）：最后10秒倒数报数；组间休息最后5秒也倒数
+   - 第一次点"开始"时顺手"解锁"这个音频元素（浏览器要求声音必须由点击触发），之后定时器里也能正常出声 */
+var EX_AUD={el:null,stopT:null};
+function exVoiceOn(){ return !(store&&store.exVoiceOff); }
+function exAudEl(){ if(!EX_AUD.el){ var a=new Audio('count_sprite.mp3'); a.preload='auto'; EX_AUD.el=a; try{ a.load(); }catch(e){} } return EX_AUD.el; }
+function exAudUnlock(){
+  var a=exAudEl();
+  try{ a.muted=true; var p=a.play(); var done=function(){ try{ a.pause(); }catch(e){} a.muted=false; };
+    if(p&&p.then) p.then(done).catch(function(){ a.muted=false; }); else done(); }catch(e){ a.muted=false; }
+}
+function exSayNum(n){
+  if(!exVoiceOn()||!n||n<1) return;
+  if(n>60) n=((n-1)%60)+1;
+  var a=exAudEl();
+  clearTimeout(EX_AUD.stopT);
+  try{
+    a.muted=false;
+    try{ a.volume=(typeof ttsVolFrac==='function')?Math.max(0.2,ttsVolFrac()):1; }catch(eV){}
+    a.pause(); a.currentTime=n-1;
+    var p=a.play(); if(p&&p.catch) p.catch(function(){});
+  }catch(e){}
+  EX_AUD.stopT=setTimeout(function(){ try{ a.pause(); }catch(e){} },930);
+}
+function exPaceOf(key){ var m=store&&store.exPace; var v=m&&m[key]; return (typeof v==='number'&&v>=1.5&&v<=8)?v:(EX_CFG[key]&&EX_CFG[key].secPerRep)||3; }
+function setExPace(key,v){ if(!store.exPace) store.exPace={}; store.exPace[key]=v; try{ saveStore(); }catch(e){} renderExerciseTimer(); }
+function toggleExVoice(){ store.exVoiceOff=!store.exVoiceOff; try{ saveStore(); }catch(e){} if(exVoiceOn()){ exAudUnlock(); setTimeout(function(){ exSayNum(1); },250); } renderExerciseTimer(); }
+var _exOrigAction=exActionBtnClick;
+exActionBtnClick=function(){ exAudUnlock(); return _exOrigAction.apply(this,arguments); };
+exStartGroup=function(){
+  var ex=exTimer, cfg=ex.cfg;
+  ex.phase='counting';
+  if(cfg.kind==='hold'){
+    ex.remain=cfg.holdSec;
+    renderExerciseTimer();
+    ex.tickHandle=setInterval(function(){
+      ex.remain--;
+      if(ex.remain<=0){ exClearTick(); exGroupComplete(); return; }
+      if(ex.remain<=10) exSayNum(ex.remain);
+      renderExerciseTimer();
+    },1000);
+  }else{
+    ex.repsThisGroup=(ex.mode==='once')?ex.repsTarget:Math.min(cfg.groupReps, ex.repsTarget-ex.repsDoneTotal);
+    ex.repsDoneInGroup=0;
+    var pace=exPaceOf(ex.key);
+    renderExerciseTimer();
+    ex.tickHandle=setInterval(function(){
+      ex.repsDoneInGroup++;
+      exSayNum(ex.repsDoneInGroup);
+      if(ex.repsDoneInGroup>=ex.repsThisGroup){ exClearTick(); setTimeout(exGroupComplete,700); return; }
+      renderExerciseTimer();
+    },pace*1000);
+  }
+};
+// 组间休息最后5秒倒数
+var _exOrigGroupComplete=exGroupComplete;
+exGroupComplete=function(){
+  _exOrigGroupComplete.apply(this,arguments);
+  var ex=exTimer;
+  if(ex&&ex.phase==='resting'){
+    var h=setInterval(function(){
+      if(!exTimer||exTimer!==ex||ex.phase!=='resting'){ clearInterval(h); return; }
+      if(ex.remain<=5&&ex.remain>=1) exSayNum(ex.remain);
+    },1000);
+  }
+};
+var _exOrigRender=renderExerciseTimer;
+renderExerciseTimer=function(){
+  _exOrigRender.apply(this,arguments);
+  var ex=exTimer, box=document.getElementById('exTimerOpts');
+  if(!ex||!box) return;
+  var sub=document.getElementById('exTimerSubText');
+  if(ex.phase==='counting'&&ex.cfg.kind==='rep'&&sub) sub.textContent='跟着报数的节奏，连续做，别停～（目标 '+(ex.mode==='once'?ex.repsTarget:ex.repsThisGroup)+' 个）';
+  var editable=(ex.phase==='ready'||ex.phase==='grace'||ex.phase==='failed');
+  var voice='<button class="btn '+(exVoiceOn()?'btn-success':'btn-gray')+' btn-sm" onclick="toggleExVoice()">'+(exVoiceOn()?'🔊 报数：开':'🔇 报数：关')+'</button>';
+  if(!editable){ box.innerHTML='<div style="text-align:center">'+voice+'</div>'; return; }
+  var html='<div style="text-align:center;font-size:13px;color:#6a1b9a">';
+  if(ex.cfg.kind==='rep'){
+    var pace=exPaceOf(ex.key);
+    var total=ex.repsTarget, per=ex.mode==='once'?total:Math.min(ex.cfg.groupReps,total);
+    html+='🎯 目标：<b>'+total+'</b> 个'+(ex.mode==='once'?'（一次做完）':'（每组 '+per+' 个，共 '+ex.groupsTotal+' 组）')+'<br>⏱ 节奏：每 '
+      +[2,2.5,3,4,5,6].map(function(v){ return '<button class="btn '+(Math.abs(v-pace)<0.01?'btn-primary':'btn-gray')+' btn-sm" style="padding:3px 8px;margin:2px" onclick="setExPace(\''+ex.key+'\','+v+')">'+v+'秒</button>'; }).join('')+' 报一个数'
+      +'<br><span class="small" style="color:#888">每组大约 '+Math.round(per*pace)+' 秒</span>';
+  }else{
+    html+='🎯 每组坚持 <b>'+ex.cfg.holdSec+'</b> 秒，共 '+ex.groupsTotal+' 组（最后10秒会倒数报数）';
+  }
+  box.innerHTML=html+'<div style="margin-top:4px">'+voice+'</div></div>';
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
