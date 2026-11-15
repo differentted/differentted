@@ -36048,7 +36048,7 @@ function rgPose(m,st,t,ts,ext){
       set('head',7); raise(-6); set('tail0',-8);
       break;
     case 'scared':
-      raise(55+5*Math.sin(t*60)); set('head',3*Math.sin(t*50));
+      raise(55+3*Math.sin(t*Math.PI*2*3)); set('head',2*Math.sin(t*Math.PI*2*2.5)+0.8*Math.sin(t*20));
       break;
     case 'reach': // 伸手去摸对方的头（对方总在自己"前面"）
       bones.forEach(function(b){ if(b.kind==='arm'&&b.side>0) set(b.name,-b.side*(80+10*Math.sin(ts*Math.PI*2*2.5))); if(b.kind==='fore'&&b.side>0) set(b.name,-b.side*20*Math.sin(ts*Math.PI*2*2.5)); });
@@ -36059,9 +36059,9 @@ function rgPose(m,st,t,ts,ext){
       set('tail0',22*sinp(2.2)); set('tail1',26*sinp(2.2,-0.7));
       break;
     case 'angry': // 生气：跺脚、手臂往下甩、身体发抖
-      raise(-12+6*Math.sin(t*40)); set('head',-6+3*Math.sin(t*30)); set('spine',-3);
+      raise(-12+5*Math.sin(t*Math.PI*2*2.2)); set('head',-6+3*Math.sin(t*Math.PI*2*1.6)+1*Math.sin(t*22)); set('spine',-3+2*Math.sin(t*Math.PI*2*2.2)); // 2026-11：原来每秒抖几十下像在抽搐，改成慢慢跺脚+轻微发抖
       bones.forEach(function(b){ if(b.kind==='leg') set(b.name,8*Math.max(0,Math.sin(ts*Math.PI*2*3+(b.side<0?0:Math.PI)))*-b.side); });
-      set('tail0',30*Math.sin(t*14)); set('tail1',30*Math.sin(t*14-0.8));
+      set('tail0',22*Math.sin(t*Math.PI*2*2.2)); set('tail1',24*Math.sin(t*Math.PI*2*2.2-0.8));
       break;
     case 'pushup': case 'lift':
       raise(30+40*(Math.sin(ts*Math.PI*2*2.1)+1)/2);
