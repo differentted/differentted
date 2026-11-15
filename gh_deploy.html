@@ -974,6 +974,44 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   #list-sport .item,#list-study .item,#list-fun .item,#list-comm .item,#houseList .item{margin:0}
   .checkin-tab-btn{font-size:13.5px; padding:7px 14px}
 }
+
+/* ===== 2026-11 界面优化：宽屏铺满 + 按钮重新设计 ===== */
+/* 按钮：更圆润、有立体感（底部阴影像实体按键），按下去会"陷下去"，更适合小朋友点 */
+.btn{border:none;border-radius:14px;padding:8px 14px;font-size:13.5px;font-weight:700;letter-spacing:.3px;cursor:pointer;margin:2px;
+  transition:transform .08s ease, box-shadow .08s ease, filter .15s ease;position:relative;line-height:1.25;
+  box-shadow:0 3px 0 rgba(0,0,0,.14),0 4px 10px rgba(0,0,0,.06)}
+.btn:hover{filter:brightness(1.05) saturate(1.05)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.14),0 1px 4px rgba(0,0,0,.06)}
+.btn-primary{background:linear-gradient(180deg,#c86dd7 0%,#a23cba 100%);color:#fff;box-shadow:0 3px 0 #74208a,0 5px 12px rgba(162,60,186,.28);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+.btn-primary:active{box-shadow:0 1px 0 #74208a,0 2px 5px rgba(162,60,186,.25)}
+.btn-success{background:linear-gradient(180deg,#7fd483 0%,#43a047 100%);color:#fff;box-shadow:0 3px 0 #2e7d32,0 5px 12px rgba(67,160,71,.25);text-shadow:0 1px 1px rgba(0,0,0,.15)}
+.btn-success:active{box-shadow:0 1px 0 #2e7d32}
+.btn-danger{background:linear-gradient(180deg,#ff8a80 0%,#e53935 100%);color:#fff;box-shadow:0 3px 0 #b71c1c,0 5px 12px rgba(229,57,53,.22)}
+.btn-danger:active{box-shadow:0 1px 0 #b71c1c}
+.btn-warning{background:linear-gradient(180deg,#ffd27a 0%,#ffa726 100%);color:#4a2c00;box-shadow:0 3px 0 #e07b00,0 5px 12px rgba(255,167,38,.25)}
+.btn-warning:active{box-shadow:0 1px 0 #e07b00}
+.btn-info{background:linear-gradient(180deg,#7cc2f8 0%,#1e88e5 100%);color:#fff;box-shadow:0 3px 0 #1257a3,0 5px 12px rgba(30,136,229,.22)}
+.btn-info:active{box-shadow:0 1px 0 #1257a3}
+.btn-gray{background:linear-gradient(180deg,#ffffff 0%,#f3eef8 100%);color:#5b3f6e;border:1px solid #e3d4ee;box-shadow:0 3px 0 #dccbe9,0 4px 8px rgba(123,31,162,.06)}
+.btn-gray:active{box-shadow:0 1px 0 #dccbe9}
+.btn-sm{font-size:12.5px;padding:5px 11px;border-radius:12px}
+.btn-block{padding-top:10px;padding-bottom:10px;font-size:14.5px}
+.btn:disabled,.btn[disabled]{opacity:.5;filter:grayscale(.4);box-shadow:none;transform:none;cursor:not-allowed}
+.btn-selected{outline:3px solid #ab47bc;outline-offset:2px}
+.checkin-tab-btn{border-radius:14px;padding:7px 14px;box-shadow:0 2px 0 #e7d6f0}
+.checkin-tab-btn.active{background:linear-gradient(180deg,#c86dd7,#a23cba);border-color:#a23cba;box-shadow:0 3px 0 #74208a}
+.card{border-radius:18px}
+.item{border-radius:12px}
+/* 宽屏（电脑、iPad横屏）：内容区加宽，两边只留一条给宠物活动的窄边；打卡任务多列排列 */
+@media (min-width:1000px){
+  .container,.topbar{max-width:min(1300px, calc(100vw - 380px))}
+  #list-sport,#list-study,#list-fun,#list-comm,#houseList{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:8px 12px; align-items:stretch;
+  }
+  #list-sport .item,#list-study .item,#list-fun .item,#list-comm .item,#houseList .item{margin:0}
+  h1{font-size:24px}
+  .card{padding:14px 18px}
+}
 </style>
 <style>
 /* ============================================================
@@ -3522,6 +3560,8 @@ function companionWantedIdxs(){
   var idxs=[];
   if(!state.pets) return idxs;
   if(!companionsShouldShowGlobally()) return idxs;
+  // 2026-11：打卡页如果两边没有空白（手机/窄屏），其它宠物就先不出来——不然会站在任务列表上挡住"完成"按钮
+  try{ if(pageActive('home') && !getSideMarginZones()) return idxs; }catch(eZ){}
   for(var i=0;i<state.pets.length;i++){
     if(i===state.activePetIdx) continue;
     var p=state.pets[i];
@@ -3712,6 +3752,11 @@ function currentPetWidthPx(stage, level){
   // 算出来的宽度会跟屏幕宽度差不多——宠物几乎占满整个手机屏幕，看起来"巨大"（用户反馈截图能看到）。
   // 桌面宽屏不会被这条卡到（innerWidth本来就远大于520的硬上限），只在窄屏手机上收紧一下比例。
   if(overlay && overlay.classList.contains('show')) w=Math.min(w, window.innerWidth*0.58);
+  // 2026-11：宽屏内容区加宽后，打卡页两边只剩一条窄边——宠物按窄边的宽度缩小，站在边上陪伴，不挡内容
+  try{
+    var homeEl2=document.getElementById('page-home'), cont2=document.querySelector('.container');
+    if(homeEl2&&homeEl2.classList.contains('active')&&cont2){ var side2=cont2.getBoundingClientRect().left; if(side2-50>=80) w=Math.min(w,side2-50); }
+  }catch(eSide){}
   var shrink=petHomeNarrowShrink(w); // 用这次算出来的目标宽度w去判断空白够不够，而不是用旧宽度
   if(shrink<1) w=Math.max(56, Math.min(100, w*shrink)); // 打卡页窄屏（或空白装不下）：固定收在56~100px之间，不会再跟着等级越长越大、越挡越多
   return w;
@@ -3824,8 +3869,11 @@ function getSideMarginZones(overrideW){
   if(!cont) return null;
   var r=cont.getBoundingClientRect();
   var b=getPetBounds(overrideW);
-  var gap=30; // 和内容区保持一点安全距离
-  var minZoneW=60; // 空白区太窄就不勉强塞宠物进去
+  // 2026-11fix：left/top是宠物的"中心点"，所以离内容区的安全距离要再加上宠物半个身子的宽度，
+  // 否则宠物站在空白区最靠里的位置时，半个身子会伸进内容区挡住按钮
+  var halfW=Math.max(0,(b.minX-6));
+  var gap=8+halfW;
+  var minZoneW=30; // 空白区太窄就不勉强塞宠物进去
   var zones=[];
   var leftMin=b.minX, leftMax=r.left-gap;
   if(leftMax-leftMin>=minZoneW) zones.push({minX:leftMin, maxX:leftMax});
@@ -3836,6 +3884,7 @@ function getSideMarginZones(overrideW){
 function petClamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function moveTo(x,y,opts){
   opts=opts||{};
+  if(typeof actClampX==='function' && !(typeof LP!=='undefined' && LP.carry)) x=actClampX(x);
   var b=getPetBounds();
   x=petClamp(x,b.minX,b.maxX); y=petClamp(y,b.minY,b.maxY);
   var duration=opts.duration||900;
@@ -36052,12 +36101,14 @@ function renderCompanionPets(){
       el.style.width=cpWidth()+'px';
       el.onclick=(function(idx){ return function(){ companionPetTouch(idx); }; })(i);
       host.appendChild(el);
-      var t=pickPetWanderTarget();
+      var t=pickPetWanderTarget(); t.x=actClampX(t.x);
       el.style.left=t.x+'px'; el.style.top=t.y+'px';
       companionSprites[i]={el:el,x:t.x,y:t.y,idx:i,anim:'idle',faceLeft:Math.random()<0.5};
       scheduleCompanionWander(i);
     }
   });
+  // 已经在场的宠物如果站在内容区里（比如刚切到打卡页、或者窗口大小变了），马上走回两边的空白区
+  for(var k2 in companionSprites){ var e2=companionSprites[k2]; if(!e2.busy){ var cx2=actClampX(e2.x); if(Math.abs(cx2-e2.x)>2) cpMoveTo(e2,cx2,e2.y,900); } }
   cpKick();
   schedulePetInteractionCheck();
 }
@@ -36075,6 +36126,7 @@ function scheduleCompanionWander(i){
   }, 3500+Math.random()*3500);
 }
 function cpMoveTo(e,x,y,ms){
+  x=actClampX(x);
   e.faceLeft=x<e.x;
   e.el.style.transition='left '+ms+'ms ease-in-out, top '+ms+'ms ease-in-out';
   e.el.style.transform='translate(-50%,-50%)';
@@ -36095,7 +36147,17 @@ function actOf(idx){
 function actPos(a){ return a.main?{x:petX,y:petY}:{x:a.e.x,y:a.e.y}; }
 function actW(a){ return a.main?((petWrap&&petWrap.offsetWidth)||90):(a.e.el.offsetWidth||60); }
 function actH(a){ return a.main?((petWrap&&petWrap.offsetHeight)||100):(a.e.el.offsetHeight||70); }
+function actClampX(x){
+  try{
+    if(!pageActive('home')) return x;
+    var zs=getSideMarginZones(); if(!zs) return x;
+    var best=zs[0], bd=1e9;
+    zs.forEach(function(z){ var d=x<z.minX?z.minX-x:x>z.maxX?x-z.maxX:0; if(d<bd){ bd=d; best=z; } });
+    return Math.max(best.minX,Math.min(best.maxX,x));
+  }catch(e){ return x; }
+}
 function actMove(a,x,y,ms,run){
+  x=actClampX(x);
   if(a.main){ moveTo(x,y,{duration:ms,anim:run?'run':'walk',animDuration:ms}); }
   else cpMoveTo(a.e,x,y,ms);
 }
