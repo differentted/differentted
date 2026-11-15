@@ -40238,6 +40238,303 @@ h3Init=function(){ var r=_diyOrigInit.apply(this,arguments); try{ diyAddButtons(
   // 右边院子装了车/游乐场/宠物别墅时，镜头稍微往右挪一点，整套都看得到
   try{ if(H3._diyJustBuilt){ H3._diyJustBuilt=false; var eq=diyState().eq; if((eq.car||eq.play||eq.pethouse)&&H3.target&&H3W()/H3H()>=0.85){ if((H3.tier||3)>=2){ H3.target.x+=1.3; H3.dist=Math.min(30,H3.dist*1.08); } else { H3.target.x+=2.6; H3.dist=Math.max(H3.dist,13.5); } } } }catch(e){}
   return r; };
+/* ========== 2026-11新增：3D小屋里喂饭/喝水/洗澡的拟人动作 + 平时的小动作 ==========
+   参考了常见养成游戏（Tamagotchi、Pou、动物森友会这类）的做法：每个照顾动作拆成「走过去 → 准备 → 动作循环 → 收尾反应」，
+   用骨骼姿势 + 手里的道具 + 场景里的3D道具/粒子一起表现：
+   🍖 吃饭：走到餐桌边，桌上摆出盘子和食物（冒热气），拿勺子一口一口往嘴里送，腮帮子鼓起来嚼，食物一点点变少、
+          掉渣渣；吃完摸摸肚子打个饱嗝，冒爱心
+   💧 喝水/🥛牛奶/🍵抹茶：捧起杯子仰头喝（杯子里的水一点点变少、咕嘟咕嘟冒泡），喝完用手擦擦嘴「哈～」
+   🛁 洗澡：走进浴缸坐下（身子泡在水里），满缸泡泡+小黄鸭漂着，头上搓出泡沫、手拿海绵来回搓，泡泡往上飘；
+          洗完爬出来像小狗一样甩水（水珠四溅），头上包毛巾，亮晶晶香喷喷
+   平时：偶尔伸懒腰打哈欠、挠挠头、左右张望、朝你挥手
+   没有厨房/浴室（小木屋）或者家里太脏宠物在草地上时，就在原地铺野餐垫、摆木头澡盆。 */
+// ---- 新的骨骼姿势 ----
+var _c3OrigPose=rgPose;
+rgPose=function(m,st,t,ts,ext){
+  var C3={eatbite:1,drink:1,scrub:1,shake:1,rub:1,stretch:1,scratch:1,wipe:1,look:1,soak:1};
+  if(!C3[st]||ext.walking||ext.carry) return _c3OrigPose.apply(this,arguments);
+  var A={}, bones=m.bones, human=!!m.rig.human, k=human?0.6:1;
+  var set=function(n,d){ A[n]=(A[n]||0)+d; };
+  var front=function(armDeg,foreDeg){ bones.forEach(function(b){ if(b.kind==='arm'&&b.side>0) set(b.name,-b.side*armDeg*k); if(b.kind==='fore'&&b.side>0) set(b.name,-b.side*foreDeg*k); }); };
+  var back=function(armDeg,foreDeg){ bones.forEach(function(b){ if(b.kind==='arm'&&b.side<0) set(b.name,-b.side*armDeg*k); if(b.kind==='fore'&&b.side<0) set(b.name,-b.side*foreDeg*k); }); };
+  var both=function(a,f){ front(a,f); back(a,f); };
+  var S=function(f,ph){ return Math.sin(ts*Math.PI*2*f+(ph||0)); };
+  set('tail0',10*Math.sin(t*4)); set('tail1',14*Math.sin(t*4-0.8));
+  switch(st){
+    case 'eatbite': var bite=Math.max(0,S(0.85)); front(55+40*bite,45*bite); back(-8,0); set('head',6*bite-2); set('spine',2*bite); break;
+    case 'drink': front(95+4*S(0.5),70); back(40,30); set('head',-12+2*Math.sin(ts*14)); set('spine',-4); break;
+    case 'wipe': front(75,35*S(3)); set('head',4); break;
+    case 'scrub': front(120+25*S(2.4),30*S(4.8)); back(120+25*S(2.4,Math.PI),30*S(4.8,Math.PI)); set('head',5*S(2.4)); set('spine',3*S(1.2)); break;
+    case 'soak': both(20+6*S(0.6),10); set('head',4*S(0.4)); set('tail0',4*S(0.5)); break;
+    case 'shake': var sh=Math.sin(ts*Math.PI*2*6.5); set('spine',11*sh); set('head',15*Math.sin(ts*Math.PI*2*6.5+1)); both(25+20*sh,15*sh); set('tail0',40*sh); set('tail1',40*Math.sin(ts*Math.PI*2*6.5-0.8)); break;
+    case 'rub': front(-5,40+30*S(1.6)); back(-5,40+30*S(1.6,Math.PI)); set('head',7); set('spine',-3); set('tail0',22*S(2)); break;
+    case 'stretch': var e=Math.min(1,ts/0.8)*(ts>2.4?Math.max(0,1-(ts-2.4)/0.6):1); both(160*e,10*e); set('spine',-8*e); set('head',-12*e); break;
+    case 'scratch': front(135,25*Math.sin(ts*Math.PI*2*5)); set('head',9); set('spine',2); break;
+    case 'look': set('head',10*Math.sin(ts*Math.PI*2*0.5)); both(5,0); break;
+  }
+  return A;
+};
+// ---- 小工具 ----
+function c3EmojiSprite(emo,size){
+  var cv=document.createElement('canvas'); cv.width=cv.height=128; var x=cv.getContext('2d');
+  x.font='96px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(emo,64,70);
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false})); sp.scale.set(size,size,1); return sp;
+}
+function c3Main(){ return (H3.actors||[]).filter(function(x){ return x.idx===H3.mainIdx; })[0]||(H3.actors||[])[0]; }
+function c3Spot(kind){
+  var out=typeof h3IsOutdoor==='function'&&h3IsOutdoor();
+  if(!out&&kind==='bath'&&h3NodeOk('B')) return {node:'B',stand:[4.55,0,-1.35],tub:[4.55,0.05,-2.3],room:true};
+  if(!out&&kind!=='bath'&&h3NodeOk('K')) return {node:'K',stand:[0.25,0,2.15],plate:[0.62,0.83,1.98],face:false,room:true};
+  if(!out&&kind!=='bath'&&h3NodeOk('L')) return {node:'L',stand:[-4.35,0,1.05],plate:[-3.85,0.47,0.66],face:false,room:true};
+  return {node:null,room:false};
+}
+function c3Clear(a){ var s=a&&a.c3; if(!s) return; (s.props||[]).forEach(function(o){ try{ (o.parent||H3.scene).remove(o); }catch(e){} }); a.c3=null; }
+function c3Add(o){ var s=c3Main()&&c3Main().c3; H3.scene.add(o); if(s) s.props.push(o); return o; }
+function c3Hearts(a,n,emo){ for(var i=0;i<(n||4);i++){ (function(i){ setTimeout(function(){ if(!H3.open) return; var h=c3EmojiSprite(emo||'💖',0.45); h.position.set(a.pos.x+(Math.random()-0.5)*0.8,a.pos.y+2.2,a.pos.z+0.2); H3.scene.add(h); var t0=performance.now(); (function up(){ var k=(performance.now()-t0)/1400; if(k>1||!H3.open){ H3.scene.remove(h); return; } h.position.y+=0.012; h.material.opacity=1-k; requestAnimationFrame(up); })(); },i*220); })(i); } }
+// ---- 开始一个照顾动作 ----
+var C3_KIND={food:'eat',kfc_wing:'eat',egg_tart:'eat',wagyu:'eat',water:'drink',milk:'drink',matcha:'drink',bath:'bath'};
+var C3_EMO={food:'🍖',kfc_wing:'🍗',egg_tart:'🥧',wagyu:'🥩',water:'🥤',milk:'🥛',matcha:'🍵',bath:'🛁'};
+function c3Start(id){
+  var a=c3Main(), kind=C3_KIND[id]; if(!a||!kind||!H3.open) return;
+  c3Clear(a);
+  var sp=c3Spot(kind);
+  a.c3={kind:kind,id:id,stage:'walk',spot:sp,props:[],t0:0};
+  a.goal=null; a.anim='idle'; a.animUntil=0; a.nextWander=Date.now()+60000;
+  if(sp.node){ var path=h3Path(a.node,sp.node); if(path[0]===a.node) path.shift(); a.path=path; }
+  else a.path=[];
+  h3Say(a,{eat:'开饭啦！我来啦～🍽️',drink:'口渴了，我要喝水～',bath:'洗澡澡咯！🛁'}[kind],1600);
+}
+// 每帧推进动作（挂在主循环里）
+function c3Tick(){
+  var a=c3Main(); if(!a||!a.c3) return; var s=a.c3, now=Date.now();
+  a.nextWander=now+20000;
+  if(s.stage==='walk'){
+    if(a.path.length) return;
+    s.stage='approach'; s.t0=now; s.from=a.pos.clone();
+    var st=s.spot.stand?new THREE.Vector3(s.spot.stand[0],s.spot.stand[1],s.spot.stand[2]):a.pos.clone();
+    s.to=st; return;
+  }
+  if(s.stage==='approach'){
+    var k=Math.min(1,(now-s.t0)/700); a.pos.lerpVectors(s.from,s.to,k);
+    if(k>=1){ s.stage='setup'; s.t0=now; c3Setup(a); }
+    return;
+  }
+  var el=(now-s.t0)/1000;
+  if(s.kind==='eat') c3TickEat(a,s,el);
+  else if(s.kind==='drink') c3TickDrink(a,s,el);
+  else c3TickBath(a,s,el);
+}
+function c3Pose(a,st,ms){ if(a.anim!==st){ a.anim=st; a.animStart=Date.now(); } a.animUntil=Date.now()+(ms||800); }
+function c3Setup(a){
+  var s=a.c3, sp=s.spot, p=a.pos;
+  if(s.kind==='eat'||s.kind==='drink'){
+    var base=sp.plate?new THREE.Vector3(sp.plate[0],sp.plate[1],sp.plate[2]):new THREE.Vector3(p.x+0.55,0.06,p.z+0.25);
+    a.faceLeft=false;
+    if(!sp.plate){ var mat=new THREE.Mesh(new THREE.CircleGeometry(0.75,32),new THREE.MeshStandardMaterial({color:0xff8a80,roughness:1})); mat.rotation.x=-Math.PI/2; mat.position.set(p.x+0.3,0.03,p.z+0.15); c3Add(mat);
+      for(var i=0;i<6;i++){ var st=new THREE.Mesh(new THREE.PlaneGeometry(1.4,0.08),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1})); st.rotation.x=-Math.PI/2; st.rotation.z=i<3?0:Math.PI/2; st.position.set(p.x+0.3+(i<3?0:(i-4)*0.45),0.035,p.z+0.15+(i<3?(i-1)*0.45:0)); c3Add(st); } }
+    var plate=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.2,0.04,28),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.25})); plate.position.copy(base); plate.position.y+=0.02; c3Add(plate);
+    if(s.kind==='eat'){
+      var food=c3EmojiSprite(C3_EMO[s.id],0.5); food.position.set(base.x,base.y+0.22,base.z); c3Add(food); s.food=food;
+      s.steam=[]; for(var j=0;j<3;j++){ var sm=c3EmojiSprite('💨',0.22); sm.material.opacity=0.6; sm.position.set(base.x+(j-1)*0.1,base.y+0.45,base.z); c3Add(sm); s.steam.push(sm); }
+      s.base=base; h3Say(a,pickLine(['哇，好香！我开动啦～','看起来好好吃！','谢谢小主人！我要吃光光！']),1800);
+    } else { s.base=base; h3Say(a,pickLine(['咕嘟咕嘟…','好渴好渴～','喝口水，补充能量！']),1500); }
+  } else {
+    var tub=s.spot.tub;
+    if(!tub){ var tb=new THREE.Mesh(new THREE.CylinderGeometry(0.75,0.62,0.6,32,1,true),new THREE.MeshStandardMaterial({color:0xb07848,roughness:0.7,side:THREE.DoubleSide})); tb.position.set(p.x,0.3,p.z); c3Add(tb);
+      var bt=new THREE.Mesh(new THREE.CircleGeometry(0.62,32),new THREE.MeshStandardMaterial({color:0x8d6e63})); bt.rotation.x=-Math.PI/2; bt.position.set(p.x,0.02,p.z); c3Add(bt);
+      [0.12,0.48].forEach(function(y){ var r=new THREE.Mesh(new THREE.TorusGeometry(0.72-y*0.2,0.025,8,40),new THREE.MeshStandardMaterial({color:0x616161,metalness:0.7,roughness:0.3})); r.rotation.x=Math.PI/2; r.position.set(p.x,y,p.z); c3Add(r); });
+      var wt=new THREE.Mesh(new THREE.CircleGeometry(0.72,32),new THREE.MeshStandardMaterial({color:0x7fd3f5,roughness:0.05,transparent:true,opacity:0.85})); wt.rotation.x=-Math.PI/2; wt.position.set(p.x,0.5,p.z); c3Add(wt);
+      tub=[p.x,0.05,p.z]; s.wy=0.55; s.outPos=new THREE.Vector3(p.x+1.1,0,p.z+0.4);
+    } else { s.wy=0.72; s.outPos=new THREE.Vector3(4.55,0,-1.3); }
+    s.tub=new THREE.Vector3(tub[0],tub[1],tub[2]); s.from=a.pos.clone();
+    s.foam=[]; for(var f=0;f<14;f++){ var fm=new THREE.Mesh(new THREE.SphereGeometry(0.1+Math.random()*0.09,12,10),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.2,transparent:true,opacity:0.92})); var ang=Math.random()*Math.PI*2, rr=0.25+Math.random()*0.4; fm.position.set(tub[0]+Math.cos(ang)*rr*1.4,s.wy+0.02,tub[2]+Math.sin(ang)*rr*0.7); fm.scale.setScalar(0.01); c3Add(fm); s.foam.push(fm); }
+    var duck=new THREE.Group(); var dm=new THREE.MeshStandardMaterial({color:0xffd600,roughness:0.4});
+    var b1=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,12),dm); b1.scale.set(1.3,0.8,1); duck.add(b1); var b2=new THREE.Mesh(new THREE.SphereGeometry(0.08,14,10),dm); b2.position.set(0.11,0.11,0); duck.add(b2);
+    var bk=new THREE.Mesh(new THREE.ConeGeometry(0.035,0.08,8),new THREE.MeshStandardMaterial({color:0xff6d00})); bk.rotation.z=-Math.PI/2; bk.position.set(0.2,0.1,0); duck.add(bk);
+    duck.position.set(tub[0]+0.5,s.wy+0.05,tub[2]+0.15); c3Add(duck); s.duck=duck; s.bubbles=[];
+    h3Say(a,'扑通～跳进浴缸啦！🛁',1600);
+  }
+}
+function c3End(a,line,emo){
+  var s=a.c3; c3Pose(a,'happy',1600); h3Say(a,line,2600); c3Hearts(a,4,emo);
+  var props=s.props; a.c3=null; a.nextWander=Date.now()+5000;
+  var t0=performance.now();
+  (function fade(){ var k=(performance.now()-t0)/1200; props.forEach(function(o){ if(o.material){ o.material.transparent=true; o.material.opacity=Math.max(0,1-k)*(o.material.userData.op||1); } }); if(k<1&&H3.open) requestAnimationFrame(fade); else props.forEach(function(o){ try{ H3.scene.remove(o); }catch(e){} }); })();
+  try{ saveStoreLocalOnly(); }catch(e){}
+}
+function c3TickEat(a,s,el){
+  (s.steam||[]).forEach(function(m,i){ var q=((el*0.6+i/3)%1); m.position.y=s.base.y+0.4+q*0.5; m.material.opacity=0.55*(1-q); });
+  if(el<6.2){ c3Pose(a,'eatbite'); a.c3o='eat';
+    var bites=Math.floor(el/1.18); var left=Math.max(0.25,1-bites*0.15); if(s.food) s.food.scale.setScalar(0.5*left);
+    if(bites!==s.lastBite){ s.lastBite=bites; if(bites>0) for(var c=0;c<3;c++){ (function(){ var cr=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,5),new THREE.MeshStandardMaterial({color:0xd7a46b})); cr.position.set(a.pos.x+0.35,1.3,a.pos.z+0.1); c3Add(cr); var vy=0.02, vx=(Math.random()-0.5)*0.02; (function fall(){ if(!H3.open||!cr.parent) return; vy-=0.0018; cr.position.y=Math.max(0.03,cr.position.y+vy); cr.position.x+=vx; if(cr.position.y>0.03) requestAnimationFrame(fall); })(); })(); }
+      if(bites===2) h3Say(a,'嗯～好吃好吃！😋',1400); }
+  } else if(el<8.2){ c3Pose(a,'rub'); a.c3o=null; if(s.food) s.food.visible=false; if(!s.burp){ s.burp=1; h3Say(a,'嗝～吃饱饱啦！🤤',2000); } }
+  else { a.c3o=null; c3End(a,pickLine(['谢谢小主人！肚子圆滚滚～','吃饱了好开心！💕']),'💖'); }
+}
+function c3TickDrink(a,s,el){
+  if(el<4.6){ c3Pose(a,'drink'); a.c3o='drink'; s.level=Math.max(0.1,1-el/4.6); if(Math.floor(el)%2===0&&!s['g'+Math.floor(el)]){ s['g'+Math.floor(el)]=1; h3Say(a,'咕嘟…咕嘟…',900); } }
+  else if(el<6.2){ c3Pose(a,'wipe'); a.c3o='wipe'; if(!s.ha){ s.ha=1; h3Say(a,'哈～好解渴！💧',1600); } }
+  else { a.c3o=null; c3End(a,pickLine(['喝饱啦，精神满满！','谢谢你的'+({water:'水',milk:'牛奶',matcha:'抹茶拿铁'}[s.id]||'饮料')+'！']),'💧'); }
+}
+function c3TickBath(a,s,el){
+  var bob=Math.sin(el*2)*0.03; if(s.duck){ s.duck.position.y=s.wy+0.05+bob; s.duck.rotation.y=Math.sin(el*0.7)*0.6; s.duck.position.x+=Math.sin(el*0.9)*0.002; }
+  if(el<0.8){ var k=el/0.8; a.pos.set(s.from.x+(s.tub.x-s.from.x)*k,s.tub.y+Math.sin(k*Math.PI)*0.7,s.from.z+(s.tub.z-s.from.z)*k); c3Pose(a,'happy'); }
+  else if(el<6.6){
+    a.pos.copy(s.tub); a.pos.y=s.tub.y-0.05+bob;
+    var g=Math.min(1,(el-0.8)/1.2); s.foam.forEach(function(f,i){ f.scale.setScalar(Math.min(1,g*1.4-i*0.03)); f.position.y=s.wy+0.04+Math.sin(el*3+i)*0.015; });
+    if(el<1.8){ c3Pose(a,'soak'); a.c3o='soak'; if(!s.s1){ s.s1=1; h3Say(a,'水温刚刚好～好舒服😌',1500); } }
+    else { c3Pose(a,'scrub'); a.c3o='scrub'; s.foamHead=Math.min(1,(el-1.8)/1.5); if(!s.s2&&el>3){ s.s2=1; h3Say(a,'搓搓搓～泡泡好多！🫧',1500); } }
+    if(Math.random()<0.18){ var bb=new THREE.Mesh(new THREE.SphereGeometry(0.05+Math.random()*0.06,10,8),new THREE.MeshStandardMaterial({color:0xe1f5fe,roughness:0.05,metalness:0.2,transparent:true,opacity:0.55})); bb.position.set(s.tub.x+(Math.random()-0.5)*1.0,s.wy+0.1,s.tub.z+(Math.random()-0.5)*0.5); c3Add(bb); s.bubbles.push({m:bb,v:0.006+Math.random()*0.006,ph:Math.random()*6}); }
+  } else if(el<7.4){ var k2=(el-6.6)/0.8; a.pos.set(s.tub.x+(s.outPos.x-s.tub.x)*k2,s.tub.y+Math.sin(k2*Math.PI)*0.8,s.tub.z+(s.outPos.z-s.tub.z)*k2); c3Pose(a,'happy'); a.c3o='wet'; }
+  else if(el<9.0){ a.pos.copy(s.outPos); c3Pose(a,'shake'); a.c3o='wet';
+    if(!s.drops){ s.drops=[]; for(var d=0;d<40;d++){ var dr=new THREE.Mesh(new THREE.SphereGeometry(0.03,6,5),new THREE.MeshStandardMaterial({color:0x81d4fa,transparent:true,opacity:0.85,roughness:0.05})); dr.position.set(a.pos.x,1.0+Math.random()*0.9,a.pos.z); c3Add(dr); var ang=Math.random()*Math.PI*2; s.drops.push({m:dr,vx:Math.cos(ang)*0.05,vz:Math.sin(ang)*0.03,vy:0.03+Math.random()*0.03}); } h3Say(a,'甩甩甩～💦',1200); }
+  } else if(el<11){ c3Pose(a,'idle'); a.c3o='towel'; if(!s.dry){ s.dry=1; h3Say(a,'擦干干，香喷喷！✨',2000); c3Hearts(a,5,'✨'); } }
+  else { a.c3o=null; c3End(a,pickLine(['洗得干干净净，我最香啦！','谢谢小主人帮我洗澡！🛁💕']),'🫧'); return; }
+  (s.bubbles||[]).forEach(function(q){ if(!q.m.parent) return; q.m.position.y+=q.v; q.m.position.x+=Math.sin(el*3+q.ph)*0.004; if(q.m.position.y>s.wy+1.8) q.m.parent.remove(q.m); });
+  (s.drops||[]).forEach(function(q){ if(!q.m.parent) return; q.vy-=0.0025; q.m.position.x+=q.vx; q.m.position.z+=q.vz; q.m.position.y=Math.max(0.02,q.m.position.y+q.vy); if(q.m.position.y<=0.02) q.m.material.opacity*=0.9; });
+}
+// ---- 宠物身上/手里的道具（画在宠物贴图上） ----
+// 先按图片的不透明区域找到宠物的脸（头顶往下的那一块），道具都按脸的位置和大小来摆，任何宠物都对得上
+var C3_BB={};
+function c3Face(img){
+  var k=img.src; if(C3_BB[k]) return C3_BB[k];
+  var N=64, cv=document.createElement('canvas'); cv.width=cv.height=N; var x=cv.getContext('2d');
+  x.drawImage(img,0,0,N,N); var d; try{ d=x.getImageData(0,0,N,N).data; }catch(e){ return C3_BB[k]={cx:0.5,top:0.1,bh:0.85,bw:0.6}; }
+  var y0=N,y1=0,x0=N,x1=0; for(var yy=0;yy<N;yy++) for(var xx=0;xx<N;xx++) if(d[(yy*N+xx)*4+3]>60){ if(yy<y0)y0=yy; if(yy>y1)y1=yy; if(xx<x0)x0=xx; if(xx>x1)x1=xx; }
+  var hb=y0+Math.round((y1-y0)*0.38), sx=0, cnt=0; for(var y2=y0;y2<=hb;y2++) for(var x2=0;x2<N;x2++) if(d[(y2*N+x2)*4+3]>60){ sx+=x2; cnt++; }
+  return C3_BB[k]={cx:(cnt?sx/cnt:(x0+x1)/2)/N,top:y0/N,bh:(y1-y0)/N,bw:(x1-x0)/N};
+}
+// 整个身体的动作（适用于所有宠物，不管有没有骨骼）：前倾、仰头、搓、甩、伸懒腰……
+function c3Body(a,ts){
+  var S=function(f,ph){ return Math.sin(ts*Math.PI*2*f+(ph||0)); };
+  switch(a.anim){
+    case 'eatbite': var bite=Math.max(0,S(0.85)); return {r:0.07*bite,sx:1,sy:1+(bite<0.3?0.025*Math.sin(ts*22):-0.02*bite),dy:0};
+    case 'drink': return {r:-0.13,sx:0.98,sy:1.04+0.01*Math.sin(ts*14),dy:0};
+    case 'wipe': return {r:0.04*S(3),sx:1,sy:1,dy:0};
+    case 'scrub': return {r:0.07*Math.sin(ts*15),sx:1+0.02*S(2.4),sy:1-0.02*S(2.4),dy:0};
+    case 'soak': return {r:0.03*S(0.5),sx:1,sy:1,dy:0};
+    case 'shake': var sh=Math.sin(ts*Math.PI*2*7); return {r:0.2*sh,sx:1+0.05*Math.abs(sh),sy:1-0.04*Math.abs(sh),dy:0};
+    case 'rub': return {r:0.06*S(0.8),sx:1+0.03*S(1.6),sy:1-0.03*S(1.6),dy:0};
+    case 'stretch': var e=Math.min(1,ts/0.8)*(ts>2.3?Math.max(0,1-(ts-2.3)/0.6):1); return {r:-0.05*e,sx:1-0.07*e,sy:1+0.13*e,dy:0};
+    case 'scratch': return {r:0.11+0.02*Math.sin(ts*25),sx:1,sy:1,dy:0};
+    case 'look': return {r:0.06*S(0.5),sx:1,sy:1,dy:0};
+  }
+  return null;
+}
+var C3_TMP=null;
+var _c3OrigDraw=h3DrawPet;
+h3DrawPet=function(a,t,moving){
+  var before=a.lastDraw; _c3OrigDraw.apply(this,arguments);
+  if(a.lastDraw===before||!a.img||!a.img.naturalWidth) return;
+  var ts=(Date.now()-(a.animStart||0))/1000, body=moving?null:c3Body(a,ts);
+  if(!body&&!a.c3o) return;
+  try{
+    var c=a.ctx, W=256, H=256, img=a.img;
+    if(body){
+      if(!C3_TMP){ C3_TMP=document.createElement('canvas'); C3_TMP.width=W; C3_TMP.height=H; }
+      var tx=C3_TMP.getContext('2d'); tx.setTransform(1,0,0,1,0,0); tx.clearRect(0,0,W,H); tx.drawImage(a.cv,0,0);
+      c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
+      c.translate(W/2,H-6); c.rotate(body.r*(a.faceLeft?-1:1)); c.scale(body.sx,body.sy); c.translate(-W/2,-(H-6)); c.drawImage(C3_TMP,0,0);
+    }
+    if(a.c3o){
+      var dw=W*0.62, dh=dw*img.naturalHeight/img.naturalWidth; if(dh>H*0.86){ dh=H*0.86; dw=dh*img.naturalWidth/img.naturalHeight; }
+      var fb=c3Face(img), fx=-dw/2+fb.cx*dw, ftop=-dh+fb.top*dh, R=Math.max(18,fb.bh*dh*0.2);
+      var hd=[fx,ftop+R*1.25], mouth=[fx,ftop+R*1.95];
+      c.save(); c.setTransform(1,0,0,1,0,0); c.translate(W/2,H-6);
+      if(body){ c.rotate(body.r*(a.faceLeft?-1:1)); c.scale(body.sx,body.sy); }
+      var emo=function(e,x,y,sz,rot){ c.save(); c.translate(x,y); if(rot) c.rotate(rot); c.font=Math.round(sz)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(e,0,0); c.restore(); };
+      var paw=function(x,y,r){ c.fillStyle='#ffe0b2'; c.strokeStyle='rgba(141,110,99,0.8)'; c.lineWidth=1.5; c.beginPath(); c.ellipse(x,y,r,r*0.85,0,0,7); c.fill(); c.stroke(); };
+      if(a.c3o==='eat'){
+        var bite=Math.max(0,Math.sin(ts*Math.PI*2*0.85)), up=bite;
+        var sx=mouth[0]+R*(1.6-1.25*up), sy=mouth[1]+R*(1.9-1.75*up);
+        emo('🥄',sx+R*0.35,sy+R*0.45,R*1.25,-0.75);
+        if(up>0.12&&up<0.92) emo((a.c3&&C3_EMO[a.c3.id])||'🍖',sx-R*0.05,sy-R*0.1,R*0.65);
+        paw(sx+R*0.7,sy+R*0.95,R*0.32);
+        if(up<0.35){ var ch=1-up/0.35, pf=1+0.15*Math.sin(ts*22); c.fillStyle='rgba(255,140,150,'+(0.5*ch)+')'; [-1,1].forEach(function(sd){ c.beginPath(); c.ellipse(mouth[0]+sd*R*0.75,mouth[1]-R*0.15,R*0.3*pf,R*0.24*pf,0,0,7); c.fill(); }); }
+      } else if(a.c3o==='drink'){
+        var lv=(a.c3&&a.c3.level)||1, cx=mouth[0]+R*0.55, cy=mouth[1]+R*0.15, id=a.c3&&a.c3.id;
+        c.save(); c.translate(cx,cy); c.rotate(-0.75);
+        var cw=R*1.05, chh=R*1.45; c.fillStyle='rgba(255,255,255,0.8)'; c.strokeStyle='rgba(96,125,139,0.95)'; c.lineWidth=2.5;
+        c.beginPath(); c.moveTo(-cw/2,-chh/2); c.lineTo(cw/2,-chh/2); c.lineTo(cw*0.38,chh/2); c.lineTo(-cw*0.38,chh/2); c.closePath(); c.fill();
+        var col=id==='milk'?'#ffffff':id==='matcha'?'#9ccc65':'#4fc3f7'; c.fillStyle=col; var top=chh/2-chh*0.88*lv;
+        c.beginPath(); c.moveTo(-cw*0.39,chh/2-2); c.lineTo(cw*0.39,chh/2-2); c.lineTo(cw*0.39+cw*0.1*(1-lv),top); c.lineTo(-cw*0.39-cw*0.1*(1-lv),top); c.closePath(); c.fill(); c.stroke();
+        c.beginPath(); c.moveTo(-cw/2,-chh/2); c.lineTo(cw/2,-chh/2); c.lineTo(cw*0.38,chh/2); c.lineTo(-cw*0.38,chh/2); c.closePath(); c.stroke();
+        c.fillStyle='rgba(255,255,255,0.6)'; c.fillRect(-cw*0.3,-chh*0.35,cw*0.1,chh*0.6);
+        c.restore(); paw(cx+R*0.55,cy+R*0.55,R*0.32); paw(cx-R*0.25,cy+R*0.8,R*0.3);
+        for(var b=0;b<4;b++){ var q=((ts*1.4+b/4)%1); c.fillStyle='rgba(129,212,250,'+(0.85*(1-q))+')'; c.beginPath(); c.arc(cx+R*0.6+(b%2)*6,cy-R*1.2-q*R*1.4,R*0.09,0,7); c.fill(); }
+        c.font='bold '+Math.round(R*0.5)+'px sans-serif'; c.fillStyle='rgba(2,136,209,'+(0.6+0.4*Math.sin(ts*6))+')'; c.fillText('咕嘟',mouth[0]-R*2.2,mouth[1]-R*0.6);
+      } else if(a.c3o==='wipe'){
+        var wx=mouth[0]+R*0.6*Math.sin(ts*Math.PI*2*3); paw(wx,mouth[1]+R*0.15,R*0.34);
+        emo('💧',mouth[0]+R*1.3,mouth[1]-R*0.3,R*0.5);
+      } else if(a.c3o==='soak'||a.c3o==='scrub'){
+        var fh=(a.c3&&a.c3.foamHead)||0;
+        if(a.c3o==='scrub'&&fh>0){
+          c.fillStyle='rgba(255,255,255,0.97)'; c.strokeStyle='rgba(176,190,197,0.9)'; c.lineWidth=1.5;
+          for(var f=0;f<11;f++){ var ang=Math.PI*1.05+f/10*Math.PI*0.9, rr=R*1.15; var r0=R*(0.28+0.14*((f*7)%3)/2)*fh*(1+0.08*Math.sin(ts*6+f)); c.beginPath(); c.arc(hd[0]+Math.cos(ang)*rr,hd[1]-R*0.1+Math.sin(ang)*rr*0.85,r0,0,7); c.fill(); c.stroke(); }
+          var sp=Math.sin(ts*Math.PI*2*2.4); emo('🧽',hd[0]+R*1.2+sp*R*0.2,hd[1]-R*0.9+sp*R*0.35,R*1.0,sp*0.4); paw(hd[0]-R*1.15-sp*R*0.2,hd[1]-R*0.7-sp*R*0.3,R*0.32);
+        }
+        for(var b2=0;b2<5;b2++){ var q2=((ts*0.7+b2/5)%1); c.strokeStyle='rgba(129,212,250,'+(0.95*(1-q2))+')'; c.fillStyle='rgba(225,245,254,'+(0.35*(1-q2))+')'; c.lineWidth=2; c.beginPath(); c.arc(hd[0]+(b2-2)*R*0.55,hd[1]-R*1.4-q2*R*1.6,R*(0.14+0.04*(b2%2)),0,7); c.fill(); c.stroke(); }
+      } else if(a.c3o==='wet'){
+        for(var d=0;d<9;d++){ c.fillStyle='rgba(41,182,246,0.85)'; var dx=hd[0]+(d-4)*R*0.45, dy=hd[1]-R*0.6+((ts*2.2+d*0.37)%1)*dh*0.55; c.beginPath(); c.ellipse(dx,dy,R*0.07,R*0.11,0,0,7); c.fill(); }
+      } else if(a.c3o==='towel'){
+        var ty=ftop+R*0.35;
+        c.fillStyle='#f8bbd0'; c.strokeStyle='#ec407a'; c.lineWidth=2;
+        c.beginPath(); c.moveTo(hd[0]-R*1.25,ty+R*0.55); c.quadraticCurveTo(hd[0]-R*1.3,ty-R*0.75,hd[0],ty-R*0.85); c.quadraticCurveTo(hd[0]+R*1.3,ty-R*0.75,hd[0]+R*1.25,ty+R*0.55); c.quadraticCurveTo(hd[0],ty+R*0.15,hd[0]-R*1.25,ty+R*0.55); c.fill(); c.stroke();
+        c.beginPath(); c.moveTo(hd[0]+R*1.0,ty+R*0.3); c.quadraticCurveTo(hd[0]+R*1.7,ty+R*0.9,hd[0]+R*1.35,ty+R*1.5); c.lineTo(hd[0]+R*0.95,ty+R*0.6); c.closePath(); c.fill(); c.stroke();
+        c.strokeStyle='rgba(255,255,255,0.85)'; c.lineWidth=2; for(var s3=-2;s3<=2;s3++){ c.beginPath(); c.moveTo(hd[0]+s3*R*0.42,ty-R*0.7+Math.abs(s3)*R*0.12); c.lineTo(hd[0]+s3*R*0.5,ty+R*0.3); c.stroke(); }
+        emo('✨',hd[0]-R*1.6,hd[1]-R*0.4+Math.sin(ts*5)*4,R*0.6); emo('✨',hd[0]+R*1.7,hd[1]+R*0.3+Math.cos(ts*5)*4,R*0.5);
+      }
+      c.restore();
+    }
+    a.tex.needsUpdate=true;
+  }catch(e){}
+};
+// 挂到主循环：每帧推进照顾动作
+var _c3OrigLoop=h3Loop;
+h3Loop=function(now){ try{ if(H3.open) c3Tick(); }catch(e){} return _c3OrigLoop.apply(this,arguments); };
+// 被别的动作打断（点房间按钮、拖走等）时收掉道具
+var _c3OrigCmd=h3Command;
+h3Command=function(){ var a=c3Main(); if(a&&a.c3){ h3Say(a,'等一下，我还没弄完呢～',1400); return; } return _c3OrigCmd.apply(this,arguments); };
+var _c3OrigInit=h3Init;
+h3Init=function(){ var r=_c3OrigInit.apply(this,arguments); try{ c3CareBar(); }catch(e){} return r; };
+// ---- 3D小屋里的照顾按钮 ----
+var C3_BTNS=[['food','🍖','喂饭'],['wagyu','🥩','和牛'],['kfc_wing','🍗','鸡翅'],['egg_tart','🥧','蛋挞'],['water','💧','喝水'],['milk','🥛','牛奶'],['matcha','🍵','抹茶'],['bath','🛁','洗澡']];
+function c3CareBar(){
+  var btns=document.getElementById('h3Btns'); if(!btns||H3.preview) return;
+  var old=document.getElementById('c3Bar'); if(old) old.remove();
+  var sup=(state.backpack&&state.backpack.supplies)||{};
+  var bar=document.createElement('div'); bar.id='c3Bar'; bar.style.cssText='width:100%;display:flex;flex-wrap:wrap;gap:5px;justify-content:center;align-items:center';
+  bar.innerHTML='<span style="background:rgba(255,255,255,.85);border-radius:10px;padding:4px 8px;font-size:12px;color:#ad1457;font-weight:700">照顾它：</span>'
+    +C3_BTNS.filter(function(b){ return ['food','water','bath'].indexOf(b[0])>=0||(sup[b[0]]||0)>0; }).map(function(b){ var n=sup[b[0]]||0;
+      return '<button class="btn btn-sm" style="background:'+(n?'#fff':'#eeeeee')+';color:#6a1b9a;border:2px solid '+(n?'#f48fb1':'#ddd')+';font-weight:800" onclick="c3Care(\''+b[0]+'\')">'+b[1]+' '+b[2]+' <span style="font-size:11px;color:#999">×'+n+'</span></button>'; }).join('');
+  btns.appendChild(bar);
+}
+function c3Care(id){
+  var a=c3Main(); if(a&&a.c3){ h3Say(a,'我还在忙呢，等我一下下～',1400); return; }
+  var sup=(state.backpack&&state.backpack.supplies)||{}, before=sup[id]||0;
+  if(before<=0){ ttsToast('背包里没有这个啦，先去「🛒商店」买一些吧～',3000); return; }
+  useSupply(id); // 用掉一份后，下面 useSupply 的包装会自动开始3D动作
+  c3CareBar();
+}
+// 在平面小窝/其它地方喂食时，如果3D小屋开着也一起演
+var _c3OrigUse=useSupply;
+useSupply=function(id){ var sup=(state.backpack&&state.backpack.supplies)||{}, before=sup[id]||0; var r=_c3OrigUse.apply(this,arguments);
+  try{ var after=((state.backpack&&state.backpack.supplies)||{})[id]||0; if(after<before&&H3.open&&!c3Busy) { var a=c3Main(); if(a&&!a.c3) c3Start(id); } }catch(e){} return r; };
+var c3Busy=false;
+// ---- 平时的小动作：伸懒腰、挠头、张望、挥手 ----
+setInterval(function(){
+  try{
+    if(typeof H3==='undefined'||!H3.open||!H3.actors) return;
+    H3.actors.forEach(function(a){
+      if(a.c3||a.path.length||a.anim!=='idle'||Math.random()>0.22) return;
+      var opts=[['stretch',3000,['伸个懒腰～','嗯～～舒服！','哈欠～😪']],['scratch',2200,['嗯…让我想想','痒痒的～','咦？']],['look',3000,['那是什么？👀','小主人在哪里？','咦～']],['wave',2200,['嗨！👋','看我看我！','你好呀～']]];
+      var o=opts[Math.floor(Math.random()*opts.length)];
+      a.anim=o[0]; a.animStart=Date.now(); a.animUntil=Date.now()+o[1]; a.nextWander=Math.max(a.nextWander||0,Date.now()+o[1]+1500);
+      if(o[0]==='look'){ setTimeout(function(){ a.faceLeft=!a.faceLeft; },900); setTimeout(function(){ a.faceLeft=!a.faceLeft; },2000); }
+      if(Math.random()<0.5) h3Say(a,pickLine(o[2]),1500);
+    });
+  }catch(e){}
+},4000);
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
