@@ -37670,7 +37670,7 @@ function openHouse3D(){
     w.innerHTML='<div id="h3Canvas" style="position:absolute;inset:0"></div>'
       +'<div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none">'
       +'<div style="background:rgba(255,255,255,.85);border-radius:14px;padding:6px 12px;font-weight:800;color:#6a1b9a;pointer-events:auto">🏠 宠物3D小屋</div>'
-      +'<span style="pointer-events:auto"><button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button> <button class="btn btn-gray" onclick="closeHouse3D()">✕ 关闭</button></span></div>'
+      +'<span style="pointer-events:auto"><button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button> <button id="h3NightBtn" class="btn btn-info btn-sm" onclick="h3ToggleNight()">🌙 夜晚</button> <button class="btn btn-gray" onclick="closeHouse3D()">✕ 关闭</button></span></div>'
       +'<div id="h3Tip" style="position:absolute;top:56px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.8);border-radius:10px;padding:4px 10px;font-size:12px;color:#6a1b9a">拖动转视角 · 双指/滚轮缩放 · 点宠物和它玩</div>'
       +'<div id="h3Btns" style="position:absolute;left:8px;right:8px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>'
       +'<div id="h3Loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6a1b9a">🏠 小屋搭建中…</div>';
@@ -37699,7 +37699,7 @@ function h3Init(){
     var dl=new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(5,12,10); H3.scene.add(dl);
     H3.camera=new THREE.PerspectiveCamera(45,1,0.1,200);
     h3BuildHouse(H3.scene);
-    var tt=H3.tier||3; H3.yaw=0.15; H3.pitch=tt>=3?0.24:0.34; H3.dist=tt>=3?15:(tt===2?14:9.5); H3.target=new THREE.Vector3(tt===1?-4.2:(tt===2?-0.2:-1.0),tt>=3?2.7:1.1,0);
+    var tt=H3.tier||3; H3.yaw=0.15; H3.pitch=tt>=4?0.3:(tt>=3?0.24:0.34); H3.dist=tt>=4?22:(tt>=3?16:(tt===2?14:9.5)); H3.target=new THREE.Vector3(tt===1?-4.2:(tt===2?-0.2:-1.0),tt>=4?3.6:(tt>=3?2.7:1.1),0);
   }
   // 宠物
   (H3.actors||[]).forEach(function(a){ H3.scene.remove(a.sp); H3.scene.remove(a.sh); if(a.bubble) a.bubble.remove(); });
@@ -37792,6 +37792,7 @@ function h3Loop(now){
     var dn=H3_NODES[doorNodes[k]].p, near=H3.actors.some(function(a){ return Math.abs(a.pos.x-dn[0])<1.3&&Math.abs(a.pos.y-dn[1])<0.5&&Math.abs(a.pos.z-dn[2])<1.5; });
     var D=H3.doors[k], want=near?-1.45:0; D.ang+=(want-D.ang)*Math.min(1,dt*6); D.pivot.rotation.y=D.ang;
   });
+  if(H3.anims) H3.anims.slice().forEach(function(f){ try{ f(dt,t); }catch(e){} });
   H3.renderer.render(H3.scene,c);
   H3.raf=requestAnimationFrame(h3Loop);
 }
@@ -38568,6 +38569,247 @@ function h3BuildHouse(scene){
 }
 var _hqOrigPetSprite=h3PetSprite;
 h3PetSprite=function(){ var a=_hqOrigPetSprite.apply(this,arguments); a.tex.encoding=THREE.sRGBEncoding; a.sp.material.toneMapped=false; a.sh.material.opacity=0.22; return a; };
+/* ========== 2026-11升级：高等级房子豪华化 + 白天/夜晚 + 入住仪式 ==========
+   家长要求：坚持一个月建成的房子必须让孩子有成就感，不能和入门款差不多。所以等级越高越豪华：
+   🛖小木屋/🏠平房：温馨家居（基础画风）
+   🏡双层别墅：大理石地板、金色踢脚线、水晶吊灯、楼梯红地毯、二楼玻璃金栏杆阳台、花园树篱、
+               灯笼路灯、秋千、三层喷泉（水花粒子）、金色午后天空、夜晚萤火虫
+   🏰星空城堡：四座尖顶塔楼+城墙城垛、发光魔法水晶、护城河+木吊桥、城门拱门、皇家王座、紫金旗帜、
+               彩色玻璃窗、红毯、彩虹、梦幻粉紫天空/夜晚星空+极光、漂浮魔法光点、定时放烟花
+   - 🌙 白天/夜晚切换：夜晚屋里灯和窗户亮起、灯笼和水晶发出光晕
+   - 第一次进入新建成的房子：镜头从远处飞近环绕 + 烟花 + 「欢迎来到你的XX」 */
+function luxGlowTex(){ return hqTex('glow',128,128,function(x,w,h){ var g=x.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2); g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.25,'rgba(255,255,255,.55)'); g.addColorStop(1,'rgba(255,255,255,0)'); x.fillStyle=g; x.fillRect(0,0,w,h); }); }
+function luxGlow(p,x,y,z,size,color,base){
+  var m=new THREE.SpriteMaterial({map:luxGlowTex(),color:color||0xffd27a,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false,opacity:0});
+  var s=new THREE.Sprite(m); s.position.set(x,y,z); s.scale.set(size,size,1); p.add(s);
+  HQ.glows.push({s:s,base:base!=null?base:0.18}); return s;
+}
+function luxMarble(x,w,h){ x.fillStyle='#f7f3ee'; x.fillRect(0,0,w,h);
+  for(var i=0;i<26;i++){ x.strokeStyle='rgba('+(150+Math.random()*60)+','+(140+Math.random()*50)+','+(130+Math.random()*40)+','+(0.15+Math.random()*0.25)+')'; x.lineWidth=0.6+Math.random()*1.8; x.beginPath(); var sx=Math.random()*w, sy=Math.random()*h; x.moveTo(sx,sy); for(var k=0;k<6;k++){ sx+=Math.random()*60-20; sy+=Math.random()*40-20; x.lineTo(sx,sy); } x.stroke(); }
+  x.strokeStyle='rgba(200,170,110,.6)'; x.lineWidth=2; x.strokeRect(1,1,w-2,h-2); }
+function luxStained(x,w,h){ var cols=['#e53935','#1e88e5','#fdd835','#43a047','#8e24aa','#ff7043'];
+  for(var i=0;i<4;i++) for(var j=0;j<5;j++){ x.fillStyle=cols[(i*3+j)%cols.length]; x.beginPath(); x.moveTo(i*w/4,j*h/5); x.lineTo((i+1)*w/4,j*h/5+((i+j)%2?h/10:0)); x.lineTo((i+1)*w/4,(j+1)*h/5); x.lineTo(i*w/4,(j+1)*h/5-((i+j)%2?h/12:0)); x.fill(); }
+  x.strokeStyle='#2b2b2b'; x.lineWidth=4; for(var a=0;a<=4;a++){ x.beginPath(); x.moveTo(a*w/4,0); x.lineTo(a*w/4,h); x.stroke(); } for(var b=0;b<=5;b++){ x.beginPath(); x.moveTo(0,b*h/5); x.lineTo(w,b*h/5); x.stroke(); }
+  x.fillStyle='rgba(255,255,255,.85)'; x.font='bold '+(h*0.2)+'px sans-serif'; x.textAlign='center'; x.fillText('★',w/2,h*0.55); }
+function luxBanner(x,w,h){ var g=x.createLinearGradient(0,0,0,h); g.addColorStop(0,'#6a1b9a'); g.addColorStop(1,'#4a148c'); x.fillStyle=g; x.fillRect(0,0,w,h);
+  x.fillStyle='#ffd54f'; x.fillRect(0,0,w,8); x.fillRect(0,h-26,w,6); x.beginPath(); x.moveTo(0,h-20); for(var i=0;i<=6;i++){ x.lineTo(i*w/6,h-(i%2?0:20)); } x.fill();
+  x.font='bold '+(w*0.5)+'px sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText('👑',w/2,h*0.42); }
+function luxSky(scene,top,bottom){
+  var m=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,uniforms:{top:{value:new THREE.Color(top)},bottom:{value:new THREE.Color(bottom)}},
+    vertexShader:'varying vec3 vP; void main(){ vP=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+    fragmentShader:'uniform vec3 top; uniform vec3 bottom; varying vec3 vP; void main(){ float h=clamp(vP.y*1.4+0.25,0.0,1.0); gl_FragColor=vec4(mix(bottom,top,h),1.0); }'});
+  m.toneMapped=false;
+  var s=new THREE.Mesh(new THREE.SphereGeometry(95,32,16),m); s.renderOrder=-10; scene.add(s); return m;
+}
+function luxPoints(n,spread,size,colors,center){
+  var pos=new Float32Array(n*3), col=new Float32Array(n*3), c=new THREE.Color();
+  for(var i=0;i<n;i++){ pos[i*3]=center[0]+(Math.random()-0.5)*spread[0]; pos[i*3+1]=center[1]+(Math.random()-0.5)*spread[1]; pos[i*3+2]=center[2]+(Math.random()-0.5)*spread[2]; c.set(colors[i%colors.length]); col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b; }
+  var g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  var m=new THREE.PointsMaterial({size:size,map:luxGlowTex(),vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false,sizeAttenuation:true});
+  return new THREE.Points(g,m);
+}
+function luxFirework(scene,x,y,z){
+  var n=110, cols=[[0xff4081,0xffeb3b],[0x40c4ff,0xffffff],[0x69f0ae,0xffd740],[0xe040fb,0x80d8ff],[0xffab40,0xff5252]][Math.floor(Math.random()*5)];
+  var pts=luxPoints(n,[0.1,0.1,0.1],0.32,cols,[x,y,z]); scene.add(pts);
+  var vel=[]; for(var i=0;i<n;i++){ var th=Math.random()*Math.PI*2, ph=Math.acos(Math.random()*2-1), sp=3.5+Math.random()*1.5; vel.push([Math.sin(ph)*Math.cos(th)*sp,Math.cos(ph)*sp,Math.sin(ph)*Math.sin(th)*sp]); }
+  var life=0;
+  H3.anims.push(function upd(dt){
+    life+=dt; var a=pts.geometry.attributes.position;
+    for(var i=0;i<n;i++){ vel[i][1]-=2.8*dt; vel[i][0]*=0.985; vel[i][2]*=0.985; a.array[i*3]+=vel[i][0]*dt; a.array[i*3+1]+=vel[i][1]*dt; a.array[i*3+2]+=vel[i][2]*dt; }
+    a.needsUpdate=true; pts.material.opacity=Math.max(0,1-life/2.2);
+    if(life>2.3){ scene.remove(pts); pts.geometry.dispose(); var k=H3.anims.indexOf(upd); if(k>=0) H3.anims.splice(k,1); }
+  });
+}
+function luxFountain(g,x,z,big){
+  var stoneM=hqM('#f2efe9',{r:0.35}), water=hqM('#6fd0f5',{r:0.05,m:0.1,op:0.85,e:0x1a5f80,ei:0.25});
+  hqLathe(g,[[0,0],[1.25,0],[1.3,0.35],[1.15,0.4],[1.1,0.12],[0,0.12]],x,0,z,stoneM);
+  var w1=new THREE.Mesh(new THREE.CircleGeometry(1.1,40),water); w1.rotation.x=-Math.PI/2; w1.position.set(x,0.3,z); g.add(w1);
+  hqCyl(g,0.12,0.18,1.0,x,0.6,z,stoneM,20);
+  hqLathe(g,[[0,0],[0.6,0.02],[0.65,0.18],[0.55,0.2],[0,0.1]],x,1.05,z,stoneM);
+  var w2=new THREE.Mesh(new THREE.CircleGeometry(0.54,32),water); w2.rotation.x=-Math.PI/2; w2.position.set(x,1.22,z); g.add(w2);
+  if(big){ hqCyl(g,0.07,0.1,0.6,x,1.5,z,stoneM,16); hqLathe(g,[[0,0],[0.32,0.02],[0.35,0.12],[0,0.06]],x,1.78,z,stoneM); var gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.16),hqM('#b388ff',{r:0.1,m:0.3,e:0x7c4dff,ei:0.8})); gem.position.set(x,2.05,z); g.add(gem); luxGlow(g,x,2.05,z,1.4,0xb388ff,0.35); H3.anims.push(function(dt,t){ gem.rotation.y=t*0.8; gem.position.y=2.05+Math.sin(t*1.6)*0.06; }); }
+  // 水花粒子
+  var n=160, pts=luxPoints(n,[0.1,0.1,0.1],0.13,[0xe1f5fe,0x81d4fa,0xffffff],[x,1.3,z]); g.add(pts);
+  var st=[]; for(var i=0;i<n;i++) st.push({t:Math.random()*1.2});
+  H3.anims.push(function(dt){ var a=pts.geometry.attributes.position;
+    for(var i=0;i<n;i++){ var s=st[i]; s.t+=dt; if(s.t>1.2||!s.v){ s.t=0; var ang=Math.random()*Math.PI*2, r=0.6+Math.random()*0.8; s.v=[Math.cos(ang)*r,2.6+Math.random()*0.8,Math.sin(ang)*r]; s.p=[x,(big?2.0:1.35),z]; }
+      a.array[i*3]=s.p[0]+s.v[0]*s.t; a.array[i*3+1]=s.p[1]+s.v[1]*s.t-4.9*s.t*s.t; a.array[i*3+2]=s.p[2]+s.v[2]*s.t; if(a.array[i*3+1]<0.3) a.array[i*3+1]=0.3; }
+    a.needsUpdate=true; });
+}
+function luxLantern(g,x,z,h){ h=h||1.9;
+  hqCyl(g,0.06,0.09,h,x,h/2,z,hqM('#2f2f35',{m:0.7,r:0.35}),12);
+  hqRB(g,0.32,0.4,0.32,x,h+0.2,z,hqM('#fff3c4',{e:0xffd27a,ei:0.9,r:0.3}),0.04);
+  var cap=new THREE.Mesh(new THREE.ConeGeometry(0.28,0.22,4),hqM('#2f2f35',{m:0.7,r:0.35})); cap.position.set(x,h+0.5,z); cap.rotation.y=Math.PI/4; g.add(cap);
+  luxGlow(g,x,h+0.2,z,1.8,0xffc86b,0.12);
+  var L=new THREE.PointLight(0xffc073,0,5,1.8); L.position.set(x,h+0.2,z); g.add(L); HQ.nightLights.push({l:L,day:0,night:0.9});
+}
+function luxChandelier(g,x,y,z){
+  hqCyl(g,0.012,0.012,0.5,x,y-0.25,z,hqM('#d4af37',{m:0.9,r:0.2}),6);
+  var ring=new THREE.Mesh(new THREE.TorusGeometry(0.45,0.03,10,40),hqM('#d4af37',{m:0.9,r:0.2})); ring.rotation.x=Math.PI/2; ring.position.set(x,y-0.6,z); g.add(ring);
+  var crys=hqM('#ffffff',{r:0.02,m:0.2,op:0.55,e:0xfff4d6,ei:0.4});
+  for(var i=0;i<12;i++){ var a=i/12*Math.PI*2; var c=new THREE.Mesh(new THREE.OctahedronGeometry(0.06),crys); c.scale.y=1.8; c.position.set(x+Math.cos(a)*0.45,y-0.72,z+Math.sin(a)*0.45); g.add(c);
+    var cd=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.1,8),hqM('#fffde7',{e:0xfff3c4,ei:1.2})); cd.position.set(x+Math.cos(a)*0.45,y-0.55,z+Math.sin(a)*0.45); g.add(cd); }
+  for(var k=0;k<3;k++){ var c2=new THREE.Mesh(new THREE.OctahedronGeometry(0.09),crys); c2.scale.y=1.8; c2.position.set(x,y-0.8-k*0.15,z); g.add(c2); }
+  luxGlow(g,x,y-0.65,z,2.4,0xffe2a8,0.22);
+  var L=new THREE.PointLight(0xffdca8,0.6,8,1.5); L.position.set(x,y-0.9,z); g.add(L); HQ.nightLights.push({l:L,day:0.6,night:1.6});
+}
+function luxTower(g,x,z,r,h,roofCol){
+  var stoneT=hqM('#ffffff',{map:hqTex('stoneT2',256,256,HQ_DRAW.stone,2,4),r:0.85});
+  hqCyl(g,r,r*1.08,h,x,h/2,z,stoneT,36);
+  for(var cr=0;cr<12;cr++){ var a=cr/12*Math.PI*2; hqBox(g,0.3,0.4,0.3,x+Math.cos(a)*r*0.95,h+0.2,z+Math.sin(a)*r*0.95,stoneT); }
+  var cone=new THREE.Mesh(new THREE.ConeGeometry(r*1.25,r*2.4,36),hqM(roofCol,{r:0.35,m:0.15})); cone.position.set(x,h+0.4+r*1.2,z); cone.castShadow=true; g.add(cone);
+  var band=new THREE.Mesh(new THREE.TorusGeometry(r*1.22,0.05,8,40),hqM('#d4af37',{m:0.9,r:0.2})); band.rotation.x=Math.PI/2; band.position.set(x,h+0.42,z); g.add(band);
+  hqCyl(g,0.03,0.03,1.1,x,h+0.4+r*2.4+0.4,z,hqM('#5d4037'),6);
+  var flag=new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.45,8,1),new THREE.MeshStandardMaterial({color:0xff1744,side:THREE.DoubleSide,roughness:0.6})); flag.position.set(x+0.42,h+0.4+r*2.4+0.75,z); g.add(flag);
+  var fp=flag.geometry.attributes.position, base=fp.array.slice();
+  H3.anims.push(function(dt,t){ for(var i=0;i<fp.count;i++){ var px=base[i*3]; fp.array[i*3+2]=Math.sin(t*4+px*5)*0.08*(px+0.4); } fp.needsUpdate=true; });
+  // 塔尖魔法水晶
+  var gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.22),hqM('#80d8ff',{r:0.05,m:0.2,e:0x40c4ff,ei:0.9})); gem.position.set(x,h+0.4+r*2.4+1.15,z); g.add(gem);
+  luxGlow(g,gem.position.x,gem.position.y,z,1.8,0x80d8ff,0.4);
+  H3.anims.push(function(dt,t){ gem.rotation.y=t; });
+  // 塔上窗户（夜晚发光）
+  for(var w=0;w<2;w++){ var wy=h*0.35+w*h*0.3; var win=hqRB(g,0.32,0.55,0.08,x,wy,z+r*1.02,HQ.winGlowM,0.12); luxGlow(g,x,wy,z+r*1.05,1.0,0xffcc80,0.0); }
+}
+var _luxBaseBuild=h3BuildHouse;
+h3BuildHouse=function(scene){
+  H3.anims=[]; HQ.glows=[]; HQ.nightLights=[]; HQ.viewMeshes=[]; HQ.stainedMats=[]; HQ.stars=null; HQ.fireflies=null; HQ.aurora=null; HQ.rainbow=null; HQ.winGlowM=hqM('#ffe9b0',{r:0.4,e:0xffc86b,ei:0});
+  _luxBaseBuild(scene);
+  var tier=H3.tier||3, g=scene, H=3, D=6;
+  // 已有的点光源也纳入白天/夜晚控制
+  scene.traverse(function(o){ if(o.isPointLight&&!HQ.nightLights.some(function(q){ return q.l===o; })) HQ.nightLights.push({l:o,day:o.intensity,night:Math.max(1.1,o.intensity*2.4)}); });
+  // 天空：各等级不同
+  var skies={1:['#7cc4f2','#dff3ff','#0b1736','#3a2d6b'],2:['#6fbdf0','#e6f6ff','#0b1736','#3a2d6b'],3:['#f7b977','#fff1d6','#101a40','#5a3a7a'],4:['#b59cf5','#ffd9ec','#070b2a','#3b1d63']}[tier];
+  HQ.sky=luxSky(scene,skies[0],skies[1]); HQ.skyPal=skies;
+  scene.fog=new THREE.Fog(new THREE.Color(skies[1]),36,90);
+  // 星星（夜晚）
+  var stars=luxPoints(500,[160,60,60],0.35,[0xffffff,0xfff3c4,0xb3e5fc],[0,45,-55]); stars.material.opacity=0; scene.add(stars); HQ.stars=stars;
+  // 夜晚的窗户：窗户里那张"窗外风景"夜里换成暖光
+  scene.traverse(function(o){ if(o.isMesh&&o.material&&o.material.map&&o.material.map===HQ.tex['view|undefined|undefined']) HQ.viewMeshes=(HQ.viewMeshes||[]).concat([o]); });
+  // 灯具光晕
+  var pls=[]; scene.traverse(function(o){ if(o.isPointLight) pls.push(o); }); pls.forEach(function(o){ luxGlow(o.parent,o.position.x,o.position.y+0.05,o.position.z,1.6,0xffd9a0,0.08); });
+  if(tier>=3){
+    // 大理石地板（客厅）+ 金色踢脚线
+    var marble=new THREE.Mesh(new THREE.BoxGeometry(4.96,0.02,5.96),hqM('#ffffff',{map:hqTex('marble',512,512,luxMarble,3,3),r:0.12,env:0.9}));
+    marble.position.set(-3.5,0.095,0); marble.receiveShadow=true; g.add(marble);
+    hqBox(g,12.2,0.08,0.05,0,0.26,-D/2+0.12,hqM('#d4af37',{m:0.9,r:0.25}));
+    // 水晶吊灯
+    luxChandelier(g,-3.2,H,1.2); luxChandelier(g,-2.6,H*2,1.0);
+    // 楼梯红地毯
+    for(var i=0;i<12;i++){ var sx=-5.3+(i+0.5)*(3.1/12), sy=(i+1)*(H/12); hqBox(g,3.1/12+0.07,0.02,0.7,sx,sy+0.03,-1.9,hqM('#b71c1c',{r:0.9})); }
+    // 二楼正面玻璃金栏杆阳台
+    var glass=hqM('#e3f6ff',{r:0.02,m:0.1,op:0.28,env:1});
+    hqBox(g,12,0.8,0.04,0,H+0.55,D/2-0.05,glass);
+    hqRB(g,12.1,0.06,0.1,0,H+0.98,D/2-0.05,hqM('#d4af37',{m:0.9,r:0.2}),0.03);
+    for(var b=0;b<=12;b++) hqCyl(g,0.025,0.025,0.85,-6+b,H+0.55,D/2-0.05,hqM('#d4af37',{m:0.9,r:0.2}),8);
+    // 花园：树篱、花坛、灯笼、秋千、喷泉
+    var hedge=hqM('#3f8f3a',{r:0.85});
+    for(var hx=-12.5;hx<=-6.8;hx+=1.15){ hqRB(g,1.1,0.8,0.7,hx,0.4,-3.6,hedge,0.3); }
+    [[-11.6,0.4],[-11.6,2.2]].forEach(function(q){ hqRB(g,1.4,0.28,1.0,q[0],0.14,q[1],hqM('#8d6e63',{r:0.8}),0.06); ['#ff4081','#ffd740','#e040fb','#ff6e40','#40c4ff'].forEach(function(c,i){ hqFlower(g,q[0]-0.5+i*0.25,q[1]+(i%2?0.2:-0.2),c); }); });
+    luxLantern(g,-6.9,0.4); luxLantern(g,-6.9,2.6); luxLantern(g,7.2,2.2);
+    luxFountain(g,-9.6,0.6,tier>=4);
+    // 秋千
+    var sw=hqM('#8d6e63',{r:0.6}); hqCyl(g,0.06,0.06,2.2,-12.6,1.1,-1.6,sw,10); hqCyl(g,0.06,0.06,2.2,-11.0,1.1,-1.6,sw,10); var top=hqCyl(g,0.06,0.06,1.8,-11.8,2.2,-1.6,sw,10); top.rotation.z=Math.PI/2;
+    var swing=new THREE.Group(); swing.position.set(-11.8,2.2,-1.6); g.add(swing);
+    [-0.3,0.3].forEach(function(o){ var rope=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.5,6),hqM('#d7ccc8')); rope.position.set(o,-0.75,0); swing.add(rope); });
+    var seat=new THREE.Mesh(new THREE.RoundedBoxGeometry(0.75,0.06,0.32,2,0.02),hqM('#ff8a65',{r:0.6})); seat.position.y=-1.5; swing.add(seat);
+    H3.anims.push(function(dt,t){ swing.rotation.x=Math.sin(t*1.6)*0.25; });
+    // 萤火虫（夜晚）
+    var ff=luxPoints(60,[14,2.5,8],0.22,[0xfff59d,0xccff90],[-9,1.4,0]); ff.material.opacity=0; g.add(ff); HQ.fireflies=ff;
+    var ffb=ff.geometry.attributes.position.array.slice();
+    H3.anims.push(function(dt,t){ var a=ff.geometry.attributes.position; for(var i=0;i<a.count;i++){ a.array[i*3]=ffb[i*3]+Math.sin(t*0.7+i)*0.4; a.array[i*3+1]=ffb[i*3+1]+Math.sin(t*1.3+i*2)*0.25; } a.needsUpdate=true; });
+  }
+  if(tier>=4){
+    var stone=hqM('#ffffff',{map:hqTex('stoneW',256,256,HQ_DRAW.stone,6,2),r:0.85});
+    // 后面的城墙和城垛
+    hqBox(g,20,8.2,0.8,0,4.1,-4.4,stone);
+    for(var cx=-9.6;cx<=9.6;cx+=0.9) hqBox(g,0.5,0.6,0.85,cx,8.5,-4.4,stone);
+    // 四座塔楼
+    luxTower(g,-8.6,-4.6,1.5,9,'#7e57c2'); luxTower(g,8.6,-4.6,1.5,9,'#7e57c2'); luxTower(g,-13.4,3.6,1.0,5,'#ab47bc'); luxTower(g,8.2,3.8,1.0,5.5,'#ab47bc');
+    // 中央大塔（屋顶后方）
+    luxTower(g,0.5,-4.9,1.8,10.5,'#5e35b1');
+    // 城门拱门（院子入口）
+    var gateM=stone; hqBox(g,0.7,3.2,0.7,-12.4,1.6,4.5,gateM); hqBox(g,0.7,3.2,0.7,-9.6,1.6,4.5,gateM);
+    var arch=new THREE.Mesh(new THREE.TorusGeometry(1.4,0.35,12,30,Math.PI),gateM); arch.position.set(-11,3.2,4.5); g.add(arch);
+    for(var gx=-12.6;gx<=-9.4;gx+=0.55) hqBox(g,0.32,0.4,0.6,gx,4.85,4.5,gateM);
+    luxGlow(g,-12.4,3.5,4.6,1.5,0xffc86b,0.15); luxGlow(g,-9.6,3.5,4.6,1.5,0xffc86b,0.15);
+    // 护城河 + 吊桥
+    var moat=new THREE.Mesh(new THREE.PlaneGeometry(26,1.6),hqM('#3fa9e0',{r:0.04,m:0.15,op:0.9,env:1,e:0x0d3b66,ei:0.3})); moat.rotation.x=-Math.PI/2; moat.position.set(-1,0.03,5.6); g.add(moat);
+    var bridge=hqM('#ffffff',{map:hqTex('woodBr',256,256,HQ_DRAW.wood('#9c6b45'),1,2),r:0.7}); hqBox(g,1.8,0.12,2.2,-7.6,0.12,5.6,bridge);
+    hqCyl(g,0.04,0.04,2.4,-8.5,0.9,5.6,hqM('#5d4037'),6).rotation.x=Math.PI/2; hqCyl(g,0.04,0.04,2.4,-6.7,0.9,5.6,hqM('#5d4037'),6).rotation.x=Math.PI/2;
+    // 皇家王座
+    var gold=hqM('#d4af37',{m:0.9,r:0.22}), red=hqM('#b71c1c',{r:0.8});
+    hqRB(g,0.9,0.5,0.8,-1.6,0.35,-2.3,gold,0.06); hqRB(g,0.75,0.12,0.65,-1.6,0.65,-2.25,red,0.05); hqRB(g,0.9,1.4,0.14,-1.6,1.15,-2.68,gold,0.06); hqRB(g,0.7,1.05,0.06,-1.6,1.15,-2.6,red,0.04);
+    var crown=hqLathe(g,[[0.16,0],[0.18,0.12],[0.12,0.12],[0.12,0.04],[0,0.04]],-1.6,1.9,-2.65,gold); hqSph(g,0.05,-1.6,2.08,-2.65,hqM('#e91e63',{e:0xe91e63,ei:0.6}));
+    // 红毯（大门到客厅）
+    var carpet=new THREE.Mesh(new THREE.PlaneGeometry(4.6,0.9),hqM('#c62828',{r:0.95})); carpet.rotation.x=-Math.PI/2; carpet.position.set(-3.7,0.11,1.2); g.add(carpet);
+    hqBox(g,4.6,0.012,0.06,-3.7,0.115,1.63,gold); hqBox(g,4.6,0.012,0.06,-3.7,0.115,0.77,gold);
+    // 紫金旗帜（挂在后墙上）
+    [[-5.4,1.9],[1.2,1.9],[-5.0,H+1.9],[5.4,H+1.9]].forEach(function(q){ var bn=new THREE.Mesh(new THREE.PlaneGeometry(0.7,1.3),hqM('#ffffff',{map:hqTex('banner',128,240,luxBanner),r:0.8})); bn.position.set(q[0],q[1],-D/2+0.12); g.add(bn); });
+    // 彩色玻璃窗：把窗外风景换成彩色玻璃
+    var stained=hqTex('stained',160,200,luxStained);
+    (HQ.viewMeshes||[]).forEach(function(m){ m.material=new THREE.MeshStandardMaterial({map:stained,emissive:0xffffff,emissiveMap:stained,emissiveIntensity:0.35,roughness:0.3}); HQ.stainedMats=(HQ.stainedMats||[]).concat([m.material]); });
+    // 彩虹
+    var rb=hqTex('rainbow',8,256,function(x,w,h){ var cs=['#ff5252','#ffab40','#ffeb3b','#69f0ae','#40c4ff','#7c4dff']; cs.forEach(function(c,i){ x.fillStyle=c; x.fillRect(0,i*h/6,w,h/6); }); });
+    var rainbow=new THREE.Mesh(new THREE.TorusGeometry(20,1.2,8,60,Math.PI),new THREE.MeshBasicMaterial({map:rb,transparent:true,opacity:0.45,depthWrite:false,toneMapped:false})); rainbow.position.set(0,-2,-30); g.add(rainbow); HQ.rainbow=rainbow;
+    // 极光（夜晚）
+    var au=hqTex('aurora',256,64,function(x,w,h){ var gr=x.createLinearGradient(0,0,0,h); gr.addColorStop(0,'rgba(124,77,255,0)'); gr.addColorStop(0.5,'rgba(105,240,174,.85)'); gr.addColorStop(1,'rgba(64,196,255,0)'); x.fillStyle=gr; x.fillRect(0,0,w,h); });
+    var aur=new THREE.Mesh(new THREE.PlaneGeometry(70,12,40,1),new THREE.MeshBasicMaterial({map:au,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,toneMapped:false})); aur.position.set(0,30,-50); g.add(aur); HQ.aurora=aur;
+    var ap=aur.geometry.attributes.position, apb=ap.array.slice();
+    H3.anims.push(function(dt,t){ for(var i=0;i<ap.count;i++){ ap.array[i*3+1]=apb[i*3+1]+Math.sin(t*0.5+apb[i*3]*0.12)*3; ap.array[i*3+2]=Math.sin(t*0.3+apb[i*3]*0.08)*4; } ap.needsUpdate=true; });
+    // 漂浮魔法光点
+    var mg=luxPoints(220,[30,12,14],0.28,[0xffd740,0xe040fb,0x80d8ff,0xffffff],[-1,6,-1]); g.add(mg);
+    var mgb=mg.geometry.attributes.position.array.slice();
+    H3.anims.push(function(dt,t){ var a=mg.geometry.attributes.position; for(var i=0;i<a.count;i++){ a.array[i*3+1]=mgb[i*3+1]+Math.sin(t*0.6+i)*0.6; a.array[i*3]=mgb[i*3]+Math.cos(t*0.4+i*1.3)*0.4; } a.needsUpdate=true; mg.material.opacity=0.6+Math.sin(t*2)*0.25; });
+    // 定时放烟花
+    var fwT=0; H3.anims.push(function(dt){ fwT+=dt; if(fwT>(H3.night?2.2:5)){ fwT=0; luxFirework(scene,-8+Math.random()*16,10+Math.random()*5,-6+Math.random()*4); } });
+  }
+  luxApplyNight();
+};
+function luxApplyNight(){
+  var n=!!H3.night, r=H3.renderer, tier=H3.tier||3;
+  if(!H3.scene) return;
+  H3.scene.traverse(function(o){
+    if(o.isDirectionalLight){ o.intensity=n?0.18:1.25; o.color.set(n?0x9fb4ff:0xffe7c7); }
+    if(o.isHemisphereLight){ o.intensity=n?0.12:0.25; }
+  });
+  (HQ.nightLights||[]).forEach(function(q){ q.l.intensity=n?q.night:q.day; });
+  (HQ.glows||[]).forEach(function(q){ q.s.material.opacity=n?Math.min(1,q.base*4+0.35):q.base; });
+  if(HQ.winGlowM){ HQ.winGlowM.emissiveIntensity=n?1.2:0.05; }
+  if(HQ.sky&&HQ.skyPal){ HQ.sky.uniforms.top.value.set(n?HQ.skyPal[2]:HQ.skyPal[0]); HQ.sky.uniforms.bottom.value.set(n?HQ.skyPal[3]:HQ.skyPal[1]); }
+  if(H3.scene.fog) H3.scene.fog.color.set(n?HQ.skyPal[3]:HQ.skyPal[1]);
+  if(HQ.stars) HQ.stars.material.opacity=n?0.95:0;
+  if(HQ.fireflies) HQ.fireflies.material.opacity=n?0.95:0;
+  if(HQ.aurora) HQ.aurora.material.opacity=n?0.55:0;
+  if(HQ.rainbow) HQ.rainbow.material.opacity=n?0:0.45;
+  (HQ.viewMeshes||[]).forEach(function(m){ if(!HQ.stainedMats||HQ.stainedMats.indexOf(m.material)<0){ m.material.color&&m.material.color.set(n?0x3b4a7a:0xffffff); } });
+  (HQ.stainedMats||[]).forEach(function(m){ m.emissiveIntensity=n?1.1:0.35; });
+  if(r) r.toneMappingExposure=n?0.95:0.82;
+  var wrap=document.getElementById('h3Wrap'); if(wrap) wrap.style.background=n?'#0b1030':'linear-gradient(180deg,#b3e5fc,#e1f5fe 60%,#c5e1a5)';
+  var b=document.getElementById('h3NightBtn'); if(b) b.textContent=n?'☀️ 白天':'🌙 夜晚';
+}
+function h3ToggleNight(){ H3.night=!H3.night; luxApplyNight(); }
+// 动画钩子 + 入住仪式
+function luxCeremony(){
+  var h=hbState(); if(!h.seen) h.seen={};
+  var tid=H3.tier||1; if(h.seen[tid]) return;
+  h.seen[tid]=1; try{ saveStore(); }catch(e){}
+  var t=HOUSE_TIERS[tid-1]; if(!t) return;
+  var y0=H3.yaw, d0=H3.dist, p0=H3.pitch, life=0;
+  H3.yaw=-1.2; H3.dist=d0*2.1; H3.pitch=0.55; H3.flying=true;
+  var tStart=performance.now();
+  H3.anims.push(function fly(dt){ life=(performance.now()-tStart)/1000; var k=Math.min(1,life/4.5), e=1-Math.pow(1-k,3);
+    H3.yaw=-1.2+(y0+1.2)*e; H3.dist=d0*2.1+(d0-d0*2.1)*e; H3.pitch=0.55+(p0-0.55)*e;
+    if(k>=1){ H3.flying=false; var i=H3.anims.indexOf(fly); if(i>=0) H3.anims.splice(i,1); } });
+  for(var f=0;f<(tid>=3?9:5);f++) setTimeout(function(){ if(H3.open) luxFirework(H3.scene,-8+Math.random()*14,7+Math.random()*5,-3+Math.random()*4); },600+f*550);
+  var ban=document.createElement('div');
+  ban.style.cssText='position:absolute;top:22%;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#ffb300,#ab47bc);color:#fff;font-weight:900;font-size:22px;padding:14px 26px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.25);text-align:center;z-index:10003;transition:opacity .8s';
+  ban.innerHTML='🎉 欢迎来到你的 '+t.name+'！<div style="font-size:14px;font-weight:600;margin-top:4px">这是你坚持打卡换来的家，太厉害啦！</div>';
+  document.getElementById('h3Wrap').appendChild(ban);
+  setTimeout(function(){ ban.style.opacity='0'; setTimeout(function(){ ban.remove(); },900); },4800);
+}
+
+var _luxOrigInit=h3Init;
+h3Init=function(){ var r=_luxOrigInit.apply(this,arguments); try{ luxApplyNight(); luxCeremony(); }catch(e){ try{ console.warn(e); }catch(e2){} } return r; };
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
