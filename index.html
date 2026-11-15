@@ -9066,7 +9066,12 @@ function captureLocalDaySnapshotForMerge(){
       // 2026-10fix【修复"大转盘中奖记录云同步可能被覆盖"】：大奖很稀罕，中一次很值得纪念，
       // 不能因为正好撞上"云端被判定为更新、整份覆盖本机"就凭空消失——跟下面装备/材料用一样的
       // "只信更多、不信更少"思路，把本机这份换掉之前先记一下，换完了再合并回来，见下面的用法
-      jackpotWinLog:Array.isArray(state.jackpotWinLog)?state.jackpotWinLog.slice():null
+      jackpotWinLog:Array.isArray(state.jackpotWinLog)?state.jackpotWinLog.slice():null,
+      // 2026-11新增：精灵图鉴（星光蛋/精华/已收集精灵）、学习记录、自测记录，同样"只信更多"合并，
+      // 防止被另一台设备上的旧存档覆盖（家长反馈：xixi做完自测显示送了精华，之后却没有了）
+      creatures:state.creatures?JSON.parse(JSON.stringify(state.creatures)):null,
+      learnLog:state.learnLog?JSON.parse(JSON.stringify(state.learnLog)):null,
+      selfTests:Array.isArray(state.selfTests)?state.selfTests.slice():null
     };
   }
   return null;
@@ -9081,9 +9086,52 @@ function captureLocalDaySnapshotForMerge(){
 // （比如合成升星），合并后可能会把这次消耗"撤销"、让材料数量看起来比实际消耗后更多——
 // 跟金币/经验故意不做这层合并是同一个权衡：两害相权，"宁可多算一点材料"也好过"真实拥有的装备/
 // 材料凭空消失"。只要配合上面新增的"10分钟闲置自动登出"，触发这个边界情况的概率已经很低。 */
+function mergeLearnAndCreatures(snap){
+  if(!state) return;
+  if(snap.creatures){
+    var a=snap.creatures, b=state.creatures;
+    if(!b){ state.creatures=a; }
+    else{
+      b.eggs=Math.max(b.eggs||0,a.eggs||0);
+      b.essence=Math.max(b.essence||0,a.essence||0);
+      b.hatched=Math.max(b.hatched||0,a.hatched||0);
+      if(!b.owned) b.owned={};
+      Object.keys(a.owned||{}).forEach(function(id){
+        var x=a.owned[id], y=b.owned[id];
+        if(!y) b.owned[id]=x;
+        else{ y.lv=Math.max(y.lv||1,x.lv||1); y.stage=Math.max(y.stage||1,x.stage||1); }
+      });
+      if(!b.partner&&a.partner) b.partner=a.partner;
+    }
+  }
+  if(snap.learnLog){
+    if(!state.learnLog) state.learnLog={word:{},hanzi:{},sentence:{}};
+    Object.keys(snap.learnLog).forEach(function(tp){
+      var A0=snap.learnLog[tp]||{}, B0=state.learnLog[tp]||(state.learnLog[tp]={});
+      Object.keys(A0).forEach(function(k){
+        var x=A0[k], y=B0[k];
+        if(!y){ B0[k]=x; return; }
+        var tot=function(e){ return (e.ok||0)+(e.bad||0); };
+        var newerResult=tot(x)>tot(y)?x.lr:y.lr;
+        y.n=Math.max(y.n||0,x.n||0); y.ok=Math.max(y.ok||0,x.ok||0); y.bad=Math.max(y.bad||0,x.bad||0);
+        if(x.last>y.last) y.last=x.last;
+        if(x.first&&(!y.first||x.first<y.first)) y.first=x.first;
+        y.lr=newerResult;
+      });
+    });
+  }
+  if(snap.selfTests&&snap.selfTests.length){
+    if(!Array.isArray(state.selfTests)) state.selfTests=[];
+    var seen={}; state.selfTests.forEach(function(r){ if(r) seen[r.t]=1; });
+    snap.selfTests.forEach(function(r){ if(r&&!seen[r.t]){ seen[r.t]=1; state.selfTests.push(r); } });
+    state.selfTests.sort(function(x,y){ return x.t-y.t; });
+    if(state.selfTests.length>100) state.selfTests=state.selfTests.slice(-100);
+  }
+}
 function applyLocalDayMergeIfSameChildAndDay(snap){
   if(!snap) return;
   if(!store || store.currentChildId!==snap.childId) return;
+  try{ mergeLearnAndCreatures(snap); }catch(eMg){}
   // jackpotWinLog是跟"今天"完全无关的终身记录，不跟下面"是否跨天"这个判断绑在一起——哪怕正好跨天了
   // (比如跨天那一刻同时发生云端同步)，本机刚中的这个大奖记录也不该因为"日期对不上就整段跳过合并"而丢掉
   if(snap.jackpotWinLog && snap.jackpotWinLog.length && state){
@@ -9284,6 +9332,7 @@ function cloudSyncOnLoad(){
         var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来
         store=row.data;
         resetPetClocksOnAdopt(store);
+  try{ ensureTaskDefs(); }catch(eEnsure){} // 2026-11fix：换成云端存档后也要补做一次内容升级（新概念英语等），否则每次打开都被云端旧内容盖回去
         if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
         if(store.currentChildId && store.accounts[store.currentChildId]){
           state=store.accounts[store.currentChildId].state||defaultState();
@@ -9338,6 +9387,7 @@ function trySyncFromCloud(){
     var _localDaySnap=captureLocalDaySnapshotForMerge(); // 换成云端这份之前，先把本机"今天打过的卡"记下来
     store=row.data;
     resetPetClocksOnAdopt(store);
+  try{ ensureTaskDefs(); }catch(eEnsure){} // 2026-11fix：换成云端存档后也要补做一次内容升级（新概念英语等），否则每次打开都被云端旧内容盖回去
     if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
     if(store.currentChildId && store.accounts[store.currentChildId]){
       state=store.accounts[store.currentChildId].state||defaultState();
@@ -9451,6 +9501,7 @@ function forceFreshLoadFromCloud(){
     if(row&&row.data&&row.data.accounts&&Object.keys(row.data.accounts).length>0){
       store=row.data;
       resetPetClocksOnAdopt(store);
+  try{ ensureTaskDefs(); }catch(eEnsure){} // 2026-11fix：换成云端存档后也要补做一次内容升级（新概念英语等），否则每次打开都被云端旧内容盖回去
       if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
       bgmEnabled=store.musicOn!==false;
       state=store.accounts[store.currentChildId].state||defaultState();
@@ -36135,7 +36186,9 @@ function runPairScript(A,B,name){
       actLock(A,false); actLock(B,false); PET_PAIR_BUSY=false;
       if(sc.good){ [A,B].forEach(function(x){ if(x.pet) x.pet.happy=Math.min(100,(x.pet.happy||0)+3); }); }
       else if(A.pet){ A.pet.happy=Math.max(0,(A.pet.happy||0)-1); }
-      try{ saveStore(); }catch(err){}
+      // 宠物自己互动是"挂机"行为，只存本机、不刷新存档时间、不推云端——否则开着网页的旧设备会因为
+      // 宠物不停互动而显得"数据最新"，把旧存档推上云端，覆盖掉孩子在别的设备上刚拿到的精华/金币
+      try{ saveStoreLocalOnly(); }catch(err){}
     },end);
   },walkMs+150);
 }
@@ -47018,6 +47071,7 @@ function hasRowEverBeenUsed(rowId){
 function adoptCloudRowOnFreshDevice(row){
   store=row.data;
   resetPetClocksOnAdopt(store);
+  try{ ensureTaskDefs(); }catch(eEnsure){} // 2026-11fix：换成云端存档后也要补做一次内容升级（新概念英语等），否则每次打开都被云端旧内容盖回去
   if(!store.accounts[store.currentChildId]) store.currentChildId=Object.keys(store.accounts)[0];
   state=store.accounts[store.currentChildId].state||defaultState();
   migrateState(state);
