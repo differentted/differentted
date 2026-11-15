@@ -37305,7 +37305,7 @@ function cySubmit(timeout){
   if(!state.cyTests) state.cyTests=[];
   state.cyTests.push({t:Date.now(),day:todayKey(),g:cnGrade(),score:E.score,wrong:E.qs.filter(function(q,i){ return E.picks[i]!==q.ans; }).map(function(q){ return q.c.cy; })});
   if(state.cyTests.length>60) state.cyTests=state.cyTests.slice(-60);
-  if(E.score>=80){ try{ crAddEnergy(2); }catch(e){} }
+  if(E.score>=80&&!state.day.cyEnergy){ state.day.cyEnergy=1; try{ crAddEnergy(2); }catch(e){} } // 防刷：孵化能量每天只给第一次80分以上
   saveStore();
   cyRenderExam();
   try{ if(timeout) ttsToast('⏰ 时间到，已自动交卷',2500); if(E.score>=90){ petSay('成语小达人！',1800); petHeartFx(6); } }catch(e){}
@@ -40535,6 +40535,104 @@ setInterval(function(){
     });
   }catch(e){}
 },4000);
+/* ========== 2026-11新增：防止为了刷材料反复考试（学习可以多刷，奖励只给真正的新学习） ==========
+   家长查xixi账号发现：11月15日一天做了42次「学完自测」，题目都来自同样20多个单词/汉字/句子
+   （同一个词一天被考了十几、二十次，"small"考了19次），每次几十秒全对；另外有好几次几秒钟交白卷。
+   以前每次自测都给精华、孵化能量（攒满就是星光蛋），一天孵了27只精灵；房子零件「自测80分以上N次」也被刷满。
+   新规则（可以无限练习，但奖励只给"有新学习"的考试）：
+   1. 每个单词/汉字/句子，一天最多带来一次奖励；同一个词累计最多算5天（之后算已经掌握，只做复习练习）。
+   2. 一次自测里至少要有4道"今天还没拿过奖励的新内容"并且都作答，才算「有效自测」，有效自测每天最多3次。
+   3. 不是有效自测的就是「练习模式」：照样记录学习情况、照样能看错题，但不给精华/能量/属性石/幸运草/金币，
+      也不算进房子零件和精灵任务的次数。开考前就会告诉孩子这次是不是有奖励。
+   4. 有效自测里，精华只按"新内容答对的题数"给；一题都没答对不给孵化能量。
+   5. 成语小测验：孵化能量每天只给第一次80分以上；房子零件「成语测验N次」改成按"不同的天"算。
+   6. 以前的记录（没有"是否有效"标记的）每天最多按3次算。 */
+var AF_MAX_EFF=3, AF_MIN_FRESH=4, AF_ITEM_DAYS=5;
+function afR(){ if(!state.stReward) state.stReward={}; return state.stReward; }
+function afEligible(type,key){ var r=afR()[type+'|'+key]; return !r||(r.d!==todayKey()&&(r.n||0)<AF_ITEM_DAYS); }
+function afEffUsed(){ return (state.day&&state.day.stEff)||0; }
+function afPoolFresh(){ var n=0; try{ stPool().forEach(function(p){ if(afEligible(p[0],p[1])) n++; }); }catch(e){} return n; }
+// 自测前的复习页：顶部告诉孩子这次有没有奖励
+var _afOrigReview=stRenderReview;
+stRenderReview=function(){
+  // 有奖励名额时，考题优先放「今天还没拿过奖励」的新内容，保证说有奖励就真的有
+  try{
+    if(ST&&!ST.exam&&afEffUsed()<AF_MAX_EFF&&afPoolFresh()>=AF_MIN_FRESH){
+      var inQ={}; ST.qs.forEach(function(q){ inQ[q.type+'|'+q.key]=1; });
+      var cand=stShuffle(stPool().filter(function(p){ return afEligible(p[0],p[1])&&!inQ[p[0]+'|'+p[1]]; }));
+      var freshN=function(){ return ST.qs.filter(function(q){ return afEligible(q.type,q.key); }).length; };
+      while(freshN()<Math.min(6,AF_MIN_FRESH+2)&&cand.length){
+        var nq=stMakeQuestion(cand[0][0],cand[0][1]); cand.shift(); if(!nq) continue;
+        var idx=-1; for(var i=0;i<ST.qs.length;i++){ if(!afEligible(ST.qs[i].type,ST.qs[i].key)){ idx=i; break; } }
+        if(idx>=0) ST.qs[idx]=nq; else if(ST.qs.length<8) ST.qs.push(nq); else break;
+      }
+    }
+  }catch(e0){}
+  var r=_afOrigReview.apply(this,arguments);
+  try{
+    var b=document.getElementById('selfTestBody'); if(!b) return r;
+    var used=afEffUsed(), fresh=afPoolFresh(), html;
+    if(used>=AF_MAX_EFF) html='📝 <b>练习模式</b>：今天 '+AF_MAX_EFF+' 次有奖励的自测已经用完啦。现在可以继续练习、看错题，但<b>不加精华/能量/材料</b>。明天再来拿奖励吧！';
+    else if(fresh<AF_MIN_FRESH) html='📝 <b>练习模式</b>：今天学过的内容都已经考过、拿过奖励了。想要奖励，先去学至少 '+AF_MIN_FRESH+' 个<b>新的</b>单词/汉字/句子再来考；现在考只练习、不加奖励。';
+    else html='🎁 <b>有奖励的自测</b>（今天第 '+(used+1)+' / '+AF_MAX_EFF+' 次）：认真答，新学的内容答对就有精华和孵化能量！';
+    var d=document.createElement('div'); d.style.cssText='background:'+(html.indexOf('练习模式')>=0?'#eceff1':'#e8f5e9')+';border-radius:12px;padding:8px 10px;margin:4px 0 8px;font-size:13px;line-height:1.6;text-align:left;color:#37474f';
+    d.innerHTML=html; b.insertBefore(d,b.firstChild);
+  }catch(e){}
+  return r;
+};
+var AF_CTX=null;
+var _afOrigFinish=stFinish;
+stFinish=function(timeout){
+  if(!ST) return _afOrigFinish.apply(this,arguments);
+  var day=todayKey(), qs=ST.qs||[], ans=qs.filter(function(q){ return q.res===0||q.res===1; });
+  var fresh=ans.filter(function(q){ return afEligible(q.type,q.key); });
+  var freshOk=fresh.filter(function(q){ return q.res===1; });
+  var eff=afEffUsed()<AF_MAX_EFF&&fresh.length>=AF_MIN_FRESH;
+  AF_CTX={eff:eff,fresh:fresh.length,freshOk:freshOk.length};
+  var blockCoin=!eff&&state.day&&!state.day.selfTestRewarded;
+  if(blockCoin) state.day.selfTestRewarded=true;
+  var r;
+  try{ r=_afOrigFinish.apply(this,arguments); } finally{ var ctx=AF_CTX; AF_CTX=null; if(blockCoin) state.day.selfTestRewarded=false; }
+  try{
+    var rec=state.selfTests[state.selfTests.length-1]; if(rec){ rec.eff=eff; rec.fresh=fresh.length; }
+    if(eff){
+      state.day.stEff=afEffUsed()+1;
+      var R=afR(); freshOk.forEach(function(q){ var k=q.type+'|'+q.key, o=R[k]||{n:0}; R[k]={d:day,n:(o.n||0)+1}; });
+    }
+    saveStore();
+    var b=document.getElementById('selfTestBody');
+    if(b){ var d=document.createElement('div'); d.style.cssText='background:'+(eff?'#e8f5e9':'#eceff1')+';border-radius:12px;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.6;color:#37474f';
+      d.innerHTML=eff?'✅ <b>有效自测</b>（今天第 '+state.day.stEff+' / '+AF_MAX_EFF+' 次）：新内容答对 '+freshOk.length+' 题，奖励已发放'
+        :'📝 <b>练习模式，这次不加奖励</b>'+(afEffUsed()>=AF_MAX_EFF?'（今天有奖励的 '+AF_MAX_EFF+' 次已经用完）':'（新学的内容不到 '+AF_MIN_FRESH+' 题）')+'<br>多练习对学习很有帮助！想拿奖励就去学新的内容吧～';
+      b.insertBefore(d,b.children[2]||null); }
+  }catch(e){}
+  return r;
+};
+var _afOrigCrST=crSelfTestReward;
+crSelfTestReward=function(correct,total,firstToday){
+  if(AF_CTX&&!AF_CTX.eff) return '';
+  if(AF_CTX&&AF_CTX.freshOk===0) return '';
+  var c=crState(), e0=c?c.essence:0;
+  var html=_afOrigCrST.apply(this,arguments);
+  try{ if(c&&AF_CTX){ var extra=(c.essence-e0)-AF_CTX.freshOk; if(extra>0){ c.essence-=extra; html=html.replace(/💠 精华 \+\d+/,'💠 精华 +'+AF_CTX.freshOk); } } }catch(e){}
+  return html;
+};
+// 房子零件/精灵任务：只算有效自测；老记录每天最多3次
+function afGoodTests(){
+  var per={}, n=0;
+  (state.selfTests||[]).forEach(function(r){
+    if(!r.total||r.score/r.total<0.8) return;
+    if(r.eff===false) return;
+    var d=r.day||'?'; per[d]=(per[d]||0)+1; if(per[d]<=AF_MAX_EFF) n++;
+  });
+  return n;
+}
+crGoodTests=afGoodTests;
+hbCyGood=function(min){ var days={}; (state.cyTests||[]).forEach(function(r){ if(r.score>=min) days[r.day||'?']=1; }); return Object.keys(days).length; };
+try{ HOUSE_TIERS.forEach(function(t){ t.parts.forEach(function(p){ if(/成语小测验 \d+ 次/.test(p.d)) p.d=p.d.replace(/成语小测验 (\d+) 次/,'成语小测验 $1 天'); }); }); }catch(e){}
+// 精灵任务里"完成30次自测"也只算有效的（老记录每天最多3次）
+function afEffCount(){ var per={}, n=0; (state.selfTests||[]).forEach(function(r){ if(r.eff===false) return; var d=r.day||'?'; per[d]=(per[d]||0)+1; if(per[d]<=AF_MAX_EFF) n++; }); return n; }
+try{ CR_QUESTS.forEach(function(q){ if(q.id==='s3') q.prog=function(){ var st=learnStats(); return Math.min(100,st.word.mastered+st.sentence.mastered)+Math.min(30,afEffCount()); }; }); }catch(e){}
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
