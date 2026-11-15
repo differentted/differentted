@@ -37626,7 +37626,7 @@ function h3PetSprite(p,idx){
   sp.center.set(0.5,0.02); sp.scale.set(2.5,2.5,1);
   var sh=new THREE.Mesh(new THREE.CircleGeometry(0.42,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.18}));
   sh.rotation.x=-Math.PI/2;
-  var startNodes=['L','K','B','R','P'].filter(function(n){ return typeof h3NodeOk!=='function'||h3NodeOk(n); }); if(!startNodes.length) startNodes=['L'];
+  var startNodes=['L','K','B','R','P'].filter(function(n){ return typeof h3NodeOk!=='function'||h3NodeOk(n); }); if(!startNodes.length) startNodes=['O1','O2','O3','O4','G'];
   var node=startNodes[idx%startNodes.length], p0=H3_NODES[node].p;
   var a={pet:p,idx:idx,sp:sp,cv:cv,ctx:cv.getContext('2d'),tex:tex,sh:sh,pos:new THREE.Vector3(p0[0]+(idx%2?0.6:-0.6),p0[1],p0[2]),node:node,path:[],anim:'idle',animUntil:0,faceLeft:false,speed:1.6,nextWander:Date.now()+2000+Math.random()*4000,bubble:null,lastDraw:0};
   return a;
@@ -37787,7 +37787,7 @@ function h3Loop(now){
         var sNow=a.pos.clone().project(c), sNext=target.clone().project(c); if(Math.abs(sNext.x-sNow.x)>0.002) a.faceLeft=sNext.x<sNow.x;
       }
     }else if(Date.now()>a.nextWander&&a.anim!=='sleep'){
-      var rooms=h3RoomsOk(); h3GoTo(a,rooms[Math.floor(Math.random()*rooms.length)]); a.nextWander=Date.now()+9000+Math.random()*9000;
+      h3WanderPick(a);
     }
     a.sp.position.copy(a.pos); a.sh.position.set(a.pos.x,a.pos.y+0.06,a.pos.z);
     h3DrawPet(a,t,moving);
@@ -38886,8 +38886,6 @@ var _pvOrigInit=h3Init;
 h3Init=function(){
   var r=_pvOrigInit.apply(this,arguments);
   if(H3.preview){
-    (H3.actors||[]).forEach(function(a){ H3.scene.remove(a.sp); H3.scene.remove(a.sh); if(a.bubble) a.bubble.remove(); });
-    H3.actors=[];
     var t=HOUSE_TIERS[H3.preview.tier-1], h=hbState(), got=t.parts.filter(function(p){ return h.parts[p.id]; }).length;
     document.getElementById('h3Btns').innerHTML='<div style="background:rgba(255,248,225,.95);border-radius:14px;padding:8px 14px;font-size:14px;color:#6a1b9a;text-align:center;font-weight:700">🚧 '+t.name+' 施工中：已领到 '+got+' / '+t.parts.length+' 个零件<br><span style="font-weight:400;font-size:12px">继续完成打卡任务赢零件，房子就会一点点盖起来！</span></div>'
       +'<button class="btn btn-primary" onclick="closeHouse3D();openHouseBuild()">🏗️ 去赢零件</button>';
@@ -39302,6 +39300,110 @@ showPage=function(name){
 setInterval(function(){ var el=document.getElementById('h3EmbedTime'); if(el&&H3.embedded){ var d=new Date(); el.textContent=(H3.night?'🌙 夜晚 ':'☀️ 白天 ')+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); } },1000);
 // 页面刚打开就停在宠物页的情况
 setTimeout(function(){ try{ var pp=document.getElementById('page-pet'); if(pp&&pp.classList.contains('active')&&petViewIs3D()) openHouse3DEmbedded(); }catch(e){} },2500);
+/* ========== 2026-11新增：宠物在房子外面的草地上玩 ==========
+   - 房子还没盖好（施工预览）：宠物们在房子外面的草地上溜达，看着房子一点点盖起来
+   - 房子建好了，但家里「又乱又脏」或「拆家」（乱的程度≥2）：宠物嫌里面太臭太脏，不肯回家，
+     全都待在门外草地上；叫它进屋会拒绝，还会时不时抱怨，提醒小主人去打扫
+   - 「🧹 打扫房子」按钮：今天做过「家务」打卡才能打扫；打扫干净后宠物欢呼着跑回家
+     （当天有效；第二天如果还是一直不做打卡、不照顾宠物，家里又会乱） */
+H3_NODES.O0={p:[-6.3,0,2.5]}; H3_NODES.O1={p:[-5.6,0,4.3],room:'lawn'};
+H3_NODES.O2={p:[-2,0,4.4],room:'lawn'}; H3_NODES.O3={p:[1.8,0,4.4],room:'lawn'}; H3_NODES.O4={p:[5.2,0,4.4],room:'lawn'};
+H3_EDGES.push(['G','O0'],['O0','O1'],['O1','O2'],['O2','O3'],['O3','O4']);
+var H3_OUT_NODES=['G','O0','O1','O2','O3','O4'];
+function h3IsOutdoor(){ return !!H3.outdoor&&!H3._building; }
+var _odOrigNodeOk=h3NodeOk;
+h3NodeOk=function(n){
+  if(h3IsOutdoor()) return H3_OUT_NODES.indexOf(n)>=0;
+  if(H3_OUT_NODES.indexOf(n)>=0&&n!=='G') return true; // 草地小路一直都能走（回家时也要经过）
+  return _odOrigNodeOk.apply(this,arguments);
+};
+function h3WanderPick(a){
+  if(h3IsOutdoor()){
+    var cand=H3_OUT_NODES.filter(function(n){ return n!==a.node&&n!=='O0'; });
+    var to=cand[Math.floor(Math.random()*cand.length)], path=h3Path(a.node,to);
+    if(path[0]===a.node) path.shift();
+    a.path=path; a.goal=null; a.anim='idle';
+    a.nextWander=Date.now()+6000+Math.random()*7000;
+    return;
+  }
+  var rooms=h3RoomsOk(); h3GoTo(a,rooms[Math.floor(Math.random()*rooms.length)]); a.nextWander=Date.now()+9000+Math.random()*9000;
+}
+// 当天打扫过：家里算干净
+var _odOrigMess=h3MessInfo;
+h3MessInfo=function(){
+  var r=_odOrigMess.apply(this,arguments);
+  try{ if(hbState().cleanDay===todayKey()&&r.level>0) return {level:0,score:0,reasons:[],cleaned:true,was:r.level}; }catch(e){}
+  return r;
+};
+function h3DirtyOut(){ return !H3.preview&&!!H3.mess&&H3.mess.level>=2; }
+var _odOrigBuild=h3BuildHouse;
+h3BuildHouse=function(){ H3._building=true; try{ return _odOrigBuild.apply(this,arguments); } finally{ H3._building=false; } };
+var H3_DIRTY_LINES=['里面太臭太脏了，我不要进去！小主人你要帮我去弄干净🥺','好臭好臭！我才不回家呢😖','家里乱成这样，没法住啦～快帮我打扫一下吧！🧹','呜呜…我想回家，可是里面太脏了😢','小主人，先去做家务打卡，再来帮我打扫房子好不好？'];
+var H3_BUILD_LINES=['房子什么时候盖好呀？我好想住进去！🏠','我们先在草地上玩吧～🌱','快去完成打卡赢零件，帮我把房子盖好吧！','哇，房子又高了一点点！','等房子盖好，我要第一个冲进去！'];
+var _odOrigInit=h3Init;
+h3Init=function(){
+  try{ if(!H3.preview&&H3.mess&&H3.builtTier===H3.tier&&h3MessInfo().level!==H3.mess.level) H3.builtTier=null; }catch(e0){}
+  H3.outdoor=false;
+  var r=_odOrigInit.apply(this,arguments);
+  H3.outdoor=!!H3.preview||h3DirtyOut();
+  var cheer=H3._justCleaned; H3._justCleaned=false;
+  if(H3.outdoor||cheer){
+    // 宠物全都放到门外草地上
+    (H3.actors||[]).forEach(function(a,i){
+      var n=['O1','O2','O3','O4','G'][i%5], p=H3_NODES[n].p;
+      a.node=n; a.path=[]; a.goal=null; a.pos.set(p[0]+(i%2?0.5:-0.5),p[1],p[2]+(i%3-1)*0.3);
+      a.nextWander=Date.now()+1500+Math.random()*3000;
+    });
+  }
+  if(cheer){
+    (H3.actors||[]).forEach(function(a,i){
+      setTimeout(function(){ a.anim='happy'; a.animStart=Date.now(); a.animUntil=Date.now()+1600; h3Say(a,i?pickLine(['回家咯～','好干净呀！✨','谢谢小主人！💕']):'哇！家里好干净，我们回家咯！🏠✨',2600); },300+i*250);
+      setTimeout(function(){ h3GoTo(a,'living'); a.nextWander=Date.now()+15000; },2000+i*400);
+    });
+  }
+  if(H3.outdoor&&!H3.preview){
+    var main=(H3.actors||[]).filter(function(a){ return a.idx===H3.mainIdx; })[0]||(H3.actors||[])[0];
+    var lv=H3.mess.level;
+    document.getElementById('h3Btns').innerHTML='<div style="background:rgba(255,235,238,.96);border:2px solid #ef9a9a;border-radius:14px;padding:7px 12px;font-size:13px;color:#b71c1c;text-align:center;font-weight:700">'
+      +(lv>=3?'💥 家被拆了':'😣 家里又乱又脏')+'，'+escapeAttr((main&&main.pet&&main.pet.name)||'宠物')+'不肯回家，都在草地上！<br><span style="font-weight:400;font-size:12px;color:#6d4c41">完成今天的「家务」打卡，再点「打扫房子」，宠物才会回家</span></div>'
+      +'<button class="btn btn-success" onclick="h3CleanHouse()">🧹 打扫房子</button>';
+    setTimeout(function(){ var a=(H3.actors||[])[0]; if(a&&H3.open) h3Say(a,H3_DIRTY_LINES[0],4200); },1600);
+  }
+  if(H3.preview) setTimeout(function(){ var a=(H3.actors||[])[0]; if(a&&H3.open) h3Say(a,pickLine(H3_BUILD_LINES),3200); },1800);
+  return r;
+};
+var _odOrigCmd=h3Command;
+h3Command=function(room){
+  if(h3IsOutdoor()&&room!=='yard'){
+    var a=H3.actors.filter(function(x){ return x.idx===H3.mainIdx; })[0]||H3.actors[0]; if(!a) return;
+    a.path=[]; a.anim='sad'; a.animStart=Date.now(); a.animUntil=Date.now()+2500; a.nextWander=Date.now()+5000;
+    h3Say(a,H3.preview?'房子还没盖好呢，我们在草地上玩吧～🌱':H3_DIRTY_LINES[0],3200);
+    return;
+  }
+  return _odOrigCmd.apply(this,arguments);
+};
+function h3CleanHouse(){
+  var d=state&&state.day, done=!!(d&&((d.houseDone||0)>=1||(typeof isHouseFull==='function'&&isHouseFull(d))));
+  if(!done){
+    var a=(H3.actors||[])[0]; if(a) h3Say(a,'要先去做「家务」打卡，才能打扫干净哦！🧹',3200);
+    try{ ttsToast('先去完成今天的「家务」打卡，才能打扫房子哦～',3500); }catch(e){ alert('先去完成今天的「家务」打卡，才能打扫房子哦～'); }
+    return;
+  }
+  hbState().cleanDay=todayKey();
+  try{ saveStore(); }catch(e){}
+  H3._justCleaned=true; H3.builtTier=null;
+  try{ ttsToast('🧹 打扫干净啦！宠物们要回家咯～',3000); }catch(e){}
+  h3Init();
+}
+// 待在外面时，时不时抱怨/念叨
+setInterval(function(){
+  try{
+    if(!H3.open||!h3IsOutdoor()||!H3.actors||!H3.actors.length) return;
+    var a=H3.actors[Math.floor(Math.random()*H3.actors.length)];
+    if(H3.preview) h3Say(a,pickLine(H3_BUILD_LINES),3000);
+    else { h3Say(a,pickLine(H3_DIRTY_LINES),3500); a.anim='sad'; a.animStart=Date.now(); a.animUntil=Date.now()+2500; }
+  }catch(e){}
+},14000);
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
