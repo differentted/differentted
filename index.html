@@ -35800,6 +35800,19 @@ function rgPose(m,st,t,ts,ext){
     case 'scared':
       raise(55+5*Math.sin(t*60)); set('head',3*Math.sin(t*50));
       break;
+    case 'reach': // 伸手去摸对方的头（对方总在自己"前面"）
+      bones.forEach(function(b){ if(b.kind==='arm'&&b.side>0) set(b.name,-b.side*(80+10*Math.sin(ts*Math.PI*2*2.5))); if(b.kind==='fore'&&b.side>0) set(b.name,-b.side*20*Math.sin(ts*Math.PI*2*2.5)); });
+      set('spine',4); set('head',-4);
+      break;
+    case 'hug':
+      raise(70+6*Math.sin(ts*6)); set('spine',3*Math.sin(ts*5)); set('head',6);
+      set('tail0',22*sinp(2.2)); set('tail1',26*sinp(2.2,-0.7));
+      break;
+    case 'angry': // 生气：跺脚、手臂往下甩、身体发抖
+      raise(-12+6*Math.sin(t*40)); set('head',-6+3*Math.sin(t*30)); set('spine',-3);
+      bones.forEach(function(b){ if(b.kind==='leg') set(b.name,8*Math.max(0,Math.sin(ts*Math.PI*2*3+(b.side<0?0:Math.PI)))*-b.side); });
+      set('tail0',30*Math.sin(t*14)); set('tail1',30*Math.sin(t*14-0.8));
+      break;
     case 'pushup': case 'lift':
       raise(30+40*(Math.sin(ts*Math.PI*2*2.1)+1)/2);
       break;
@@ -35849,11 +35862,12 @@ function rgRender(img,st,t,ts,ext,scalePx){
   var pos=rgSkin(m,A);
   var s=scalePx/m.W; // 图片像素 → 画布像素
   var cw=Math.round(m.W*s*(1+RG_MARGIN_X*2)), ch=Math.round(m.H*s*(1+RG_MARGIN_TOP)+m.H*s*0.02);
-  if(RG.cv.width!==cw||RG.cv.height!==ch){ RG.cv.width=cw; RG.cv.height=ch; }
+  // 多只宠物共用一块WebGL画布：画布只会变大不会反复改尺寸（每帧改尺寸很耗性能），每次只用左上角一块区域
+  if(RG.cv.width<cw||RG.cv.height<ch){ RG.cv.width=Math.max(RG.cv.width,cw); RG.cv.height=Math.max(RG.cv.height,ch); }
   var ox=m.W*s*RG_MARGIN_X, oy=m.H*s*RG_MARGIN_TOP;
   var p2=new Float32Array(pos.length);
   for(var i=0;i<pos.length;i+=2){ p2[i]=pos[i]*s+ox; p2[i+1]=pos[i+1]*s+oy; }
-  gl.viewport(0,0,cw,ch); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.viewport(0,RG.cv.height-ch,cw,ch); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(RG.prog);
   gl.bindBuffer(gl.ARRAY_BUFFER,RG.posBuf); gl.bufferData(gl.ARRAY_BUFFER,p2,gl.DYNAMIC_DRAW);
   gl.enableVertexAttribArray(RG.loc.p); gl.vertexAttribPointer(RG.loc.p,2,gl.FLOAT,false,0,0);
@@ -35864,7 +35878,289 @@ function rgRender(img,st,t,ts,ext,scalePx){
   if(m.idx instanceof Uint32Array && !gl.getExtension('OES_element_index_uint')) return null;
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,RG.idxBuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,m.idx,gl.STATIC_DRAW);
   gl.drawElements(gl.TRIANGLES,m.idx.length,m.idx instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT,0);
-  return {canvas:RG.cv,x:ox,y:oy,w:m.W*s,h:m.H*s};
+  return {canvas:RG.cv,cw:cw,ch:ch,x:ox,y:oy,w:m.W*s,h:m.H*s};
+}
+/* ========== 2026-11新增：多只宠物之间的互动（骨骼动画 + 编排好的互动剧情） ==========
+   以前家里的其它宠物只是一张小图片在屏幕上滑来滑去，"互动"只是两只中间冒一个表情。
+   现在：
+   1) 其它宠物也用骨骼动画画出来（走路迈腿、手会动、尾巴会甩），大小跟主宠物接近；
+   2) 每隔一会儿随机挑两只宠物（主宠物也会参与），一只先走到另一只身边、面对面，然后演一段互动：
+      摸摸头 / 抱抱 / 击掌 / 一起跳舞 / 你追我跑 / 分享零食 —— 对方开心回应；
+      或者对方心情不好时：「别碰我！」甩手拒绝 / 生气跺脚后跑开，主动的那只会委屈；
+      对方心情越差，越容易拒绝或者跑开；互动成功双方都会更开心；
+   3) 小朋友点其它宠物：点一两下开心蹦跳冒爱心；连续点太多下会生气「别碰我！」，再点就气跑了。 */
+var CP_RAF=0;
+function cpLib(p){ return PET_LIBRARY[p.type]||PET_LIBRARY.xiaojinlin; }
+function cpSrcFor(e){
+  var p=state.pets&&state.pets[e.idx]; if(!p) return '';
+  var lib=cpLib(p), a=e.anim;
+  if((a==='angry'||a==='sad'||a==='scared') && lib.img.sad) return lib.img.sad;
+  if((a==='happy'||a==='hug') && lib.img.happy && !lib.stageImg) return lib.img.happy;
+  return imgForPetStage(p);
+}
+function cpWidth(){
+  var mw=(petWrap&&parseFloat(petWrap.style.width))||90;
+  return Math.max(60,Math.min(220,mw*0.85));
+}
+function cpSetAnim(e,anim,ms){ e.anim=anim; e.animStart=performance.now()/1000; e.animUntil=ms?Date.now()+ms:0; }
+function cpEnsureCanvas(e){
+  if(e.cv) return;
+  var el=e.el;
+  el.innerHTML='';
+  var cv=document.createElement('canvas');
+  cv.style.cssText='position:absolute;left:-50%;width:200%;bottom:-4%;pointer-events:none';
+  el.appendChild(cv);
+  var sizer=document.createElement('div'); sizer.className='cp-sizer'; sizer.style.cssText='width:100%;'; el.appendChild(sizer);
+  e.cv=cv; e.ctx=cv.getContext('2d');
+}
+function cpKick(){ if(!CP_RAF) CP_RAF=requestAnimationFrame(cpFrame); }
+function cpFrame(now){
+  CP_RAF=0;
+  var any=false;
+  for(var k in companionSprites){ any=true; try{ cpDrawOne(companionSprites[k],now); }catch(err){} }
+  if(any && document.visibilityState!=='hidden') CP_RAF=requestAnimationFrame(cpFrame);
+  else if(any) setTimeout(cpKick,600);
+}
+function cpDrawOne(e,now){
+  if(!e.el||!e.el.isConnected) return;
+  cpEnsureCanvas(e);
+  var t=now/1000, dt=Math.min(0.05,(now-(e.last||now))/1000)||0.016; e.last=now;
+  if(e.animUntil && Date.now()>e.animUntil){ e.anim='idle'; e.animUntil=0; }
+  var src=cpSrcFor(e); if(!src) return;
+  if(src!==e.src){ e.src=src; e.img=lpLoad(src); }
+  var img=e.img; if(!img||!img.complete||!img.naturalWidth) return;
+  var w=cpWidth(); if(Math.abs((parseFloat(e.el.style.width)||0)-w)>1) e.el.style.width=w+'px';
+  var drawW=w, drawH=w*img.naturalHeight/img.naturalWidth;
+  e.el.querySelector('.cp-sizer').style.height=drawH+'px';
+  var r=e.el.getBoundingClientRect(), cx=r.left+r.width/2;
+  if(e.px!==undefined){ var iv=(cx-e.px)/dt; e.vx=(e.vx||0)+(iv-(e.vx||0))*Math.min(1,dt*10); }
+  e.px=cx;
+  var moving=Math.abs(e.vx||0)>20;
+  var anim=e.anim||'idle', ts=t-(e.animStart||0);
+  var dir=e.faceLeft?-1:1;
+  var fast=moving&&Math.abs(e.vx)>300;
+  var P={hop:0,tilt:0,sx:1,sy:1,jx:0};
+  if(moving&&anim!=='angry'){ var ph=t*Math.PI*(fast?4.4:3.0), sn=Math.abs(Math.sin(ph)); P.hop=sn*(fast?0.08:0.05); P.tilt=Math.sin(ph)*0.05; P.sy=1-(1-sn)*0.05; P.sx=1+(1-sn)*0.04; }
+  else if(anim==='happy'||anim==='hug'){ var ph2=(ts*2.2)%1, air=Math.sin(Math.min(1,ph2/0.6)*Math.PI); P.hop=ph2<0.6?air*(anim==='hug'?0.06:0.16):0; if(ph2>=0.6){ var kq=Math.sin((ph2-0.6)/0.4*Math.PI); P.sy=1-kq*0.1; P.sx=1+kq*0.08; } }
+  else if(anim==='angry'){ P.jx=Math.sin(t*50)*0.012; P.hop=Math.abs(Math.sin(ts*Math.PI*3))*0.03; P.sy=0.97; }
+  else if(anim==='dance-simple'){ var ph3=ts*Math.PI*2; P.tilt=Math.sin(ph3)*0.08; P.hop=Math.abs(Math.sin(ph3))*0.05; }
+  else if(anim==='sad'){ P.sy=0.96; }
+  var b=Math.sin(t*Math.PI*2*0.38);
+  var dpr=Math.min(2,window.devicePixelRatio||1);
+  var cssW=drawW*2.0, cssH=drawH*1.75, pw=Math.round(cssW*dpr), phh=Math.round(cssH*dpr);
+  var cv=e.cv, ctx=e.ctx;
+  if(cv.width!==pw||cv.height!==phh){ cv.width=pw; cv.height=phh; cv.style.height=cssH+'px'; }
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pw,phh); ctx.scale(dpr,dpr);
+  var footX=cssW/2+P.jx*drawW, footY=cssH-drawH*0.04;
+  ctx.save(); ctx.globalAlpha=0.16*Math.max(0.4,1-P.hop*2.5); ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(cssW/2,footY,drawW*0.3,drawH*0.03,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.save();
+  ctx.translate(footX,footY-P.hop*drawH); ctx.rotate(P.tilt); ctx.scale(P.sx*dir,P.sy*(1+b*0.012));
+  var ext={walking:moving&&anim!=='angry',fast:fast,carry:false,sleepy:false,petting:0,lag:Math.max(-1,Math.min(1,-(e.vx||0)/600))*dir,lean:0,air:P.hop*5,st:anim,ts:ts};
+  var rr=null;
+  if(RIGS[rigKeyOf(img.src)]){ try{ rr=rgRender(img,anim,t+e.idx*1.7,ts,ext,drawW*dpr); }catch(eR){ rr=null; } }
+  if(rr){ var kk=drawW/rr.w; ctx.drawImage(rr.canvas,0,0,rr.cw,rr.ch,-drawW/2-rr.x*kk,-drawH-rr.y*kk,rr.cw*kk,rr.ch*kk); }
+  else ctx.drawImage(img,-drawW/2,-drawH,drawW,drawH);
+  ctx.restore();
+}
+// —— 覆盖原来的"其它宠物"创建：改用画布 + 骨骼动画 ——
+function renderCompanionPets(){
+  ensurePetSpriteRefs();
+  var host=document.getElementById('petCompanions');
+  if(!host) return;
+  var wanted=companionWantedIdxs();
+  if(!wanted.length){
+    host.style.display='none';
+    for(var k in companionSprites){ clearTimeout(companionSprites[k].wanderTimer); if(companionSprites[k].el) companionSprites[k].el.remove(); }
+    companionSprites={}; clearTimeout(petInteractionTimer); return;
+  }
+  host.style.display='block';
+  for(var key in companionSprites){
+    if(wanted.indexOf(Number(key))===-1){ clearTimeout(companionSprites[key].wanderTimer); if(companionSprites[key].el) companionSprites[key].el.remove(); delete companionSprites[key]; }
+  }
+  wanted.forEach(function(i){
+    var p=state.pets[i]; if(!p) return;
+    if(!companionSprites[i]){
+      var el=document.createElement('div');
+      el.className='pet-companion-sprite';
+      el.title=p.name||'';
+      el.style.width=cpWidth()+'px';
+      el.onclick=(function(idx){ return function(){ companionPetTouch(idx); }; })(i);
+      host.appendChild(el);
+      var t=pickPetWanderTarget();
+      el.style.left=t.x+'px'; el.style.top=t.y+'px';
+      companionSprites[i]={el:el,x:t.x,y:t.y,idx:i,anim:'idle',faceLeft:Math.random()<0.5};
+      scheduleCompanionWander(i);
+    }
+  });
+  cpKick();
+  schedulePetInteractionCheck();
+}
+function scheduleCompanionWander(i){
+  var entry=companionSprites[i]; if(!entry) return;
+  clearTimeout(entry.wanderTimer);
+  entry.wanderTimer=setTimeout(function(){
+    var e=companionSprites[i];
+    if(!e || !companionsShouldShowGlobally()) return;
+    if(!e.busy){
+      var t=pickPetWanderTarget();
+      cpMoveTo(e,t.x,t.y,1700+Math.random()*900);
+    }
+    scheduleCompanionWander(i);
+  }, 3500+Math.random()*3500);
+}
+function cpMoveTo(e,x,y,ms){
+  e.faceLeft=x<e.x;
+  e.el.style.transition='left '+ms+'ms ease-in-out, top '+ms+'ms ease-in-out';
+  e.el.style.transform='translate(-50%,-50%)';
+  e.x=x; e.y=y; e.el.style.left=x+'px'; e.el.style.top=y+'px';
+}
+function schedulePetInteractionCheck(){
+  clearTimeout(petInteractionTimer);
+  petInteractionTimer=setTimeout(function(){
+    try{ tryPetInteraction(); }catch(err){}
+    if(companionsShouldShowGlobally()) schedulePetInteractionCheck();
+  }, 7000+Math.random()*6000);
+}
+// —— 统一的"演员"接口：主宠物和其它宠物用同一套指令 ——
+function actOf(idx){
+  if(idx===state.activePetIdx) return {main:true,idx:idx,pet:state.pet};
+  var e=companionSprites[idx]; return e?{main:false,idx:idx,e:e,pet:state.pets[idx]}:null;
+}
+function actPos(a){ return a.main?{x:petX,y:petY}:{x:a.e.x,y:a.e.y}; }
+function actW(a){ return a.main?((petWrap&&petWrap.offsetWidth)||90):(a.e.el.offsetWidth||60); }
+function actH(a){ return a.main?((petWrap&&petWrap.offsetHeight)||100):(a.e.el.offsetHeight||70); }
+function actMove(a,x,y,ms,run){
+  if(a.main){ moveTo(x,y,{duration:ms,anim:run?'run':'walk',animDuration:ms}); }
+  else cpMoveTo(a.e,x,y,ms);
+}
+function actFace(a,left){ if(a.main) setFacing(left?'left':'right'); else a.e.faceLeft=left; }
+function actAnim(a,anim,ms){ if(a.main) setPetAnim(anim,{duration:ms,after:'idle'}); else cpSetAnim(a.e,anim,ms); }
+function actSay(a,text){
+  if(a.main){ petSay(text,1900); return; }
+  var p=actPos(a); spawnCompanionSpeechBubble(p.x,p.y-actH(a)*0.55,text);
+}
+function actFx(a,emoji,dy){ var p=actPos(a); var el=document.createElement('div'); el.className='pet-interact-fx'; el.textContent=emoji; el.style.left=p.x+'px'; el.style.top=(p.y-actH(a)*(dy||0.5))+'px'; document.body.appendChild(el); setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },1450); }
+function actLock(a,on){
+  if(a.main){ if(on){ a._busyPrev=busy; busy=true; clearTimeout(petAiTimer); } else { busy=!!a._busyPrev; scheduleAi(3000); } }
+  else a.e.busy=on;
+}
+function actName(a){ return (a.pet&&a.pet.name)||L('小伙伴','buddy'); }
+var PET_PAIR_BUSY=false;
+var PAIR_SCRIPTS={
+  headpat:{w:3,good:true,run:function(A,B,T){
+    T(0,function(){ actSay(A,pickLine(['乖乖～摸摸头','你今天也很棒哦！','来，摸摸～'])); actAnim(A,'reach',2400); });
+    T(500,function(){ actAnim(B,'happy',2000); actFx(B,'💗',0.75); });
+    T(1100,function(){ actSay(B,pickLine(['嘿嘿～好舒服','再摸一下嘛～','喜欢被你摸头！'])); actFx(B,'💕',0.8); });
+  }},
+  hug:{w:3,good:true,close:0.55,run:function(A,B,T){
+    T(0,function(){ actSay(A,pickLine(['抱抱！','来个大大的拥抱！'])); actAnim(A,'hug',2400); actAnim(B,'hug',2400); });
+    T(600,function(){ actFx(A,'💞',0.6); actFx(B,'💞',0.6); });
+    T(1200,function(){ actSay(B,pickLine(['最喜欢你啦！','暖暖的～'])); });
+  }},
+  highfive:{w:2,good:true,run:function(A,B,T){
+    T(0,function(){ actSay(A,pickLine(['耶！击个掌！','Give me five！'])); actAnim(A,'wave',1600); });
+    T(250,function(){ actAnim(B,'wave',1600); });
+    T(700,function(){ var p=actPos(A), q=actPos(B); var el=document.createElement('div'); el.className='pet-interact-fx'; el.textContent='✋💥'; el.style.left=((p.x+q.x)/2)+'px'; el.style.top=(Math.min(p.y,q.y)-actH(A)*0.4)+'px'; document.body.appendChild(el); setTimeout(function(){ el.remove(); },1450); });
+    T(900,function(){ actSay(B,'啪！耶～'); actAnim(A,'happy',1200); actAnim(B,'happy',1200); });
+  }},
+  dance:{w:2,good:true,run:function(A,B,T){
+    T(0,function(){ actSay(A,pickLine(['一起跳舞吧～','音乐响起来！'])); actAnim(A,'dance-simple',3600); actAnim(B,'dance-simple',3600); });
+    [400,1300,2200,3100].forEach(function(ms,i){ T(ms,function(){ actFx(i%2?A:B,['🎵','🎶','✨','🎵'][i],0.85); }); });
+    T(1500,function(){ actSay(B,'转圈圈～啦啦啦！'); });
+  }},
+  chase:{w:2,good:true,run:function(A,B,T){
+    var b0=actPos(B);
+    T(0,function(){ actSay(B,pickLine(['来追我呀～','抓不到我！'])); var t=pickPetWanderTarget(); actFace(B,t.x<b0.x); actMove(B,t.x,t.y,1300,true); });
+    T(350,function(){ actSay(A,'等等我！'); var p=actPos(B); actMove(A,p.x+(Math.random()<.5?-1:1)*actW(B)*0.7,p.y,1400,true); });
+    T(1900,function(){ var t=pickPetWanderTarget(); actMove(B,t.x,t.y,1200,true); });
+    T(2200,function(){ var p=actPos(B); actMove(A,p.x-actW(B)*0.7,p.y,1300,true); });
+    T(3700,function(){ actAnim(A,'happy',1300); actAnim(B,'happy',1300); actSay(B,'哈哈哈，被你抓到啦！'); actFx(B,'😆',0.7); });
+  }},
+  snack:{w:2,good:true,run:function(A,B,T){
+    var food=pickLine(['🍬','🍪','🍓','🍰']);
+    T(0,function(){ actSay(A,'给你吃'+food+'！'); actAnim(A,'reach',1500); actFx(B,food,0.45); });
+    T(900,function(){ actAnim(B,'eat',1800); });
+    T(1400,function(){ actSay(B,pickLine(['谢谢！好好吃～','嗯～真甜！'])); });
+  }},
+  reject:{w:1,good:false,run:function(A,B,T){
+    T(0,function(){ actSay(A,'摸摸头～'); actAnim(A,'reach',1300); });
+    T(500,function(){ actAnim(B,'angry',1500); actFx(B,'💢',0.8); actSay(B,pickLine(['别碰我！','我现在不想玩！','走开走开～'])); });
+    T(700,function(){ var p=actPos(B), a=actPos(A); var dx=p.x>a.x?1:-1; actMove(B,p.x+dx*actW(B)*0.6,p.y,500,false); actFace(B,dx<0); });
+    T(1600,function(){ actAnim(A,'sad',1800); actSay(A,pickLine(['哼…不理你了','呜…好吧'])); actFx(A,'💧',0.75); });
+  }},
+  runaway:{w:1,good:false,run:function(A,B,T){
+    T(0,function(){ actSay(A,'嘿！戳戳你～'); actAnim(A,'reach',1100); });
+    T(500,function(){ actAnim(B,'angry',1300); actFx(B,'💢',0.85); actSay(B,pickLine(['哼！讨厌！','生气了！不跟你玩了！'])); });
+    T(1700,function(){ var b=actPos(B), a=actPos(A), bd=getPetBounds(); var tx=b.x>a.x?bd.maxX:bd.minX; var ty=bd.minY+Math.random()*(bd.maxY-bd.minY); actFace(B,tx<b.x); actMove(B,tx,ty,1100,true); actFx(B,'💨',0.3); });
+    T(2100,function(){ actAnim(A,'sad',1800); actSay(A,pickLine(['❓怎么跑了…','对不起嘛～等等我'])); });
+  }}
+};
+function tryPetInteraction(){
+  if(!companionsShouldShowGlobally()||PET_PAIR_BUSY) return;
+  var idxs=[];
+  if(state.pet && state.pet.chosen && state.pet.hatched && typeof petSpriteVisible==='function' && petSpriteVisible() && !busy && !sleeping) idxs.push(state.activePetIdx);
+  for(var k in companionSprites){ if(!companionSprites[k].busy) idxs.push(Number(k)); }
+  if(idxs.length<2) return;
+  if(Math.random()>0.75) return;
+  var ai=idxs[Math.floor(Math.random()*idxs.length)];
+  var others=idxs.filter(function(x){ return x!==ai; });
+  var bi=others[Math.floor(Math.random()*others.length)];
+  var A=actOf(ai), B=actOf(bi); if(!A||!B) return;
+  // 对方心情越差，越容易拒绝/跑开
+  var bh=(B.pet&&B.pet.happy)||70;
+  var badBoost=bh<40?6:bh<60?3:1;
+  var pool=[]; Object.keys(PAIR_SCRIPTS).forEach(function(n){ var sc=PAIR_SCRIPTS[n]; var w=sc.w*(sc.good?1:badBoost); for(var q=0;q<w;q++) pool.push(n); });
+  var name=pool[Math.floor(Math.random()*pool.length)];
+  runPairScript(A,B,name);
+}
+function runPairScript(A,B,name){
+  var sc=PAIR_SCRIPTS[name]; if(!sc) return;
+  PET_PAIR_BUSY=true; actLock(A,true); actLock(B,true);
+  var timers=[];
+  var T=function(ms,fn){ timers.push(setTimeout(function(){ try{ fn(); }catch(err){} },ms)); };
+  // 第一步：A走到B身边，两只面对面
+  var a=actPos(A), b=actPos(B);
+  var side=a.x<b.x?-1:1;
+  var gap=(actW(A)+actW(B))*0.5*(sc.close||0.75);
+  var bd=getPetBounds();
+  var tx=petClamp(b.x+side*gap,bd.minX,bd.maxX), ty=b.y;
+  var dist=Math.hypot(tx-a.x,ty-a.y), walkMs=Math.max(500,Math.min(2600,dist*5));
+  actMove(A,tx,ty,walkMs,false);
+  setTimeout(function(){
+    actFace(A,b.x<tx); actFace(B,tx<b.x);
+    sc.run(A,B,T);
+    var end=4600;
+    setTimeout(function(){
+      actLock(A,false); actLock(B,false); PET_PAIR_BUSY=false;
+      if(sc.good){ [A,B].forEach(function(x){ if(x.pet) x.pet.happy=Math.min(100,(x.pet.happy||0)+3); }); }
+      else if(A.pet){ A.pet.happy=Math.max(0,(A.pet.happy||0)-1); }
+      try{ saveStore(); }catch(err){}
+    },end);
+  },walkMs+150);
+}
+// —— 小朋友点其它宠物 ——
+var _cpTaps={};
+function companionPetTouch(idx){
+  var e=companionSprites[idx]; if(!e||!e.el) return;
+  var p=state.pets&&state.pets[idx]; if(!p) return;
+  var now=Date.now(), rec=_cpTaps[idx]||{n:0,t:0};
+  if(now-rec.t>4000) rec.n=0;
+  rec.n++; rec.t=now; _cpTaps[idx]=rec;
+  var A={main:false,idx:idx,e:e,pet:p};
+  if(e.busy && rec.n<4) return;
+  if(rec.n<=2){
+    cpSetAnim(e,'happy',1400); actFx(A,rec.n===1?'💗':'💕',0.75);
+    actSay(A,pickLine(['嘻嘻，好舒服～','也摸摸我呀～','我也要人气！','欢迎欢迎～']));
+    p.happy=Math.min(100,(p.happy||0)+1);
+  }else if(rec.n===3){
+    cpSetAnim(e,'angry',1400); actFx(A,'💢',0.85); actSay(A,pickLine(['别碰我啦！','好啦好啦，够了！','哼，别一直戳我！']));
+  }else{
+    rec.n=0;
+    cpSetAnim(e,'angry',700); actSay(A,pickLine(['哼！不跟你玩了！','我要跑啦～抓不到我！']));
+    setTimeout(function(){ var bd=getPetBounds(); var tx=e.x<window.innerWidth/2?bd.maxX:bd.minX; cpMoveTo(e,tx,bd.minY+Math.random()*(bd.maxY-bd.minY),1100); actFx(A,'💨',0.3); },600);
+  }
+  try{ saveStore(); }catch(err){}
 }
 /* ========== 2026-11新增：宠物"活体"动画引擎（软体骨骼 + 物理 + 互动） ==========
    以前宠物就是一张图片整体做CSS晃动/缩放，看起来像"图片在晃"，不逼真。
@@ -35996,6 +36292,12 @@ function lpFrame(now){
     P.sy=0.95; P.sx=1.02; P.bend=Math.sin(t*0.8)*0.03; P.tilt=0.04*dir; P.breathAmp=0.015;
   }else if(st==='scared'){
     P.jx=Math.sin(t*70)*0.02; P.sy=0.94; P.sx=0.98;
+  }else if(st==='angry'){
+    P.jx=Math.sin(t*50)*0.012; P.hop=Math.abs(Math.sin(ts*Math.PI*3))*0.03; P.sy=0.97;
+  }else if(st==='hug'){
+    var hg=(ts*2.2)%1; P.hop=hg<0.6?Math.sin(hg/0.6*Math.PI)*0.06:0;
+  }else if(st==='reach'){
+    P.tilt=0.05*dir;
   }else if(st==='eat'||st==='pat'){
     var nod=Math.max(0,Math.sin(ts*Math.PI*2*1.8));
     P.bend=nod*0.16*dir; P.sy=1-nod*0.05;
@@ -36068,7 +36370,7 @@ function lpDraw(img,P,dir,t){
     if(rr){
       // 骨骼动画：整张变形后的图按脚底对齐画上去（全局的跳跃/压扁/倾斜/转向照样叠加）
       var k=drawW/rr.w;
-      oc.drawImage(rr.canvas,-drawW/2-rr.x*k,-dh2-rr.y*k,rr.canvas.width*k,rr.canvas.height*k);
+      oc.drawImage(rr.canvas,0,0,rr.cw,rr.ch,-drawW/2-rr.x*k,-dh2-rr.y*k,rr.cw*k,rr.ch*k);
       ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=a; ctx.drawImage(LP.off,0,0); ctx.restore();
       continue;
     }
