@@ -37731,9 +37731,10 @@ function h3Command(room){
 }
 function h3Resize(){
   if(!H3.renderer) return;
-  var w=window.innerWidth, h=window.innerHeight;
+  var w=H3W(), h=H3H();
   H3.renderer.setSize(w,h); H3.camera.aspect=w/h; H3.camera.updateProjectionMatrix();
-  H3.dist=w<600?Math.max(H3.dist,20):H3.dist;
+  // 手机竖屏（窄屏）时镜头拉远、对准房子中间，整栋房子都能放进画面
+  if(w/h<0.85){ var tt2=H3.tier||3; H3.dist=Math.max(H3.dist,tt2>=4?36:tt2>=3?29:tt2===2?25:16); if(H3.target) H3.target.x=tt2===1?-3.5:0; }
 }
 function h3BindControls(el){
   var drag=null, pinch=null;
@@ -37757,7 +37758,7 @@ function h3BindControls(el){
   el.addEventListener('wheel',function(e){ e.preventDefault(); H3.dist=Math.max(9,Math.min(30,H3.dist*(e.deltaY>0?1.08:0.93))); },{passive:false});
 }
 function h3Tap(x,y){
-  var ray=new THREE.Raycaster(), v=new THREE.Vector2(x/window.innerWidth*2-1,-(y/window.innerHeight)*2+1);
+  var ray=new THREE.Raycaster(), v=new THREE.Vector2(x/H3W()*2-1,-(y/H3H())*2+1);
   ray.setFromCamera(v,H3.camera);
   var hits=ray.intersectObjects(H3.actors.map(function(a){ return a.sp; }));
   if(!hits.length) return;
@@ -37793,7 +37794,7 @@ function h3Loop(now){
     // 说话气泡跟着宠物头顶
     if(a.bubble){
       if(Date.now()>a.bubbleUntil) a.bubble.style.display='none';
-      else{ var hp=a.pos.clone(); hp.y+=2.5; hp.project(c); a.bubble.style.left=((hp.x+1)/2*window.innerWidth)+'px'; a.bubble.style.top=((1-hp.y)/2*window.innerHeight)+'px'; a.bubble.style.opacity='1'; }
+      else{ var hp=a.pos.clone(); hp.y+=2.5; hp.project(c); a.bubble.style.left=((hp.x+1)/2*H3W())+'px'; a.bubble.style.top=((1-hp.y)/2*H3H())+'px'; a.bubble.style.opacity='1'; }
     }
   });
   // 门：附近有宠物就打开
@@ -39221,13 +39222,86 @@ h3Init=function(){
   var title=['','😐 家里有点乱','😣 家里又乱又脏','💥 宠物在拆家！'][info.level];
   var b=document.createElement('div'); b.id='h3MessBadge';
   b.style.cssText='position:absolute;top:52px;left:10px;max-width:260px;background:rgba(255,243,224,.95);border:2px solid '+(info.level>=3?'#e53935':'#ffb74d')+';border-radius:14px;padding:8px 10px;font-size:12px;color:#5d4037;z-index:10001;line-height:1.5';
-  b.innerHTML='<b style="font-size:14px;color:'+(info.level>=3?'#c62828':'#e65100')+'">'+title+'</b><br>原因：'+info.reasons.slice(0,3).join('；')
-    +'<br><span style="color:#2e7d32">👉 完成对应的打卡（尤其是「家务」）、把宠物照顾好，家里就会恢复干净！</span>';
+  var detail='<div class="h3mess-d" style="display:none">原因：'+info.reasons.slice(0,3).join('；')
+    +'<br><span style="color:#2e7d32">👉 完成对应的打卡（尤其是「家务」）、把宠物照顾好，家里就会恢复干净！</span></div>';
+  b.innerHTML='<b style="font-size:14px;color:'+(info.level>=3?'#c62828':'#e65100')+'">'+title+'</b> <span style="font-size:11px;color:#8d6e63">（点我看原因）</span>'+detail;
+  b.style.cursor='pointer';
+  b.onclick=function(){ var d=b.querySelector('.h3mess-d'); if(d) d.style.display=d.style.display==='none'?'block':'none'; };
   wrap.appendChild(b);
   // 宠物也会抱怨/心虚
   setTimeout(function(){ var a=(H3.actors||[])[0]; if(a&&typeof h3Say==='function') h3Say(a,['家里有点乱…嘿嘿','是我弄乱的…对不起嘛','哼！谁让你都不管我！'][info.level-1],3000); },1500);
   return r;
 };
+
+/* ========== 2026-11新增：建好3D小屋后，点「宠物」页面直接显示3D小屋 ==========
+   - 建好任意一级3D小屋后，宠物页默认就是3D小屋（嵌入在页面里：底部导航栏照常显示，
+     右侧对战/装备/拍卖行等悬浮按钮、左上角宠物状态卡都浮在3D小屋上面，照样能点）
+   - 3D小屋里有「🖼️ 平面小窝」按钮，想喂食/洗澡等照顾宠物时切回原来的平面房间；
+     平面房间里点右侧🏠按钮又能切回3D。孩子选哪个就记住哪个（state.petView），下次进宠物页还是它
+   - 还没建好任何3D小屋时，宠物页保持原来的平面房间 */
+function H3W(){ var w=document.getElementById('h3Wrap'); return (w&&w.clientWidth)||window.innerWidth; }
+function H3H(){ var w=document.getElementById('h3Wrap'); return (w&&w.clientHeight)||window.innerHeight; }
+function petViewIs3D(){ return !!(state&&hbMaxBuilt()&&state.petView!=='2d'); }
+function h3SetEmbedded(on){
+  H3.embedded=on;
+  var w=document.getElementById('h3Wrap'); if(!w) return;
+  var tb=document.querySelector('.tabbar');
+  if(on){ w.style.zIndex='44'; w.style.bottom=((tb&&tb.offsetHeight)||64)+'px'; }
+  else { w.style.zIndex='10000'; w.style.bottom='0'; }
+  var top=w.firstElementChild&&w.firstElementChild.nextElementSibling; // 顶部标题栏
+  var titleRow=w.querySelector('#h3Canvas')&&w.querySelector('#h3Canvas').nextElementSibling;
+  if(titleRow) titleRow.style.display=on?'none':'flex';
+  var tip=document.getElementById('h3Tip'); if(tip) tip.style.display=on?'none':'';
+  var mb=document.getElementById('h3MessBadge'); if(mb){ mb.style.top=on?'auto':'52px'; mb.style.bottom=on?'120px':'auto'; }
+  var ctl=document.getElementById('h3EmbedCtl');
+  if(on&&!ctl){
+    ctl=document.createElement('div'); ctl.id='h3EmbedCtl';
+    ctl.style.cssText='position:absolute;left:8px;right:8px;bottom:58px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;z-index:10002';
+    ctl.innerHTML='<button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button>'
+      +'<span id="h3EmbedTime" style="background:rgba(255,255,255,.85);border-radius:12px;padding:4px 10px;font-size:12px;font-weight:700;color:#5e35b1;align-self:center"></span>'
+      +'<button class="btn btn-gray btn-sm" onclick="petSwitchTo2D()">🖼️ 平面小窝（喂食/洗澡）</button>';
+    w.appendChild(ctl);
+  }
+  if(ctl) ctl.style.display=on?'flex':'none';
+  try{ h3Resize(); }catch(e){}
+}
+function petSwitchTo2D(){ if(state){ state.petView='2d'; try{ saveStore(); }catch(e){} } H3.embedded=false; closeHouse3D(); }
+function petSwitchTo3D(){ if(state){ state.petView='3d'; try{ saveStore(); }catch(e){} } openHouse3DEmbedded(); }
+function openHouse3DEmbedded(){
+  if(!state||!hbMaxBuilt()) return;
+  if(H3.open&&H3.embedded) return;
+  H3.wantEmbedded=true;
+  openHouse3D();
+}
+var _embOrigInit=h3Init;
+h3Init=function(){
+  var r=_embOrigInit.apply(this,arguments);
+  h3SetEmbedded(!!H3.wantEmbedded&&!H3.preview);
+  return r;
+};
+var _embOrigClose=closeHouse3D;
+closeHouse3D=function(){ H3.wantEmbedded=false; var r=_embOrigClose.apply(this,arguments); try{ h3SetEmbedded(false); }catch(e){} H3.embedded=false; return r; };
+// 打开建造中心/施工预览等"全屏"入口时，不再是嵌入模式
+var _embOrigBuild=openHouseBuild;
+openHouseBuild=function(){ if(H3.open&&H3.embedded){ H3.wantEmbedded=false; _embOrigClose(); h3SetEmbedded(false); } return _embOrigBuild.apply(this,arguments); };
+var _embOrigEnter=hbEnter;
+hbEnter=function(tid){ H3.wantEmbedded=!!(document.getElementById('page-pet')&&document.getElementById('page-pet').classList.contains('active')); if(state) state.petView='3d'; return _embOrigEnter.apply(this,arguments); };
+// 切页面：进宠物页 → 自动显示3D；离开宠物页 → 收起嵌入的3D
+var _embOrigShowPage=showPage;
+showPage=function(name){
+  var r=_embOrigShowPage.apply(this,arguments);
+  try{
+    if(name==='pet'){ if(petViewIs3D()) setTimeout(openHouse3DEmbedded,50); }
+    else if(H3.open&&H3.embedded){ closeHouse3D(); }
+  }catch(e){}
+  return r;
+};
+// 平面房间右侧的🏠按钮：已经建好小屋时直接切到3D，否则打开建造中心
+(function(){ var b=document.getElementById('house3dEntryBtn'); if(b) b.onclick=function(){ if(hbMaxBuilt()) petSwitchTo3D(); else openHouseBuild(); }; })();
+// 嵌入模式下显示当前时间（白天/夜晚）
+setInterval(function(){ var el=document.getElementById('h3EmbedTime'); if(el&&H3.embedded){ var d=new Date(); el.textContent=(H3.night?'🌙 夜晚 ':'☀️ 白天 ')+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); } },1000);
+// 页面刚打开就停在宠物页的情况
+setTimeout(function(){ try{ var pp=document.getElementById('page-pet'); if(pp&&pp.classList.contains('active')&&petViewIs3D()) openHouse3DEmbedded(); }catch(e){} },2500);
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
