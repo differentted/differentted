@@ -37670,7 +37670,7 @@ function openHouse3D(){
     w.innerHTML='<div id="h3Canvas" style="position:absolute;inset:0"></div>'
       +'<div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none">'
       +'<div style="background:rgba(255,255,255,.85);border-radius:14px;padding:6px 12px;font-weight:800;color:#6a1b9a;pointer-events:auto">🏠 宠物3D小屋</div>'
-      +'<span style="pointer-events:auto"><button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button> <button id="h3NightBtn" class="btn btn-info btn-sm" onclick="h3ToggleNight()">🌙 夜晚</button> <button class="btn btn-gray" onclick="closeHouse3D()">✕ 关闭</button></span></div>'
+      +'<span style="pointer-events:auto"><button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button> <span id="h3NightBtn" style="background:rgba(255,255,255,.85);border-radius:12px;padding:5px 10px;font-size:13px;font-weight:700;color:#5e35b1">☀️ 白天</span> <button class="btn btn-gray" onclick="closeHouse3D()">✕ 关闭</button></span></div>'
       +'<div id="h3Tip" style="position:absolute;top:56px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.8);border-radius:10px;padding:4px 10px;font-size:12px;color:#6a1b9a">拖动转视角 · 双指/滚轮缩放 · 点宠物和它玩</div>'
       +'<div id="h3Btns" style="position:absolute;left:8px;right:8px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>'
       +'<div id="h3Loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6a1b9a">🏠 小屋搭建中…</div>';
@@ -38773,6 +38773,8 @@ function luxApplyNight(){
     if(o.isHemisphereLight){ o.intensity=n?0.12:0.25; }
   });
   (HQ.nightLights||[]).forEach(function(q){ q.l.intensity=n?q.night:q.day; });
+  // 夜晚把所有材质的环境反光调暗，草地/外墙才会真的变暗
+  Object.keys(HQ.mat||{}).forEach(function(k){ var m=HQ.mat[k]; if(m.userData.envBase==null) m.userData.envBase=m.envMapIntensity; m.envMapIntensity=n?m.userData.envBase*0.22:m.userData.envBase; });
   (HQ.glows||[]).forEach(function(q){ q.s.material.opacity=n?Math.min(1,q.base*4+0.35):q.base; });
   if(HQ.winGlowM){ HQ.winGlowM.emissiveIntensity=n?1.2:0.05; }
   if(HQ.sky&&HQ.skyPal){ HQ.sky.uniforms.top.value.set(n?HQ.skyPal[2]:HQ.skyPal[0]); HQ.sky.uniforms.bottom.value.set(n?HQ.skyPal[3]:HQ.skyPal[1]); }
@@ -38785,7 +38787,7 @@ function luxApplyNight(){
   (HQ.stainedMats||[]).forEach(function(m){ m.emissiveIntensity=n?1.1:0.35; });
   if(r) r.toneMappingExposure=n?0.95:0.82;
   var wrap=document.getElementById('h3Wrap'); if(wrap) wrap.style.background=n?'#0b1030':'linear-gradient(180deg,#b3e5fc,#e1f5fe 60%,#c5e1a5)';
-  var b=document.getElementById('h3NightBtn'); if(b) b.textContent=n?'☀️ 白天':'🌙 夜晚';
+  var b=document.getElementById('h3NightBtn'); if(b){ var hh=new Date().getHours(), mm=('0'+new Date().getMinutes()).slice(-2); b.textContent=(n?'🌙 夜晚 ':'☀️ 白天 ')+hh+':'+mm; }
 }
 function h3ToggleNight(){ H3.night=!H3.night; luxApplyNight(); }
 // 动画钩子 + 入住仪式
@@ -38808,8 +38810,13 @@ function luxCeremony(){
   setTimeout(function(){ ban.style.opacity='0'; setTimeout(function(){ ban.remove(); },900); },4800);
 }
 
+/* 2026-11：白天/夜晚跟着设备（电脑/iPad）的本地时间自动切换，不用手动调：
+   早上6:00到傍晚18:59是白天，19:00到第二天5:59是夜晚；小屋开着的时候每分钟检查一次，到点自动变天 */
+function h3IsNightNow(){ var h=new Date().getHours(); return h>=19||h<6; }
+function h3SyncDayNight(){ var n=h3IsNightNow(); if(n!==!!H3.night){ H3.night=n; luxApplyNight(); } else { var b=document.getElementById('h3NightBtn'); if(b){ var d=new Date(); b.textContent=(n?'🌙 夜晚 ':'☀️ 白天 ')+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); } } }
+setInterval(function(){ if(H3.open) h3SyncDayNight(); },30000);
 var _luxOrigInit=h3Init;
-h3Init=function(){ var r=_luxOrigInit.apply(this,arguments); try{ luxApplyNight(); luxCeremony(); }catch(e){ try{ console.warn(e); }catch(e2){} } return r; };
+h3Init=function(){ var r=_luxOrigInit.apply(this,arguments); try{ H3.night=h3IsNightNow(); luxApplyNight(); luxCeremony(); }catch(e){ try{ console.warn(e); }catch(e2){} } return r; };
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
