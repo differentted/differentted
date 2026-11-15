@@ -40694,6 +40694,125 @@ resolveQuiz=function(key,isCorrect){
   if(isCorrect) d.quizCoins=got+Math.max(0,(state.moneyBalance||0)-m0);
   return r2;
 };
+/* ========== 2026-11新增：⚖️ 宠物乐园大法官（实时检测刷奖励） ==========
+   一边玩一边检测这些"刷"的行为，每种行为记"违规分"（当天累计）：
+   - 自测「秒答」：平均每题不到2.5秒就答完（至少答了3题）              +2
+   - 自测「开了就关/交白卷」：15秒内结束、几乎没答                       +1
+   - 10分钟内连续做第3次以上自测                                         +1
+   - 阅读/故事没读完就点打卡（当天第2次起）                              +1
+   - 小测验1分钟内乱点8题以上                                            +2
+   - 成语测验交白卷（一半以上没做或0分，30秒内交卷）                    +2
+   3分 → ⚖️大法官第一次警告；6分 → 最后警告；9分 → 判决：回收今天刷题/阅读/自测得到的金币、精华、孵化能量，
+   今天剩下的时间这些学习活动不再给奖励（学习记录照常保存）。家长输入密码可以解除今天的冻结。
+   每一次记分都写进 state.judgeLog，家长可以在大法官弹窗里看到具体记录。 */
+var JD_WARN=3, JD_FINAL=6, JD_PUNISH=9, JD_CTX=0;
+function jdDay(){ var d=state.day; if(!d.judge) d.judge={pts:0,lv:0,coins:0,ess:0,en:0,quizT:[],readBlocks:0,stT:[]}; return d.judge; }
+function jdFrozen(){ return !!(state&&state.day&&state.day.judge&&state.day.judge.frozen); }
+function jdAdd(pts,why){
+  try{
+    var j=jdDay(); j.pts+=pts;
+    if(!state.judgeLog) state.judgeLog=[]; state.judgeLog.push({t:Date.now(),day:todayKey(),pts:pts,why:why});
+    if(state.judgeLog.length>80) state.judgeLog=state.judgeLog.slice(-80);
+    try{ saveStoreLocalOnly(); }catch(e){}
+    var lv=j.pts>=JD_PUNISH?3:j.pts>=JD_FINAL?2:j.pts>=JD_WARN?1:0;
+    if(lv>j.lv){ j.lv=lv; if(lv===3) jdPunish(); else setTimeout(function(){ jdShow(lv,why); },600); }
+  }catch(e){}
+}
+// 记下今天从这些学习活动里拿到的奖励（被判决时要回收）
+var _jdOrigEarn=earnCoins;
+earnCoins=function(n,label){
+  if(JD_CTX&&typeof n==='number'&&n>0){ if(jdFrozen()) return; try{ jdDay().coins+=n; }catch(e){} }
+  return _jdOrigEarn.apply(this,arguments);
+};
+function jdWrapCtx(fnName){ var o=window[fnName]; if(typeof o!=='function') return; window[fnName]=function(){ JD_CTX++; try{ return o.apply(this,arguments); } finally{ JD_CTX--; } }; }
+['resolveQuiz','completeReadingTask'].forEach(jdWrapCtx);
+resolveQuiz=window.resolveQuiz; completeReadingTask=window.completeReadingTask;
+// 自测：检测 + 记录精华/能量
+var _jdOrigStFinish=stFinish;
+stFinish=function(timeout){
+  if(!ST) return _jdOrigStFinish.apply(this,arguments);
+  var answered=ST.answered||0, secs=Math.round((Date.now()-ST.started)/1000), c=crState(), e0=c?c.essence:0, n0=c?(c.energy||0)+(c.eggs||0)*CR_ENERGY_PER_EGG:0;
+  var frozen=jdFrozen(); if(frozen&&state.day&&(state.day.stEff||0)<99){ jdDay().prevEff=state.day.stEff||0; state.day.stEff=99; } // 冻结时只能练习
+  JD_CTX++; var r; try{ r=_jdOrigStFinish.apply(this,arguments); } finally{ JD_CTX--; }
+  try{
+    if(c){ var j=jdDay(); j.ess+=Math.max(0,c.essence-e0); j.en+=Math.max(0,(c.energy||0)+(c.eggs||0)*CR_ENERGY_PER_EGG-n0); }
+    var j2=jdDay(), now=Date.now();
+    j2.stT=(j2.stT||[]).filter(function(t){ return now-t<10*60*1000; }); j2.stT.push(now);
+    if(answered>=3&&secs/answered<2.5) jdAdd(2,'自测秒答：'+answered+'题只用了'+secs+'秒');
+    else if(answered<=1&&secs<15) jdAdd(1,'自测开了就交（'+secs+'秒，答了'+answered+'题）');
+    if(j2.stT.length>=3) jdAdd(1,'10分钟内连续做了'+j2.stT.length+'次自测');
+    if(frozen) { var b=document.getElementById('selfTestBody'); if(b){ var d=document.createElement('div'); d.style.cssText='background:#ffebee;border-radius:10px;padding:6px 10px;margin:4px 0;font-size:13px;color:#c62828'; d.innerHTML='⚖️ 大法官已冻结今天的学习奖励，这次只练习、不加奖励'; b.insertBefore(d,b.firstChild); } }
+  }catch(e){}
+  return r;
+};
+// 阅读：没读完就点打卡
+var _jdOrigAlert=window.alert;
+var _jdOrigRead=completeReadingTask;
+completeReadingTask=function(cat){
+  var blocked=false, a0=window.alert;
+  window.alert=function(msg){ if(/还没读完|先回答这篇/.test(String(msg))) blocked=true; return a0.apply(window,arguments); };
+  var r; try{ r=_jdOrigRead.apply(this,arguments); } finally{ window.alert=a0; }
+  if(blocked){ var j=jdDay(); j.readBlocks=(j.readBlocks||0)+1; if(j.readBlocks>=2) jdAdd(1,'阅读/故事没读完就点打卡（今天第'+j.readBlocks+'次）'); }
+  return r;
+};
+// 小测验：1分钟内乱点8题以上
+var _jdOrigQuiz=resolveQuiz;
+resolveQuiz=function(key){
+  var had=!!quizState(key); var r=_jdOrigQuiz.apply(this,arguments);
+  if(!had){ try{ var j=jdDay(), now=Date.now(); j.quizT=(j.quizT||[]).filter(function(t){ return now-t<60000; }); j.quizT.push(now);
+    if(j.quizT.length>=8){ j.quizT=[]; jdAdd(2,'1分钟内连续答了8道以上小测验（太快了，像是在乱点）'); } }catch(e){} }
+  return r;
+};
+// 成语测验交白卷
+var _jdOrigCy=cySubmit;
+cySubmit=function(timeout){
+  var E=CY_EXAM, pre=E&&!E.done, answered=E?Object.keys(E.picks||{}).length:0, total=E&&E.qs?E.qs.length:10, secs=E&&E.start?(Date.now()-E.start)/1000:999;
+  var r=_jdOrigCy.apply(this,arguments);
+  try{ if(pre&&CY_EXAM&&CY_EXAM.done&&(answered<total/2||CY_EXAM.score===0)&&secs<30) jdAdd(2,'成语测验交白卷（只做了'+answered+'/'+total+'题）'); }catch(e){}
+  return r;
+};
+// ---- 弹窗 ----
+function jdModal(html,lockSec){
+  var m=document.getElementById('jdModal');
+  if(!m){ m=document.createElement('div'); m.className='modal-mask'; m.id='jdModal'; m.innerHTML='<div class="modal" style="max-width:480px;width:100%;border:4px solid #b71c1c;background:linear-gradient(180deg,#fff8e1,#fff)"><div id="jdBody"></div></div>'; document.body.appendChild(m); }
+  document.getElementById('jdBody').innerHTML=html; showModal('jdModal'); m.style.zIndex='10090';
+  var btn=document.getElementById('jdOk'); if(btn&&lockSec){ var n=lockSec; btn.disabled=true; var t0=btn.textContent; btn.textContent=t0+'（'+n+'）'; var iv=setInterval(function(){ n--; if(n<=0){ clearInterval(iv); btn.disabled=false; btn.textContent=t0; } else btn.textContent=t0+'（'+n+'）'; },1000); }
+  try{ studySpeak(lockSec>=8?'宠物乐园大法官最后警告！':'宠物乐园大法官发现你在刷奖励了！','zh-CN'); }catch(e){}
+}
+function jdRecent(){ return (state.judgeLog||[]).filter(function(x){ return x.day===todayKey(); }).slice(-5).map(function(x){ var d=new Date(x.t); return '<li>'+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+' '+escapeHtmlSafe(x.why)+'</li>'; }).join(''); }
+function jdHead(title,color){ return '<div style="text-align:center"><div style="font-size:64px;line-height:1.1;animation:jdGavel .5s ease-in-out 3">👨‍⚖️</div><div style="font-size:30px">⚖️</div><h3 style="margin:4px 0;color:'+color+'">'+title+'</h3></div>'; }
+(function(){ var s=document.createElement('style'); s.textContent='@keyframes jdGavel{0%{transform:rotate(0)}50%{transform:rotate(-18deg) scale(1.08)}100%{transform:rotate(0)}}'; document.head.appendChild(s); })();
+function jdShow(lv,why){
+  var j=jdDay();
+  var title=lv>=2?'🚨 宠物乐园大法官：最后警告！':'⚠️ 宠物乐园大法官发现你了！';
+  jdModal(jdHead(title,'#b71c1c')
+    +'<div style="font-size:15px;line-height:1.7;color:#4e342e">大法官发现你在<b>刷奖励</b>，而不是在认真学习：<ul style="text-align:left;margin:6px 0 6px 18px;padding:0;font-size:13px">'+jdRecent()+'</ul>'
+    +(lv>=2?'<div style="background:#ffebee;border-radius:10px;padding:8px;color:#c62828;font-weight:800">这是最后一次警告！再继续刷，大法官就会<u>回收你今天得到的所有学习奖励</u>（金币、精华、孵化能量），今天剩下的时间学习也不再有奖励！</div>'
+           :'<div style="background:#fff3e0;border-radius:10px;padding:8px;color:#e65100;font-weight:700">现在停下来，好好读、认真答，奖励照样有。<br>再继续刷的话，就要<u>回收所有奖励</u>啦！</div>')
+    +'<div style="font-size:12px;color:#8d6e63;margin-top:6px">违规分：'+j.pts+' / '+JD_PUNISH+'（到 '+JD_PUNISH+' 分就会被判决）</div></div>'
+    +'<button id="jdOk" class="btn btn-danger btn-block" style="margin-top:10px;font-size:16px" onclick="hideModal(\'jdModal\')">我知道了，我会认真学习</button>',lv>=2?10:6);
+}
+function jdPunish(){
+  var j=jdDay(); if(j.frozen) return; j.frozen=true;
+  var coins=Math.min(j.coins||0,Math.max(0,state.moneyBalance||0)), c=crState(), ess=0, en=0;
+  if(coins>0) addCoinChange(-coins,'⚖️ 宠物乐园大法官回收：今天刷来的学习金币');
+  if(c){ ess=Math.min(j.ess||0,c.essence||0); c.essence-=ess; en=Math.min(j.en||0,c.energy||0); c.energy-=en; }
+  if(state.day){ j.prevEff=state.day.stEff||0; state.day.stEff=99; }
+  try{ addLog('⚖️ 宠物乐园大法官判决：回收金币'+coins+'、精华'+ess+'、孵化能量'+en+'，今天学习奖励冻结'); }catch(e){}
+  try{ saveStore(); }catch(e){}
+  try{ render(); }catch(e){}
+  setTimeout(function(){
+    jdModal(jdHead('⚖️ 大法官判决','#b71c1c')
+      +'<div style="font-size:15px;line-height:1.8;color:#4e342e">你没有听大法官的警告，还在继续刷奖励。<br>判决如下：'
+      +'<div style="background:#ffebee;border-radius:12px;padding:8px 12px;margin:6px 0;text-align:left;font-weight:700;color:#c62828">🪙 回收金币 '+coins+'<br>💠 回收精华 '+ess+'<br>⚡ 回收孵化能量 '+en+'<br>🔒 今天剩下的时间：自测、小测验、阅读打卡都不再有奖励</div>'
+      +'学习记录都还保存着。今天好好复习，<b>明天重新开始</b>，认真学习奖励就会回来！</div>'
+      +'<button id="jdOk" class="btn btn-danger btn-block" style="margin-top:8px;font-size:16px" onclick="hideModal(\'jdModal\')">我知道错了</button>'
+      +'<button class="btn btn-gray btn-block btn-sm" style="margin-top:6px" onclick="jdParentUnfreeze()">👩 家长解除今天的冻结</button>',12);
+  },600);
+}
+function jdParentUnfreeze(){
+  rcParentGate(function(){ var j=jdDay(); j.frozen=false; j.pts=0; j.lv=0; if(state.day) state.day.stEff=j.prevEff||0; try{ saveStore(); }catch(e){} hideModal('jdModal'); ttsToast('已解除今天的冻结（回收的奖励不退回）',3000); });
+}
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
