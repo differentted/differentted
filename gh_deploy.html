@@ -39767,7 +39767,7 @@ function goBank(){
 /* ========== 2026-11新增：①「我默写并背熟了」勾选 + 第二天妈妈考一考（过关给零花钱）
                          ②零花钱同步到「小小存钱银行」 ③精英班英文数学题 ==========
    规则（妈妈定的）：背熟+默写一个单词 = 1毛；一个句子按难度 1~4毛（句子越长越难，钱越多）。
-   当天勾选 → 第二天妈妈考（家长密码）→ 过关的自动记进「零花钱」收入 → 同步到存钱银行，妈妈在那边确认。
+   当天勾选 → 当天妈妈考第1次、第二天再考第2次，每次过关给一半（家长密码）→ 过关的自动记进「零花钱」收入 → 同步到存钱银行，妈妈在那边确认。
    金币还是打卡乐园自己的规则，星星是存钱银行自己的规则，两边互不影响。 */
 var RC_WORD_MONEY=0.1;
 function rcSentMoney(en){ var n=(en||'').trim().split(/\s+/).length; return n<=4?0.1:n<=7?0.2:n<=10?0.3:0.4; }
@@ -39777,17 +39777,19 @@ function rcFmt(m){ return '¥'+(Math.round(m*100)/100).toFixed(2); }
 function rcToggle(type,en,cn,ev){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   var r=rcState(), k=rcKey(type,en), it=r.items[k], today=todayKey();
-  if(it&&it.status==='checked'&&it.day===today){ delete r.items[k]; }
-  else if(it&&it.status==='pass'){ ttsToast('这个已经考过关啦 🎉',2000); return; }
-  else { r.items[k]={type:type,en:en,cn:cn||'',day:today,at:Date.now(),status:'checked',money:type==='word'?RC_WORD_MONEY:rcSentMoney(en),tries:(it&&it.tries)||0}; ttsToast('✅ 记下啦！明天让妈妈考考你，过关就有零花钱 '+rcFmt(r.items[k].money),2600); }
+  if(it&&it.status==='pass'){ ttsToast('这个两次都考过关啦 🎉',2000); return; }
+  if(it&&it.status==='r1'){ ttsToast('第1次已经过关啦，'+(it.r1Day===today?'明天':'')+'再让妈妈考第2次～',2400); return; }
+  if(it&&it.status==='checked'&&!it.lastFail){ delete r.items[k]; }
+  else { r.items[k]={type:type,en:en,cn:cn||'',day:today,at:Date.now(),status:'checked',money:type==='word'?RC_WORD_MONEY:rcSentMoney(en),tries:(it&&it.tries)||0}; ttsToast('✅ 记下啦！现在就可以让妈妈考第1次，明天再考第2次，每次过关得一半零花钱（共 '+rcFmt(r.items[k].money)+'）',3200); }
   try{ saveStore(); }catch(e){}
   rcPaintButtons(); rcRenderBar(); bankPushRecite();
 }
 function rcBtnHtml(type,en,cn){
-  var it=rcState().items[rcKey(type,en)], on=!!it, st=it&&it.status;
-  var label=!on?'☐ 我默写并背熟了':st==='pass'?'🏆 考过关 '+rcFmt(it.money):st==='fail'?'↻ 没过关，再背一遍':(it.day===todayKey()?'☑ 已背熟（明天考）':'☑ 等妈妈考');
-  var bg=!on?'#fff':st==='pass'?'#fff8e1':st==='fail'?'#ffebee':'#e8f5e9', col=!on?'#7b1fa2':st==='pass'?'#ef6c00':st==='fail'?'#c62828':'#2e7d32';
-  return '<button class="rc-btn" data-type="'+type+'" data-en="'+escapeAttr(en)+'" data-cn="'+escapeAttr(cn||'')+'" style="margin-left:6px;border:1.5px solid '+col+';background:'+bg+';color:'+col+';border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'+label+'</button>';
+  var it=rcState().items[rcKey(type,en)], on=!!it, st=it&&it.status, today=todayKey();
+  var label=!on?'☐ 我默写并背熟了':st==='pass'?'🏆 两次都过关 '+rcFmt(it.money):st==='r1'?(it.r1Day===today?'✅ 第1次过关 · 明天考第2次':'✅ 第1次过关 · 等考第2次'):'☑ 已背熟 · 等妈妈考第1次';
+  if(on&&st!=='pass'&&it.lastFail===today) label+='（刚才没过，再背背）';
+  var bg=!on?'#fff':st==='pass'?'#fff8e1':it.lastFail===today?'#ffebee':'#e8f5e9', col=!on?'#7b1fa2':st==='pass'?'#ef6c00':it.lastFail===today?'#c62828':'#2e7d32';
+  return '<button class="rc-btn" style="margin-left:6px;border:1.5px solid '+col+';background:'+bg+';color:'+col+';border-radius:10px;padding:1px 7px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'+label+'</button>';
 }
 function rcPaintButtons(){
   try{
@@ -39807,13 +39809,13 @@ function rcPaintButtons(){
     });
   }catch(e){}
 }
-function rcDue(){ var r=rcState(), t=todayKey(); return Object.keys(r.items).map(function(k){ return r.items[k]; }).filter(function(it){ return it.status==='checked'&&it.day!==t; }); }
+function rcDue(){ var r=rcState(), t=todayKey(); return Object.keys(r.items).map(function(k){ return r.items[k]; }).filter(function(it){ return it.status==='checked'||(it.status==='r1'&&it.r1Day!==t); }); }
 function rcRenderBar(){
   var host=document.getElementById('studyWordBox'); if(!host) return;
   var bar=document.getElementById('rcBar');
   if(!bar){ bar=document.createElement('div'); bar.id='rcBar'; host.parentNode.insertBefore(bar,host); }
   var r=rcState(), all=Object.keys(r.items).map(function(k){ return r.items[k]; });
-  var today=all.filter(function(it){ return it.status==='checked'&&it.day===todayKey(); }).length, due=rcDue().length;
+  var today=all.filter(function(it){ return it.day===todayKey(); }).length, due=rcDue().length;
   var passed=all.filter(function(it){ return it.status==='pass'; }).length;
   bar.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#f1f8e9;border:1.5px dashed #9ccc65;border-radius:12px;padding:6px 10px;margin:4px 0 6px;font-size:12px;color:#33691e">'
     +'<span>📋 背熟清单：今天背熟 <b>'+today+'</b> 个 · 等妈妈考 <b>'+due+'</b> 个 · 已过关 <b>'+passed+'</b> 个</span>'
@@ -39842,23 +39844,24 @@ function rcEnsureModal(){
 function rcShow(html){ rcEnsureModal(); document.getElementById('rcBody').innerHTML=html; showModal('rcModal'); }
 function rcOpenList(){
   var r=rcState(), all=Object.keys(r.items).map(function(k){ return r.items[k]; }).sort(function(a,b){ return b.at-a.at; });
-  var stTxt={checked:'☑ 等考',pass:'🏆 过关',fail:'❌ 没过'};
-  rcShow('<h3 style="margin:0 0 6px">📖 我的背熟清单</h3><div class="small" style="margin-bottom:6px">单词过关 1毛/个，句子过关 1~4毛/句（越长越难钱越多）。今天背熟的明天才能考。</div>'
-    +(all.length?all.slice(0,200).map(function(it){ return '<div style="border-bottom:1px dashed #eee;padding:4px 0;font-size:13px">'+(it.type==='word'?'🔤':'💬')+' <b>'+escapeHtmlSafe(it.en)+'</b> <span style="color:#7b1fa2">'+escapeHtmlSafe(it.cn)+'</span><br><span class="small">'+it.day+' 背熟 · '+(stTxt[it.status]||'')+' · '+rcFmt(it.money)+(it.testDay?' · '+it.testDay+' 考':'')+'</span></div>'; }).join(''):'<div class="small">还没有背熟的单词和句子，去点「☐ 我默写并背熟了」吧～</div>'));
+  var stTxt={checked:'☑ 等考第1次',r1:'✅ 第1次过关，等考第2次',pass:'🏆 两次都过关'};
+  rcShow('<h3 style="margin:0 0 6px">📖 我的背熟清单</h3><div class="small" style="margin-bottom:6px">每个要考两次：背熟当天考第1次，第二天再考第2次，每次过关得一半。单词共1毛/个，句子共1~4毛/句（越长越难钱越多）。</div>'
+    +(all.length?all.slice(0,200).map(function(it){ return '<div style="border-bottom:1px dashed #eee;padding:4px 0;font-size:13px">'+(it.type==='word'?'🔤':'💬')+' <b>'+escapeHtmlSafe(it.en)+'</b> <span style="color:#7b1fa2">'+escapeHtmlSafe(it.cn)+'</span><br><span class="small">'+it.day+' 背熟 · '+(stTxt[it.status]||'')+' · 共'+rcFmt(it.money)+(it.r1Day?' · 第1次 '+it.r1Day:'')+(it.testDay?' · 第2次 '+it.testDay:'')+(it.tries?' · 没过 '+it.tries+' 次':'')+'</span></div>'; }).join(''):'<div class="small">还没有背熟的单词和句子，去点「☐ 我默写并背熟了」吧～</div>'));
 }
 var RC_TEST=null;
 function rcOpenTest(){
   var due=rcDue();
-  if(!due.length){ rcShow('<h3>👩 妈妈考一考</h3><div style="font-size:15px;line-height:1.7">现在没有要考的。<br>今天背熟的单词/句子，<b>明天</b>才能考哦（隔一天还记得才算真的背熟了）。</div>'); return; }
+  if(!due.length){ var wait=Object.keys(rcState().items).filter(function(k){ var it=rcState().items[k]; return it.status==='r1'; }).length;
+    rcShow('<h3>👩 妈妈考一考</h3><div style="font-size:15px;line-height:1.7">现在没有要考的。'+(wait?'<br>有 <b>'+wait+'</b> 个今天第1次已经过关，<b>明天</b>再考第2次。':'<br>先去点「☐ 我默写并背熟了」，背熟就能马上考第1次。')+'</div>'); return; }
   rcParentGate(function(){ RC_TEST={list:due.slice(0,30),i:0,pass:[],fail:[]}; rcTestRender(); });
 }
 function rcTestRender(){
   var T=RC_TEST; if(!T) return;
   if(T.i>=T.list.length){ rcTestFinish(); return; }
-  var it=T.list[T.i];
+  var it=T.list[T.i], round=it.status==='r1'?2:1;
   rcShow('<h3 style="margin:0 0 4px">👩 妈妈考一考（'+(T.i+1)+' / '+T.list.length+'）</h3>'
-    +'<div class="small" style="color:#6d4c41">妈妈念中文意思，让孩子背出来并默写在纸上（或者孩子背给妈妈听），然后对答案。</div>'
-    +'<div style="background:#fff3e0;border-radius:14px;padding:14px;margin:8px 0;text-align:center"><div class="small">'+(it.type==='word'?'单词':'句子')+' · 过关得 '+rcFmt(it.money)+'</div>'
+    +'<div class="small" style="color:#6d4c41">妈妈念中文意思，让孩子背出来并默写在纸上（或者背给妈妈听），然后对答案。</div>'
+    +'<div style="background:#fff3e0;border-radius:14px;padding:14px;margin:8px 0;text-align:center"><div class="small">'+(it.type==='word'?'单词':'句子')+' · <b>第'+round+'次考</b>'+(round===2?'（昨天背的，看看还记不记得）':'')+' · 过关得 '+rcFmt(it.money/2)+'</div>'
     +'<div style="font-size:22px;font-weight:800;color:#6a1b9a;margin:6px 0">'+escapeHtmlSafe(it.cn||'（没有中文意思，念英文让孩子默写）')+'</div>'
     +'<button class="btn btn-sm btn-gray" onclick="studySpeak(\''+studyEscape(it.cn||'')+'\',\'zh-CN\')">🔊 念中文</button> '
     +'<button class="btn btn-sm btn-info" onclick="this.nextElementSibling.style.display=\'block\';this.remove()">👀 看答案</button>'
@@ -39867,17 +39870,20 @@ function rcTestRender(){
 }
 function rcTestMark(ok){ var T=RC_TEST; if(!T) return; (ok?T.pass:T.fail).push(T.list[T.i]); T.i++; rcTestRender(); }
 function rcTestFinish(){
-  var T=RC_TEST; RC_TEST=null; var today=todayKey(), sum=0;
-  T.pass.forEach(function(it){ it.status='pass'; it.testDay=today; sum+=it.money; });
-  T.fail.forEach(function(it){ it.status='fail'; it.testDay=today; it.tries=(it.tries||0)+1; });
+  var T=RC_TEST; RC_TEST=null; var today=todayKey(), sum=0, n1=0, n2=0;
+  T.pass.forEach(function(it){
+    sum+=it.money/2; it.lastFail='';
+    if(it.status==='r1'){ it.status='pass'; it.testDay=today; n2++; } else { it.status='r1'; it.r1Day=today; n1++; }
+  });
+  T.fail.forEach(function(it){ it.lastFail=today; it.tries=(it.tries||0)+1; });
   sum=Math.round(sum*100)/100;
-  var w=T.pass.filter(function(i){ return i.type==='word'; }).length, s=T.pass.length-w;
-  if(sum>0) addAllowanceEntry('earn',sum,'背熟+默写过关：单词'+w+'个、句子'+s+'句（妈妈考的）');
+  if(sum>0) addAllowanceEntry('earn',sum,'背熟+默写过关（妈妈考的）：第1次过关'+n1+'个、第2次过关'+n2+'个');
   try{ saveStore(); }catch(e){}
   bankPushRecite();
-  rcShow('<h3 style="margin:0 0 6px">🎉 考完啦！</h3><div style="font-size:16px;line-height:1.8">过关 <b style="color:#2e7d32">'+T.pass.length+'</b> 个，没过关 <b style="color:#c62828">'+T.fail.length+'</b> 个<br>'
+  rcShow('<h3 style="margin:0 0 6px">🎉 考完啦！</h3><div style="font-size:16px;line-height:1.8">过关 <b style="color:#2e7d32">'+T.pass.length+'</b> 个（第1次 '+n1+' 个、第2次 '+n2+' 个），没过关 <b style="color:#c62828">'+T.fail.length+'</b> 个<br>'
     +(sum>0?'💰 零花钱 +<b>'+rcFmt(sum)+'</b>（已记进「零花钱」'+(bankLinked()?'，并发到存钱银行等妈妈确认':'')+'）':'这次没有过关的，再加油背～')+'</div>'
-    +(T.fail.length?'<div class="small" style="margin-top:6px;color:#c62828">没过关的：'+T.fail.map(function(i){ return escapeHtmlSafe(i.en); }).join('，')+'<br>重新背熟后再点一次勾选，第二天再考。</div>':'')
+    +(n1?'<div class="small" style="margin-top:4px;color:#2e7d32">第1次过关的，明天再考第2次，还能再得另一半！</div>':'')
+    +(T.fail.length?'<div class="small" style="margin-top:6px;color:#c62828">没过关的：'+T.fail.map(function(i){ return escapeHtmlSafe(i.en); }).join('，')+'<br>再背熟一点，可以再让妈妈考。</div>':'')
     +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="hideModal(\'rcModal\')">好的</button>');
   try{ rcPaintButtons(); rcRenderBar(); }catch(e){}
 }
@@ -39904,7 +39910,7 @@ function bankFlush(){
 setInterval(function(){ try{ if(state&&!document.hidden) bankFlush(); }catch(e){} },60000);
 function bankPushRecite(){
   if(!bankLinked()) return; var r=rcState(), L0=state.bankLink;
-  var items=Object.keys(r.items).map(function(k){ var it=r.items[k]; return {type:it.type,en:it.en,cn:it.cn,day:it.day,status:it.status,testDay:it.testDay||'',money:it.money}; }).sort(function(a,b){ return a.day<b.day?1:-1; }).slice(0,300);
+  var items=Object.keys(r.items).map(function(k){ var it=r.items[k]; return {type:it.type,en:it.en,cn:it.cn,day:it.day,status:it.status,r1Day:it.r1Day||'',testDay:it.testDay||'',lastFail:it.lastFail||'',money:it.money}; }).sort(function(a,b){ return a.day<b.day?1:-1; }).slice(0,300);
   bankPut('klm/recite/'+L0.kid,{from:'kuromi',kid:L0.kid,kidName:L0.kidName||'',at:Date.now(),items:items});
 }
 function bankPushMoney(e){
