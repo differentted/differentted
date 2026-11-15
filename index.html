@@ -1169,6 +1169,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <h2 style="margin:0" data-i18n="checkin_study_title">📖 学习打卡</h2>
       <div style="display:flex;gap:6px">
         <!-- 2026-09新增：本周学习统计与复习测验的入口，从卡片最下面挪到标题旁边，相当于加一个路口按钮，不用把整张卡片滑到底才能找到 -->
+        <button class="btn btn-primary btn-sm" onclick="openHelper()">🤖 问小助手</button>
         <button class="btn btn-gray btn-sm" onclick="showPage('weekly')" data-i18n="btn_weekly_quiz">📊 本周测验</button>
         <button class="btn btn-gray btn-sm" onclick="openTaskSettings('study')" data-i18n="btn_edit_task">⚙️ 编辑任务</button>
       </div>
@@ -35090,6 +35091,233 @@ function renderSelfTestEntry(){
     +'<button class="btn btn-primary btn-sm" style="flex-shrink:0;font-size:14px;padding:8px 12px" onclick="openSelfTest()">'+(todayTests.length?L('再测','Again'):L('开始自测','Start'))+'</button>'
     +'</div>';
 }
+/* ========== 2026-11新增：🤖 库洛米小助手（免费版，不用AI接口/不用付费key） ==========
+   小朋友学习时不懂可以随时问，按问题类型自动选择回答方式：
+   1) 算术题（如 25×4+3）→ 直接算出来
+   2) 英文单词/句子 → 先查本网页自带的新概念英语内容（有中文、音标、课文例句），
+      查不到再查免费英英词典(dictionaryapi.dev)和免费翻译(MyMemory)给出中文意思
+   3) "XX用英语怎么说" → 先查课程内容，查不到用免费翻译
+   4) 其他知识类问题（如"考拉吃什么""太阳为什么是热的"）→ 查维基百科摘要（简体中文），
+      只取开头几句话，配一张小图
+   5) 都查不到 → 温和地提示去问爸爸妈妈，并给一个"安全搜索"的网页搜索链接
+   所有网络请求都有超时，失败不会卡住页面。它不是真正的AI，不会讲题和聊天（家长选择的免费方案）。 */
+var HELPER_MSGS=[];
+function ensureHelperModal(){
+  if(document.getElementById('helperModal')) return;
+  var d=document.createElement('div');
+  d.className='modal-mask'; d.id='helperModal';
+  d.innerHTML='<div class="modal" style="max-width:440px;text-align:left;padding:14px 12px;display:flex;flex-direction:column;height:80vh">'
+    +'<button class="modal-close" onclick="hideModal(\'helperModal\')">✕</button>'
+    +'<h3 style="margin:2px 0 6px;text-align:center">🤖 '+L('库洛米小助手','Kuromi Helper')+'</h3>'
+    +'<div id="helperLog" style="flex:1;overflow:auto;background:#faf5fc;border-radius:12px;padding:8px"></div>'
+    +'<div id="helperChips" style="margin:6px 0 4px;display:flex;flex-wrap:wrap;gap:4px"></div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<input id="helperInput" type="text" placeholder="'+L('有什么不懂的？打字问我吧～','Ask me anything~')+'" style="flex:1;min-width:0;padding:10px;border:2px solid #ce93d8;border-radius:12px;font-size:16px" onkeydown="if(event.key===\'Enter\')helperSend()" />'
+    +'<button class="btn btn-primary" style="font-size:16px;padding:8px 14px" onclick="helperSend()">'+L('问','Ask')+'</button>'
+    +'</div></div>';
+  document.body.appendChild(d);
+}
+function openHelper(prefill){
+  ensureHelperModal();
+  if(!HELPER_MSGS.length){
+    helperAdd('bot',L('你好呀！我是库洛米小助手 💜<br>不认识的<b>英文单词、句子</b>，想知道<b>用英语怎么说</b>，<b>算术题</b>，或者好奇的<b>小知识</b>，都可以问我哦～',
+      'Hi! I\'m Kuromi Helper 💜<br>Ask me about English words or sentences, maths sums, or anything you are curious about~'));
+  }
+  var chips=[L('apple 是什么意思？','What does "apple" mean?'),L('“朋友”用英语怎么说？','How do I say 朋友 in English?'),L('25×4+3','25×4+3'),L('考拉吃什么？','What do koalas eat?')];
+  document.getElementById('helperChips').innerHTML=chips.map(function(c){
+    return '<button class="btn btn-gray btn-sm" style="font-size:12px;padding:3px 8px" onclick="helperAsk(\''+studyEscape(c)+'\')">'+escapeAttr(c)+'</button>';
+  }).join('');
+  helperRender();
+  showModal('helperModal');
+  var inp=document.getElementById('helperInput');
+  if(prefill){ helperAsk(prefill); }
+  else if(inp){ setTimeout(function(){ try{inp.focus();}catch(e){} },100); }
+}
+function helperAdd(who,html){ HELPER_MSGS.push({who:who,html:html}); if(HELPER_MSGS.length>60) HELPER_MSGS.shift(); helperRender(); return HELPER_MSGS.length-1; }
+function helperRender(){
+  var log=document.getElementById('helperLog'); if(!log) return;
+  log.innerHTML=HELPER_MSGS.map(function(m){
+    var me=m.who==='me';
+    return '<div style="display:flex;justify-content:'+(me?'flex-end':'flex-start')+';margin:5px 0">'
+      +'<div style="max-width:85%;padding:8px 10px;border-radius:14px;font-size:15px;line-height:1.55;word-break:break-word;'
+      +(me?'background:#ab47bc;color:#fff;border-bottom-right-radius:4px':'background:#fff;color:#333;border:1px solid #e1bee7;border-bottom-left-radius:4px')+'">'
+      +(me?'':'🤖 ')+m.html+'</div></div>';
+  }).join('');
+  log.scrollTop=log.scrollHeight;
+}
+function helperSend(){
+  var inp=document.getElementById('helperInput'); if(!inp) return;
+  var q=inp.value.trim(); if(!q) return;
+  inp.value='';
+  helperAsk(q);
+}
+function helperSpeakBtn(text,lang){
+  return ' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 7px;cursor:pointer" onclick="studySpeak(\''+studyEscape(text)+'\',\''+(lang||'en-US')+'\')">🔊</button>';
+}
+function helperFetchJson(url,ms,headers){
+  return new Promise(function(resolve,reject){
+    var done=false;
+    var t=setTimeout(function(){ if(!done){ done=true; reject(new Error('timeout')); } }, ms||7000);
+    fetch(url,headers?{headers:headers}:undefined).then(function(r){
+      if(!r.ok) throw new Error('http '+r.status);
+      return r.json();
+    }).then(function(j){ if(!done){ done=true; clearTimeout(t); resolve(j); } })
+      .catch(function(e){ if(!done){ done=true; clearTimeout(t); reject(e); } });
+  });
+}
+function helperAsk(q){
+  q=String(q||'').trim(); if(!q) return;
+  helperAdd('me',escapeAttr(q));
+  var idx=helperAdd('bot','<span style="color:#999">'+L('让我想想… 🤔','Let me think… 🤔')+'</span>');
+  helperAnswer(q).then(function(html){
+    HELPER_MSGS[idx].html=html; helperRender();
+  }).catch(function(){
+    HELPER_MSGS[idx].html=helperFallback(q); helperRender();
+  });
+}
+// 只保留"问题的核心词"，去掉"是什么意思、怎么读、为什么、吗、呢、？"之类
+function helperCore(q){
+  return String(q).replace(/[“”"「」『』‘’'？?！!。，,：:]/g,' ')
+    .replace(/(请问|我想知道|告诉我|你知道|能不能|可以|帮我|查一下|查查|解释一下)/g,' ')
+    .replace(/(是什么意思|什么意思|的意思|是啥意思|怎么读|怎么念|怎么拼|中文是什么|中文|翻译成中文|翻译|是什么|是谁|为什么|怎么样|有哪些|在哪里|吗|呢|呀|啊|吧)/g,' ')
+    .replace(/\b(what does|what is|what's|mean|meaning of|means|the|please|in chinese)\b/gi,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function helperCourseWord(en){
+  var k=String(en).toLowerCase().trim(), hit=null, ex=null;
+  activeThemes().forEach(function(t){
+    (t.words||[]).forEach(function(w){ if(!hit && String(w.en).toLowerCase()===k) hit={w:w,t:t}; });
+  });
+  if(!hit) return null;
+  var re=new RegExp('\\b'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i');
+  activeThemes().forEach(function(t){ (t.sentences||[]).forEach(function(s){ if(!ex && re.test(s.en)) ex=s; }); });
+  return {w:hit.w,t:hit.t,ex:ex};
+}
+function helperCourseSentence(en){
+  var norm=function(x){ return String(x).toLowerCase().replace(/[^a-z0-9' ]/g,'').replace(/\s+/g,' ').trim(); };
+  var k=norm(en), hit=null;
+  activeThemes().forEach(function(t){ (t.sentences||[]).forEach(function(s){ if(!hit && norm(s.en)===k) hit={s:s,t:t}; }); });
+  return hit;
+}
+function helperCourseByCn(cn){
+  var k=String(cn).trim(), hit=null;
+  if(!k) return null;
+  activeThemes().forEach(function(t){
+    (t.words||[]).forEach(function(w){
+      if(hit) return;
+      var parts=String(w.cn).split(/[，,；;、（）()]/).map(function(x){return x.trim();});
+      if(parts.indexOf(k)>=0) hit=w;
+    });
+  });
+  if(!hit) activeThemes().forEach(function(t){ (t.words||[]).forEach(function(w){ if(!hit && String(w.cn).indexOf(k)>=0 && k.length>=2) hit=w; }); });
+  return hit;
+}
+function helperCalc(q){
+  var e=String(q).replace(/[＝=？?]/g,'').replace(/等于(几|多少)?/g,'').replace(/[×xX＊]/g,'*').replace(/[÷／]/g,'/')
+    .replace(/[（]/g,'(').replace(/[）]/g,')').replace(/[＋]/g,'+').replace(/[－—]/g,'-').replace(/\s+/g,'');
+  if(!/^[\d.+\-*/()]+$/.test(e) || !/[+\-*/]/.test(e) || !/\d/.test(e)) return null;
+  try{
+    var v=Function('"use strict";return ('+e+');')();
+    if(typeof v!=='number'||!isFinite(v)) return null;
+    v=Math.round(v*1e6)/1e6;
+    return v;
+  }catch(err){ return null; }
+}
+function helperTranslate(text,from,to){
+  var url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+from+'|'+to;
+  return helperFetchJson(url,7000).then(function(j){
+    var t=j&&j.responseData&&j.responseData.translatedText;
+    if(!t||/MYMEMORY WARNING|INVALID|QUERY LENGTH/i.test(t)) throw new Error('no translation');
+    return t;
+  });
+}
+function helperDict(word){
+  return helperFetchJson('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(word),7000).then(function(arr){
+    var e=arr&&arr[0]; if(!e) throw new Error('none');
+    var ph=e.phonetic||((e.phonetics||[]).filter(function(p){return p.text;})[0]||{}).text||'';
+    var defs=[];
+    (e.meanings||[]).forEach(function(m){
+      (m.definitions||[]).slice(0,1).forEach(function(d){ if(defs.length<2) defs.push({pos:m.partOfSpeech,def:d.definition,ex:d.example}); });
+    });
+    return {word:e.word,ph:ph,defs:defs};
+  });
+}
+function helperWiki(q,lang){
+  var host=lang==='en'?'en.wikipedia.org':'zh.wikipedia.org';
+  var s='https://'+host+'/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(q)+'&srlimit=1&format=json&origin=*';
+  return helperFetchJson(s,8000).then(function(j){
+    var r=j&&j.query&&j.query.search&&j.query.search[0];
+    if(!r) throw new Error('none');
+    return helperFetchJson('https://'+host+'/api/rest_v1/page/summary/'+encodeURIComponent(r.title.replace(/ /g,'_')),8000,lang==='en'?undefined:{'Accept-Language':'zh-CN'});
+  }).then(function(p){
+    if(!p||!p.extract||p.type==='disambiguation') throw new Error('none');
+    var sents=(String(p.extract).match(/[^。！？.!?]+[。！？.!?]*/g)||[p.extract]).slice(0,3).join('').trim();
+    if(sents.length>220) sents=sents.slice(0,220)+'…';
+    return {title:p.title,text:sents,img:p.thumbnail&&p.thumbnail.source,url:p.content_urls&&p.content_urls.desktop&&p.content_urls.desktop.page};
+  });
+}
+function helperFallback(q){
+  return L('这个问题我还不太会 😅 可以问问爸爸妈妈，或者一起','I\'m not sure about this one 😅 Ask Mum or Dad, or ')
+    +' <a href="https://www.google.com/search?safe=active&q='+encodeURIComponent(q)+'" target="_blank" rel="noopener">'+L('去网上搜一搜','search the web')+'</a> 🔍';
+}
+function helperAnswer(q){
+  var isEnUi=(typeof getUiLang==='function'&&getUiLang()==='en');
+  // 1) 算术
+  var v=helperCalc(q);
+  if(v!==null) return Promise.resolve(L('算出来是：','The answer is: ')+'<b style="font-size:20px;color:#6a1b9a">'+v+'</b> 🧮');
+  // 2) "X用英语怎么说"
+  var m=q.match(/[“"「]?([\u4e00-\u9fa5，。、\s]{1,30}?)[”"」]?\s*(?:的)?(用英语|用英文|英语|英文)(怎么说|怎么讲|是什么|叫什么)?/);
+  if(m){
+    var cn=m[1].trim();
+    var w=helperCourseByCn(cn);
+    if(w) return Promise.resolve('“'+escapeAttr(cn)+'”'+L('用英语说：','in English: ')+'<b style="font-size:18px">'+escapeAttr(w.en)+'</b>'+helperSpeakBtn(w.en)+'<br><span style="color:#9c7ab0">'+escapeAttr(w.ph||'')+'</span> '+escapeAttr(w.cn)+'<br><span class="small" style="color:#888">📘 '+L('这是新概念英语里学过的词哦','This word is in your New Concept English lessons')+'</span>');
+    return helperTranslate(cn,'zh-CN','en').then(function(t){
+      return '“'+escapeAttr(cn)+'”'+L('用英语说：','in English: ')+'<b style="font-size:18px">'+escapeAttr(t)+'</b>'+helperSpeakBtn(t);
+    });
+  }
+  // 3) 英文内容
+  var core=helperCore(q);
+  var enPart=(q.match(/[A-Za-z][A-Za-z' ,.!?-]*[A-Za-z.!?]|[A-Za-z]/g)||[]).join(' ').trim();
+  if(enPart && /[A-Za-z]{2,}/.test(enPart) && (!isEnUi || /^[A-Za-z' -]+$/.test(core))){
+    var words=enPart.replace(/[^A-Za-z' -]/g,' ').trim().split(/\s+/);
+    if(isEnUi && /^(what|why|how|who|where|when|which|do|does|is|are|can)\b/i.test(q) && words.length>3){
+      // 英文界面下的英文知识问题 → 走百科
+    }else if(words.length<=2){
+      var word=helperCore(enPart).replace(/[^A-Za-z' -]/g,'').trim()||enPart;
+      var c=helperCourseWord(word);
+      if(c){
+        return Promise.resolve('<b style="font-size:20px">'+escapeAttr(c.w.en)+'</b>'+helperSpeakBtn(c.w.en)+' <span style="color:#9c7ab0">'+escapeAttr(c.w.ph||'')+'</span><br>'
+          +L('意思是：','Meaning: ')+'<b style="color:#6a1b9a">'+escapeAttr(c.w.cn)+'</b>'
+          +(c.ex?'<br><span style="font-size:13px">📘 '+L('课文例句：','Example: ')+escapeAttr(c.ex.en)+helperSpeakBtn(c.ex.en)+'<br><span style="color:#7b1fa2">'+escapeAttr(c.ex.cn)+'</span></span>':''));
+      }
+      return Promise.all([
+        helperDict(word).catch(function(){ return null; }),
+        helperTranslate(word,'en','zh-CN').catch(function(){ return null; })
+      ]).then(function(r){
+        var d=r[0], t=r[1];
+        if(!d&&!t) throw new Error('none');
+        var h='<b style="font-size:20px">'+escapeAttr(d?d.word:word)+'</b>'+helperSpeakBtn(d?d.word:word)+(d&&d.ph?' <span style="color:#9c7ab0">'+escapeAttr(d.ph)+'</span>':'');
+        if(t) h+='<br>'+L('中文意思：','Chinese: ')+'<b style="color:#6a1b9a">'+escapeAttr(t)+'</b>';
+        if(d&&d.defs.length) h+='<div style="font-size:13px;color:#555;margin-top:4px">'+d.defs.map(function(x){ return '<i>'+escapeAttr(x.pos||'')+'</i> '+escapeAttr(x.def)+(x.ex?'<br><span style="color:#888">e.g. '+escapeAttr(x.ex)+'</span>':''); }).join('<br>')+'</div>';
+        return h;
+      });
+    }else{
+      var cs=helperCourseSentence(enPart);
+      if(cs) return Promise.resolve(escapeAttr(cs.s.en)+helperSpeakBtn(cs.s.en)+'<br>'+L('意思是：','Meaning: ')+'<b style="color:#6a1b9a">'+escapeAttr(cs.s.cn)+'</b>'+(cs.s.l?'<br><span class="small" style="color:#888">📘 '+L('新概念英语第一册 第'+cs.s.l+'课','NCE Book 1, Lesson '+cs.s.l)+'</span>':''));
+      return helperTranslate(enPart,'en','zh-CN').then(function(t){
+        return escapeAttr(enPart)+helperSpeakBtn(enPart)+'<br>'+L('意思是：','Meaning: ')+'<b style="color:#6a1b9a">'+escapeAttr(t)+'</b>';
+      });
+    }
+  }
+  // 4) 百科小知识
+  var kw=core||q;
+  return helperWiki(kw,isEnUi?'en':'zh').then(function(w){
+    return (w.img?'<img src="'+escapeAttr(w.img)+'" style="max-width:120px;max-height:120px;border-radius:8px;float:right;margin:0 0 4px 6px">':'')
+      +'<b>'+escapeAttr(w.title)+'</b><br>'+escapeAttr(w.text)
+      +helperSpeakBtn(w.text,isEnUi?'en-US':'zh-CN')
+      +'<div style="clear:both;font-size:11px;color:#999;margin-top:4px">'+L('来源：维基百科','Source: Wikipedia')+(w.url?' · <a href="'+escapeAttr(w.url)+'" target="_blank" rel="noopener">'+L('看更多','more')+'</a>':'')+'</div>';
+  }).catch(function(){ return helperFallback(q); });
+}
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
@@ -36724,6 +36952,7 @@ function renderStudyAids(){
         +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
         +'<span style="color:#9c7ab0">'+w.ph+'</span>'
         +' <button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(w.en)+'\',\'en-US\')">🔊</button>'
+        +' <button style="border:none;background:#e1f5fe;border-radius:8px;padding:1px 6px;cursor:pointer;font-size:12px" onclick="openHelper(\''+studyEscape(w.en)+'\')">🤖 问问</button>'
         +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 不知道？看中文意思</button>'
         +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+w.cn+'</span>'
         // 2026-10变更：英文模式下不再强制填中文意思才算完成，跟句子一样改成纯浏览（点👀按钮随时能看中文意思）
@@ -36790,6 +37019,7 @@ function renderStudyAids(){
         +'</div>'
         +'<div class="study-item-body" style="display:none;margin:4px 0 0 16px;line-height:1.5">'
         +'<button style="border:none;background:#f3e5f5;border-radius:8px;padding:1px 6px;cursor:pointer" onclick="studySpeak(\''+studyEscape(s.en)+'\',\'en-US\')">🔊</button>'
+        +' <button style="border:none;background:#e1f5fe;border-radius:8px;padding:1px 6px;cursor:pointer;font-size:12px" onclick="openHelper(\''+studyEscape(s.en)+'\')">🤖 问问</button>'
         +' <button class="sent-reveal-btn" style="border:none;background:#ede7f6;border-radius:8px;padding:1px 8px;cursor:pointer;color:#5e35b1;font-size:12px" onclick="toggleSentenceMeaning(this)">👀 查看中文意思</button>'
         +'<span class="sent-cn-meaning" style="display:none;color:#7b1fa2;margin-left:4px">'+s.cn+'</span>'
         +'</div>'
