@@ -9070,6 +9070,7 @@ function captureLocalDaySnapshotForMerge(){
       // 2026-11新增：精灵图鉴（星光蛋/精华/已收集精灵）、学习记录、自测记录，同样"只信更多"合并，
       // 防止被另一台设备上的旧存档覆盖（家长反馈：xixi做完自测显示送了精华，之后却没有了）
       creatures:state.creatures?JSON.parse(JSON.stringify(state.creatures)):null,
+      crLog:state.crLog?JSON.parse(JSON.stringify(state.crLog)):null,
       learnLog:state.learnLog?JSON.parse(JSON.stringify(state.learnLog)):null,
       selfTests:Array.isArray(state.selfTests)?state.selfTests.slice():null
     };
@@ -9095,6 +9096,7 @@ function mergeLearnAndCreatures(snap){
       b.eggs=Math.max(b.eggs||0,a.eggs||0);
       b.essence=Math.max(b.essence||0,a.essence||0);
       b.hatched=Math.max(b.hatched||0,a.hatched||0);
+      b.energy=Math.max(b.energy||0,a.energy||0);
       if(!b.owned) b.owned={};
       Object.keys(a.owned||{}).forEach(function(id){
         var x=a.owned[id], y=b.owned[id];
@@ -9103,6 +9105,14 @@ function mergeLearnAndCreatures(snap){
       });
       if(!b.partner&&a.partner) b.partner=a.partner;
     }
+  }
+  if(snap.crLog){
+    if(!state.crLog) state.crLog={};
+    Object.keys(snap.crLog).forEach(function(k){
+      var x=snap.crLog[k], y=state.crLog[k];
+      if(!y){ state.crLog[k]=x; return; }
+      ['s','st','h','bonus'].forEach(function(f){ if(x[f]) y[f]=1; });
+    });
   }
   if(snap.learnLog){
     if(!state.learnLog) state.learnLog={word:{},hanzi:{},sentence:{}};
@@ -35389,8 +35399,8 @@ var CR_ELEM={
   dark:{n:'暗',e:'🌙',c1:'#d1c4e9',c2:'#7e57c2'}
 };
 var CR_RARITY={
-  N:{n:'普通',c:'#90a4ae',w:62,dup:10}, R:{n:'稀有',c:'#42a5f5',w:28,dup:25},
-  SR:{n:'史诗',c:'#ab47bc',w:8.5,dup:60}, SSR:{n:'传说',c:'#ffb300',w:1.5,dup:150}
+  N:{n:'普通',c:'#90a4ae',w:70,dup:10}, R:{n:'稀有',c:'#42a5f5',w:24,dup:25},
+  SR:{n:'罕见',c:'#ab47bc',w:6,dup:60}, SSR:{n:'传说',c:'#ffb300',w:0,dup:150}, MY:{n:'神话',c:'#e53935',w:0,dup:300}
 };
 // 每条进化线：[id, 属性, 稀有度, [[名字,emoji,简介]x3]]；传说只有1段
 var CR_LINES=[
@@ -35409,9 +35419,9 @@ var CR_LINES=[
   ['l11','wind','R',[['小风蝠','🦇','倒挂着睡觉，风一吹就醒。'],['疾风鸮','🦉','飞行时一点声音都没有。'],['云霄天鹅','🦢','能乘着风飞到云层上面。']]],
   ['l12','light','SR',[['星星猫','🐱','眼睛里有两颗小星星。'],['月光猫','🐈','只在月光下现身。'],['星耀豹','🐆','身上的斑点是一片星空。']]],
   ['l13','dark','R',[['小幽灵','👻','胆子很小，其实很友善。'],['南瓜灵','🎃','住在南瓜里，会讲睡前故事。'],['暗影龙','🐉','能在影子里穿梭的神秘龙。']]],
-  ['s1','light','SSR',[['九天神龙','🐲','传说中掌管彩虹的神龙。']]],
+  ['s1','light','MY',[['九天神龙','🐲','传说中掌管彩虹的神龙。']]],
   ['s2','fire','SSR',[['日轮精灵','🌞','像小太阳一样温暖每个人。']]],
-  ['s3','dark','SSR',[['月宫玉兔','🐰','住在月亮上，会捣出神奇的药。']]],
+  ['s3','dark','MY',[['月宫玉兔','🐰','住在月亮上，会捣出神奇的药。']]],
   ['s4','elec','SSR',[['雷鸣圣象','🐘','一跺脚就响起雷声。']]],
   ['s5','ice','SSR',[['冰羽神鸽','🕊️','飞过的地方会下起雪花。']]]
 ];
@@ -35431,7 +35441,7 @@ function crCollectedCount(){
 function crToken(lineId,stage,size,locked){
   var l=CR_LINE_MAP[lineId]; var el=CR_ELEM[l[1]], ra=CR_RARITY[l[2]];
   var sp=l[3][stage-1]; size=size||56;
-  var glow=l[2]==='SSR'?'0 0 10px 2px rgba(255,193,7,.8)':l[2]==='SR'?'0 0 8px 1px rgba(171,71,188,.6)':'none';
+  var glow=l[2]==='MY'?'0 0 14px 4px rgba(229,57,53,.75)':l[2]==='SSR'?'0 0 10px 2px rgba(255,193,7,.8)':l[2]==='SR'?'0 0 8px 1px rgba(171,71,188,.6)':'none';
   return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:radial-gradient(circle at 35% 30%,'+el.c1+','+el.c2+');border:3px solid '+ra.c+';box-shadow:'+glow+';display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.55)+'px;margin:0 auto;'+(locked?'filter:grayscale(.55) brightness(.6);opacity:.75;':'')+'">'+(locked?'❔':sp[1])+'</div>';
 }
 function openCreatures(tab){
@@ -36532,6 +36542,184 @@ function lpEndCarry(){
   try{ scheduleAi(2500); }catch(e2){}
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',lpInit); else setTimeout(lpInit,0);
+/* ========== 2026-11改版：精灵获取方式和所有打卡任务挂钩（家长要求：不能轻易用金币买，要靠努力） ==========
+   稀有度分5档：普通 / 稀有 / 罕见 / 传说 / 神话
+   - 🥚 星光蛋：不能用金币买了。每完成一项打卡（运动/学习/家务/日记……任何会得金币的打卡）攒1点
+     「孵化能量」，攒满10点得1个蛋；当天运动+学习+家务三项全勤，额外奖励1个「全勤蛋」；
+     做「学完自测」也攒能量（得分≥80%攒3点，否则1点）。蛋里只能孵出 普通70% / 稀有24% / 罕见6%。
+   - 🏪 精灵商店：只卖「普通」精灵，每只150金币，指定买自己想要的那只（已经有的不能重复买）。
+   - 🎯 挑战任务：传说、神话精灵只能通过完成长期挑战获得——按"打卡日记"（每天运动/学习/家务
+     是否全勤）和自测、单词掌握情况自动统计进度，完成后点「领取」举行降临仪式。 */
+var CR_ENERGY_PER_EGG=10;
+var CR_SHOP_PRICE=150;
+function crLogToday(){
+  if(!state) return null;
+  if(!state.crLog) state.crLog={};
+  var k=todayKey();
+  if(!state.crLog[k]) state.crLog[k]={s:0,st:0,h:0,bonus:0};
+  return state.crLog[k];
+}
+function crUpdateTodayLog(){
+  var d=crLogToday(); if(!d||!state.day) return d;
+  try{ if(isSportFull(state.day)) d.s=1; }catch(e){}
+  try{ if(isStudyFull(state.day)) d.st=1; }catch(e){}
+  try{ if(isHouseFull(state.day)) d.h=1; }catch(e){}
+  // 只保留最近90天
+  var keys=Object.keys(state.crLog).sort(function(a,b){ return parseKey(a)-parseKey(b); });
+  if(keys.length>90) keys.slice(0,keys.length-90).forEach(function(k){ delete state.crLog[k]; });
+  return d;
+}
+function crAddEnergy(n,why){
+  var c=crState(); if(!c) return;
+  c.energy=(c.energy||0)+n;
+  var got=0;
+  while(c.energy>=CR_ENERGY_PER_EGG){ c.energy-=CR_ENERGY_PER_EGG; c.eggs++; got++; }
+  if(got){ try{ ttsToast('🥚 孵化能量满啦！获得 '+got+' 个星光蛋，去精灵图鉴孵化吧～',3500); }catch(e){} }
+}
+// 每次打卡得金币都会经过earnCoins：顺便攒孵化能量、记打卡日记、发全勤蛋
+var _crOrigEarnCoins=earnCoins;
+earnCoins=function(n,label){
+  var r=_crOrigEarnCoins.apply(this,arguments);
+  try{
+    if(typeof n==='number'&&n>0&&!/自测|Self-test|出售|卖出|拍卖|赠送/.test(String(label||''))){
+      crAddEnergy(1,label);
+      var d=crUpdateTodayLog();
+      if(d&&d.s&&d.st&&d.h&&!d.bonus){
+        d.bonus=1; crState().eggs++;
+        setTimeout(function(){ try{ showReward('🥚 全勤蛋！','今天 <b>运动 + 学习 + 家务</b> 全部完成啦！<br>奖励一个星光蛋，去「✨ 精灵图鉴」孵化吧！'); }catch(e){} },800);
+      }
+    }
+  }catch(e){}
+  return r;
+};
+// ---- 挑战任务（传说/神话） ----
+function crDaysSorted(){ var L0=(state&&state.crLog)||{}; return Object.keys(L0); }
+function crCountDays(pred){ var L0=state.crLog||{}; return crDaysSorted().filter(function(k){ return pred(L0[k]); }).length; }
+function crStreak(pred){
+  // 从今天往回数连续满足条件的天数（今天还没完成就从昨天开始数，不算断）
+  var L0=state.crLog||{}, k=todayKey(), n=0;
+  if(!(L0[k]&&pred(L0[k]))) k=prevDayKey(k);
+  for(var i=0;i<400;i++){ if(L0[k]&&pred(L0[k])){ n++; k=prevDayKey(k); } else break; }
+  return n;
+}
+function prevDayKey(k){ var d=parseKey(k); d.setDate(d.getDate()-1); return keyOf(d); }
+function crGoodTests(){ return (state.selfTests||[]).filter(function(r){ return r.total&&r.score/r.total>=0.8; }).length; }
+var CR_QUESTS=[
+  {id:'s2',tier:'SSR',title:'☀️ 运动小太阳',desc:'累计 10 天完成「运动」全勤打卡',goal:10,prog:function(){ return crCountDays(function(d){ return d.s; }); }},
+  {id:'s5',tier:'SSR',title:'❄️ 冰雪学霸',desc:'完成 15 次「学完自测」且每次得分 80% 以上',goal:15,prog:function(){ return crGoodTests(); }},
+  {id:'s4',tier:'SSR',title:'⚡ 文武双全',desc:'连续 7 天，每天「运动」和「学习」都全勤',goal:7,prog:function(){ return crStreak(function(d){ return d.s&&d.st; }); }},
+  {id:'s3',tier:'MY',title:'🌙 月宫单词大师',desc:'⭐已掌握 100 个单词/句子，并且完成 30 次学完自测',goal:130,prog:function(){ var st=learnStats(); return Math.min(100,st.word.mastered+st.sentence.mastered)+Math.min(30,(state.selfTests||[]).length); }},
+  {id:'s1',tier:'MY',title:'🐲 九天全能勇士',desc:'连续 21 天「运动 + 学习 + 家务」三项全勤',goal:21,prog:function(){ return crStreak(function(d){ return d.s&&d.st&&d.h; }); }}
+];
+function crQuestHtml(q){
+  var c=crState(), owned=!!c.owned[q.id], p=Math.min(q.goal,q.prog()), done=p>=q.goal, ra=CR_RARITY[q.tier];
+  var l=CR_LINE_MAP[q.id];
+  return '<div style="display:flex;gap:8px;align-items:center;background:'+(q.tier==='MY'?'#fdecea':'#fff8e1')+';border-radius:12px;padding:8px;margin:6px 0;text-align:left">'
+    +'<div style="flex-shrink:0">'+crToken(q.id,1,50,!owned&&!done)+'</div>'
+    +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+q.title+' <span style="font-size:11px;color:'+ra.c+'">【'+ra.n+'】</span></div>'
+    +'<div style="font-size:12px;color:#666">'+q.desc+'</div>'
+    +'<div style="height:8px;background:#eee;border-radius:5px;margin-top:4px;overflow:hidden"><div style="height:100%;width:'+Math.round(p/q.goal*100)+'%;background:'+ra.c+'"></div></div>'
+    +'<div style="font-size:11px;color:#888;margin-top:2px">'+p+' / '+q.goal+(owned?'　✅ 已获得「'+l[3][0][0]+'」':'')+'</div></div>'
+    +(!owned&&done?'<button class="btn btn-primary btn-sm" style="flex-shrink:0" onclick="crClaimQuest(\''+q.id+'\')">领取</button>':'')
+    +'</div>';
+}
+function crClaimQuest(id){
+  var q=CR_QUESTS.filter(function(x){ return x.id===id; })[0], c=crState();
+  if(!q||c.owned[id]||q.prog()<q.goal) return;
+  c.owned[id]={lv:1,stage:1,got:todayKey(),quest:1}; c.essence+=20;
+  saveStore();
+  crShowReveal(CR_LINE_MAP[id],true,20,q.tier==='MY'?'🔥🔥 神话降临！🔥🔥':'🌟🌟 传说降临！🌟🌟');
+}
+// ---- 普通精灵商店 ----
+function crBuyCommon(id){
+  var c=crState(), l=CR_LINE_MAP[id]; if(!l||l[2]!=='N'||c.owned[id]) return;
+  if((state.moneyBalance||0)<CR_SHOP_PRICE){ ttsToast('金币不够哦，多去打卡赚金币吧～',3000); return; }
+  addCoinChange(-CR_SHOP_PRICE,'精灵商店：购买普通精灵「'+l[3][0][0]+'」');
+  c.owned[id]={lv:1,stage:1,got:todayKey()}; if(!c.partner) c.partner=id;
+  saveStore();
+  crShowReveal(l,true,0,'🏪 买到啦！');
+}
+function crRollLine(){
+  var r=Math.random()*100, rar=r<70?'N':r<94?'R':'SR';
+  var pool=CR_LINES.filter(function(l){ return l[2]===rar; });
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function crShowReveal(l,isNew,gain,title){
+  var ra=CR_RARITY[l[2]], sp=l[3][0], c=crState();
+  document.getElementById('creatureBody').innerHTML=crTabs()+'<div style="padding:6px 0">'
+    +'<div style="font-size:16px;color:'+ra.c+';font-weight:800">'+title+'</div>'
+    +'<div style="margin:10px 0;animation:petHappyHop .5s ease-in-out 3">'+crToken(l[0],1,110)+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#4a148c">'+sp[0]+'</div>'
+    +'<div style="font-size:13px;color:#666">'+CR_ELEM[l[1]].e+CR_ELEM[l[1]].n+'属性 · <span style="color:'+ra.c+'">'+ra.n+'</span></div>'
+    +'<div style="font-size:13px;color:#7b1fa2;margin:6px 0">'+sp[2]+'</div>'
+    +'<div style="font-size:15px;margin:6px 0">'+(isNew?'🎉 新精灵！图鉴点亮 +1'+(gain?'，💠 精华 +'+gain:''):'已经有这只啦，转化成 💠 精华 +'+gain)+'</div>'
+    +'<button class="btn btn-primary btn-block" onclick="crRender(\'egg\')">'+(c.eggs?'🥚 继续孵蛋（还有'+c.eggs+'个）':'好的')+'</button>'
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="crDetail(\''+l[0]+'\')">⭐ 去看看它</button></div>';
+  try{ petHeartFx(isNew?8:3); }catch(e){}
+}
+function crHatch(){
+  var c=crState(); c.eggs--; c.hatched=(c.hatched||0)+1;
+  var l=crRollLine(), ra=CR_RARITY[l[2]], isNew=!c.owned[l[0]], gain;
+  if(isNew){ c.owned[l[0]]={lv:1,stage:1,got:todayKey()}; gain=5; if(!c.partner) c.partner=l[0]; }
+  else gain=ra.dup;
+  c.essence+=gain;
+  saveStore();
+  crShowReveal(l,isNew,gain,l[2]==='SR'?'✨ 罕见精灵！':l[2]==='R'?'💎 稀有精灵！':'孵出来啦！');
+}
+function crTabs(){
+  var c=crState();
+  var t=function(id,label){ return '<button class="btn '+(CR_TAB===id?'btn-primary':'btn-gray')+' btn-sm" style="flex:1;padding:6px 2px;font-size:12px" onclick="crRender(\''+id+'\')">'+label+'</button>'; };
+  var questReady=CR_QUESTS.some(function(q){ return !c.owned[q.id]&&q.prog()>=q.goal; });
+  return '<h3 style="margin:2px 0 6px">✨ 精灵图鉴</h3>'
+    +'<div style="display:flex;justify-content:center;gap:10px;font-size:13px;margin-bottom:6px;flex-wrap:wrap"><span>🥚 <b>'+c.eggs+'</b></span><span>⚡ 能量 <b>'+(c.energy||0)+'/'+CR_ENERGY_PER_EGG+'</b></span><span>💠 <b>'+c.essence+'</b></span><span>📖 '+crCollectedCount()+'/'+crTotalSpecies()+'</span></div>'
+    +'<div style="display:flex;gap:3px;margin-bottom:8px">'+t('egg','🥚 孵蛋')+t('quest','🎯 任务'+(questReady?'❗':''))+t('shop','🏪 商店')+t('mine','⭐ 我的')+t('dex','📖 图鉴')+'</div>';
+}
+var _crRenderOld=crRender;
+crRender=function(tab){
+  CR_TAB=tab||CR_TAB;
+  var body=document.getElementById('creatureBody'); if(!body) return;
+  var c=crState(); crUpdateTodayLog();
+  if(CR_TAB==='egg'){
+    var d=crLogToday();
+    body.innerHTML=crTabs()
+      +'<div style="font-size:84px;margin:6px 0;cursor:pointer;user-select:none;'+(c.eggs?'':'filter:grayscale(1);opacity:.5')+'" id="crEgg" onclick="crTapEgg()">🥚</div>'
+      +'<div id="crEggMsg" style="min-height:24px;color:#7b1fa2;font-size:15px">'+(c.eggs?'点蛋壳 3 下孵化！':'没有星光蛋啦，去打卡攒孵化能量吧！')+'</div>'
+      +'<div style="background:#f3e5f5;border-radius:10px;padding:8px;margin-top:8px;text-align:left;font-size:13px">'
+      +'<b>⚡ 孵化能量 '+(c.energy||0)+' / '+CR_ENERGY_PER_EGG+'</b>'
+      +'<div style="height:10px;background:#fff;border-radius:6px;margin:4px 0;overflow:hidden"><div style="height:100%;width:'+((c.energy||0)/CR_ENERGY_PER_EGG*100)+'%;background:linear-gradient(90deg,#ab47bc,#ffb300)"></div></div>'
+      +'今天全勤：'+(d.s?'✅':'⬜')+'运动 '+(d.st?'✅':'⬜')+'学习 '+(d.h?'✅':'⬜')+'家务 '+(d.bonus?'→ 🥚 全勤蛋已领':'→ 三项都完成送 1 个蛋')+'</div>'
+      +'<div class="small" style="margin-top:8px;color:#888;text-align:left;line-height:1.7">怎么获得星光蛋（不能用金币买哦）：<br>'
+      +'• 每完成一项打卡 ⚡+1，攒满 '+CR_ENERGY_PER_EGG+' 点得 1 个蛋<br>• 学完自测：80分以上 ⚡+3，否则 ⚡+1<br>• 运动 + 学习 + 家务当天全勤：额外送 1 个蛋<br>'
+      +'蛋里能孵出：<span style="color:#90a4ae">普通</span> 70% · <span style="color:#42a5f5">稀有</span> 24% · <span style="color:#ab47bc">罕见</span> 6%<br>'
+      +'<span style="color:#ffb300">传说</span>、<span style="color:#e53935">神话</span> 精灵只能完成「🎯 任务」获得！</div>';
+  }else if(CR_TAB==='quest'){
+    body.innerHTML=crTabs()+'<div style="font-size:13px;color:#7b1fa2;margin-bottom:4px">完成挑战，召唤传说和神话精灵！进度每天打卡后自动更新</div>'
+      +CR_QUESTS.map(crQuestHtml).join('');
+  }else if(CR_TAB==='shop'){
+    var commons=CR_LINES.filter(function(l){ return l[2]==='N'; });
+    body.innerHTML=crTabs()+'<div style="font-size:13px;color:#7b1fa2;margin-bottom:6px">商店只卖「普通」精灵，每只 🪙'+CR_SHOP_PRICE+'（你有 '+Math.floor(state.moneyBalance||0)+' 金币）<br><span style="color:#888">稀有以上的精灵要靠孵蛋和完成任务哦</span></div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+commons.map(function(l){
+        var own=!!c.owned[l[0]];
+        return '<div style="background:#faf5fc;border-radius:12px;padding:6px 2px">'+crToken(l[0],1,50)+'<div style="font-size:12px;font-weight:700;margin-top:3px">'+l[3][0][0]+'</div>'
+          +(own?'<div style="font-size:11px;color:#2e7d32;margin-top:3px">✅ 已拥有</div>':'<button class="btn btn-primary btn-sm" style="margin-top:3px;font-size:11px;padding:3px 8px" onclick="crBuyCommon(\''+l[0]+'\')">🪙'+CR_SHOP_PRICE+'</button>')+'</div>';
+      }).join('')+'</div>';
+  }else{
+    _crRenderOld(CR_TAB);
+  }
+};
+function crBuyEgg(){ crRender('shop'); }
+function crSelfTestReward(correct,total,firstToday){
+  var c=crState(); if(!c) return '';
+  var good=total&&correct/total>=0.8;
+  var en=good?3:1;
+  c.essence+=correct;
+  var before=c.eggs; crAddEnergy(en);
+  var parts=['⚡ 孵化能量 +'+en];
+  if(correct) parts.push('💠 精华 +'+correct);
+  if(c.eggs>before) parts.push('🥚 星光蛋 +'+(c.eggs-before));
+  return '<div style="margin-top:6px;font-size:15px;color:#6a1b9a">'+parts.join('　')+'</div>'
+    +(c.eggs?'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal(\'selfTestModal\');openCreatures(\'egg\')">✨ 去精灵图鉴孵蛋（'+c.eggs+'个）</button>':'');
+}
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
