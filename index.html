@@ -36850,7 +36850,7 @@ earnCoins=function(n,label){
       var gave=false;
       ['s','st','h'].forEach(function(g){ if(d[g]&&!before[g]){ crAddMat(crRandStone(g),1); gave=true; } });
       if(d.s&&d.st&&d.h&&!d.feather){ d.feather=1; crAddMat('rainbow',1); gave=true; }
-      if(!gave&&Math.random()<0.2) crAddMat(crRandStone(),1);
+      if(!gave&&Math.random()<0.2&&(d.rnd||0)<2){ d.rnd=(d.rnd||0)+1; crAddMat(crRandStone(),1); } // 防刷：随机掉落每天最多2颗
     }
   }catch(e){}
   return r;
@@ -40633,6 +40633,67 @@ try{ HOUSE_TIERS.forEach(function(t){ t.parts.forEach(function(p){ if(/成语小
 // 精灵任务里"完成30次自测"也只算有效的（老记录每天最多3次）
 function afEffCount(){ var per={}, n=0; (state.selfTests||[]).forEach(function(r){ if(r.eff===false) return; var d=r.day||'?'; per[d]=(per[d]||0)+1; if(per[d]<=AF_MAX_EFF) n++; }); return n; }
 try{ CR_QUESTS.forEach(function(q){ if(q.id==='s3') q.prog=function(){ var st=learnStats(); return Math.min(100,st.word.mastered+st.sentence.mastered)+Math.min(30,afEffCount()); }; }); }catch(e){}
+/* ---- 防刷（续）：阅读/故事打卡、小测验金币、随机掉落属性石 ----
+   xixi账号11月15日：四种阅读/故事打卡一天打了32次，经常1~2秒内连点四个「完成」（根本没读）；
+   小测验一天答了179道；每赚一次金币都有20%概率掉属性石，所以刷题、刷打卡也能刷出进化材料。
+   新规则：
+   ① 阅读/故事打卡：必须先回答这篇下面的小问题，并且这篇要在屏幕上读够一定时间（按字数算，30秒~2分半）才能打卡；
+      每种每天前2篇有金币/经验，之后可以继续读、继续记录，但不加奖励
+   ② 小测验（NAPLAN、阅读理解、数学题等）答对的金币每天最多20个，之后答对只记录、不加金币和经验
+   ③ 做任务时随机掉落的属性石每天最多2颗（全勤掉落、自测掉落照旧） */
+var AF_READ_REWARD_MAX=2, AF_QUIZ_COIN_MAX=20, AF_READ_SEEN={};
+function afReadIdx(cat){ var cfg=READING_CONFIG[cat], bank=readingBankFor(cat); if(!bank.length) return -1; var m=cfg.manualIdxKey?state[cfg.manualIdxKey]:null; return (m!=null&&m>=0&&m<bank.length)?m:(((state[cfg.idxKey]||0)%bank.length+bank.length)%bank.length); }
+function afReadQKey(cat,idx){ return 'quiz:read:'+cat+':'+idx+((cat==='readEn'||cat==='readCn')?(':g'+childGradeNum()):''); }
+function afReadMinSec(cat,idx){
+  try{ var it=readingItemForRender(readingBankFor(cat)[idx],idx), t=String(it.text||'');
+    var en=cat==='readEn'||cat==='storyEn', n=en?t.split(/\s+/).length/2:t.replace(/\s/g,'').length/7;
+    return Math.max(30,Math.min(150,Math.round(n)));
+  }catch(e){ return 40; }
+}
+var _afOrigReadCard=renderReadingCard;
+renderReadingCard=function(cat){
+  var r=_afOrigReadCard.apply(this,arguments);
+  try{ var idx=afReadIdx(cat), k=cat+'|'+idx; if(!AF_READ_SEEN[k]) AF_READ_SEEN[k]=Date.now();
+    var cfg=READING_CONFIG[cat], box=document.getElementById(cfg.boxId), d=state.day[cat]||{}, got=d.rewarded||0;
+    if(box){ var tip=document.createElement('div'); tip.style.cssText='margin:4px 0;padding:4px 8px;background:#f3e5f5;border-radius:8px;color:#6a1b9a;font-size:12px';
+      tip.innerHTML='📖 先认真读完、回答下面的小问题，才能打卡'+(got>=AF_READ_REWARD_MAX?'（今天这项的 '+AF_READ_REWARD_MAX+' 次金币奖励已经拿完，继续读只记录、不加金币）':'（今天还有 '+(AF_READ_REWARD_MAX-got)+' 次金币奖励）');
+      box.insertBefore(tip,box.firstChild); }
+  }catch(e){}
+  return r;
+};
+function afNoReward(fn){
+  var ec=earnCoins, ge=typeof gainExp==='function'?gainExp:null, gt=typeof gainTaskExp==='function'?gainTaskExp:null, ga=typeof gainAbilityPoint==='function'?gainAbilityPoint:null;
+  earnCoins=function(){}; if(ge) gainExp=function(){}; if(gt) gainTaskExp=function(){}; if(ga) gainAbilityPoint=function(){};
+  try{ return fn(); } finally{ earnCoins=ec; if(ge) gainExp=ge; if(gt) gainTaskExp=gt; if(ga) gainAbilityPoint=ga; }
+}
+var _afOrigReadDone=completeReadingTask;
+completeReadingTask=function(cat){
+  if(!state||!READING_CONFIG[cat]) return _afOrigReadDone.apply(this,arguments);
+  var idx=afReadIdx(cat);
+  if(idx>=0){
+    var qk=afReadQKey(cat,idx), hasQ=false; try{ var itq=readingItemForRender(readingBankFor(cat)[idx],idx); hasQ=!!(itq&&itq.optA); }catch(eq){}
+    if(hasQ&&!quizState(qk)){ alert('先回答这篇下面的小问题，再打卡哦～'); return; }
+    var seen=AF_READ_SEEN[cat+'|'+idx]||Date.now(), need=afReadMinSec(cat,idx), used=(Date.now()-seen)/1000;
+    if(used<need){ alert('📖 还没读完呢～这篇要认真读一读，再过 '+Math.ceil(need-used)+' 秒才能打卡。'); return; }
+  }
+  var d=state.day; if(!d[cat]) d[cat]={count:0};
+  var before=d[cat].count||0, rewarded=d[cat].rewarded||0, r;
+  if(rewarded>=AF_READ_REWARD_MAX){ r=afNoReward(function(){ return _afOrigReadDone.call(this,cat); }); if((d[cat].count||0)>before){ try{ ttsToast('📖 读完啦！今天这项的金币奖励已经拿完，这次只记录阅读、不加金币～',3200); }catch(e){} } }
+  else { r=_afOrigReadDone.apply(this,arguments); if((d[cat].count||0)>before){ d[cat].rewarded=rewarded+1; } }
+  try{ save(); }catch(e){}
+  return r;
+};
+// 小测验金币每天上限
+var _afOrigResolveQuiz=resolveQuiz;
+resolveQuiz=function(key,isCorrect){
+  var self=this, args=arguments;
+  if(quizState(key)) return _afOrigResolveQuiz.apply(self,args);
+  var d=state.day, got=d.quizCoins||0;
+  if(isCorrect&&got>=AF_QUIZ_COIN_MAX){ var r=afNoReward(function(){ return _afOrigResolveQuiz.apply(self,args); }); try{ if(!d.quizCapTold){ d.quizCapTold=1; ttsToast('✍️ 今天小测验的金币已经拿满 '+AF_QUIZ_COIN_MAX+' 个啦，继续做题对学习很有帮助，只是不再加金币～',3500); } }catch(e){} return r; }
+  var m0=state.moneyBalance||0, r2=_afOrigResolveQuiz.apply(self,args);
+  if(isCorrect) d.quizCoins=got+Math.max(0,(state.moneyBalance||0)-m0);
+  return r2;
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
