@@ -2940,6 +2940,106 @@ var PET_LIBRARY = {
      一起画风不统一，看起来比较违和）。家长反馈这个"写实脸+卡通身体"的搭配不好看，先暂时
      撤回，happy/sad维持最初的原始素材不变（happy=真人实拍全身照，sad=AI卡通全身图）。
      两段表情参考视频先留着，等家长想好要哪种方案（比如sad也补拍一张同风格的全身照）再处理。 */
+  /* 2026-11新增：家长文档里的新宠物（AI生成图，自动抠图去背景；动作用骨骼动画，跟现有宠物一致） */
+  tu_bai: {
+    name: '蝴蝶结小白兔',
+    pickDesc: '雪白软绵的小兔子，耳朵上系着粉色蝴蝶结，最爱蹦蹦跳跳找胡萝卜～',
+    img: {
+      happy: 'pets/pet_tu_bai_happy.webp',
+      run:   'pets/pet_tu_bai_happy.webp',
+      sad:   'pets/pet_tu_bai_sad.webp'
+    }
+  },
+  mao_ju: {
+    name: '橘子喵',
+    pickDesc: '毛茸茸的小橘猫，大眼睛亮晶晶，最喜欢歪着头看你、晒太阳打呼噜～',
+    img: {
+      happy: 'pets/pet_mao_ju_happy.webp',
+      run:   'pets/pet_mao_ju_happy.webp',
+      sad:   'pets/pet_mao_ju_sad.webp'
+    }
+  },
+  mao_fen: {
+    name: '粉裙喵公主',
+    pickDesc: '穿粉色蓬蓬裙、戴小蝴蝶结的小猫公主，优雅又爱美～',
+    img: {
+      happy: 'pets/pet_mao_fen_happy.webp',
+      run:   'pets/pet_mao_fen_happy.webp',
+      sad:   'pets/pet_mao_fen_sad.webp'
+    }
+  },
+  long_caihong: {
+    name: '彩虹小火龙',
+    pickDesc: '彩色鳞片闪闪发光的小龙，扑棱着小翅膀还会吐小火苗，呆萌又勇敢～',
+    img: {
+      happy: 'pets/pet_long_caihong_happy.webp',
+      run:   'pets/pet_long_caihong_happy.webp',
+      sad:   'pets/pet_long_caihong_sad.webp'
+    }
+  },
+  long_huo: {
+    name: '小火龙',
+    pickDesc: '尾巴尖燃着小火苗的橙红小龙，紫色大眼睛，热情又调皮～',
+    img: {
+      happy: 'pets/pet_long_huo_happy.webp',
+      run:   'pets/pet_long_huo_happy.webp',
+      sad:   'pets/pet_long_huo_sad.webp'
+    }
+  },
+  long_pang: {
+    name: '团子胖胖龙',
+    pickDesc: '圆滚滚的呆萌小胖龙，像个软软的奶黄包，最爱吃东西和睡觉～',
+    img: {
+      happy: 'pets/pet_long_pang_happy.webp',
+      run:   'pets/pet_long_pang_happy.webp',
+      sad:   'pets/pet_long_pang_sad.webp'
+    }
+  },
+  long_qing: {
+    name: '小青龙',
+    pickDesc: '青绿鳞片泛着银光的国风小龙，圆圆的像个球，生机勃勃～',
+    img: {
+      happy: 'pets/pet_long_qing_happy.webp',
+      run:   'pets/pet_long_qing_happy.webp',
+      sad:   'pets/pet_long_qing_sad.webp'
+    }
+  },
+  tu_chuier: {
+    name: '奶芙垂耳兔',
+    pickDesc: '耳朵垂下来的奶白小兔，毛绒绒、软乎乎，安静又温柔～',
+    img: {
+      happy: 'pets/pet_tu_chuier_happy.webp',
+      run:   'pets/pet_tu_chuier_happy.webp',
+      sad:   'pets/pet_tu_chuier_sad.webp'
+    }
+  },
+  tu_fen: {
+    name: '眨眨兔',
+    pickDesc: '戴粉色兔耳帽、穿粉裙子的小兔，最爱眨眼卖萌逗你开心～',
+    img: {
+      happy: 'pets/pet_tu_fen_happy.webp',
+      run:   'pets/pet_tu_fen_happy.webp',
+      sad:   'pets/pet_tu_fen_sad.webp'
+    }
+  },
+  lang_bao: {
+    name: '小狼宝宝',
+    pickDesc: '灰白毛发、绿眼睛的小狼崽，一看见你就挥爪子打招呼～',
+    img: {
+      happy: 'pets/pet_lang_bao_happy.webp',
+      run:   'pets/pet_lang_bao_happy.webp',
+      sad:   'pets/pet_lang_bao_sad.webp'
+    }
+  },
+  long_leiting: {
+    name: '雷霆青龙',
+    pickDesc: '在风暴云里翻腾的传说神龙，身缠蓝色闪电，威风又神秘（传说级）～',
+    img: {
+      happy: 'pets/pet_long_leiting_happy.webp',
+      run:   'pets/pet_long_leiting_happy.webp',
+      sad:   'pets/pet_long_leiting_sad.webp'
+    }
+  },
   shuangyu: {
     name: '双鱼宝宝',
     pickDesc: '爱做梦的双鱼宝宝，心思细腻又敏感，一会儿笑一会儿哭，陪你一起体验满满的小情绪～',
@@ -2953,7 +3053,7 @@ var PET_LIBRARY = {
     danceDurationMs: 15000
   }
 };
-var PET_ORDER = ['xiaojinlin','naolong','xiaojinlong','shuangyu'];
+var PET_ORDER = ['xiaojinlin','naolong','xiaojinlong','shuangyu','tu_bai','mao_ju','mao_fen','long_caihong','long_huo','long_pang','long_qing','tu_chuier','tu_fen','lang_bao','long_leiting'];
 function currentPetType(){
   var t=(state.pet && state.pet.type) || 'xiaojinlin';
   return PET_LIBRARY[t] || PET_LIBRARY.xiaojinlin;
@@ -35681,6 +35781,26 @@ var RIGS={
  'xiaojinlin_happy.webp':{head:[.52,.30],neck:[.55,.52],pelvis:[.55,.78],arms:[[[.42,.58],[.52,.63]],[[.78,.58],[.92,.53]]],legs:[[[.45,.82],[.45,.95]],[[.72,.82],[.7,.93]]],tail:[[.35,.58],[.18,.62],[.04,.66]]},
  'xiaojinlin_run.webp':{head:[.5,.30],neck:[.55,.53],pelvis:[.55,.8],arms:[[[.38,.62],[.52,.66]],[[.78,.6],[.92,.52]]],legs:[[[.38,.85],[.35,.96]],[[.75,.83],[.82,.88]]],tail:[[.25,.65],[.12,.62],[.1,.52]]},
  'xiaojinlin_sad.webp':{head:[.5,.30],neck:[.55,.54],pelvis:[.55,.82],arms:[[[.38,.62],[.4,.8]],[[.78,.62],[.8,.76]]],legs:[[[.45,.85],[.45,.96]],[[.7,.85],[.72,.96]]],tail:[[.3,.8],[.18,.85],[.08,.82]]},
+ 'pet_tu_bai_happy.webp':{head:[.45,.42],neck:[.47,.62],pelvis:[.47,.85],arms:[[[.32,.66],[.28,.78]],[[.62,.66],[.68,.78]]],legs:[[[.36,.86],[.34,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_tu_bai_sad.webp':{head:[.45,.42],neck:[.47,.62],pelvis:[.47,.85],arms:[[[.32,.66],[.28,.78]],[[.62,.66],[.68,.78]]],legs:[[[.36,.86],[.34,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_mao_ju_happy.webp':{head:[.45,.38],neck:[.5,.6],pelvis:[.55,.82],arms:[],legs:[],sit:1,tail:[[.84,.78],[.92,.62],[.9,.5]]},
+ 'pet_mao_ju_sad.webp':{head:[.45,.38],neck:[.5,.6],pelvis:[.55,.82],arms:[],legs:[],sit:1,tail:[[.84,.78],[.92,.62],[.9,.5]]},
+ 'pet_mao_fen_happy.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.78],arms:[[[.34,.6],[.3,.7]],[[.66,.6],[.7,.7]]],legs:[[[.42,.86],[.42,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_mao_fen_sad.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.78],arms:[[[.34,.6],[.3,.7]],[[.66,.6],[.7,.7]]],legs:[[[.42,.86],[.42,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_long_caihong_happy.webp':{head:[.62,.3],neck:[.6,.5],pelvis:[.58,.78],arms:[[[.55,.6],[.6,.7]],[[.76,.6],[.8,.68]]],legs:[[[.48,.86],[.45,.97]],[[.7,.86],[.72,.97]]],tail:[[.42,.86],[.22,.9],[.1,.8]]},
+ 'pet_long_caihong_sad.webp':{head:[.62,.3],neck:[.6,.5],pelvis:[.58,.78],arms:[[[.55,.6],[.6,.7]],[[.76,.6],[.8,.68]]],legs:[[[.48,.86],[.45,.97]],[[.7,.86],[.72,.97]]],tail:[[.42,.86],[.22,.9],[.1,.8]]},
+ 'pet_long_huo_happy.webp':{head:[.5,.28],neck:[.5,.48],pelvis:[.5,.78],arms:[[[.27,.58],[.18,.7]],[[.73,.58],[.82,.7]]],legs:[[[.38,.86],[.36,.97]],[[.62,.86],[.64,.97]]]},
+ 'pet_long_huo_sad.webp':{head:[.5,.28],neck:[.5,.48],pelvis:[.5,.78],arms:[[[.27,.58],[.18,.7]],[[.73,.58],[.82,.7]]],legs:[[[.38,.86],[.36,.97]],[[.62,.86],[.64,.97]]]},
+ 'pet_long_pang_happy.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.8],arms:[[[.3,.62],[.27,.72]],[[.7,.62],[.73,.72]]],legs:[[[.38,.86],[.36,.97]],[[.6,.86],[.62,.97]]],tail:[[.85,.78],[.95,.72]]},
+ 'pet_long_pang_sad.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.8],arms:[[[.3,.62],[.27,.72]],[[.7,.62],[.73,.72]]],legs:[[[.38,.86],[.36,.97]],[[.6,.86],[.62,.97]]],tail:[[.85,.78],[.95,.72]]},
+ 'pet_long_qing_happy.webp':{head:[.45,.35],neck:[.45,.52],pelvis:[.5,.78],arms:[[[.3,.62],[.24,.68]],[[.6,.62],[.66,.66]]],legs:[[[.35,.88],[.3,.97]],[[.6,.88],[.62,.97]]],tail:[[.85,.75],[.95,.65]]},
+ 'pet_long_qing_sad.webp':{head:[.45,.35],neck:[.45,.52],pelvis:[.5,.78],arms:[[[.3,.62],[.24,.68]],[[.6,.62],[.66,.66]]],legs:[[[.35,.88],[.3,.97]],[[.6,.88],[.62,.97]]],tail:[[.85,.75],[.95,.65]]},
+ 'pet_tu_chuier_happy.webp':{head:[.5,.3],neck:[.5,.5],pelvis:[.5,.8],arms:[],legs:[],sit:1},
+ 'pet_tu_chuier_sad.webp':{head:[.5,.3],neck:[.5,.5],pelvis:[.5,.8],arms:[],legs:[],sit:1},
+ 'pet_tu_fen_happy.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.78],arms:[[[.3,.62],[.2,.72]],[[.7,.6],[.8,.7]]],legs:[[[.42,.86],[.4,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_tu_fen_sad.webp':{head:[.5,.35],neck:[.5,.55],pelvis:[.5,.78],arms:[[[.3,.62],[.2,.72]],[[.7,.6],[.8,.7]]],legs:[[[.42,.86],[.4,.97]],[[.58,.86],[.6,.97]]]},
+ 'pet_lang_bao_happy.webp':{head:[.45,.3],neck:[.45,.52],pelvis:[.5,.82],arms:[[[.38,.62],[.38,.8]],[[.6,.62],[.6,.8]]],legs:[],sit:1,tail:[[.75,.8],[.88,.7]]},
+ 'pet_lang_bao_sad.webp':{head:[.45,.3],neck:[.45,.52],pelvis:[.5,.82],arms:[[[.38,.62],[.38,.8]],[[.6,.62],[.6,.8]]],legs:[],sit:1,tail:[[.75,.8],[.88,.7]]},
  'shuangyu_happy.webp':{human:1,ground:.985,head:[.5,.15],neck:[.5,.25],pelvis:[.5,.5],arms:[[[.33,.3],[.2,.42],[.06,.53]],[[.67,.3],[.78,.42],[.92,.52]]],legs:[[[.42,.52],[.42,.7],[.42,.93]],[[.58,.52],[.55,.68],[.57,.9]]]},
  'shuangyu_run.webp':{human:1,armsStill:1,ground:.985,head:[.5,.12],neck:[.5,.22],pelvis:[.5,.55],arms:[[[.3,.32],[.08,.4],[.28,.48]],[[.7,.32],[.93,.4],[.72,.48]]],legs:[[[.38,.58],[.33,.75],[.32,.93]],[[.62,.58],[.65,.75],[.66,.93]]]},
  'shuangyu_sad.webp':{human:1,ground:.985,head:[.5,.12],neck:[.5,.23],pelvis:[.5,.55],arms:[[[.28,.32],[.12,.38],[.05,.4]],[[.72,.32],[.88,.38],[.95,.38]]],legs:[[[.38,.58],[.3,.75],[.3,.93]],[[.65,.58],[.7,.75],[.72,.93]]]}
