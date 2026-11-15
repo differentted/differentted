@@ -9097,6 +9097,9 @@ function mergeLearnAndCreatures(snap){
       b.essence=Math.max(b.essence||0,a.essence||0);
       b.hatched=Math.max(b.hatched||0,a.hatched||0);
       b.energy=Math.max(b.energy||0,a.energy||0);
+      if(a.mats){ if(!b.mats) b.mats={}; Object.keys(a.mats).forEach(function(k){ b.mats[k]=Math.max(b.mats[k]||0,a.mats[k]||0); }); }
+      if(a.pity){ if(!b.pity) b.pity={}; Object.keys(a.pity).forEach(function(k){ b.pity[k]=Math.max(b.pity[k]||0,a.pity[k]||0); }); }
+      if(a.shiny){ if(!b.shiny) b.shiny={}; Object.keys(a.shiny).forEach(function(k){ if(a.shiny[k]) b.shiny[k]=true; }); }
       if(!b.owned) b.owned={};
       Object.keys(a.owned||{}).forEach(function(id){
         var x=a.owned[id], y=b.owned[id];
@@ -9111,7 +9114,8 @@ function mergeLearnAndCreatures(snap){
     Object.keys(snap.crLog).forEach(function(k){
       var x=snap.crLog[k], y=state.crLog[k];
       if(!y){ state.crLog[k]=x; return; }
-      ['s','st','h','bonus'].forEach(function(f){ if(x[f]) y[f]=1; });
+      ['s','st','h','bonus','feather','clover'].forEach(function(f){ if(x[f]) y[f]=1; });
+      y.testStones=Math.max(y.testStones||0,x.testStones||0);
     });
   }
   if(snap.learnLog){
@@ -36720,6 +36724,185 @@ function crSelfTestReward(correct,total,firstToday){
   return '<div style="margin-top:6px;font-size:15px;color:#6a1b9a">'+parts.join('　')+'</div>'
     +(c.eggs?'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal(\'selfTestModal\');openCreatures(\'egg\')">✨ 去精灵图鉴孵蛋（'+c.eggs+'个）</button>':'');
 }
+/* ========== 2026-11新增：精灵进化系统（条件 + 材料 + 成功率 + 失败后果） ==========
+   以前精华升到Lv5/Lv10就自动进化。现在：
+   【进化条件】一阶→二阶：精灵Lv5；二阶→三阶：精灵Lv10。等级到了只是"可以进化"，等级会卡住，
+              必须举行一次「进化仪式」才能继续。
+   【进化材料】一阶→二阶：对应属性的属性石×3 + 精华30；二阶→三阶：属性石×5 + 🌈彩虹羽×1 + 精华80
+   【材料怎么来】全部和打卡挂钩：
+      - 当天「运动」第一次全勤：随机得1颗 🔥火焰石/⚡雷电石/🌪️疾风石（运动系）
+      - 当天「学习」第一次全勤：随机得1颗 ✨光辉石/💧水滴石/❄️冰晶石（学习系）
+      - 当天「家务」第一次全勤：随机得1颗 🌿森林石/🪨大地石/🌙暗影石（家务系）
+      - 其它每完成一项打卡：20%概率掉落1颗随机属性石
+      - 运动+学习+家务三项全勤的那天：🌈彩虹羽×1
+      - 学完自测80分以上：随机属性石×1（每天最多3颗）；满分：🍀幸运草×1（每天1次）
+      - 🍀幸运草也可以在精灵商店用80金币买
+   【成功率】一阶→二阶：普通85% / 稀有75% / 罕见65%；二阶→三阶：普通65% / 稀有55% / 罕见45%
+      加成：每株🍀幸运草+15%（最多用2株）；学习伙伴+5%；之前每失败一次+10%（越挫越勇，最多+30%）；
+      最高95%（总有一点点失败的可能）
+   【失败后果】材料（属性石、彩虹羽、幸运草）全部消耗；精华只退还一半；
+      其中30%是「严重失败」：精灵受到反噬，等级-1，需要重新用精华升回来；
+      失败不会让精灵消失、不会退化，而且下次进化成功率+10%
+   【大成功】成功时有10%概率变成✨闪光形态（图鉴里有闪光边框），并额外奖励精华 */
+var CR_STONES={fire:'🔥火焰石',water:'💧水滴石',grass:'🌿森林石',elec:'⚡雷电石',ice:'❄️冰晶石',rock:'🪨大地石',wind:'🌪️疾风石',light:'✨光辉石',dark:'🌙暗影石'};
+var CR_STONE_GROUP={s:['fire','elec','wind'],st:['light','water','ice'],h:['grass','rock','dark']};
+var CR_EVO_RATE={2:{N:.85,R:.75,SR:.65},3:{N:.65,R:.55,SR:.45}};
+var CR_CLOVER_PRICE=80;
+function crMats(){ var c=crState(); if(!c.mats) c.mats={}; return c.mats; }
+function crAddMat(k,n,silent){
+  var m=crMats(); m[k]=(m[k]||0)+(n||1);
+  if(!silent){ try{ ttsToast('🎁 获得进化材料：'+crMatName(k)+' ×'+(n||1),2600); }catch(e){} }
+}
+function crMatName(k){ return CR_STONES[k]||(k==='rainbow'?'🌈彩虹羽':k==='clover'?'🍀幸运草':k); }
+function crRandStone(group){ var arr=group?CR_STONE_GROUP[group]:Object.keys(CR_STONES); return arr[Math.floor(Math.random()*arr.length)]; }
+// 打卡时掉落材料：包一层earnCoins，比较打卡前后"今天哪类第一次全勤"
+var _crEvoPrevEarn=earnCoins;
+earnCoins=function(n,label){
+  var before=null;
+  try{ var d0=crLogToday(); before=d0?{s:d0.s,st:d0.st,h:d0.h}:null; }catch(e){}
+  var r=_crEvoPrevEarn.apply(this,arguments);
+  try{
+    if(typeof n==='number'&&n>0&&!/自测|Self-test|出售|卖出|拍卖|赠送/.test(String(label||''))&&before){
+      var d=crLogToday();
+      var gave=false;
+      ['s','st','h'].forEach(function(g){ if(d[g]&&!before[g]){ crAddMat(crRandStone(g),1); gave=true; } });
+      if(d.s&&d.st&&d.h&&!d.feather){ d.feather=1; crAddMat('rainbow',1); gave=true; }
+      if(!gave&&Math.random()<0.2) crAddMat(crRandStone(),1);
+    }
+  }catch(e){}
+  return r;
+};
+var _crEvoPrevSelfTest=crSelfTestReward;
+crSelfTestReward=function(correct,total,firstToday){
+  var html=_crEvoPrevSelfTest.apply(this,arguments), extra=[];
+  try{
+    var d=crLogToday();
+    if(total&&correct/total>=0.8&&(d.testStones||0)<3){ d.testStones=(d.testStones||0)+1; var k=crRandStone(); crAddMat(k,1,true); extra.push(crMatName(k)+' +1'); }
+    if(total&&correct===total&&!d.clover){ d.clover=1; crAddMat('clover',1,true); extra.push('🍀幸运草 +1'); }
+  }catch(e){}
+  return html+(extra.length?'<div style="font-size:14px;color:#2e7d32;margin-top:4px">🎁 进化材料：'+extra.join('　')+'</div>':'');
+};
+function crEvoNeed(id){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id]; if(!o||!l) return null;
+  if(o.stage>=l[3].length) return null;
+  var target=o.stage+1, lvReq=target===2?5:10;
+  return {target:target,lvReq:lvReq,ready:o.lv>=lvReq,stone:l[1],stones:target===2?3:5,rainbow:target===2?0:1,essence:target===2?30:80};
+}
+function crEvoRate(id,clovers){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id], need=crEvoNeed(id); if(!need) return null;
+  var base=(CR_EVO_RATE[need.target]||{})[l[2]]||0.5;
+  var parts=[['基础成功率（'+CR_RARITY[l[2]].n+'）',base]];
+  if(clovers) parts.push(['🍀幸运草×'+clovers,clovers*0.15]);
+  if(c.partner===id) parts.push(['💜学习伙伴',0.05]);
+  var pity=Math.min(0.3,((c.pity||{})[id]||0)*0.1); if(pity) parts.push(['越挫越勇（之前失败'+(c.pity[id])+'次）',pity]);
+  var tot=parts.reduce(function(a,p){ return a+p[1]; },0);
+  return {rate:Math.min(0.95,tot),parts:parts};
+}
+// 升级：等级到了进化门槛就卡住，必须先进化
+crLevelUp=function(id){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id]; if(!o) return;
+  var need=crEvoNeed(id);
+  if(o.lv>=10){ ttsToast('已经满级啦！',2000); return; }
+  if(need&&o.lv>=need.lvReq){ ttsToast('等级到上限啦，要先完成「进化仪式」才能继续升级哦！',3200); return; }
+  var cost=crLvCost(o.lv);
+  if(c.essence<cost){ ttsToast('精华还不够哦～多做几次自测就能攒到！',3000); return; }
+  c.essence-=cost; o.lv++; saveStore(); crDetail(id);
+  if(need&&o.lv>=need.lvReq){ try{ petHeartFx(4); }catch(e){} ttsToast('✨ '+l[3][o.stage-1][0]+' 可以进化啦！准备好材料去举行进化仪式吧～',3500); }
+};
+var CR_EVO_CLOVERS=0;
+var _crDetailOld=crDetail;
+crDetail=function(id){
+  _crDetailOld(id);
+  var c=crState(), o=c.owned[id], body=document.getElementById('creatureBody'); if(!o||!body) return;
+  if(c.shiny&&c.shiny[id]){ var tk=body.querySelector('div[style*="border-radius:50%"]'); if(tk){ tk.style.boxShadow='0 0 16px 6px rgba(255,255,255,.95),0 0 26px 10px rgba(255,215,64,.8)'; } }
+  var need=crEvoNeed(id); if(!need) return;
+  if(o.lv>=need.lvReq){ var lb=body.querySelector('button[onclick^="crLevelUp"]'); if(lb){ lb.disabled=true; lb.style.background='#bbb'; lb.textContent='🔒 等级已到上限，先完成下面的进化仪式'; } }
+  var m=crMats(), l=CR_LINE_MAP[id];
+  var have=function(k,n){ return '<span style="color:'+((m[k]||0)>=n?'#2e7d32':'#c62828')+'">'+(m[k]||0)+'/'+n+'</span>'; };
+  CR_EVO_CLOVERS=Math.min(CR_EVO_CLOVERS,m.clover||0,2);
+  var rr=crEvoRate(id,CR_EVO_CLOVERS);
+  var okMats=(m[need.stone]||0)>=need.stones&&(m.rainbow||0)>=need.rainbow&&c.essence>=need.essence;
+  var box=document.createElement('div');
+  box.style.cssText='background:linear-gradient(135deg,#ede7f6,#fff8e1);border-radius:12px;padding:10px;margin-top:8px;text-align:left;font-size:13px';
+  box.innerHTML='<b style="font-size:15px">🔮 进化仪式：→ '+l[3][need.target-1][0]+'</b>'
+    +'<div style="margin-top:4px">① 条件：精灵 Lv'+need.lvReq+'　'+(need.ready?'<span style="color:#2e7d32">✅ 已达成</span>':'<span style="color:#c62828">还差 '+(need.lvReq-o.lv)+' 级</span>')+'</div>'
+    +'<div>② 材料：'+crMatName(need.stone)+' '+have(need.stone,need.stones)+(need.rainbow?'　🌈彩虹羽 '+have('rainbow',need.rainbow):'')+'　💠精华 <span style="color:'+(c.essence>=need.essence?'#2e7d32':'#c62828')+'">'+c.essence+'/'+need.essence+'</span></div>'
+    +'<div>③ 成功率：<b style="font-size:16px;color:#6a1b9a">'+Math.round(rr.rate*100)+'%</b> <span style="color:#888;font-size:11px">（'+rr.parts.map(function(p){ return p[0]+' '+(p[1]>=0?'+':'')+Math.round(p[1]*100)+'%'; }).join('，')+'）</span></div>'
+    +'<div style="margin-top:4px">🍀 使用幸运草（有'+(m.clover||0)+'株）：'+[0,1,2].map(function(n){ return '<button class="btn '+(CR_EVO_CLOVERS===n?'btn-primary':'btn-gray')+' btn-sm" style="padding:2px 9px;margin-left:3px" '+(n>(m.clover||0)?'disabled':'')+' onclick="CR_EVO_CLOVERS='+n+';crDetail(\''+id+'\')">'+n+'</button>'; }).join('')+'</div>'
+    +'<div style="font-size:11px;color:#a0522d;margin-top:4px;line-height:1.5">⚠️ 失败的话：属性石、彩虹羽、幸运草都会用掉，精华只退一半；有30%可能精灵受反噬掉1级。不过失败后下次成功率+10%。</div>'
+    +'<button class="btn btn-block" style="margin-top:6px;font-weight:700;color:#fff;background:'+(need.ready&&okMats?'linear-gradient(90deg,#7b1fa2,#ff8f00)':'#bbb')+'" '+(need.ready&&okMats?'':'disabled')+' onclick="crEvolve(\''+id+'\')">'+(need.ready?(okMats?'✨ 开始进化仪式':'材料还不够'):'等级还不够')+'</button>';
+  var firstBtn=body.querySelector('button[onclick^="crLevelUp"]')||body.querySelector('button[onclick^="crSetPartner"]');
+  if(firstBtn) firstBtn.parentNode.insertBefore(box,firstBtn); else body.appendChild(box);
+};
+function crEvolve(id){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id], need=crEvoNeed(id), m=crMats(); if(!need||!need.ready) return;
+  if((m[need.stone]||0)<need.stones||(m.rainbow||0)<need.rainbow||c.essence<need.essence) return;
+  var clovers=Math.min(CR_EVO_CLOVERS,m.clover||0,2);
+  var rr=crEvoRate(id,clovers);
+  m[need.stone]-=need.stones; if(need.rainbow) m.rainbow-=need.rainbow; if(clovers) m.clover-=clovers;
+  c.essence-=need.essence; CR_EVO_CLOVERS=0;
+  var ok=Math.random()<rr.rate, crit=ok&&Math.random()<0.1, severe=!ok&&Math.random()<0.3;
+  if(!c.pity) c.pity={};
+  var body=document.getElementById('creatureBody');
+  // 仪式动画：精灵在光圈里发抖2.5秒
+  body.innerHTML=crTabs()+'<div style="padding:20px 0"><div style="font-size:15px;color:#6a1b9a;margin-bottom:10px">🔮 进化仪式进行中…</div>'
+    +'<div id="crEvoOrb" style="display:inline-block;border-radius:50%;padding:14px;background:radial-gradient(circle,#fff 0%,#e1bee7 55%,transparent 72%);animation:petScaredShake .25s ease-in-out infinite">'+crToken(id,o.stage,96)+'</div>'
+    +'<div style="font-size:13px;color:#888;margin-top:10px">成功率 '+Math.round(rr.rate*100)+'%　🤞</div></div>';
+  setTimeout(function(){
+    var html;
+    if(ok){
+      var from=l[3][o.stage-1][0];
+      o.stage=need.target; c.pity[id]=0;
+      if(crit){ if(!c.shiny) c.shiny={}; c.shiny[id]=true; c.essence+=30; }
+      html='<div style="font-size:18px;font-weight:800;color:#2e7d32">'+(crit?'🌟 大成功！闪光进化！🌟':'🎉 进化成功！')+'</div>'
+        +'<div style="margin:10px 0;animation:petHappyHop .5s ease-in-out 3">'+crToken(id,o.stage,110)+'</div>'
+        +'<div><b>'+from+'</b> 进化成了 <b style="color:#6a1b9a;font-size:18px">'+l[3][o.stage-1][0]+'</b>！</div>'
+        +(crit?'<div style="color:#f57f17;margin-top:4px">✨ 变成了稀有的闪光形态，还额外获得 💠精华 +30！</div>':'')
+        +'<div style="font-size:13px;color:#888;margin-top:4px">图鉴点亮了新形态，现在可以继续升级啦</div>';
+      try{ petHeartFx(10); }catch(e){}
+    }else{
+      var refund=Math.floor(need.essence/2); c.essence+=refund;
+      c.pity[id]=(c.pity[id]||0)+1;
+      var lost=false;
+      if(severe&&o.lv>1){ o.lv--; lost=true; }
+      html='<div style="font-size:18px;font-weight:800;color:#c62828">'+(lost?'💥 进化失败…受到反噬！':'😣 进化失败了…')+'</div>'
+        +'<div style="margin:10px 0;filter:saturate(.6)">'+crToken(id,o.stage,96)+'</div>'
+        +'<div style="font-size:14px;line-height:1.7">材料已经用掉了，退还 💠精华 '+refund
+        +(lost?'<br><span style="color:#c62828">'+l[3][o.stage-1][0]+' 受到反噬，等级 -1（现在 Lv'+o.lv+'）</span>':'')
+        +'<br><span style="color:#2e7d32">不要灰心！下次进化成功率 +10%（越挫越勇 ×'+c.pity[id]+'）</span></div>';
+    }
+    saveStore();
+    body.innerHTML=crTabs()+'<div style="padding:6px 0">'+html
+      +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="crDetail(\''+id+'\')">⬅ 回到精灵</button></div>';
+  },2600);
+}
+function crBuyClover(){
+  if((state.moneyBalance||0)<CR_CLOVER_PRICE){ ttsToast('金币不够哦～',2500); return; }
+  addCoinChange(-CR_CLOVER_PRICE,'精灵商店：购买幸运草'); crAddMat('clover',1,true); saveStore(); crRender('bag');
+}
+// 材料背包页
+var _crRenderEvoOld=crRender;
+crRender=function(tab){
+  CR_TAB=tab||CR_TAB;
+  if(CR_TAB!=='bag'){ _crRenderEvoOld(CR_TAB);
+    if(CR_TAB==='shop'){ var b=document.getElementById('creatureBody'); if(b){ var x=document.createElement('div'); x.style.cssText='margin-top:10px;background:#e8f5e9;border-radius:10px;padding:8px;font-size:13px'; x.innerHTML='🍀 幸运草（进化成功率+15%）：<button class="btn btn-primary btn-sm" onclick="crBuyClover()">🪙'+CR_CLOVER_PRICE+' 买1株</button>'; b.appendChild(x); } }
+    return; }
+  var body=document.getElementById('creatureBody'); if(!body) return;
+  var m=crMats();
+  var cell=function(k){ var mm=/^([^\u4e00-\u9fa5]+)(.*)$/.exec(crMatName(k))||['',crMatName(k),'']; return '<div style="background:#faf5fc;border-radius:10px;padding:6px 2px;text-align:center"><div style="font-size:22px">'+mm[1]+'</div><div style="font-size:11px">'+mm[2]+'</div><b>×'+(m[k]||0)+'</b></div>'; };
+  body.innerHTML=crTabs()
+    +'<div style="font-size:13px;color:#7b1fa2;margin-bottom:6px">🎒 进化材料（全部靠打卡获得）</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">'+Object.keys(CR_STONES).map(cell).join('')+cell('rainbow')+cell('clover')+'</div>'
+    +'<div class="small" style="margin-top:8px;text-align:left;line-height:1.7;color:#666">'
+    +'<b>怎么获得：</b><br>• 当天<b>运动</b>全勤 → 🔥火焰石/⚡雷电石/🌪️疾风石 随机1颗<br>• 当天<b>学习</b>全勤 → ✨光辉石/💧水滴石/❄️冰晶石 随机1颗<br>• 当天<b>家务</b>全勤 → 🌿森林石/🪨大地石/🌙暗影石 随机1颗<br>'
+    +'• 其它每次打卡：20% 概率掉 1 颗随机属性石<br>• 运动+学习+家务<b>三项全勤</b> → 🌈彩虹羽×1<br>• 学完自测 80 分以上 → 随机属性石（每天最多3颗）；<b>满分</b> → 🍀幸运草×1<br>• 🍀幸运草也能在商店用金币买<br>'
+    +'<b>进化需要：</b>一阶→二阶：Lv5 + 同属性石×3 + 精华30；二阶→三阶：Lv10 + 同属性石×5 + 🌈×1 + 精华80</div>';
+};
+var _crTabsEvoOld=crTabs;
+crTabs=function(){
+  var h=_crTabsEvoOld(), k=h.lastIndexOf('</div>');
+  return h.slice(0,k)+'<button class="btn '+(CR_TAB==='bag'?'btn-primary':'btn-gray')+' btn-sm" style="flex:1;padding:6px 2px;font-size:12px" onclick="crRender(\'bag\')">🎒 材料</button>'+h.slice(k);
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
