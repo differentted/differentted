@@ -51694,6 +51694,638 @@ document.addEventListener('visibilitychange', function(){
     petMinuteTick();
   }
 });
+/* ========== 2026-11新增：学习专注模式 + 学习计时 + 今日学习清单 + 五宠团队副本（天赋点） ==========
+   家长要求：
+   ① 小朋友学习的时候，宠物不能主动来互动（不走动、不说话、不互相打闹、不弹家庭事件）；
+      小朋友自己去点宠物也可以，但宠物只会提醒他认真学习。
+      "学习的时候" = 学习计时正在进行，或者正停在打卡页的 学习/守卫家园/阅读/故事 这几个板块。
+   ② 学习计时：自己选学多久、休息多久，时间到了提醒休息；这一轮学了什么会统计出来。
+      计时本身不发任何奖励，所以没有东西可刷。
+   ③ 今日学习清单：小朋友自己勾今天要做的打卡（3~8项，只能勾还没做的），确定后当天不能改。
+      全部做完按任务量发额外奖励（孵化能量→精灵图鉴、建材→3D小屋装修抵金币、属性石），一天只发一次；
+      完成情况直接看真实打卡记录，不能自己打勾。没做完：跨天时每差1项扣5金币（最多40），第二天清单奖励减半。
+   ④ 五宠团队副本：1坦克+1治疗+3输出。天赋点分三种，分别只能从家务/学习/运动打卡里拿
+      （每种每天最多3点），偏科的话某个位置天赋太低，小怪和Boss就打不过。 */
+function sxEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function sxModal(id,html,maxW){
+  var m=document.getElementById(id);
+  if(!m){ m=document.createElement('div'); m.className='modal-mask'; m.id=id;
+    m.innerHTML='<div class="modal" style="max-width:'+(maxW||480)+'px;width:100%;max-height:92vh;overflow:auto;text-align:left;padding:14px 12px"><button class="modal-close" onclick="hideModal(\''+id+'\')">✕</button><div id="'+id+'Body"></div></div>';
+    document.body.appendChild(m); }
+  document.getElementById(id+'Body').innerHTML=html; showModal(id); return m;
+}
+(function(){ var s=document.createElement('style'); s.textContent=''
+  +'#smChip{position:fixed;top:4px;left:50%;transform:translateX(-50%);z-index:9000;background:#283593;color:#fff;border-radius:16px;padding:4px 12px;font-weight:800;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;display:none;white-space:nowrap}'
+  +'#smChip.brk{background:#2e7d32}'
+  +'.sx-chip{display:inline-block;border:2px solid #d1c4e9;background:#fff;color:#4527a0;border-radius:14px;padding:5px 10px;margin:3px;font-size:13px;font-weight:700;cursor:pointer}'
+  +'.sx-chip.on{background:#5e35b1;color:#fff;border-color:#5e35b1}.sx-chip.off{opacity:.45;cursor:default;text-decoration:line-through}'
+  +'.sx-stat{display:inline-block;background:#e8eaf6;color:#283593;border-radius:10px;padding:3px 8px;margin:2px;font-size:13px;font-weight:700}'
+  +'.rd-bar{height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden}.rd-bar>div{height:100%;background:#43a047;transition:width .25s}'
+  +'.rd-pet{flex:1;min-width:0;text-align:center;position:relative;transition:transform .15s,opacity .3s}.rd-pet img{width:100%;max-width:64px;height:56px;object-fit:contain}.rd-pet.down{opacity:.3;filter:grayscale(1)}'
+  +'.rd-float{position:absolute;left:50%;top:0;transform:translateX(-50%);font-weight:900;font-size:16px;pointer-events:none;animation:rdFloat .8s ease-out forwards;white-space:nowrap;text-shadow:0 1px 0 #fff}'
+  +'@keyframes rdFloat{0%{opacity:1;margin-top:0}100%{opacity:0;margin-top:-34px}}'
+  +'@keyframes rdShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}';
+  document.head.appendChild(s); })();
+
+/* ---------------- ① 学习专注模式 ---------------- */
+var SM_STUDY_TABS=['study','math','readEn','readCn','story'];
+var SM_DUR=[15,20,25,30,40], SM_BRK=[5,10];
+var SM_LINES=['现在是学习时间，先认真学习哦～','嘘——我在旁边安静陪你，加油！','专心专心～学完再来摸我！','先把这一项做完，我等你！','认真学习的你最棒了，学完再一起玩！'];
+function smTimer(){ return (state&&state.studyTimer)||null; }
+function smTimerOn(){ var t=smTimer(); return !!(t&&t.phase==='study'); }
+function smOnStudyTab(){ try{ return pageActive('home')&&SM_STUDY_TABS.indexOf(store.checkinTab)>=0; }catch(e){ return false; } }
+function smStudying(){ return !!state&&(smTimerOn()||smOnStudyTab()); }
+function smLeftSec(){ var t=smTimer(); if(!t) return 0; var end=t.phase==='study'?t.start+t.dur*60000:(t.breakStart||0)+t.brk*60000; return Math.max(0,Math.round((end-Date.now())/1000)); }
+function smFmt(s){ var m=Math.floor(s/60), x=s%60; return (m<10?'0':'')+m+':'+(x<10?'0':'')+x; }
+function smRemindLine(){ if(smTimerOn()&&Math.random()<0.5) return '还有 '+Math.max(1,Math.ceil(smLeftSec()/60))+' 分钟就能休息啦，先专心学习！'; return pickLine(SM_LINES); }
+var _smLastSay=0;
+function smPetRemind(){ var now=Date.now(); if(now-_smLastSay<1500) return; _smLastSay=now; try{ petSay(smRemindLine(),2600); }catch(e){} }
+// 小朋友自己点/摸/拎宠物：只提醒认真学习
+var _smOrigTouch=petTouch;
+petTouch=function(){ if(smStudying()){ smPetRemind(); return; } return _smOrigTouch.apply(this,arguments); };
+var _smOrigCpTouch=companionPetTouch;
+companionPetTouch=function(idx){
+  if(smStudying()){
+    try{ var e=companionSprites[idx], p=state.pets&&state.pets[idx], now=Date.now();
+      if(e&&e.el&&p&&now-_smLastSay>1500){ _smLastSay=now; actSay({main:false,idx:idx,e:e,pet:p},smRemindLine()); } }catch(err){}
+    return;
+  }
+  return _smOrigCpTouch.apply(this,arguments);
+};
+var _smOrigStroke=lpPetStroke;
+lpPetStroke=function(){ if(smStudying()){ smPetRemind(); return; } return _smOrigStroke.apply(this,arguments); };
+var _smOrigCarry=lpStartCarry;
+lpStartCarry=function(){ if(smStudying()){ smPetRemind(); return; } return _smOrigCarry.apply(this,arguments); };
+// 宠物自己发起的互动/小动作/念叨：学习时全部安静
+var _smOrigPair=tryPetInteraction;
+tryPetInteraction=function(){ if(smStudying()) return; return _smOrigPair.apply(this,arguments); };
+var _smOrigAi=petAiTick;
+petAiTick=function(){ if(smStudying()){ scheduleAi(); return; } return _smOrigAi.apply(this,arguments); };
+var _smOrigFam=famStart;
+famStart=function(force){ if(smStudying()&&!force) return; return _smOrigFam.apply(this,arguments); };
+var _smOrigNag=maybeShowIdleNag;
+maybeShowIdleNag=function(){ if(smStudying()) return; return _smOrigNag.apply(this,arguments); };
+var _smOrigBathAsk=maybeAskForBath;
+maybeAskForBath=function(){ if(smStudying()) return; return _smOrigBathAsk.apply(this,arguments); };
+var _smOrigHiccup=petHiccupFireball;
+petHiccupFireball=function(){ if(smStudying()) return; return _smOrigHiccup.apply(this,arguments); };
+// 学习计时进行中：对战/格斗/精灵图鉴这些"玩"的入口先关着
+function smPlayBlocked(){ if(!smTimerOn()) return false; try{ ttsToast('⏱️ 现在是学习时间，还有 '+Math.max(1,Math.ceil(smLeftSec()/60))+' 分钟～休息的时候再来玩吧！',3000); }catch(e){} return true; }
+['openBattleMenu','openFightGame','openCreatures'].forEach(function(n){
+  var o=window[n]; if(typeof o!=='function') return;
+  window[n]=function(){ if(smPlayBlocked()) return; return o.apply(this,arguments); };
+});
+
+/* ---------------- ② 学习计时 + 已学内容统计 ---------------- */
+function smStat(){ var t=smTimer(); if(!t||t.phase!=='study') return null; if(!t.stats) t.stats={word:0,hanzi:0,sentence:0,quiz:0,quizOk:0,read:0,test:0,tasks:[],items:[]}; return t.stats; }
+var _smOrigLog=logLearned;
+logLearned=function(type,key){
+  var fresh=false; try{ var e0=learnLogEntry(type,key); fresh=!e0||e0.last!==todayKey(); }catch(e){}
+  var r=_smOrigLog.apply(this,arguments);
+  try{ var s=smStat(); if(s&&fresh&&LEARN_TYPES.indexOf(type)>=0){ s[type]++; if(s.items.length<40) s.items.push(type+'|'+key); } }catch(e1){}
+  return r;
+};
+var _smOrigQuiz=resolveQuiz;
+resolveQuiz=function(key,isCorrect){
+  var had=true; try{ had=!!quizState(key); }catch(e){}
+  var r=_smOrigQuiz.apply(this,arguments);
+  try{ var s=smStat(); if(s&&!had){ s.quiz++; if(isCorrect) s.quizOk++; } }catch(e1){}
+  return r;
+};
+var _smOrigRead=completeReadingTask;
+completeReadingTask=function(cat){
+  var b=0; try{ b=(state.day[cat]&&state.day[cat].count)||0; }catch(e){}
+  var r=_smOrigRead.apply(this,arguments);
+  try{ var s=smStat(); if(s&&((state.day[cat]&&state.day[cat].count)||0)>b) s.read++; }catch(e1){}
+  return r;
+};
+var _smOrigStFinish=stFinish;
+stFinish=function(){
+  var had=!!ST; var r=_smOrigStFinish.apply(this,arguments);
+  try{ var s=smStat(); if(s&&had) s.test++; }catch(e){}
+  return r;
+};
+function smStatsHtml(s){
+  s=s||{}; var out=[];
+  if(s.word) out.push('🔤 新单词 '+s.word+' 个');
+  if(s.hanzi) out.push('🀄 汉字 '+s.hanzi+' 个');
+  if(s.sentence) out.push('📝 句子 '+s.sentence+' 句');
+  if(s.quiz) out.push('✍️ 小测验 答对 '+(s.quizOk||0)+' / '+s.quiz+' 题');
+  if(s.read) out.push('📖 阅读 '+s.read+' 篇');
+  if(s.test) out.push('🧪 自测 '+s.test+' 次');
+  var html=out.map(function(x){ return '<span class="sx-stat">'+x+'</span>'; }).join('');
+  if(s.tasks&&s.tasks.length) html+='<div class="small" style="margin-top:4px;color:#2e7d32">✅ 完成打卡：'+s.tasks.map(sxEsc).join('、')+'</div>';
+  var words=(s.items||[]).filter(function(x){ return x.indexOf('word|')===0||x.indexOf('hanzi|')===0; }).map(function(x){ return x.split('|').slice(1).join('|'); });
+  if(words.length) html+='<div class="small" style="margin-top:4px;color:#5d4037">学过的：'+words.slice(0,20).map(sxEsc).join('　')+(words.length>20?' …':'')+'</div>';
+  return html||'<span class="small" style="color:#9e9e9e">这一轮还没有学习记录哦</span>';
+}
+function smEmpty(s){ return !s||!(s.word||s.hanzi||s.sentence||s.quiz||s.read||s.test||(s.tasks&&s.tasks.length)); }
+function smPickDur(n){ store.smDur=n; try{ saveStore(); }catch(e){} smRenderCard(); }
+function smPickBrk(n){ store.smBrk=n; try{ saveStore(); }catch(e){} smRenderCard(); }
+function smStart(){
+  if(!state) return;
+  var dur=SM_DUR.indexOf(store.smDur)>=0?store.smDur:25, brk=SM_BRK.indexOf(store.smBrk)>=0?store.smBrk:5;
+  state.studyTimer={start:Date.now(),dur:dur,brk:brk,phase:'study',stats:null}; smStat();
+  try{ saveStore(); }catch(e){}
+  try{ petSay('学习开始！我安静陪着你，加油～',2600); }catch(e1){}
+  smRenderCard(); smTick();
+}
+function smRecord(t,mins,done){
+  if(!state.studySessions) state.studySessions=[];
+  state.studySessions.push({day:todayKey(),t:t.start,min:mins,plan:t.dur,done:done?1:0,s:t.stats||{}});
+  if(state.studySessions.length>40) state.studySessions=state.studySessions.slice(-40);
+  if(state.day){ state.day.studyMin=(state.day.studyMin||0)+mins; if(done) state.day.studyRounds=(state.day.studyRounds||0)+1; }
+}
+function smSummaryHtml(title,t,mins,extra){
+  return '<div style="text-align:center"><div style="font-size:52px;line-height:1.1">'+(extra&&extra.icon||'⏰')+'</div><h3 style="margin:4px 0;color:#283593">'+title+'</h3>'
+    +'<div class="small" style="color:#5d4037">这一轮专心学习了 <b>'+mins+'</b> 分钟，今天一共 <b>'+((state.day&&state.day.studyMin)||0)+'</b> 分钟</div></div>'
+    +'<div style="background:#f3f4fb;border-radius:12px;padding:8px;margin:8px 0"><b>📊 这一轮学了什么</b><div style="margin-top:4px">'+smStatsHtml(t.stats)+'</div></div>'
+    +(smEmpty(t.stats)?'<div class="small" style="background:#fff3e0;border-radius:10px;padding:6px 8px;color:#e65100">这一轮计时里没有看到学习记录。下次打开计时后，记得在「学习」板块里背单词、做题、阅读哦～</div>':'');
+}
+function smFinishStudy(skipBreak){
+  var t=smTimer(); if(!t||t.phase!=='study') return;
+  smRecord(t,t.dur,true);
+  var html=smSummaryHtml('学习时间到！',t,t.dur);
+  if(skipBreak){ state.studyTimer=null; html+='<button class="btn btn-primary btn-block" onclick="hideModal(\'smModal\')">好的</button>'; }
+  else{ t.phase='break'; t.breakStart=Date.now();
+    html+='<div style="background:#e8f5e9;border-radius:12px;padding:8px;text-align:center;color:#2e7d32;font-weight:800">☕ 现在休息 '+t.brk+' 分钟：站起来走一走、喝点水、看看远处</div>'
+      +'<button class="btn btn-success btn-block" style="margin-top:8px" onclick="hideModal(\'smModal\')">好的，去休息</button>'; }
+  try{ saveStore(); }catch(e){}
+  sxModal('smModal',html,440);
+  try{ studySpeak('学习时间到，休息一下吧','zh-CN'); }catch(e1){}
+  try{ petSay('辛苦啦！休息一下，现在可以找我玩啦～',3000); }catch(e2){}
+  smRenderCard(); smUpdateChip();
+}
+function smStopEarly(){
+  var t=smTimer(); if(!t||t.phase!=='study') return;
+  var mins=Math.floor((Date.now()-t.start)/60000);
+  if(!confirm('还剩 '+Math.max(1,Math.ceil(smLeftSec()/60))+' 分钟，真的要提前结束这一轮学习吗？')) return;
+  smRecord(t,mins,false); state.studyTimer=null;
+  try{ saveStore(); }catch(e){}
+  sxModal('smModal',smSummaryHtml('这一轮提前结束了',t,mins,{icon:'⏹'})+'<button class="btn btn-primary btn-block" onclick="hideModal(\'smModal\')">好的</button>',440);
+  smRenderCard(); smUpdateChip();
+}
+function smEndBreak(ask){
+  var t=smTimer(); if(!t||t.phase!=='break') return;
+  state.studyTimer=null; try{ saveStore(); }catch(e){}
+  smRenderCard(); smUpdateChip();
+  if(ask){
+    sxModal('smModal','<div style="text-align:center"><div style="font-size:52px">🔔</div><h3 style="margin:4px 0;color:#2e7d32">休息结束啦</h3><div class="small">今天已经专心学习 '+((state.day&&state.day.studyMin)||0)+' 分钟。要再学一轮吗？</div></div>'
+      +'<button class="btn btn-primary btn-block" style="margin-top:10px" onclick="hideModal(\'smModal\');smStart()">▶ 再学一轮</button>'
+      +'<button class="btn btn-gray btn-block" onclick="hideModal(\'smModal\')">今天先到这里</button>',400);
+    try{ studySpeak('休息结束啦','zh-CN'); }catch(e1){}
+  }
+}
+function smUpdateChip(){
+  var c=document.getElementById('smChip');
+  if(!c){ c=document.createElement('div'); c.id='smChip'; c.onclick=function(){ try{ showPage('home'); window.scrollTo(0,0); }catch(e){} }; document.body.appendChild(c); }
+  var t=smTimer();
+  if(!t){ c.style.display='none'; return; }
+  c.style.display='block'; c.className=t.phase==='break'?'brk':'';
+  c.textContent=(t.phase==='break'?'☕ 休息 ':'📖 学习中 ')+smFmt(smLeftSec());
+}
+function smTick(){
+  if(!state) return;
+  var t=smTimer();
+  if(t){
+    if(t.phase==='study'&&smLeftSec()<=0){
+      // 页面关了很久才回来：休息时间也早过了，就不再进休息
+      smFinishStudy(Date.now()>t.start+(t.dur+t.brk)*60000);
+    }else if(t.phase==='break'&&smLeftSec()<=0){
+      smEndBreak(Date.now()<(t.breakStart||0)+(t.brk+10)*60000);
+    }
+  }
+  smUpdateChip();
+  var cd=document.getElementById('smCountdown'); if(cd&&smTimer()) cd.textContent=smFmt(smLeftSec());
+  var bar=document.getElementById('smBar'); t=smTimer();
+  if(bar&&t&&t.phase==='study') bar.style.width=Math.min(100,Math.round((Date.now()-t.start)/(t.dur*600)))+'%';
+  var live=document.getElementById('smLive'); if(live&&t&&t.phase==='study') live.innerHTML=smStatsHtml(t.stats);
+}
+setInterval(smTick,1000);
+function smHistory(){
+  var all=state.studySessions||[], byDay={};
+  all.forEach(function(x){ var d=byDay[x.day]||(byDay[x.day]={min:0,n:0,list:[]}); d.min+=x.min; d.n++; d.list.push(x); });
+  var days=Object.keys(byDay).sort(function(a,b){ return parseKey(b)-parseKey(a); }).slice(0,7);
+  var html='<h3 style="margin:2px 0 8px;text-align:center">📊 学习计时记录</h3>';
+  if(!days.length) html+='<div class="small" style="text-align:center;color:#9e9e9e">还没有记录，开始第一轮学习计时吧～</div>';
+  days.forEach(function(k){
+    var d=byDay[k];
+    html+='<div style="background:#f3f4fb;border-radius:12px;padding:8px;margin-bottom:8px"><b>'+(k===todayKey()?'今天':k)+'</b>：专心学习 '+d.min+' 分钟（'+d.n+' 轮）';
+    d.list.forEach(function(x){ var tm=new Date(x.t); html+='<div style="border-top:1px dashed #c5cae9;margin-top:6px;padding-top:6px"><span class="small">'+('0'+tm.getHours()).slice(-2)+':'+('0'+tm.getMinutes()).slice(-2)+' 开始 · '+x.min+' 分钟'+(x.done?'':'（提前结束）')+'</span><div>'+smStatsHtml(x.s)+'</div></div>'; });
+    html+='</div>';
+  });
+  sxModal('smModal',html,480);
+}
+function smRenderCard(){
+  var box=document.getElementById('smCard'); if(!box||!state) return;
+  var t=smTimer(), html='<h2 style="margin-bottom:4px">⏱️ 学习计时</h2>';
+  var today='今天已专心学习 <b>'+((state.day&&state.day.studyMin)||0)+'</b> 分钟（完成 '+((state.day&&state.day.studyRounds)||0)+' 轮）';
+  if(!t){
+    var dur=SM_DUR.indexOf(store.smDur)>=0?store.smDur:25, brk=SM_BRK.indexOf(store.smBrk)>=0?store.smBrk:5;
+    html+='<div class="small" style="margin-bottom:4px">选好学多久，时间到了我会提醒你休息。学习的时候宠物会安静陪着你，不来打扰。</div>'
+      +'<div><span class="small">学习：</span>'+SM_DUR.map(function(n){ return '<span class="sx-chip'+(n===dur?' on':'')+'" onclick="smPickDur('+n+')">'+n+' 分钟</span>'; }).join('')+'</div>'
+      +'<div><span class="small">休息：</span>'+SM_BRK.map(function(n){ return '<span class="sx-chip'+(n===brk?' on':'')+'" onclick="smPickBrk('+n+')">'+n+' 分钟</span>'; }).join('')+'</div>'
+      +'<button class="btn btn-primary btn-block" style="margin-top:6px" onclick="smStart()">▶ 开始学习</button>';
+  }else if(t.phase==='study'){
+    html+='<div style="text-align:center"><div class="small">📖 学习中，还剩</div><div id="smCountdown" style="font-size:40px;font-weight:900;color:#283593;line-height:1.2">'+smFmt(smLeftSec())+'</div>'
+      +'<div class="rd-bar" style="margin:4px 0 8px"><div id="smBar" style="background:#5c6bc0;width:0"></div></div></div>'
+      +'<div style="background:#f3f4fb;border-radius:12px;padding:8px"><b>📊 这一轮已经学了</b><div id="smLive" style="margin-top:4px">'+smStatsHtml(t.stats)+'</div></div>'
+      +'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="smStopEarly()">⏹ 提前结束</button>';
+  }else{
+    html+='<div style="text-align:center"><div class="small">☕ 休息中，还剩</div><div id="smCountdown" style="font-size:40px;font-weight:900;color:#2e7d32;line-height:1.2">'+smFmt(smLeftSec())+'</div>'
+      +'<div class="small">站起来走一走、喝点水、看看远处吧</div></div>'
+      +'<button class="btn btn-gray btn-sm" style="margin-top:6px" onclick="smEndBreak(false)">结束休息</button>';
+  }
+  html+='<div class="row-between" style="margin-top:8px"><span class="small">'+today+'</span><button class="btn btn-gray btn-sm" onclick="smHistory()">📊 学习记录</button></div>';
+  box.innerHTML=html;
+}
+
+/* ---------------- ③ 今日学习清单 ---------------- */
+var TP_CATS=['sport','study','house','fun','diary','comm'], TP_MIN=3, TP_MAX=8, TP_FINE_EACH=5, TP_FINE_MAX=40;
+var TP_CAT_NAME={sport:'🏃 运动',study:'📖 学习',house:'🧹 家务',fun:'🎉 娱乐',diary:'📔 日记',comm:'☎️ 沟通'};
+var TP_SEL={}, TP_SEL_DAY=null;
+function tpPlan(){ return (state&&state.day&&state.day.plan)||null; }
+function tpCandidates(){
+  var out=[];
+  TP_CATS.forEach(function(c){
+    var defs=(store.taskDefs&&store.taskDefs[c])||[];
+    if(c==='study') defs=defs.filter(function(t){ return studyTaskVisible(t.id); });
+    defs.forEach(function(t){ out.push({c:c,k:t.id}); });
+  });
+  return out;
+}
+function tpDoneIn(d,it){ var x=d&&d[it.c]; return !!(x&&x[it.k]); }
+function tpLabel(it){ var def=taskDef(it.c,it.k); var lb=''; try{ lb=taskLabel(it.c,it.k); }catch(e){ lb=it.k; } return ((def&&def.emoji)?def.emoji+' ':'')+lb; }
+function tpReward(n,cats,half){
+  var en=Math.min(TP_MAX,n), br=Math.min(4,Math.floor(n/2)), st=(n>=6&&cats>=2)?1:0;
+  if(half){ en=Math.max(1,Math.floor(en/2)); br=Math.floor(br/2); st=0; }
+  return {en:en,br:br,st:st};
+}
+function tpCatCount(items){ var m={}; items.forEach(function(it){ m[it.c]=1; }); return Object.keys(m).length; }
+function tpRewardText(r){ return '⚡ 孵化能量 +'+r.en+(r.br?'　🧱 小屋建材 +'+r.br:'')+(r.st?'　💎 属性石 +1':''); }
+function tpSelItems(){ if(TP_SEL_DAY!==todayKey()){ TP_SEL={}; TP_SEL_DAY=todayKey(); } return tpCandidates().filter(function(it){ return TP_SEL[it.c+'|'+it.k]&&!tpDoneIn(state.day,it); }); }
+function tpToggle(i){
+  if(tpPlan()&&tpPlan().locked) return;
+  var it=tpCandidates()[i]; if(!it||tpDoneIn(state.day,it)) return;
+  var k=it.c+'|'+it.k;
+  if(!TP_SEL[k]&&tpSelItems().length>=TP_MAX){ ttsToast('一天最多选 '+TP_MAX+' 项，量力而行哦～',2500); return; }
+  TP_SEL[k]=!TP_SEL[k]; tpRender();
+}
+function tpLock(){
+  if(tpPlan()&&tpPlan().locked) return;
+  var items=tpSelItems();
+  if(items.length<TP_MIN){ ttsToast('至少要选 '+TP_MIN+' 项还没做的打卡哦～',2500); return; }
+  if(!confirm('今天的清单一共 '+items.length+' 项。\n确定以后今天就不能再改了，没做完会扣金币。\n确定吗？')) return;
+  state.day.plan={items:items.map(function(it){ return {c:it.c,k:it.k}; }),locked:true,at:Date.now(),half:!!state.planHalfNext,rewarded:false};
+  state.planHalfNext=false; TP_SEL={};
+  try{ addLog('📋 定好了今日学习清单：'+items.map(tpLabel).join('、')); }catch(e){}
+  save();
+}
+function tpGrant(p,silent){
+  var r=tpReward(p.items.length,tpCatCount(p.items),p.half), stone='';
+  p.rewarded=true;
+  try{ crAddEnergy(r.en,'今日学习清单'); }catch(e){}
+  if(r.br){ var h=hbState(); h.bricks=(h.bricks||0)+r.br; }
+  if(r.st){ try{ var k=crRandStone(); crAddMat(k,1,true); stone=crMatName(k); }catch(e1){} }
+  state.planStreak=(state.planStreak||0)+1;
+  try{ addLog('📋 今日学习清单全部完成！'+tpRewardText(r)); }catch(e2){}
+  try{ saveStore(); }catch(e3){}
+  if(!silent) setTimeout(function(){ try{ showReward('📋 清单全部完成！','今天说到做到，<b>'+p.items.length+' 项</b>全部完成啦！<br>'+tpRewardText(r)+(stone?'（'+stone+'）':'')+'<br><span class="small">孵化能量去「✨ 精灵图鉴」用，建材在「🛠️ 小屋装修」里抵金币</span>'); }catch(e){} },700);
+}
+function tpCheck(){
+  var p=tpPlan(); if(!p||!p.locked||p.rewarded) return;
+  if(p.items.every(function(it){ return tpDoneIn(state.day,it); })) tpGrant(p,false);
+}
+// 跨天结算：昨天定了清单却没做完 → 扣金币 + 今天清单奖励减半
+function tpSettle(d){
+  var p=d&&d.plan; if(!p||!p.locked||p.rewarded||p.settled) return;
+  p.settled=true;
+  var un=p.items.filter(function(it){ return !tpDoneIn(d,it); });
+  if(!un.length){ tpGrant(p,true); return; }
+  var fine=Math.min(Math.max(0,Math.floor(state.moneyBalance||0)),Math.min(TP_FINE_MAX,un.length*TP_FINE_EACH));
+  if(fine>0) addCoinChange(-fine,'📋 '+d.key+' 的学习清单没完成（差 '+un.length+' 项）');
+  state.planHalfNext=true; state.planStreak=0;
+  state.planNotice={day:d.key,un:un.map(tpLabel),total:p.items.length,fine:fine};
+  try{ addLog('📋 '+d.key+' 的学习清单差 '+un.length+' 项没完成：扣 '+fine+' 金币，下一次清单奖励减半'); }catch(e){}
+}
+var _tpOrigNewDay=onNewDay;
+onNewDay=function(){
+  try{ if(state&&state.day&&state.day.key!==todayKey()) tpSettle(state.day); }catch(e){}
+  return _tpOrigNewDay.apply(this,arguments);
+};
+function tpShowNotice(){
+  var n=state&&state.planNotice; if(!n) return;
+  if(document.querySelector('.modal-mask.show')) return;
+  delete state.planNotice; try{ saveStore(); }catch(e){}
+  sxModal('tpModal','<div style="text-align:center"><div style="font-size:52px">📋</div><h3 style="margin:4px 0;color:#c62828">'+sxEsc(n.day)+' 的清单没有完成</h3></div>'
+    +'<div style="font-size:14px;line-height:1.7;color:#4e342e">自己定的 '+n.total+' 项里，还差 <b>'+n.un.length+'</b> 项没做：<div style="background:#ffebee;border-radius:10px;padding:6px 10px;margin:6px 0;color:#c62828">'+n.un.map(sxEsc).join('、')+'</div>'
+    +'<b>说到要做到：</b><br>🪙 扣金币 '+n.fine+'<br>📉 下一次清单的奖励减半<br><span class="small">今天定一个做得完的清单，全部完成就恢复正常啦！</span></div>'
+    +'<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="hideModal(\'tpModal\')">我知道了，今天说到做到</button>',440);
+}
+function tpRender(){
+  var box=document.getElementById('tpCard'); if(!box||!state||!state.day) return;
+  var p=tpPlan(), html='<h2 style="margin-bottom:4px">📋 今日学习清单'+((state.planStreak||0)>0?' <span class="small" style="color:#2e7d32">已连续完成 '+state.planStreak+' 天</span>':'')+'</h2>';
+  if(p&&p.locked){
+    var done=p.items.filter(function(it){ return tpDoneIn(state.day,it); }).length, r=tpReward(p.items.length,tpCatCount(p.items),p.half);
+    html+='<div class="rd-bar" style="margin:4px 0"><div style="width:'+Math.round(done/p.items.length*100)+'%"></div></div><div class="small">完成 '+done+' / '+p.items.length+' 项（做完真实打卡会自动打勾）</div><div style="margin:4px 0">'
+      +p.items.map(function(it){ var ok=tpDoneIn(state.day,it); return '<div style="padding:3px 0;font-size:14px;'+(ok?'color:#2e7d32':'')+'">'+(ok?'✅':'⬜')+' '+sxEsc(tpLabel(it))+' <span class="small" style="color:#9e9e9e">'+TP_CAT_NAME[it.c]+'</span></div>'; }).join('')+'</div>';
+    if(p.rewarded) html+='<div style="background:#e8f5e9;border-radius:10px;padding:6px 10px;color:#2e7d32;font-weight:800">🎉 全部完成，奖励已发放：'+tpRewardText(r)+'</div>';
+    else html+='<div style="background:#fff8e1;border-radius:10px;padding:6px 10px;font-size:13px;line-height:1.6">🎁 全部完成奖励：'+tpRewardText(r)+(p.half?'（上次没完成，这次减半）':'')+'<br>⚠️ 今天没做完：每差 1 项扣 '+TP_FINE_EACH+' 金币（最多 '+TP_FINE_MAX+'），明天清单奖励减半<br>🔒 清单今天已经锁定，不能更改</div>';
+  }else{
+    var cands=tpCandidates(), sel=tpSelItems(), cur='';
+    html+='<div class="small" style="margin-bottom:4px">自己选今天要做的打卡（'+TP_MIN+'~'+TP_MAX+' 项，只能选还没做的）。选得越多、全部做完奖励越多；<b>确定后今天不能改，没做完会扣金币</b>。</div>'
+      +(state.planHalfNext?'<div class="small" style="background:#ffebee;border-radius:8px;padding:4px 8px;color:#c62828;margin-bottom:4px">📉 上一次清单没完成，这次的奖励减半；这次全部完成就恢复正常。</div>':'');
+    cands.forEach(function(it,i){
+      if(it.c!==cur){ cur=it.c; html+='<div class="small" style="margin-top:4px;font-weight:800;color:#6a1b9a">'+TP_CAT_NAME[it.c]+'</div>'; }
+      var dn=tpDoneIn(state.day,it), on=!dn&&TP_SEL[it.c+'|'+it.k];
+      html+='<span class="sx-chip'+(dn?' off':on?' on':'')+'" onclick="tpToggle('+i+')">'+(on?'☑ ':'')+sxEsc(tpLabel(it))+(dn?'（已完成）':'')+'</span>';
+    });
+    var r2=tpReward(sel.length,tpCatCount(sel),!!state.planHalfNext);
+    html+='<div style="background:#f3e5f5;border-radius:10px;padding:6px 10px;margin-top:6px;font-size:13px">已选 <b>'+sel.length+'</b> 项'+(sel.length>=TP_MIN?'　🎁 全部完成奖励：'+tpRewardText(r2):'（至少选 '+TP_MIN+' 项）')+'</div>'
+      +'<button class="btn '+(sel.length>=TP_MIN?'btn-primary':'btn-gray')+' btn-block" style="margin-top:6px" onclick="tpLock()">🔒 确定今日清单</button>';
+  }
+  box.innerHTML=html;
+}
+// 建材：在小屋装修商店里抵金币（1块抵10金币，最多抵一半）
+var TP_BRICK_COIN=10;
+function tpBrickUse(price){ var h=hbState(); return Math.min(h.bricks||0,Math.floor(price*0.5/TP_BRICK_COIN)); }
+var _tpOrigDiyRender=diyRender;
+diyRender=function(){
+  var r=_tpOrigDiyRender.apply(this,arguments);
+  try{ var b=document.getElementById('diyBody'), n=hbState().bricks||0, d=document.createElement('div');
+    d.style.cssText='background:#efebe9;border-radius:12px;padding:6px 10px;margin-bottom:8px;font-size:13px;color:#4e342e';
+    d.innerHTML='🧱 我的建材：<b>'+n+'</b> 块　<span class="small">完成「今日学习清单」获得。买装修时每块自动抵 '+TP_BRICK_COIN+' 金币，最多抵价格的一半。</span>';
+    b.insertBefore(d,b.children[2]||null); }catch(e){}
+  return r;
+};
+diyBuy=function(id,lv){
+  var it=DIY_ITEMS.filter(function(x){ return x.id===id; })[0], o=it&&it.lv[lv]; if(!o) return;
+  var bal=state.moneyBalance||0, use=tpBrickUse(o.p), pay=o.p-use*TP_BRICK_COIN;
+  if(bal<pay){ ttsToast('金币还差 '+(pay-bal)+' 个哦～多完成打卡任务就能攒够！',3200); return; }
+  if(!confirm('买「'+o.n+'」（'+['','高配','豪华'][lv]+'）：'+(use?'用 '+use+' 块建材抵 '+use*TP_BRICK_COIN+' 金币，再花 ':'花 ')+pay+' 金币，确定吗？')) return;
+  if(pay>0) addCoinChange(-pay,'小屋装修：'+it.name+'·'+o.n);
+  if(use) hbState().bricks-=use;
+  var s=diyState(); (s.own[id]=s.own[id]||[]).push(lv); s.eq[id]=lv;
+  try{ saveStore(); }catch(e){}
+  ttsToast('🎉 买好啦！「'+o.n+'」已经装到小屋里了',2800);
+  diyRender(); diyRebuild();
+};
+
+/* ---------------- ④ 五宠团队副本 + 天赋点 ---------------- */
+var RD_SLOT_ROLE=['tank','heal','dps','dps','dps'];
+var RD_ROLE={
+  tank:{n:'坦克',ic:'🛡️',line:'def',tn:'守护天赋',src:'🧹 家务打卡',tip:'站最前面挨打，血厚、能减伤'},
+  heal:{n:'治疗',ic:'💚',line:'heal',tn:'治愈天赋',src:'📖 学习打卡',tip:'每回合给受伤的队友回血'},
+  dps:{n:'输出',ic:'⚔️',line:'atk',tn:'攻击天赋',src:'🏃 运动打卡',tip:'负责打伤害，Boss狂暴前要打完'}
+};
+var RD_PT={atk:{n:'力量点',ic:'💪'},heal:{n:'智慧点',ic:'📘'},def:{n:'守护点',ic:'🛡️'},free:{n:'灵感点',ic:'✨'}};
+var RD_PT_CAP={atk:3,heal:3,def:3,free:1}, RD_CAT_PT={sport:'atk',study:'heal',house:'def',fun:'free',diary:'free',comm:'free'};
+var RD_TAL_MAX=15, RD_TRIES=3, RD_AFF_MUL=1.15;
+// 每种宠物的"本命位置"：放在对的位置上效果 +15%
+var RD_AFF={long_pang:'tank',xiaojinlong:'tank',naolong:'tank',long_qing:'tank',
+  tu_bai:'heal',tu_chuier:'heal',tu_fen:'heal',mao_fen:'heal',shuangyu:'heal',
+  xiaojinlin:'dps',mao_ju:'dps',long_caihong:'dps',long_huo:'dps',lang_bao:'dps',long_leiting:'dps'};
+var RD_STAGES=[
+  {id:1,name:'萌芽草原',ic:'🌱',mob:['🟢','软软史莱姆'],boss:['👑','史莱姆大王'],req:0,coin:10,en:1},
+  {id:2,name:'迷雾森林',ic:'🌲',mob:['🍄','蘑菇小怪'],boss:['🐗','森林野猪王'],req:2,coin:16,en:1},
+  {id:3,name:'熔岩洞窟',ic:'🌋',mob:['🦇','火焰蝙蝠'],boss:['🦖','熔岩暴龙'],req:4,coin:22,en:2},
+  {id:4,name:'冰霜雪山',ic:'🏔️',mob:['⛄','捣蛋雪人'],boss:['🐻‍❄️','冰原熊王'],req:6,coin:28,en:2},
+  {id:5,name:'雷霆高塔',ic:'⚡',mob:['👻','闪电幽灵'],boss:['🦅','雷鸟领主'],req:9,coin:34,en:3},
+  {id:6,name:'暗影龙巢',ic:'🌑',mob:['🦂','暗影毒蝎'],boss:['🐲','暗影魔龙'],req:12,coin:40,en:3}
+];
+function rdState(){
+  if(!state.raid) state.raid={};
+  var r=state.raid;
+  if(!r.pts) r.pts={}; ['atk','heal','def','free'].forEach(function(k){ if(typeof r.pts[k]!=='number') r.pts[k]=0; });
+  if(!Array.isArray(r.team)||r.team.length!==5) r.team=null;
+  if(!Array.isArray(r.helpers)||r.helpers.length!==5) r.helpers=[{},{},{},{},{}];
+  if(!r.clears) r.clears={};
+  return r;
+}
+function rdDay(){ var d=state.day; if(!d.raid) d.raid={tries:0,cleared:{},tp:{}}; if(!d.raid.tp) d.raid.tp={}; if(!d.raid.cleared) d.raid.cleared={}; return d.raid; }
+function rdGainPoint(cat){
+  var k=RD_CAT_PT[cat]; if(!k||!state) return;
+  var d=rdDay(); if((d.tp[k]||0)>=RD_PT_CAP[k]) return;
+  d.tp[k]=(d.tp[k]||0)+1; rdState().pts[k]++;
+  setTimeout(function(){ try{ ttsToast(RD_PT[k].ic+' 天赋'+RD_PT[k].n+' +1（今天 '+d.tp[k]+'/'+RD_PT_CAP[k]+'）',2200); }catch(e){} },1500);
+}
+// 真实打卡完成时：发天赋点、记进学习计时统计（免做卡豁免的不算）
+var _rdOrigMarkDone=markDone;
+markDone=function(cat,key,viaFree){
+  var r=_rdOrigMarkDone.apply(this,arguments);
+  try{ if(!viaFree) rdGainPoint(cat); }catch(e){}
+  try{ var s=smStat(); if(s&&!viaFree&&s.tasks.length<20) s.tasks.push(taskLabel(cat,key)); }catch(e1){}
+  return r;
+};
+function rdPetOk(p){ return !!(p&&p.chosen&&p.hatched&&!p.injured); }
+function rdEligible(){ var out=[]; (state.pets||[]).forEach(function(p,i){ if(rdPetOk(p)) out.push(i); }); return out; }
+function rdTeam(){
+  var r=rdState(), ok=rdEligible();
+  if(!r.team){ // 第一次：按本命位置自动排一个队
+    var left=ok.slice(), team=[-1,-1,-1,-1,-1];
+    RD_SLOT_ROLE.forEach(function(role,i){ for(var j=0;j<left.length;j++){ if(RD_AFF[state.pets[left[j]].type]===role){ team[i]=left[j]; left.splice(j,1); break; } } });
+    [2,3,4,0,1].forEach(function(i){ if(team[i]<0&&left.length) team[i]=left.shift(); });
+    r.team=team;
+  }
+  var seen={};
+  r.team=r.team.map(function(x){ if(typeof x!=='number'||ok.indexOf(x)<0||seen[x]) return -1; seen[x]=1; return x; });
+  return r.team;
+}
+function rdTalOf(i){
+  var idx=rdTeam()[i], o;
+  if(idx>=0){ o=state.pets[idx]; if(!o.talent) o.talent={}; o=o.talent; } else o=rdState().helpers[i];
+  ['def','heal','atk'].forEach(function(k){ if(typeof o[k]!=='number') o[k]=0; });
+  return o;
+}
+function rdCost(lv){ return 1+Math.floor(lv/3); }
+function rdUp(i){
+  var role=RD_SLOT_ROLE[i], line=RD_ROLE[role].line, t=rdTalOf(i), lv=t[line], pts=rdState().pts;
+  if(lv>=RD_TAL_MAX){ ttsToast('这个天赋已经满级啦！',2000); return; }
+  var cost=rdCost(lv), own=pts[line]+pts.free;
+  if(own<cost){ ttsToast('还差 '+(cost-own)+' 点'+RD_PT[line].n+'：多做'+RD_ROLE[role].src+'就有啦（每天最多 '+RD_PT_CAP[line]+' 点）',3600); return; }
+  var a=Math.min(pts[line],cost); pts[line]-=a; pts.free-=(cost-a);
+  t[line]=lv+1; try{ saveStore(); }catch(e){} rdRender();
+}
+function rdSetSlot(i,v){
+  var team=rdTeam(); v=parseInt(v,10); if(isNaN(v)) v=-1;
+  if(v>=0){ var j=team.indexOf(v); if(j>=0&&j!==i) team[j]=team[i]; }
+  team[i]=v; try{ saveStore(); }catch(e){} rdRender();
+}
+function rdMembers(){
+  var team=rdTeam(), lvs=[];
+  team.forEach(function(idx){ if(idx>=0) lvs.push(petLevelInfo(state.pets[idx]).level); });
+  var avg=lvs.length?lvs.reduce(function(a,b){ return a+b; },0)/lvs.length:1, helperLv=Math.max(1,Math.round(avg*0.6));
+  return team.map(function(idx,i){
+    var role=RD_SLOT_ROLE[i], pet=idx>=0?state.pets[idx]:null, lv=pet?Math.max(1,petLevelInfo(pet).level):helperLv;
+    var st=dungeonPetBattleStats(lv), d=(st.dmgMin+st.dmgMax)/2, tal=rdTalOf(i), aff=!!(pet&&RD_AFF[pet.type]===role), am=aff?RD_AFF_MUL:1;
+    var m={i:i,role:role,pet:pet,name:pet?pet.name:'见习帮手',lv:lv,aff:aff,tal:tal[RD_ROLE[role].line],baseHp:st.hpMax,baseD:d,img:pet?petDisplayImgSrc(pet):null,mit:0,heal:0};
+    if(role==='tank'){ m.hpMax=Math.round(st.hpMax*4*(1+0.15*tal.def)*am); m.mit=Math.min(0.6,0.04*tal.def); m.dmg=d*0.4; }
+    else if(role==='heal'){ m.hpMax=Math.round(st.hpMax*1.5); m.heal=d*1.2*(1+0.2*tal.heal)*am; m.dmg=d*0.3; }
+    else { m.hpMax=Math.round(st.hpMax*1.5); m.dmg=d*(1+0.15*tal.atk)*am; }
+    return m;
+  });
+}
+/* 战斗模拟（不碰界面，先算完整场，再按记录播放动画）。
+   怪物强度按队伍平均基础数值×关卡"推荐天赋等级"算，所以决定胜负的是三种天赋够不够、均不均衡：
+   - 守护/治愈不够：坦克被打倒，后排很快跟着倒
+   - 攻击不够：Boss战第11回合起狂暴（伤害×4），拖不起 */
+function rdSim(members,stg,rnd){
+  rnd=rnd||Math.random;
+  var T=members.map(function(m){ return {i:m.i,role:m.role,hp:m.hpMax,hpMax:m.hpMax,dmg:m.dmg,heal:m.heal,mit:m.mit}; });
+  var bh=0,bd=0; members.forEach(function(m){ bh+=m.baseHp/5; bd+=m.baseD/5; });
+  var q=stg.req, tdps=bd*(3*(1+0.15*q)+0.7), D=(0.243*bh*(1+0.15*q)+1.2*bd*(1+0.2*q))/(1-0.04*q)*1.3, aoe=bh*(0.12+0.012*q);
+  var phases=[{ic:stg.mob[0],n:stg.mob[1],hp:3*tdps,d:0.5*D},{ic:stg.mob[0],n:stg.mob[1]+'·大只',hp:3*tdps,d:0.6*D},{ic:stg.boss[0],n:stg.boss[1],hp:10*tdps,d:D,boss:true}];
+  var ev=[], fl={tankDown:false,healDown:false,enrage:false,phase:0}, round=0, vr=function(){ return 0.9+0.2*rnd(); };
+  var alive=function(){ return T.filter(function(m){ return m.hp>0; }); };
+  var hurt=function(m,raw){ var d=Math.max(1,Math.round(raw*(1-m.mit))); m.hp=Math.max(0,m.hp-d); if(m.hp<=0){ if(m.role==='tank') fl.tankDown=true; if(m.role==='heal') fl.healDown=true; } return d; };
+  for(var pi=0;pi<phases.length;pi++){
+    var p=phases[pi], mhp=Math.round(p.hp), mmax=mhp, pr=0; fl.phase=pi;
+    ev.push({t:'phase',pi:pi,ic:p.ic,n:p.n,boss:!!p.boss,max:mmax});
+    while(mhp>0){
+      round++; pr++;
+      if(round>80) return {win:false,ev:ev,fl:fl,rounds:round};
+      var A=alive();
+      for(var a=0;a<A.length&&mhp>0;a++){ var dm=Math.max(1,Math.round(A[a].dmg*vr())); mhp=Math.max(0,mhp-dm); ev.push({t:'hit',i:A[a].i,d:dm,mhp:mhp,max:mmax}); }
+      if(mhp<=0) break;
+      var enr=!!p.boss&&pr>10; if(enr&&!fl.enrage){ fl.enrage=true; ev.push({t:'enrage'}); }
+      var tg=A.filter(function(m){ return m.role==='tank'; })[0]||A.filter(function(m){ return m.role==='heal'; })[0]||A[0];
+      var dd=hurt(tg,p.d*(enr?4:1)*vr()); ev.push({t:'atk',i:tg.i,d:dd,hp:tg.hp,max:tg.hpMax,down:tg.hp<=0});
+      if(p.boss&&pr%4===0){ var hits=[]; alive().forEach(function(m){ var x=hurt(m,aoe*(enr?2:1)*vr()); hits.push({i:m.i,d:x,hp:m.hp,max:m.hpMax,down:m.hp<=0}); }); ev.push({t:'aoe',hits:hits}); }
+      A=alive(); if(!A.length) return {win:false,ev:ev,fl:fl,rounds:round};
+      var H=A.filter(function(m){ return m.role==='heal'; })[0];
+      if(H){ var low=null; A.forEach(function(m){ if(m.hp<m.hpMax&&(!low||m.hp/m.hpMax<low.hp/low.hpMax)) low=m; });
+        if(low){ var h=Math.min(low.hpMax-low.hp,Math.round(H.heal*vr())); low.hp+=h; ev.push({t:'heal',i:H.i,to:low.i,h:h,hp:low.hp,max:low.hpMax}); } }
+    }
+    ev.push({t:'clear',pi:pi});
+  }
+  return {win:true,ev:ev,fl:fl,rounds:round};
+}
+function rdWinPct(stg,members){ var w=0,n=24; for(var i=0;i<n;i++){ if(rdSim(members,stg).win) w++; } return Math.round(w/n*100); }
+function rdUnlocked(stg){ return stg.id===1||!!(rdState().clears[stg.id-1]); }
+function rdOpen(){
+  if(!state||!state.pet||!state.pet.chosen){ alert('先孵化/选择一只宠物哦～'); return; }
+  if(smPlayBlocked()) return;
+  if(!rdEligible().length){ alert('要有至少一只已经破壳、没有受伤的宠物，才能带队去团队副本哦～'); return; }
+  rdRender();
+}
+function rdRender(){
+  var r=rdState(), d=rdDay(), M=rdMembers(), ok=rdEligible(), team=rdTeam();
+  var html='<h3 style="text-align:center;margin:2px 0 4px;color:#4527a0">🛡️ 五宠团队副本</h3>'
+    +'<div class="small" style="color:#5d4037;margin-bottom:6px">5 只一起上：<b>1 坦克 + 1 治疗 + 3 输出</b>。三种天赋要靠三种打卡来练——只练一种（偏科）的话，别的位置太弱，小怪和 Boss 都打不过！</div>'
+    +'<div style="background:#ede7f6;border-radius:12px;padding:6px 8px;margin-bottom:8px;font-size:13px;line-height:1.7"><b>我的天赋点</b>（每种每天最多拿 '+RD_PT_CAP.atk+' 点，灵感点 '+RD_PT_CAP.free+' 点）<br>'
+    +[['def','🧹 家务'],['heal','📖 学习'],['atk','🏃 运动'],['free','🎉 娱乐/日记/沟通']].map(function(x){ var k=x[0]; return '<span class="sx-stat">'+RD_PT[k].ic+' '+RD_PT[k].n+' <b>'+r.pts[k]+'</b> <span style="font-weight:400">· '+x[1]+'打卡 · 今天 '+(d.tp[k]||0)+'/'+RD_PT_CAP[k]+'</span></span>'; }).join('')
+    +'<div class="small">✨灵感点可以当任何一种点用。</div></div>';
+  M.forEach(function(m){
+    var ro=RD_ROLE[m.role], cost=rdCost(m.tal), has=r.pts[ro.line]+r.pts.free;
+    var opts='<option value="-1"'+(team[m.i]<0?' selected':'')+'>🧸 见习帮手（比较弱）</option>'+ok.map(function(idx){ var p=state.pets[idx]; return '<option value="'+idx+'"'+(team[m.i]===idx?' selected':'')+'>'+sxEsc(p.name)+' Lv'+petLevelInfo(p).level+(RD_AFF[p.type]===m.role?' ★本命':'')+'</option>'; }).join('');
+    html+='<div style="display:flex;gap:8px;align-items:center;border:2px solid '+(m.role==='tank'?'#90caf9':m.role==='heal'?'#a5d6a7':'#ffab91')+';border-radius:14px;padding:6px 8px;margin-bottom:6px;background:#fff">'
+      +'<div style="width:52px;text-align:center;flex:0 0 52px">'+(m.img?'<img src="'+sxEsc(m.img)+'" style="width:48px;height:48px;object-fit:contain">':'<div style="font-size:36px;line-height:48px">🧸</div>')+'<div style="font-size:11px;font-weight:800">'+ro.ic+ro.n+'</div></div>'
+      +'<div style="flex:1;min-width:0"><select onchange="rdSetSlot('+m.i+',this.value)" style="width:100%;border:1px solid #d1c4e9;border-radius:8px;padding:3px;font-size:13px">'+opts+'</select>'
+      +'<div class="small" style="margin-top:2px">'+ro.tip+(m.aff?' · <b style="color:#d81b60">★本命位置 +15%</b>':'')+'</div>'
+      +'<div style="font-size:13px;font-weight:800;margin-top:2px">'+ro.tn+' Lv'+m.tal+' <span class="small" style="font-weight:400">· ❤️'+m.hpMax+(m.role==='tank'?' · 减伤'+Math.round(m.mit*100)+'%':m.role==='heal'?' · 每回合回血'+Math.round(m.heal):' · 伤害'+Math.round(m.dmg))+'</span></div></div>'
+      +(m.tal>=RD_TAL_MAX?'<span class="small" style="color:#2e7d32;font-weight:800">满级</span>':'<button class="btn btn-sm '+(has>=cost?'btn-primary':'btn-gray')+'" onclick="rdUp('+m.i+')">升级<br><span style="font-size:11px">'+RD_PT[ro.line].ic+cost+'</span></button>')
+      +'</div>';
+  });
+  html+='<div style="font-weight:800;margin:8px 0 4px">🗺️ 选一关挑战 <span class="small" style="font-weight:400">今天还能打 '+Math.max(0,RD_TRIES-(d.tries||0))+' / '+RD_TRIES+' 次</span></div>';
+  RD_STAGES.forEach(function(s){
+    var un=rdUnlocked(s), got=!!d.cleared[s.id];
+    html+='<div style="display:flex;gap:8px;align-items:center;border-radius:12px;padding:6px 8px;margin-bottom:6px;background:'+(un?'#fffde7':'#f5f5f5')+';'+(un?'':'opacity:.6')+'">'
+      +'<div style="font-size:30px">'+(un?s.ic:'🔒')+'</div><div style="flex:1;min-width:0"><b>'+s.id+'. '+s.name+'</b> <span class="small">'+s.mob[0]+s.mob[1]+' ×2 → '+s.boss[0]+s.boss[1]+'</span>'
+      +'<div class="small">推荐三种天赋都到 Lv'+s.req+(un?'　·　预计胜率 <b>'+rdWinPct(s,M)+'%</b>':'　·　先通关上一关')+'</div>'
+      +'<div class="small" style="color:#6d4c41">'+(got?'✅ 今天的奖励已领（再打只是练习）':'今日首次通关：🪙'+s.coin+'　⚡孵化能量 +'+s.en)+'</div></div>'
+      +(un?'<button class="btn btn-sm btn-danger" onclick="rdStart('+s.id+')">挑战</button>':'')+'</div>';
+  });
+  html+='<div class="small" style="color:#9e9e9e">打输了不扣东西，但每天只能打 '+RD_TRIES+' 次；每一关每天只发一次奖励。</div>';
+  sxModal('rdModal',html,560);
+}
+var RD_RUN=null;
+function rdStart(sid){
+  var stg=RD_STAGES[sid-1], d=rdDay(); if(!stg||!rdUnlocked(stg)) return;
+  if(smPlayBlocked()) return;
+  if((d.tries||0)>=RD_TRIES){ ttsToast('今天的 '+RD_TRIES+' 次团队副本已经用完啦，明天再来～',2800); return; }
+  var miss=[]; try{ miss=dungeon2PrereqMissing(); }catch(e){}
+  if(miss.length){ alert('⚔️ 团队副本前，要先完成今天的 '+miss.join('和')+' 哦，练好基本功才能去闯关！'); return; }
+  var M=rdMembers(), res=rdSim(M,stg);
+  d.tries=(d.tries||0)+1; try{ saveStore(); }catch(e1){}
+  RD_RUN={stg:stg,M:M,res:res,i:0,fast:false,done:false,timer:null};
+  var html='<h3 style="text-align:center;margin:2px 0 6px;color:#4527a0">'+stg.ic+' '+stg.name+'</h3>'
+    +'<div style="background:linear-gradient(180deg,#e3f2fd,#f1f8e9);border-radius:14px;padding:10px 8px">'
+    +'<div id="rdMon" style="text-align:center;position:relative"><div id="rdMonIc" style="font-size:60px;line-height:1.15">'+stg.mob[0]+'</div><div id="rdMonName" style="font-weight:800"></div><div class="rd-bar" style="max-width:260px;margin:3px auto"><div id="rdMonBar" style="background:#e53935;width:100%"></div></div><div id="rdMonTag" class="small" style="color:#c62828;font-weight:800;min-height:16px"></div></div>'
+    +'<div style="display:flex;gap:4px;margin-top:10px">'+M.map(function(m){ return '<div class="rd-pet" id="rdP'+m.i+'">'+(m.img?'<img src="'+sxEsc(m.img)+'">':'<div style="font-size:38px;height:56px;line-height:56px">🧸</div>')+'<div class="rd-bar"><div id="rdPB'+m.i+'" style="width:100%"></div></div><div style="font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+RD_ROLE[m.role].ic+sxEsc(m.name)+'</div></div>'; }).join('')+'</div></div>'
+    +'<div id="rdLog" class="small" style="min-height:20px;text-align:center;margin:6px 0;color:#4e342e"></div>'
+    +'<div id="rdBtns" style="display:flex;gap:6px"><button class="btn btn-gray btn-sm" style="flex:1" onclick="rdFast()">⏩ 加速</button><button class="btn btn-gray btn-sm" style="flex:1" onclick="rdSkip()">⏭ 直接看结果</button></div>'
+    +'<div id="rdResult"></div>';
+  var m=sxModal('rdModal',html,560);
+  var cb=m.querySelector('.modal-close'); if(cb) cb.style.display='none';
+  rdStep();
+}
+function rdFast(){ if(RD_RUN) RD_RUN.fast=!RD_RUN.fast; }
+function rdSkip(){ if(!RD_RUN||RD_RUN.done) return; clearTimeout(RD_RUN.timer); while(RD_RUN.i<RD_RUN.res.ev.length){ rdApply(RD_RUN.res.ev[RD_RUN.i++],true); } rdEnd(); }
+function rdFloat(el,text,color){ if(!el) return; var s=document.createElement('span'); s.className='rd-float'; s.style.color=color; s.textContent=text; el.appendChild(s); setTimeout(function(){ if(s.parentNode) s.parentNode.removeChild(s); },800); }
+function rdSetPet(i,hp,max,down,quiet){ var b=document.getElementById('rdPB'+i), el=document.getElementById('rdP'+i); if(b){ var pc=Math.max(0,Math.round(hp/max*100)); b.style.width=pc+'%'; b.style.background=pc>50?'#43a047':pc>25?'#fb8c00':'#e53935'; } if(el&&down) el.classList.add('down'); }
+function rdShake(el){ if(!el) return; el.style.animation='none'; void el.offsetWidth; el.style.animation='rdShake .25s'; }
+function rdApply(e,quiet){
+  var R=RD_RUN, log=document.getElementById('rdLog'), say=function(t){ if(log&&!quiet) log.textContent=t; }, nm=function(i){ return R.M[i].name; };
+  if(e.t==='phase'){ document.getElementById('rdMonIc').textContent=e.ic; document.getElementById('rdMonIc').style.fontSize=e.boss?'84px':'60px'; document.getElementById('rdMonName').textContent=(e.boss?'👑 BOSS：':'第 '+(e.pi+1)+' 波：')+e.n; document.getElementById('rdMonBar').style.width='100%'; document.getElementById('rdMonTag').textContent=''; say(e.boss?'Boss 出现了！':'小怪冲过来了！'); return 700; }
+  if(e.t==='hit'){ document.getElementById('rdMonBar').style.width=Math.round(e.mhp/e.max*100)+'%'; if(!quiet){ rdFloat(document.getElementById('rdMon'),'-'+e.d,'#c62828'); var pe=document.getElementById('rdP'+e.i); if(pe){ pe.style.transform='translateY(-8px)'; setTimeout(function(){ pe.style.transform=''; },140); } } return 170; }
+  if(e.t==='enrage'){ document.getElementById('rdMonTag').textContent='💢 狂暴了！伤害大增'; say('拖太久了，Boss 狂暴了！'); if(!quiet) rdShake(document.getElementById('rdMon')); return 700; }
+  if(e.t==='atk'){ rdSetPet(e.i,e.hp,e.max,e.down); if(!quiet){ rdFloat(document.getElementById('rdP'+e.i),'-'+e.d,'#c62828'); rdShake(document.getElementById('rdP'+e.i)); } say(e.down?nm(e.i)+' 倒下了…':'怪物攻击 '+nm(e.i)+'！'); return e.down?600:330; }
+  if(e.t==='aoe'){ e.hits.forEach(function(h){ rdSetPet(h.i,h.hp,h.max,h.down); if(!quiet) rdFloat(document.getElementById('rdP'+h.i),'-'+h.d,'#e65100'); }); say('Boss 放大招，全队受伤！'); return 520; }
+  if(e.t==='heal'){ rdSetPet(e.to,e.hp,e.max,false); if(!quiet&&e.h>0) rdFloat(document.getElementById('rdP'+e.to),'+'+e.h,'#2e7d32'); return 230; }
+  if(e.t==='clear'){ say(e.pi<2?'这一波打完了！':'Boss 被打倒了！'); return 500; }
+  return 100;
+}
+function rdStep(){
+  var R=RD_RUN; if(!R||R.done) return;
+  if(!document.getElementById('rdMonIc')){ R.done=true; return; }
+  if(R.i>=R.res.ev.length){ rdEnd(); return; }
+  var wait=rdApply(R.res.ev[R.i++],false);
+  R.timer=setTimeout(rdStep,R.fast?Math.max(40,wait*0.3):wait);
+}
+function rdEnd(){
+  var R=RD_RUN; if(!R||R.done) return; R.done=true;
+  var stg=R.stg, d=rdDay(), r=rdState(), win=R.res.win, html='';
+  var bt=document.getElementById('rdBtns'); if(bt) bt.style.display='none';
+  if(win){
+    var first=!d.cleared[stg.id];
+    r.clears[stg.id]=(r.clears[stg.id]||0)+1;
+    if(first){ d.cleared[stg.id]=true; addCoinChange(stg.coin,'🛡️ 团队副本通关：'+stg.name); try{ crAddEnergy(stg.en,'团队副本'); }catch(e){}
+      try{ addLog('🛡️ 团队副本「'+stg.name+'」通关！+'+stg.coin+'金币，孵化能量+'+stg.en); }catch(e1){} }
+    html='<div style="text-align:center;background:#e8f5e9;border-radius:14px;padding:10px;margin-top:6px"><div style="font-size:44px">🏆</div><b style="font-size:18px;color:#2e7d32">通关啦！团队配合得真好</b>'
+      +'<div class="small" style="margin-top:4px">'+(first?'奖励：🪙 '+stg.coin+' 金币　⚡ 孵化能量 +'+stg.en:'今天这一关的奖励已经领过了，这次是练习')+(stg.id<RD_STAGES.length&&r.clears[stg.id]===1?'<br>下一关「'+RD_STAGES[stg.id].name+'」解锁了！':'')+'</div></div>';
+  }else{
+    var why=[], fl=R.res.fl, q=stg.req;
+    R.M.forEach(function(m){ if(m.tal<q) why.push(RD_ROLE[m.role].ic+' '+sxEsc(m.name)+' 的'+RD_ROLE[m.role].tn+'只有 Lv'+m.tal+'（推荐 Lv'+q+'）→ 多做'+RD_ROLE[m.role].src); });
+    var head=fl.enrage?'输出不够快，拖到 Boss 狂暴了':fl.tankDown?'坦克顶不住，被打倒了':fl.healDown?'治疗倒下了，没人回血':'队伍没撑住';
+    html='<div style="background:#ffebee;border-radius:14px;padding:10px;margin-top:6px"><div style="text-align:center"><div style="font-size:40px">😵</div><b style="font-size:17px;color:#c62828">这次没打过：'+head+'</b><div class="small">倒在了'+(fl.phase<2?'第 '+(fl.phase+1)+' 波小怪':' Boss 战')+'</div></div>'
+      +(why.length?'<div style="font-size:13px;line-height:1.7;margin-top:6px;text-align:left"><b>哪里偏科了：</b><br>'+why.join('<br>')+'</div>':'<div class="small" style="margin-top:6px">天赋都够了，这次是运气差一点，再试一次吧！</div>')
+      +'<div class="small" style="margin-top:4px;color:#6d4c41">打输不扣东西。运动、学习、家务三种打卡都做，三种天赋才会一起长。</div></div>';
+  }
+  try{ saveStore(); }catch(e2){}
+  try{ render(); }catch(e3){}
+  var box=document.getElementById('rdResult'); if(box) box.innerHTML=html+'<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="rdBack()">返回队伍</button>';
+}
+function rdBack(){ RD_RUN=null; var m=document.getElementById('rdModal'), cb=m&&m.querySelector('.modal-close'); if(cb) cb.style.display=''; rdRender(); }
+var _rdOrigBattleMenu=renderBattleMenuBody;
+renderBattleMenuBody=function(){
+  var r=_rdOrigBattleMenu.apply(this,arguments);
+  try{ var body=document.getElementById('battleMenuBody'); if(body) body.insertAdjacentHTML('afterbegin','<button class="btn btn-block" style="margin-bottom:8px;background:linear-gradient(90deg,#5e35b1,#d81b60);color:#fff;font-weight:800" onclick="hideModal(\'battleMenuModal\');rdOpen()">🛡️ 五宠团队副本（坦克 + 治疗 + 输出）</button>'); }catch(e){}
+  return r;
+};
+
+/* ---------------- 接到页面上 ---------------- */
+(function(){
+  var home=document.getElementById('page-home'); if(!home||document.getElementById('smCard')) return;
+  var a=document.createElement('div'); a.className='card'; a.innerHTML='<div id="smCard"></div>';
+  var b=document.createElement('div'); b.className='card'; b.innerHTML='<div id="tpCard"></div>';
+  home.insertBefore(b,home.firstChild); home.insertBefore(a,b);
+})();
+var _sxOrigRender=render;
+render=function(){
+  var r=_sxOrigRender.apply(this,arguments);
+  try{ if(state){ tpCheck(); smRenderCard(); tpRender(); smUpdateChip(); tpShowNotice(); } }catch(e){}
+  return r;
+};
 </script>
 
 <!-- 数学挑战小游戏 源码（原样保存，运行时注入到 iframe 中） -->
