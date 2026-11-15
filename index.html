@@ -1731,6 +1731,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
   <button class="tab-btn" data-page="wheel" onclick="showPage('wheel')" data-i18n="tab_wheel"><span class="t-emoji">🎡</span>转盘</button>
   <button class="tab-btn" data-page="shop" onclick="showPage('shop')" data-i18n="tab_shop"><span class="t-emoji">🛒</span>商店</button>
   <button class="tab-btn" data-page="bag" onclick="showPage('bag')" data-i18n="tab_bag"><span class="t-emoji">🎒</span>背包</button>
+  <button class="tab-btn" onclick="goBank()" style="color:#d81b60;font-weight:800"><span class="t-emoji">🐷</span>存钱银行</button>
   <button class="tab-btn" data-page="visit" onclick="showPage('visit');renderFriendList();closeVisitDetail();markPkInboxRead();"><span data-i18n="tab_visit"><span class="t-emoji">🚪</span>串门</span><span class="tab-badge" id="visitTabBadge">0</span></button>
   <button class="tab-btn" data-page="profile" onclick="showPage('profile')" data-i18n="tab_profile"><span class="t-emoji">👤</span>角色管理</button>
 </nav>
@@ -39961,6 +39962,13 @@ function rcFlushPayouts(){
 // 打卡乐园自己的「零花钱」页已经去掉（钱都在存钱银行里管），旧入口一律回到打卡页
 var _alGoneShow=showPage;
 showPage=function(name){ if(name==='allowance') name='home'; return _alGoneShow.call(this,name); };
+// 底部「🐷 存钱银行」：先把这边的数据存好，再在当前窗口打开存钱银行（学习机/平板不会被拦截）
+function goBank(){
+  try{ saveStore(); }catch(e){}
+  try{ bankFlush(); }catch(e){}
+  try{ ttsToast('🐷 正在打开存钱银行…',1500); }catch(e){}
+  setTimeout(function(){ window.location.href='https://mybaby-bank.netlify.app/'; },600);
+}
 /* ---- ③ 精英班数学（全英文，OC / Selective 考试风格） ---- */
 var MATH_ELITE=[
  {en:'A number is multiplied by 6, then 14 is added. The result is 80. What is the number?',zh:'一个数乘6再加14，结果是80，这个数是多少？',ans:'11'},
