@@ -1344,6 +1344,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="pet-room" id="petRoom" style="display:none"></div>
     </div>
     <button class="btn btn-primary btn-block" id="btnChoosePet" onclick="openChoose()">🥚 选择你的电子宠物伙伴</button>
+    <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#ffb300,#ab47bc);color:#fff;font-weight:700" onclick="openCreatures()">✨ 精灵图鉴：孵蛋收集 50 种精灵</button>
   </div>
 
 </div>
@@ -34982,7 +34983,7 @@ function stJudge(ok){
   if(ok){
     ST.correct++; ST.streak++; ST.best=Math.max(ST.best,ST.streak);
     var k=Math.floor(Math.random()*5);
-    if(fb) fb.innerHTML='<div style="font-size:20px;color:#2e7d32;font-weight:700">✅ '+L(ST_PRAISE_ZH[k],ST_PRAISE_EN[k])+(ST.streak>=3?' 🔥x'+ST.streak:'')+'</div>';
+    if(fb) fb.innerHTML='<div style="font-size:20px;color:#2e7d32;font-weight:700">'+(crPartnerEmoji()?'<span style="display:inline-block;animation:petHappyHop .5s ease-in-out 2">'+crPartnerEmoji()+'</span> ':'')+'✅ '+L(ST_PRAISE_ZH[k],ST_PRAISE_EN[k])+(ST.streak>=3?' 🔥x'+ST.streak:'')+'</div>';
     try{ petSay(L(ST_PRAISE_ZH[k],ST_PRAISE_EN[k]),1500); setPetAnim('happy',{duration:1500}); petHeartFx(3); }catch(e1){}
     if(q.speakAnswer){ try{ studySpeak(q.answer,q.lang); }catch(e2){} }
     setTimeout(stNext, q.kind==='order'?1600:1100);
@@ -35016,6 +35017,8 @@ function stFinish(timeout){
     var coins=Math.min(8,ST.correct);
     try{ earnCoins(coins,L('学完自测','Self-test')); coinMsg='<div style="margin-top:6px;color:#f57f17;font-size:15px">🪙 +'+coins+L(' 金币（今天第一次自测奖励）',' coins (first test today)')+'</div>'; }catch(e){}
   }
+  var crMsg='';
+  try{ var crFirst=!state.day.selfTestEggGiven; state.day.selfTestEggGiven=true; crMsg=crSelfTestReward(ST.correct,total,crFirst); }catch(eCr){}
   saveStore();
   var pct=Math.round(ST.correct/total*100);
   var face=pct>=90?'🏆':pct>=70?'🌟':pct>=40?'💪':'🌱';
@@ -35026,7 +35029,7 @@ function stFinish(timeout){
     +'<div style="font-size:30px;font-weight:800;color:#6a1b9a;margin:4px 0">'+rec.score+' / '+total+'</div>'
     +'<div style="font-size:15px;color:#7b1fa2">'+words+'</div>'
     +'<div class="small" style="margin-top:6px;color:#888">'+L('用时 ','Time ')+Math.floor(rec.secs/60)+L('分','m ')+(rec.secs%60)+L('秒','s')+(rec.best>=2?L('　最多连对 ','　Best streak ')+rec.best:'')+'</div>'
-    +coinMsg
+    +coinMsg+crMsg
     +(rec.wrong.length?'<div style="margin-top:10px;text-align:left;background:#fff3e0;border-radius:10px;padding:8px 10px;font-size:13px"><b>🔁 '+L('要复习的：','To review:')+'</b><br>'+rec.wrong.map(escapeAttr).join('<br>')+'</div>':'')
     +'<button class="btn btn-primary btn-block" style="margin-top:12px" onclick="startSelfTest()">🔄 '+L('再测一次','Try again')+'</button>'
     +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="renderSelfTestHistory()">📈 '+L('看测验记录','View history')+'</button>'
@@ -35088,6 +35091,7 @@ function renderSelfTestEntry(){
     :(todayN>=3?L('今天学了'+todayN+'个，来测一测吧！','Learned '+todayN+' today, test yourself!'):L('先点开学几个内容，再来自测','Learn a few items first'));
   box.innerHTML='<div style="display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#f3e5f5,#ede7f6);border-radius:12px;padding:8px 10px;margin:6px 0 10px">'
     +'<div style="flex:1;font-size:13px;color:#6a1b9a;line-height:1.5"><b>📝 '+L('学完自测','Self-test')+'</b>'+(revN?' <span style="font-size:11px;background:#ffcc80;color:#8a4b00;border-radius:6px;padding:0 5px">🔁'+revN+'</span>':'')+'<br><span class="small">'+info+'</span></div>'
+    +'<button class="btn btn-gray btn-sm" style="flex-shrink:0;font-size:13px;padding:8px 8px" onclick="openCreatures()">✨'+((state.creatures&&state.creatures.eggs)?' 🥚'+state.creatures.eggs:' 图鉴')+'</button>'
     +'<button class="btn btn-primary btn-sm" style="flex-shrink:0;font-size:14px;padding:8px 12px" onclick="openSelfTest()">'+(todayTests.length?L('再测','Again'):L('开始自测','Start'))+'</button>'
     +'</div>';
 }
@@ -35317,6 +35321,213 @@ function helperAnswer(q){
       +helperSpeakBtn(w.text,isEnUi?'en-US':'zh-CN')
       +'<div style="clear:both;font-size:11px;color:#999;margin-top:4px">'+L('来源：维基百科','Source: Wikipedia')+(w.url?' · <a href="'+escapeAttr(w.url)+'" target="_blank" rel="noopener">'+L('看更多','more')+'</a>':'')+'</div>';
   }).catch(function(){ return helperFallback(q); });
+}
+/* ========== 2026-11新增：✨ 精灵图鉴（收集 + 孵蛋 + 精华升级进化） ==========
+   原创精灵（名字/设定都是自己编的，不用任何现成游戏的角色），跟学习挂钩、激励小朋友：
+   - 🥚 星光蛋：每天第一次"学完自测"送1个，得分≥80%再送1个；也可以花金币买；新玩家送3个
+   - 孵蛋：点3下蛋壳孵化（有互动感），按稀有度随机：普通62% / 稀有28% / 史诗8.5% / 传说1.5%
+   - 💠 精灵精华：孵到已经有的精灵会转化成精华（越稀有给越多）；每次自测按答对题数也送精华
+   - 升级：用精华给精灵升级(最高Lv10)，Lv5、Lv10自动进化成下一形态，图鉴里点亮新形态
+   - 图鉴：50种精灵（15条三段进化线 + 5只传说），没收集到的显示剪影"？？？"
+   - 伙伴：可以选一只精灵当学习伙伴，自测答对时它会出来给你加油 */
+var CR_ELEM={
+  fire:{n:'火',e:'🔥',c1:'#ffab91',c2:'#ff7043'}, water:{n:'水',e:'💧',c1:'#81d4fa',c2:'#29b6f6'},
+  grass:{n:'草',e:'🌿',c1:'#a5d6a7',c2:'#43a047'}, elec:{n:'电',e:'⚡',c1:'#fff59d',c2:'#fbc02d'},
+  ice:{n:'冰',e:'❄️',c1:'#e0f7fa',c2:'#4dd0e1'}, rock:{n:'岩',e:'🪨',c1:'#d7ccc8',c2:'#8d6e63'},
+  wind:{n:'风',e:'🌪️',c1:'#b2dfdb',c2:'#26a69a'}, light:{n:'光',e:'✨',c1:'#fff8e1',c2:'#ffca28'},
+  dark:{n:'暗',e:'🌙',c1:'#d1c4e9',c2:'#7e57c2'}
+};
+var CR_RARITY={
+  N:{n:'普通',c:'#90a4ae',w:62,dup:10}, R:{n:'稀有',c:'#42a5f5',w:28,dup:25},
+  SR:{n:'史诗',c:'#ab47bc',w:8.5,dup:60}, SSR:{n:'传说',c:'#ffb300',w:1.5,dup:150}
+};
+// 每条进化线：[id, 属性, 稀有度, [[名字,emoji,简介]x3]]；传说只有1段
+var CR_LINES=[
+  ['l1','fire','N',[['火苗鸡','🐤','头顶一撮小火苗，开心时会冒火星。'],['炎羽雀','🐦','羽毛像燃烧的晚霞，飞过会留下暖风。'],['烈焰鹰','🦅','展翅时像一团火焰划过天空。']]],
+  ['l15','fire','N',[['暖暖猪','🐷','身体总是暖乎乎的，冬天最受欢迎。'],['熔岩野猪','🐗','獠牙像烧红的岩石，力气很大。'],['火山犀牛','🦏','冲刺时地面都会冒热气。']]],
+  ['l2','fire','R',[['火绒狐','🦊','尾巴尖是一朵小火焰，很爱干净。'],['赤焰狼','🐺','在夜里能用火光给同伴照路。'],['熔岩狮王','🦁','鬃毛是流动的熔岩，威风凛凛。']]],
+  ['l3','water','N',[['泡泡鱼','🐟','会吐出彩色的泡泡。'],['浪花鱼','🐠','最喜欢在浪花里翻跟头。'],['深海鲸','🐋','唱歌时整片大海都能听见。']]],
+  ['l14','water','N',[['小章鱼','🐙','八只手可以同时做八件事。'],['珊瑚蟹','🦀','背着漂亮的珊瑚当房子。'],['海王龙虾','🦞','大钳子能夹碎贝壳。']]],
+  ['l4','water','R',[['水滴蛙','🐸','下雨天会开心地唱歌。'],['河岸鳄','🐊','看起来凶，其实很护着朋友。'],['潮汐巨鲨','🦈','能感觉到很远很远的潮水变化。']]],
+  ['l5','grass','N',[['芽芽虫','🐛','背上长着一片小嫩芽。'],['叶甲虫','🐞','壳上的花纹像四叶草。'],['花翼蝶','🦋','翅膀扇动时会撒下花粉。']]],
+  ['l6','grass','R',[['林地兔','🐇','耳朵能听见种子发芽的声音。'],['花角鹿','🦌','鹿角上会开出小花。'],['古树守护者','🌳','守护森林一千年的大树精灵。']]],
+  ['l7','elec','N',[['电毛鼠','🐭','毛一摸就会噼啪作响。'],['雷尾松鼠','🐿️','尾巴能储存闪电。'],['霹雳獾','🦡','跑起来像一道闪电。']]],
+  ['l8','elec','SR',[['雷云羊','🐑','羊毛像一朵小雷云。'],['雷角羊','🐐','羊角能引来闪电。'],['雷霆麒麟','🦄','传说踏着雷光奔跑的神兽。']]],
+  ['l9','ice','R',[['雪球企鹅','🐧','喜欢把自己滚成雪球。'],['冰晶海豹','🦭','胡须上挂着亮晶晶的冰花。'],['极光冰原熊','🐻','在极光下守护冰原。']]],
+  ['l10','rock','N',[['石头蜗','🐌','壳是一块光滑的鹅卵石。'],['岩壳龟','🐢','龟壳硬得像山岩。'],['山岳龙','🦕','背上能长出一座小山。']]],
+  ['l11','wind','R',[['小风蝠','🦇','倒挂着睡觉，风一吹就醒。'],['疾风鸮','🦉','飞行时一点声音都没有。'],['云霄天鹅','🦢','能乘着风飞到云层上面。']]],
+  ['l12','light','SR',[['星星猫','🐱','眼睛里有两颗小星星。'],['月光猫','🐈','只在月光下现身。'],['星耀豹','🐆','身上的斑点是一片星空。']]],
+  ['l13','dark','R',[['小幽灵','👻','胆子很小，其实很友善。'],['南瓜灵','🎃','住在南瓜里，会讲睡前故事。'],['暗影龙','🐉','能在影子里穿梭的神秘龙。']]],
+  ['s1','light','SSR',[['九天神龙','🐲','传说中掌管彩虹的神龙。']]],
+  ['s2','fire','SSR',[['日轮精灵','🌞','像小太阳一样温暖每个人。']]],
+  ['s3','dark','SSR',[['月宫玉兔','🐰','住在月亮上，会捣出神奇的药。']]],
+  ['s4','elec','SSR',[['雷鸣圣象','🐘','一跺脚就响起雷声。']]],
+  ['s5','ice','SSR',[['冰羽神鸽','🕊️','飞过的地方会下起雪花。']]]
+];
+var CR_LINE_MAP={}; CR_LINES.forEach(function(l){ CR_LINE_MAP[l[0]]=l; });
+var CR_EGG_PRICE=50;
+function crState(){
+  if(!state) return null;
+  if(!state.creatures) state.creatures={eggs:3,essence:0,owned:{},partner:null,hatched:0};
+  return state.creatures;
+}
+function crStageFor(lv,maxStage){ var s=lv>=10?3:lv>=5?2:1; return Math.min(s,maxStage); }
+function crTotalSpecies(){ return CR_LINES.reduce(function(a,l){ return a+l[3].length; },0); }
+function crCollectedCount(){
+  var c=crState(); if(!c) return 0;
+  return Object.keys(c.owned).reduce(function(a,k){ return a+(c.owned[k].stage||1); },0);
+}
+function crToken(lineId,stage,size,locked){
+  var l=CR_LINE_MAP[lineId]; var el=CR_ELEM[l[1]], ra=CR_RARITY[l[2]];
+  var sp=l[3][stage-1]; size=size||56;
+  var glow=l[2]==='SSR'?'0 0 10px 2px rgba(255,193,7,.8)':l[2]==='SR'?'0 0 8px 1px rgba(171,71,188,.6)':'none';
+  return '<div style="width:'+size+'px;height:'+size+'px;border-radius:50%;background:radial-gradient(circle at 35% 30%,'+el.c1+','+el.c2+');border:3px solid '+ra.c+';box-shadow:'+glow+';display:flex;align-items:center;justify-content:center;font-size:'+Math.round(size*0.55)+'px;margin:0 auto;'+(locked?'filter:grayscale(.55) brightness(.6);opacity:.75;':'')+'">'+(locked?'❔':sp[1])+'</div>';
+}
+function openCreatures(tab){
+  if(!state){ return; }
+  crState();
+  if(!document.getElementById('creatureModal')){
+    var d=document.createElement('div'); d.className='modal-mask'; d.id='creatureModal';
+    d.innerHTML='<div class="modal" style="max-width:460px;padding:14px 12px"><button class="modal-close" onclick="closeCreatures()">✕</button><div id="creatureBody"></div></div>';
+    document.body.appendChild(d);
+  }
+  crRender(tab||'egg');
+  showModal('creatureModal');
+}
+function closeCreatures(){ hideModal('creatureModal'); try{ renderSelfTestEntry(); }catch(e){} }
+var CR_TAB='egg', CR_HATCH=null;
+function crTabs(){
+  var c=crState();
+  var t=function(id,label){ return '<button class="btn '+(CR_TAB===id?'btn-primary':'btn-gray')+' btn-sm" style="flex:1" onclick="crRender(\''+id+'\')">'+label+'</button>'; };
+  return '<h3 style="margin:2px 0 6px">✨ 精灵图鉴</h3>'
+    +'<div style="display:flex;justify-content:center;gap:12px;font-size:14px;margin-bottom:6px"><span>🥚 星光蛋 <b>'+c.eggs+'</b></span><span>💠 精华 <b>'+c.essence+'</b></span><span>📖 '+crCollectedCount()+'/'+crTotalSpecies()+'</span></div>'
+    +'<div style="display:flex;gap:4px;margin-bottom:8px">'+t('egg','🥚 孵蛋')+t('mine','⭐ 我的精灵')+t('dex','📖 图鉴')+'</div>';
+}
+function crRender(tab){
+  CR_TAB=tab||CR_TAB;
+  var body=document.getElementById('creatureBody'); if(!body) return;
+  var c=crState(), html=crTabs();
+  if(CR_TAB==='egg'){
+    html+='<div style="font-size:84px;margin:8px 0;cursor:pointer;user-select:none" id="crEgg" onclick="crTapEgg()">🥚</div>'
+      +'<div id="crEggMsg" style="min-height:24px;color:#7b1fa2;font-size:15px">'+(c.eggs?'点蛋壳 3 下孵化！':'星光蛋用完啦～')+'</div>'
+      +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="crBuyEgg()">🪙 花 '+CR_EGG_PRICE+' 金币买 1 个星光蛋（现有 '+Math.floor(state.moneyBalance||0)+' 金币）</button>'
+      +'<div class="small" style="margin-top:8px;color:#888;text-align:left;line-height:1.6">怎么获得星光蛋：<br>• 每天第一次「学完自测」送 1 个，得分 80% 以上再送 1 个<br>• 每次自测答对几题就送几点 💠 精华<br>• 孵到重复的精灵会变成精华，精华能给精灵升级进化<br>• 稀有度：<span style="color:#90a4ae">普通</span> / <span style="color:#42a5f5">稀有</span> / <span style="color:#ab47bc">史诗</span> / <span style="color:#ffb300">传说</span></div>';
+  }else if(CR_TAB==='mine'){
+    var ids=Object.keys(c.owned);
+    if(!ids.length) html+='<div style="padding:24px;color:#999">还没有精灵，快去孵蛋吧！</div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+ids.map(function(id){
+      var o=c.owned[id], l=CR_LINE_MAP[id]; if(!l) return '';
+      var sp=l[3][o.stage-1];
+      return '<div style="background:#faf5fc;border-radius:12px;padding:6px 2px;cursor:pointer;position:relative" onclick="crDetail(\''+id+'\')">'
+        +(c.partner===id?'<div style="position:absolute;top:2px;left:4px;font-size:12px">💜</div>':'')
+        +crToken(id,o.stage,52)+'<div style="font-size:12px;font-weight:700;margin-top:3px">'+sp[0]+'</div><div style="font-size:11px;color:#888">Lv'+o.lv+' '+CR_ELEM[l[1]].e+'</div></div>';
+    }).join('')+'</div>';
+  }else{
+    html+='<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">';
+    CR_LINES.forEach(function(l){
+      l[3].forEach(function(sp,i){
+        var o=c.owned[l[0]], got=o&&o.stage>=i+1;
+        html+='<div style="text-align:center" '+(got?'onclick="crDetail(\''+l[0]+'\')" ':'')+'>'+crToken(l[0],i+1,44,!got)
+          +'<div style="font-size:10px;margin-top:2px;color:'+(got?'#4a148c':'#bbb')+'">'+(got?sp[0]:'？？？')+'</div></div>';
+      });
+    });
+    html+='</div>';
+  }
+  body.innerHTML=html;
+}
+function crBuyEgg(){
+  if((state.moneyBalance||0)<CR_EGG_PRICE){ ttsToast('金币不够哦，再去打卡学习赚一点吧～',3000); return; }
+  addCoinChange(-CR_EGG_PRICE,'精灵图鉴：购买星光蛋');
+  crState().eggs++; saveStore(); crRender('egg');
+}
+function crTapEgg(){
+  var c=crState(); var egg=document.getElementById('crEgg'), msg=document.getElementById('crEggMsg');
+  if(!egg) return;
+  if(!c.eggs){ if(msg) msg.textContent='星光蛋用完啦～做自测可以得到新的蛋！'; return; }
+  if(!CR_HATCH) CR_HATCH={taps:0};
+  var taps=++CR_HATCH.taps;
+  egg.style.transition='transform .15s'; egg.style.transform='rotate('+(taps%2?-18:18)+'deg) scale('+(1+taps*0.08)+')';
+  setTimeout(function(){ if(egg) egg.style.transform='rotate(0) scale('+(1+taps*0.08)+')'; },160);
+  if(msg) msg.textContent=['','咔嚓…','裂开了！再点一下！'][taps]||'';
+  if(taps>=3){ CR_HATCH=null; crHatch(); }
+}
+function crRollLine(){
+  var tot=0, r; Object.keys(CR_RARITY).forEach(function(k){ tot+=CR_RARITY[k].w; });
+  r=Math.random()*tot; var rar='N';
+  var acc=0; ['N','R','SR','SSR'].some(function(k){ acc+=CR_RARITY[k].w; if(r<acc){ rar=k; return true; } return false; });
+  var pool=CR_LINES.filter(function(l){ return l[2]===rar; });
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function crHatch(){
+  var c=crState(); c.eggs--; c.hatched=(c.hatched||0)+1;
+  var l=crRollLine(), ra=CR_RARITY[l[2]], isNew=!c.owned[l[0]], gain;
+  if(isNew){ c.owned[l[0]]={lv:1,stage:1,got:todayKey()}; gain=5; if(!c.partner) c.partner=l[0]; }
+  else gain=ra.dup;
+  c.essence+=gain;
+  saveStore();
+  var sp=l[3][0];
+  var body=document.getElementById('creatureBody');
+  body.innerHTML=crTabs()+'<div style="padding:6px 0">'
+    +'<div style="font-size:15px;color:'+ra.c+';font-weight:700">'+(l[2]==='SSR'?'🌟🌟 传说降临！🌟🌟':l[2]==='SR'?'✨ 史诗精灵！':l[2]==='R'?'💎 稀有精灵！':'孵出来啦！')+'</div>'
+    +'<div style="margin:10px 0;animation:petHappyHop .5s ease-in-out 3">'+crToken(l[0],1,110)+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:#4a148c">'+sp[0]+'</div>'
+    +'<div style="font-size:13px;color:#666">'+CR_ELEM[l[1]].e+CR_ELEM[l[1]].n+'属性 · <span style="color:'+ra.c+'">'+ra.n+'</span></div>'
+    +'<div style="font-size:13px;color:#7b1fa2;margin:6px 0">'+sp[2]+'</div>'
+    +'<div style="font-size:15px;margin:6px 0">'+(isNew?'🎉 新精灵！图鉴点亮 +1，💠 精华 +'+gain:'已经有这只啦，转化成 💠 精华 +'+gain)+'</div>'
+    +'<button class="btn btn-primary btn-block" onclick="crRender(\'egg\')">'+(c.eggs?'🥚 继续孵蛋（还有'+c.eggs+'个）':'好的')+'</button>'
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="crDetail(\''+l[0]+'\')">⭐ 去看看它</button></div>';
+  try{ petHeartFx(isNew?8:3); }catch(e){}
+}
+function crLvCost(lv){ return lv*10; }
+function crDetail(id){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id]; if(!o||!l) return;
+  CR_TAB='mine';
+  var sp=l[3][o.stage-1], ra=CR_RARITY[l[2]], el=CR_ELEM[l[1]];
+  var maxed=o.lv>=10, cost=crLvCost(o.lv);
+  var next=(!maxed&&l[3].length>o.stage)?('Lv'+(o.stage===1?5:10)+' 进化成 → '+l[3][o.stage][0]):'';
+  var stages=l[3].map(function(s,i){ return '<div style="flex:1;text-align:center">'+crToken(id,i+1,40,o.stage<i+1)+'<div style="font-size:10px;color:'+(o.stage>=i+1?'#4a148c':'#bbb')+'">'+(o.stage>=i+1?s[0]:'？？？')+'</div></div>'; }).join(l[3].length>1?'<div style="align-self:center;color:#ccc">➜</div>':'');
+  document.getElementById('creatureBody').innerHTML=crTabs()
+    +crToken(id,o.stage,100)
+    +'<div style="font-size:22px;font-weight:800;color:#4a148c;margin-top:6px">'+sp[0]+' <span style="font-size:15px;color:#7b1fa2">Lv'+o.lv+'</span></div>'
+    +'<div style="font-size:13px;color:#666">'+el.e+el.n+'属性 · <span style="color:'+ra.c+'">'+ra.n+'</span></div>'
+    +'<div style="font-size:13px;color:#7b1fa2;margin:6px 0">'+sp[2]+'</div>'
+    +'<div style="display:flex;gap:4px;margin:8px 0;background:#faf5fc;border-radius:10px;padding:6px">'+stages+'</div>'
+    +(next?'<div class="small" style="color:#6a1b9a">'+next+'</div>':'')
+    +(maxed?'<div style="margin:8px 0;color:#f57f17">🏆 已经满级啦！</div>'
+      :'<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="crLevelUp(\''+id+'\')">⬆️ 升级（需要 💠'+cost+'，现有 '+c.essence+'）</button>')
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="crSetPartner(\''+id+'\')">'+(c.partner===id?'💜 已经是学习伙伴':'💜 设为学习伙伴')+'</button>'
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="crRender(\'mine\')">⬅ 返回</button>';
+}
+function crLevelUp(id){
+  var c=crState(), o=c.owned[id], l=CR_LINE_MAP[id]; if(!o) return;
+  var cost=crLvCost(o.lv);
+  if(c.essence<cost){ ttsToast('精华还不够哦～多做几次自测就能攒到！',3000); return; }
+  c.essence-=cost; o.lv++;
+  var ns=crStageFor(o.lv,l[3].length), evolved=ns>o.stage;
+  o.stage=ns; saveStore();
+  crDetail(id);
+  if(evolved){
+    try{ petHeartFx(10); }catch(e){}
+    showReward('🌟 进化啦！','<div style="margin:8px 0">'+crToken(id,ns,90)+'</div><b>'+l[3][ns-2][0]+'</b> 进化成了 <b style="color:#6a1b9a">'+l[3][ns-1][0]+'</b>！<br>图鉴又点亮了一个新形态！');
+  }
+}
+function crSetPartner(id){ crState().partner=id; saveStore(); crDetail(id); }
+function crPartnerEmoji(){
+  var c=state&&state.creatures; if(!c||!c.partner||!c.owned[c.partner]) return '';
+  var l=CR_LINE_MAP[c.partner]; return l?l[3][c.owned[c.partner].stage-1][1]:'';
+}
+// 自测结束时调用：发星光蛋和精华，返回一段提示HTML
+function crSelfTestReward(correct,total,firstToday){
+  var c=crState(); if(!c) return '';
+  var eggs=0;
+  if(firstToday){ eggs=1; if(total&&correct/total>=0.8) eggs++; }
+  c.eggs+=eggs; c.essence+=correct;
+  var parts=[];
+  if(eggs) parts.push('🥚 星光蛋 +'+eggs);
+  if(correct) parts.push('💠 精华 +'+correct);
+  if(!parts.length) return '';
+  return '<div style="margin-top:6px;font-size:15px;color:#6a1b9a">'+parts.join('　')+'</div>'
+    +(c.eggs?'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal(\'selfTestModal\');openCreatures(\'egg\')">✨ 去精灵图鉴孵蛋（'+c.eggs+'个）</button>':'');
 }
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
