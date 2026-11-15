@@ -39744,6 +39744,26 @@ showPage=function(name){
   try{ if(name==='pet'){ var f=famState(); if(!f.pending&&f.count===0&&famPets().length>=2) setTimeout(function(){ if(famOnPetPage()&&!famState().pending&&famState().count===0) famStart(); },12000); } }catch(e){}
   return r;
 };
+/* ========== 2026-11新增：和「小小存钱银行」网页互通 ==========
+   打卡页、零花钱页顶部各放一个大按钮，点了直接跳到存钱银行（同一个窗口打开，学习机/平板也能用，
+   在银行那边点「回到打卡乐园」就回来）。跳过去之前先把这边的数据存好。 */
+var BANK_URL='https://mybaby-bank.netlify.app/';
+function goBank(){
+  try{ saveStoreLocalOnly(); }catch(e){}
+  try{ saveStore(); }catch(e){}
+  setTimeout(function(){ window.location.href=BANK_URL; },600);
+}
+(function(){
+  function card(sub){
+    var d=document.createElement('div'); d.className='card bank-link-card';
+    d.style.cssText='display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#fff8e1,#fce4ec);border:2px solid #ffcc80;cursor:pointer;padding:10px 14px';
+    d.onclick=goBank;
+    d.innerHTML='<div style="font-size:38px;line-height:1">🐷</div><div style="flex:1"><div style="font-weight:800;font-size:16px;color:#ad1457">去「小小存钱银行」</div><div class="small" style="color:#6d4c41">'+sub+'</div></div><div style="background:#ec407a;color:#fff;border-radius:14px;padding:7px 12px;font-weight:800;white-space:nowrap">打开 ➜</div>';
+    return d;
+  }
+  var h=document.getElementById('page-home'); if(h) h.insertBefore(card('存零花钱、定期存款、攒星星、心愿单、学习计划'),h.firstChild);
+  var a=document.getElementById('page-allowance'); if(a) a.insertBefore(card('真实零花钱存进银行，还能存定期赚利息哦'),a.firstChild);
+})();
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
