@@ -39106,6 +39106,128 @@ setInterval(function(){
     if(hb&&state&&state.house3d){ var cur=hbCurrentTier(), ready=cur&&cur.parts.some(function(p){ return !state.house3d.parts[p.id]&&p.f()>=p.g; }); hb.style.boxShadow=ready?'0 0 0 3px #ffeb3b,0 3px 10px rgba(0,0,0,.24)':''; }
   }catch(e){}
 },600);
+/* ========== 2026-11新增：宠物捣乱/拆家在3D小屋里的画面效果 ==========
+   复用系统原有的两套数据（不另造规则）：
+   ① 能力捣乱：某一类打卡连续没做 → state.abilityNeglectStreak[维度] → 捣乱等级0~4（家务这一类权重最大）
+   ② 宠物状态：清洁度低=脏、心情低/生气（petMoodOf）
+   算出"家里乱的程度"0~3：
+   1 有点乱：地上散落玩具、书、衣服、纸团
+   2 又乱又脏：+ 泥巴脏印、爪印、垃圾堆、苍蝇、墙上乱涂乱画
+   3 拆家：+ 沙发被撕破棉絮满地、花瓶碎片、椅子踢翻、墙裂缝、墙上破洞、卫生纸扯得到处都是、吊灯乱晃
+   恢复干净的办法：去完成对应的打卡（尤其是家务）、把宠物照顾好——数据一恢复，下次进小屋就干净了。 */
+var H3_ROOM_BOX={living:[-5.6,-1.4,0,-0.6,2.6],kitchen:[-0.7,2.7,0,-1.6,2.7],bath:[3.2,5.7,0,-1.4,2.7],bed:[-5.6,-0.3,3.11,-0.5,2.7],play:[0.3,5.6,3.11,-1.3,2.7]};
+function h3MessInfo(){
+  var reasons=[], score=0;
+  try{
+    var st=(state&&state.abilityNeglectStreak)||{};
+    var names={sport:'运动',study:'学习',house:'家务',music:'唱歌跳舞',creativity:'创造力',empathy:'日记/沟通'};
+    Object.keys(st).forEach(function(d){
+      var lv=abilityNeglectLevelOf(st[d]||0); if(!lv) return;
+      score+=(d==='house'?lv*1.4:lv*0.5);
+      reasons.push('「'+(names[d]||d)+'」打卡连续'+st[d]+'天没做');
+    });
+  }catch(e){}
+  try{
+    var p=state.pet, mood=petMoodOf(p);
+    if((p.clean||0)<30){ score+=1.2; reasons.push('宠物太脏了（清洁度'+Math.round(p.clean||0)+'）'); }
+    else if((p.clean||0)<50){ score+=0.6; reasons.push('宠物有点脏'); }
+    if(mood==='angry'){ score+=1.6; reasons.push('宠物生气了（好几项状态太低）'); }
+    else if((p.happy||0)<40){ score+=0.6; reasons.push('宠物不开心'); }
+  }catch(e2){}
+  var level=score>=4?3:score>=2?2:score>=0.5?1:0;
+  return {level:level,score:score,reasons:reasons};
+}
+function messRand(seed){ var t=seed>>>0; return function(){ t+=0x6D2B79F5; var r=Math.imul(t^t>>>15,1|t); r^=r+Math.imul(r^r>>>7,61|r); return ((r^r>>>14)>>>0)/4294967296; }; }
+function messDecal(g,x,y,z,w,h,tex,rot,op){ var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tex,transparent:true,opacity:op||1,depthWrite:false,roughness:0.9})); m.rotation.x=-Math.PI/2; m.rotation.z=rot||0; m.position.set(x,y+0.1,z); g.add(m); return m; }
+function messWallDecal(g,x,y,z,w,h,tex){ var m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tex,transparent:true,depthWrite:false,roughness:0.9})); m.position.set(x,y,z); g.add(m); return m; }
+var MESS_TEX={
+  mud:function(x,w,h){ x.fillStyle='rgba(92,64,40,.75)'; for(var i=0;i<9;i++){ x.beginPath(); x.ellipse(w/2+(Math.random()-0.5)*w*0.5,h/2+(Math.random()-0.5)*h*0.5,w*(0.08+Math.random()*0.15),h*(0.06+Math.random()*0.12),Math.random()*3,0,7); x.fill(); } for(var j=0;j<30;j++){ x.fillRect(Math.random()*w,Math.random()*h,3,3); } },
+  paws:function(x,w,h){ x.fillStyle='rgba(80,55,35,.8)'; for(var i=0;i<6;i++){ var px=w*0.12+i*w*0.15, py=h*(i%2?0.35:0.65); x.beginPath(); x.ellipse(px,py,9,11,0,0,7); x.fill(); [[-9,-12],[-3,-16],[4,-16],[10,-12]].forEach(function(o){ x.beginPath(); x.arc(px+o[0],py+o[1],3.5,0,7); x.fill(); }); } },
+  scribble:function(x,w,h){ var cs=['#e53935','#1e88e5','#43a047','#fb8c00','#8e24aa']; x.lineCap='round'; for(var i=0;i<7;i++){ x.strokeStyle=cs[i%cs.length]; x.lineWidth=4+Math.random()*4; x.beginPath(); var sx=Math.random()*w, sy=Math.random()*h; x.moveTo(sx,sy); for(var k=0;k<8;k++){ sx+=Math.random()*60-30; sy+=Math.random()*50-25; x.lineTo(sx,sy); } x.stroke(); } x.font='bold 40px sans-serif'; x.fillStyle='#e53935'; x.fillText('✗',w*0.7,h*0.35); },
+  crack:function(x,w,h){ x.strokeStyle='rgba(50,40,35,.85)'; x.lineWidth=3; x.lineCap='round'; var go=function(sx,sy,len,ang,depth){ if(depth>4||len<6) return; var ex=sx+Math.cos(ang)*len, ey=sy+Math.sin(ang)*len; x.beginPath(); x.moveTo(sx,sy); x.lineTo(ex,ey); x.stroke(); go(ex,ey,len*0.7,ang+(Math.random()-0.5)*1.2,depth+1); if(Math.random()<0.6) go(ex,ey,len*0.55,ang+(Math.random()<0.5?0.9:-0.9),depth+1); }; x.lineWidth=4; go(w/2,h*0.1,h*0.25,Math.PI/2,0); },
+  hole:function(x,w,h){ var g=x.createRadialGradient(w/2,h/2,4,w/2,h/2,w/2); g.addColorStop(0,'rgba(20,14,10,.95)'); g.addColorStop(0.7,'rgba(60,45,35,.9)'); g.addColorStop(1,'rgba(60,45,35,0)'); x.fillStyle=g; x.beginPath(); for(var i=0;i<14;i++){ var a=i/14*Math.PI*2, r=w*(0.32+Math.random()*0.16); i?x.lineTo(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r):x.moveTo(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r); } x.fill(); x.strokeStyle='rgba(240,230,215,.9)'; x.lineWidth=3; x.stroke(); },
+  stain:function(x,w,h){ var g=x.createRadialGradient(w/2,h/2,2,w/2,h/2,w/2); g.addColorStop(0,'rgba(120,90,40,.6)'); g.addColorStop(1,'rgba(120,90,40,0)'); x.fillStyle=g; x.fillRect(0,0,w,h); }
+};
+function messTex(k){ return hqTex('mess_'+k,128,128,MESS_TEX[k]); }
+function messBuild(scene,lv){
+  var R=messRand(studyDayOfYear(new Date())*31+lv), g=scene, rooms=h3RoomsOk().filter(function(k){ return H3_ROOM_BOX[k]; });
+  var toyCols=['#ef5350','#42a5f5','#ffca28','#66bb6a','#ab47bc','#ff7043'];
+  var paper=hqM('#f5f5f5',{r:0.95}), cloth=hqM('#90caf9',{r:0.95}), cloth2=hqM('#f48fb1',{r:0.95});
+  var flySpots=[];
+  rooms.forEach(function(k){
+    var b=H3_ROOM_BOX[k], y=b[2];
+    var rx=function(){ return b[0]+R()*(b[1]-b[0]); }, rz=function(){ return b[3]+R()*(b[4]-b[3]); };
+    var n=lv===1?6:lv===2?10:15;
+    for(var i=0;i<n;i++){
+      var t=R(), x=rx(), z=rz();
+      if(t<0.3){ var c=new THREE.Mesh(new THREE.IcosahedronGeometry(0.15,0),paper); c.position.set(x,y+0.2,z); c.rotation.set(R()*3,R()*3,R()*3); c.castShadow=true; g.add(c); }
+      else if(t<0.55){ var bk=hqRB(g,0.5,0.1,0.38,x,y+0.15,z,hqM(toyCols[Math.floor(R()*6)],{r:0.6}),0.02); bk.rotation.y=R()*3; bk.rotation.z=(R()-0.5)*0.3; }
+      else if(t<0.75){ var cl=new THREE.Mesh(new THREE.SphereGeometry(0.34,10,6),R()<0.5?cloth:cloth2); cl.scale.set(1.3,0.2,1); cl.position.set(x,y+0.13,z); cl.rotation.y=R()*3; g.add(cl); }
+      else { var ball=hqSph(g,0.16,x,y+0.25,z,hqM(toyCols[Math.floor(R()*6)],{r:0.4})); }
+    }
+    if(lv>=2){
+      messDecal(g,rx(),y,rz(),1.8,1.3,messTex('mud'),R()*3); messDecal(g,rx(),y,rz(),1.4,1.0,messTex('mud'),R()*3);
+      messDecal(g,rx(),y,rz(),2.2,0.7,messTex('paws'),R()*3); messDecal(g,rx(),y,rz(),2.0,0.6,messTex('paws'),R()*3);
+      messDecal(g,rx(),y,rz(),0.9,0.9,messTex('stain'),0,0.8);
+      // 垃圾堆
+      var tx=rx(), tz=rz(); flySpots.push([tx,y+0.5,tz]);
+      for(var j=0;j<10;j++){ var c2=new THREE.Mesh(new THREE.IcosahedronGeometry(0.13+R()*0.08,0),[paper,hqM('#8d6e63',{r:0.9}),hqM('#cfd8dc',{r:0.5,m:0.5})][j%3]); c2.position.set(tx+(R()-0.5)*0.5,y+0.17+R()*0.1,tz+(R()-0.5)*0.4); c2.rotation.set(R()*3,R()*3,R()*3); g.add(c2); }
+      var peel=new THREE.Mesh(new THREE.TorusGeometry(0.08,0.03,6,10,Math.PI),hqM('#fdd835',{r:0.6})); peel.position.set(tx+0.3,y+0.13,tz); peel.rotation.x=Math.PI/2; g.add(peel);
+      // 墙上乱涂乱画（后墙）
+      messWallDecal(g,(b[0]+b[1])/2+(R()-0.5),y+1.0,-2.86,1.8,1.2,messTex('scribble'));
+    }
+    if(lv>=3){
+      messWallDecal(g,b[0]+0.8+R()*(b[1]-b[0]-1.6),y+1.7,-2.85,1.2,1.6,messTex('crack'));
+      messWallDecal(g,b[0]+0.6+R()*(b[1]-b[0]-1.2),y+0.6,-2.84,1.0,0.85,messTex('hole'));
+      // 卫生纸扯得到处都是
+      var tp=hqM('#ffffff',{r:0.95});
+      var pts=[]; var sx=rx(), sz=rz(); for(var q=0;q<6;q++) pts.push(new THREE.Vector3(sx+q*0.4,y+0.12+Math.abs(Math.sin(q))*0.25,sz+Math.sin(q*1.7)*0.4));
+      var tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),24,0.06,5,false),tp); g.add(tube);
+      // 碎花瓶
+      var shardM=hqM('#4fc3f7',{r:0.2,m:0.1}); var vx=rx(), vz=rz();
+      for(var s2=0;s2<6;s2++){ var sh=new THREE.Mesh(new THREE.TetrahedronGeometry(0.06+R()*0.04),shardM); sh.position.set(vx+(R()-0.5)*0.5,y+0.13,vz+(R()-0.5)*0.5); sh.rotation.set(R()*3,R()*3,R()*3); g.add(sh); }
+      var ff=hqSph(g,0.07,vx+0.2,y+0.15,vz,hqM('#ff80ab'));
+    }
+  });
+  if(lv>=3){
+    // 客厅沙发被撕破：棉絮
+    var fluff=hqM('#ffffff',{r:1});
+    for(var f=0;f<12;f++){ hqSph(g,0.08+R()*0.07,-2.4+(R()-0.5)*2.2,0.15+R()*0.6,-0.1+(R()-0.5)*1.2,fluff); }
+    var rip=messWallDecal(g,-2.3,0.62,-0.53,0.6,0.25,messTex('hole'));
+    // 踢翻的椅子
+    if(h3RoomsOk().indexOf('kitchen')>=0){ var ch=new THREE.Group(); ch.position.set(1.9,0.25,1.0); ch.rotation.z=Math.PI/2; ch.rotation.y=0.6; g.add(ch); hqCyl(ch,0.22,0.22,0.06,0,0,0,hqM('#f48fb1',{r:0.8}),20); hqCyl(ch,0.03,0.03,0.45,0,-0.24,0,hqM('#8d6e63'),8); }
+    // 吊灯乱晃
+    // 灯一闪一闪（被宠物撞坏了）
+    H3.anims.push(function(dt,t){ (HQ.nightLights||[]).forEach(function(q,i){ var base=H3.night?q.night:q.day; q.l.intensity=(Math.sin(t*13+i*2)>0.6&&Math.random()<0.5)?base*0.25:base; }); });
+  }
+  // 苍蝇
+  if(flySpots.length){
+    var fly=luxPoints(flySpots.length*5,[0.1,0.1,0.1],0.09,[0x212121],[0,0,0]); fly.material.blending=THREE.NormalBlending; g.add(fly);
+    H3.anims.push(function(dt,t){ var a=fly.geometry.attributes.position; for(var i=0;i<a.count;i++){ var s=flySpots[Math.floor(i/5)], k=i%5; a.array[i*3]=s[0]+Math.cos(t*4+k*1.3)*0.35; a.array[i*3+1]=s[1]+Math.sin(t*6+k)*0.18; a.array[i*3+2]=s[2]+Math.sin(t*3+k*2)*0.3; } a.needsUpdate=true; });
+  }
+}
+var _messBaseBuild=h3BuildHouse;
+h3BuildHouse=function(scene){
+  _messBaseBuild(scene);
+  if(H3.preview) return;
+  var info=h3MessInfo(); H3.mess=info;
+  if(info.level>0){ try{ messBuild(scene,info.level); }catch(e){ try{ console.warn(e); }catch(e2){} } }
+};
+var _messOrigInit=h3Init;
+h3Init=function(){
+  var r=_messOrigInit.apply(this,arguments);
+  var wrap=document.getElementById('h3Wrap'), old=document.getElementById('h3MessBadge'); if(old) old.remove();
+  var info=H3.mess; if(H3.preview||!info||!info.level) return r;
+  var title=['','😐 家里有点乱','😣 家里又乱又脏','💥 宠物在拆家！'][info.level];
+  var b=document.createElement('div'); b.id='h3MessBadge';
+  b.style.cssText='position:absolute;top:52px;left:10px;max-width:260px;background:rgba(255,243,224,.95);border:2px solid '+(info.level>=3?'#e53935':'#ffb74d')+';border-radius:14px;padding:8px 10px;font-size:12px;color:#5d4037;z-index:10001;line-height:1.5';
+  b.innerHTML='<b style="font-size:14px;color:'+(info.level>=3?'#c62828':'#e65100')+'">'+title+'</b><br>原因：'+info.reasons.slice(0,3).join('；')
+    +'<br><span style="color:#2e7d32">👉 完成对应的打卡（尤其是「家务」）、把宠物照顾好，家里就会恢复干净！</span>';
+  wrap.appendChild(b);
+  // 宠物也会抱怨/心虚
+  setTimeout(function(){ var a=(H3.actors||[])[0]; if(a&&typeof h3Say==='function') h3Say(a,['家里有点乱…嘿嘿','是我弄乱的…对不起嘛','哼！谁让你都不管我！'][info.level-1],3000); },1500);
+  return r;
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
