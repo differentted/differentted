@@ -1381,7 +1381,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="pet-room" id="petRoom" style="display:none"></div>
     </div>
     <button class="btn btn-primary btn-block" id="btnChoosePet" onclick="openChoose()">🥚 选择你的电子宠物伙伴</button>
-    <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#4fc3f7,#7e57c2);color:#fff;font-weight:700;font-size:16px" onclick="openHouse3D()">🏠 进入宠物3D小屋（上下楼梯·进门出门）</button>
+    <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#4fc3f7,#7e57c2);color:#fff;font-weight:700;font-size:16px" onclick="openHouseBuild()">🏗️ 3D小屋（打卡赢零件来建造）</button>
     <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#ffb300,#ab47bc);color:#fff;font-weight:700" onclick="openCreatures()">✨ 精灵图鉴：孵蛋收集 50 种精灵</button>
   </div>
 
@@ -9124,7 +9124,8 @@ function captureLocalDaySnapshotForMerge(){
       creatures:state.creatures?JSON.parse(JSON.stringify(state.creatures)):null,
       crLog:state.crLog?JSON.parse(JSON.stringify(state.crLog)):null,
       learnLog:state.learnLog?JSON.parse(JSON.stringify(state.learnLog)):null,
-      selfTests:Array.isArray(state.selfTests)?state.selfTests.slice():null
+      selfTests:Array.isArray(state.selfTests)?state.selfTests.slice():null,
+      house3d:state.house3d?JSON.parse(JSON.stringify(state.house3d)):null
     };
   }
   return null;
@@ -9161,12 +9162,20 @@ function mergeLearnAndCreatures(snap){
       if(!b.partner&&a.partner) b.partner=a.partner;
     }
   }
+  if(snap.house3d){
+    if(!state.house3d) state.house3d=snap.house3d;
+    else{
+      (snap.house3d.built||[]).forEach(function(t){ if(state.house3d.built.indexOf(t)<0) state.house3d.built.push(t); });
+      Object.keys(snap.house3d.parts||{}).forEach(function(k){ if(snap.house3d.parts[k]) state.house3d.parts[k]=true; });
+    }
+  }
   if(snap.crLog){
     if(!state.crLog) state.crLog={};
     Object.keys(snap.crLog).forEach(function(k){
       var x=snap.crLog[k], y=state.crLog[k];
       if(!y){ state.crLog[k]=x; return; }
       ['s','st','h','bonus','feather','clover'].forEach(function(f){ if(x[f]) y[f]=1; });
+      if(x.tasks){ if(!y.tasks) y.tasks={}; Object.keys(x.tasks).forEach(function(t){ y.tasks[t]=1; }); }
       y.testStones=Math.max(y.testStones||0,x.testStones||0);
     });
   }
@@ -37515,7 +37524,7 @@ var H3_ROOMS={living:{n:'🛋 客厅',node:'L'},kitchen:{n:'🍳 厨房',node:'K
 function h3Path(from,to){
   var adj={}; H3_EDGES.forEach(function(e){ (adj[e[0]]=adj[e[0]]||[]).push(e[1]); (adj[e[1]]=adj[e[1]]||[]).push(e[0]); });
   var prev={}, q=[from], seen={}; seen[from]=1;
-  while(q.length){ var c=q.shift(); if(c===to) break; (adj[c]||[]).forEach(function(n){ if(!seen[n]){ seen[n]=1; prev[n]=c; q.push(n); } }); }
+  while(q.length){ var c=q.shift(); if(c===to) break; (adj[c]||[]).forEach(function(n){ if(!seen[n]&&(typeof h3NodeOk!=='function'||h3NodeOk(n))){ seen[n]=1; prev[n]=c; q.push(n); } }); }
   var path=[to]; while(path[0]!==from){ if(!prev[path[0]]) return [to]; path.unshift(prev[path[0]]); }
   return path;
 }
@@ -37608,7 +37617,7 @@ function h3PetSprite(p,idx){
   sp.center.set(0.5,0.02); sp.scale.set(2.5,2.5,1);
   var sh=new THREE.Mesh(new THREE.CircleGeometry(0.42,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.18}));
   sh.rotation.x=-Math.PI/2;
-  var startNodes=['L','K','B','R','P'];
+  var startNodes=['L','K','B','R','P'].filter(function(n){ return typeof h3NodeOk!=='function'||h3NodeOk(n); }); if(!startNodes.length) startNodes=['L'];
   var node=startNodes[idx%startNodes.length], p0=H3_NODES[node].p;
   var a={pet:p,idx:idx,sp:sp,cv:cv,ctx:cv.getContext('2d'),tex:tex,sh:sh,pos:new THREE.Vector3(p0[0]+(idx%2?0.6:-0.6),p0[1],p0[2]),node:node,path:[],anim:'idle',animUntil:0,faceLeft:false,speed:1.6,nextWander:Date.now()+2000+Math.random()*4000,bubble:null,lastDraw:0};
   return a;
@@ -37647,7 +37656,7 @@ function h3Say(a,text,ms){
 }
 function h3Arrive(a){
   var r=a.goal; a.goal=null; if(!r) return;
-  var acts={kitchen:['eat','好香～吃饭啦！🍎'],bath:['happy','洗澡澡，泡泡好多～🫧'],bed:['sleep','困了，睡一会儿…💤'],play:['dance-simple','游戏室最好玩啦！🎵'],yard:['happy','外面空气真好！🌸'],living:['wave','回到客厅啦～📺']};
+  var acts={pool:['happy','游泳啦，扑通扑通～🏊'],kitchen:['eat','好香～吃饭啦！🍎'],bath:['happy','洗澡澡，泡泡好多～🫧'],bed:['sleep','困了，睡一会儿…💤'],play:['dance-simple','游戏室最好玩啦！🎵'],yard:['happy','外面空气真好！🌸'],living:['wave','回到客厅啦～📺']};
   var x=acts[r]; if(!x) return;
   a.anim=x[0]; a.animStart=Date.now(); a.animUntil=Date.now()+(x[0]==='sleep'?9000:3500);
   if(a.idx===H3.mainIdx||Math.random()<0.4) h3Say(a,x[1],2200);
@@ -37661,7 +37670,7 @@ function openHouse3D(){
     w.innerHTML='<div id="h3Canvas" style="position:absolute;inset:0"></div>'
       +'<div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none">'
       +'<div style="background:rgba(255,255,255,.85);border-radius:14px;padding:6px 12px;font-weight:800;color:#6a1b9a;pointer-events:auto">🏠 宠物3D小屋</div>'
-      +'<button class="btn btn-gray" style="pointer-events:auto" onclick="closeHouse3D()">✕ 关闭</button></div>'
+      +'<span style="pointer-events:auto"><button class="btn btn-warning btn-sm" onclick="closeHouse3D();openHouseBuild()">🏗️ 建造中心</button> <button class="btn btn-gray" onclick="closeHouse3D()">✕ 关闭</button></span></div>'
       +'<div id="h3Tip" style="position:absolute;top:56px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.8);border-radius:10px;padding:4px 10px;font-size:12px;color:#6a1b9a">拖动转视角 · 双指/滚轮缩放 · 点宠物和它玩</div>'
       +'<div id="h3Btns" style="position:absolute;left:8px;right:8px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>'
       +'<div id="h3Loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6a1b9a">🏠 小屋搭建中…</div>';
@@ -37680,17 +37689,17 @@ function closeHouse3D(){
 function h3Init(){
   document.getElementById('h3Loading').style.display='none';
   var host=document.getElementById('h3Canvas');
-  if(!H3.renderer){
-    var r=new THREE.WebGLRenderer({antialias:true,alpha:true}); r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-    host.appendChild(r.domElement); H3.renderer=r;
+  if(H3.renderer&&H3.builtTier!==H3.tier){ H3.scene=null; }
+  if(!H3.renderer||!H3.scene){
+    var r=H3.renderer;
+    if(!r){ r=new THREE.WebGLRenderer({antialias:true,alpha:true}); r.setPixelRatio(Math.min(2,window.devicePixelRatio||1)); host.appendChild(r.domElement); H3.renderer=r; h3BindControls(r.domElement); window.addEventListener('resize',h3Resize); }
+    (H3.actors||[]).forEach(function(x){ if(x.bubble) x.bubble.remove(); }); H3.builtTier=H3.tier; H3.actors=[];
     H3.scene=new THREE.Scene();
     H3.scene.add(new THREE.HemisphereLight(0xffffff,0xb0bec5,0.95));
     var dl=new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(5,12,10); H3.scene.add(dl);
     H3.camera=new THREE.PerspectiveCamera(45,1,0.1,200);
     h3BuildHouse(H3.scene);
-    H3.yaw=0.12; H3.pitch=0.36; H3.dist=14; H3.target=new THREE.Vector3(-1.2,2.4,0);
-    h3BindControls(r.domElement);
-    window.addEventListener('resize',h3Resize);
+    var tt=H3.tier||3; H3.yaw=0.12; H3.pitch=tt>=3?0.36:0.5; H3.dist=tt>=3?14:(tt===2?12:9.5); H3.target=new THREE.Vector3(tt===1?-4.5:-1.2,tt>=3?2.4:1.2,0);
   }
   // 宠物
   (H3.actors||[]).forEach(function(a){ H3.scene.remove(a.sp); H3.scene.remove(a.sh); if(a.bubble) a.bubble.remove(); });
@@ -37701,7 +37710,7 @@ function h3Init(){
   var main=H3.actors.filter(function(a){ return a.idx===H3.mainIdx; })[0]||H3.actors[0];
   if(main){ main.pos.set(-3.6,0,1.6); main.node='L'; }
   document.getElementById('h3Btns').innerHTML='<span style="background:rgba(255,255,255,.85);border-radius:10px;padding:5px 8px;font-size:12px;color:#6a1b9a;align-self:center">叫'+escapeAttr((main&&main.pet&&main.pet.name)||'宠物')+'去：</span>'
-    +Object.keys(H3_ROOMS).map(function(k){ return '<button class="btn btn-primary btn-sm" onclick="h3Command(\''+k+'\')">'+H3_ROOMS[k].n+'</button>'; }).join('');
+    +h3RoomsOk().map(function(k){ return '<button class="btn btn-primary btn-sm" onclick="h3Command(\''+k+'\')">'+H3_ROOMS[k].n+'</button>'; }).join('');
   h3Resize();
   cancelAnimationFrame(H3.raf); H3.last=performance.now(); H3.raf=requestAnimationFrame(h3Loop);
 }
@@ -37767,7 +37776,7 @@ function h3Loop(now){
         var sNow=a.pos.clone().project(c), sNext=target.clone().project(c); if(Math.abs(sNext.x-sNow.x)>0.002) a.faceLeft=sNext.x<sNow.x;
       }
     }else if(Date.now()>a.nextWander&&a.anim!=='sleep'){
-      var rooms=Object.keys(H3_ROOMS); h3GoTo(a,rooms[Math.floor(Math.random()*rooms.length)]); a.nextWander=Date.now()+9000+Math.random()*9000;
+      var rooms=h3RoomsOk(); h3GoTo(a,rooms[Math.floor(Math.random()*rooms.length)]); a.nextWander=Date.now()+9000+Math.random()*9000;
     }
     a.sp.position.copy(a.pos); a.sh.position.set(a.pos.x,a.pos.y+0.06,a.pos.z);
     h3DrawPet(a,t,moving);
@@ -37785,6 +37794,220 @@ function h3Loop(now){
   });
   H3.renderer.render(H3.scene,c);
   H3.raf=requestAnimationFrame(h3Loop);
+}
+/* ========== 2026-11改版：3D小屋要靠打卡赢零件来建造（平面宠物房间保留为所有人的基础款） ==========
+   4种房子从易到难，一级一级解锁：
+     1 🛖 小木屋（单间客厅+院子）4个零件 —— 一两天就能凑齐，让小朋友先尝到甜头
+     2 🏠 温馨平房（客厅+厨房+浴室）6个零件
+     3 🏡 双层别墅（+二楼卧室/游戏室/楼梯）8个零件
+     4 🏰 星空城堡（+塔楼/游泳池/旗帜/灯串）8个零件 —— 需要连续坚持很久
+   每个零件对应一项指定的打卡任务（累计天数/连续天数/自测/成语测验/指定学习任务），完成后点「领取」；
+   一级的零件全部领齐 → 点「开始建造」→ 建成后就能进入这栋3D小屋。建好上一级才解锁下一级。
+   统计数据来自"打卡日记"(state.crLog)：每天运动/学习/家务是否全勤、当天完成了哪些学习任务。 */
+// 每次完成打卡任务，记到当天的打卡日记里（用来统计"累计几天完成了某个任务"）
+var _hbOrigMarkDone=markDone;
+markDone=function(cat,key,viaFree){
+  var r=_hbOrigMarkDone.apply(this,arguments);
+  try{ var d=crUpdateTodayLog(); if(d){ if(!d.tasks) d.tasks={}; d.tasks[key]=1; } }catch(e){}
+  return r;
+};
+function hbDays(pred){ var L0=(state&&state.crLog)||{}; return Object.keys(L0).filter(function(k){ return pred(L0[k]); }).length; }
+function hbTaskDays(id){ return hbDays(function(d){ return d.tasks&&d.tasks[id]; }); }
+function hbCyGood(min){ return (state.cyTests||[]).filter(function(r){ return r.score>=min; }).length; }
+var HB_ALL3=function(d){ return d.s&&d.st&&d.h; };
+var HOUSE_TIERS=[
+  {id:1,name:'🛖 小木屋',desc:'一间温馨的小客厅，有木门可以进出院子',parts:[
+    {id:'t1a',n:'🧱 地基',d:'完成 1 天「学习」全勤',g:1,f:function(){ return hbDays(function(d){ return d.st; }); }},
+    {id:'t1b',n:'🪵 木头墙',d:'完成 1 天「运动」全勤',g:1,f:function(){ return hbDays(function(d){ return d.s; }); }},
+    {id:'t1c',n:'🚪 小木门',d:'学完自测 1 次 80 分以上',g:1,f:function(){ return crGoodTests(); }},
+    {id:'t1d',n:'🔺 小屋顶',d:'完成 1 天「家务」全勤',g:1,f:function(){ return hbDays(function(d){ return d.h; }); }}]},
+  {id:2,name:'🏠 温馨平房',desc:'客厅、厨房、浴室三个房间，房间之间有门',parts:[
+    {id:'t2a',n:'🍳 厨房套件',d:'累计 3 天「家务」全勤',g:3,f:function(){ return hbDays(function(d){ return d.h; }); }},
+    {id:'t2b',n:'🛁 浴室套件',d:'累计 3 天「运动」全勤',g:3,f:function(){ return hbDays(function(d){ return d.s; }); }},
+    {id:'t2c',n:'🪟 门和窗户',d:'累计 5 次学完自测 80 分以上',g:5,f:function(){ return crGoodTests(); }},
+    {id:'t2d',n:'🛋 新家具',d:'成语小测验 1 次 80 分以上',g:1,f:function(){ return hbCyGood(80); }},
+    {id:'t2e',n:'🧮 彩色地砖',d:'累计 3 天完成「数学应用题」',g:3,f:function(){ return hbTaskDays('mathwp'); }},
+    {id:'t2f',n:'🎨 彩色油漆',d:'连续 3 天「学习」全勤',g:3,f:function(){ return crStreak(function(d){ return d.st; }); }}]},
+  {id:3,name:'🏡 双层别墅',desc:'加盖二楼：楼梯、卧室、游戏室，宠物可以上下楼',parts:[
+    {id:'t3a',n:'🪜 楼梯',d:'连续 5 天「学习」全勤',g:5,f:function(){ return crStreak(function(d){ return d.st; }); }},
+    {id:'t3b',n:'🧱 二楼地板',d:'累计 8 天「运动」全勤',g:8,f:function(){ return hbDays(function(d){ return d.s; }); }},
+    {id:'t3c',n:'🛏 卧室家具',d:'连续 5 天「运动」和「学习」都全勤',g:5,f:function(){ return crStreak(function(d){ return d.s&&d.st; }); }},
+    {id:'t3d',n:'🎮 游戏室',d:'累计 10 次学完自测 80 分以上',g:10,f:function(){ return crGoodTests(); }},
+    {id:'t3e',n:'🐉 成语书柜',d:'成语小测验 3 次 90 分以上',g:3,f:function(){ return hbCyGood(90); }},
+    {id:'t3f',n:'📖 阅读角',d:'累计 7 天完成「阅读」任务',g:7,f:function(){ return hbTaskDays('reading'); }},
+    {id:'t3g',n:'🏠 大屋顶',d:'累计 10 天「家务」全勤',g:10,f:function(){ return hbDays(function(d){ return d.h; }); }},
+    {id:'t3h',n:'🚪 二楼房门',d:'连续 7 天「运动+学习+家务」三项全勤',g:7,f:function(){ return crStreak(HB_ALL3); }}]},
+  {id:4,name:'🏰 星空城堡',desc:'城堡塔楼、院子里的游泳池、旗帜和星光灯串，最难也最酷',parts:[
+    {id:'t4a',n:'🗼 左塔楼',d:'连续 14 天「学习」全勤',g:14,f:function(){ return crStreak(function(d){ return d.st; }); }},
+    {id:'t4b',n:'🗼 右塔楼',d:'连续 14 天「运动」全勤',g:14,f:function(){ return crStreak(function(d){ return d.s; }); }},
+    {id:'t4c',n:'🏊 游泳池',d:'累计 20 天「家务」全勤',g:20,f:function(){ return hbDays(function(d){ return d.h; }); }},
+    {id:'t4d',n:'🚩 城堡旗帜',d:'累计 30 次学完自测 80 分以上',g:30,f:function(){ return crGoodTests(); }},
+    {id:'t4e',n:'✨ 星光灯串',d:'连续 21 天三项全勤',g:21,f:function(){ return crStreak(HB_ALL3); }},
+    {id:'t4f',n:'👑 皇家装饰',d:'成语小测验 10 次 90 分以上',g:10,f:function(){ return hbCyGood(90); }},
+    {id:'t4g',n:'📚 图书室',d:'累计 20 天完成「阅读」任务',g:20,f:function(){ return hbTaskDays('reading'); }},
+    {id:'t4h',n:'🌈 彩虹桥',d:'累计 20 天完成「数学应用题」',g:20,f:function(){ return hbTaskDays('mathwp'); }}]}
+];
+function hbState(){ if(!state.house3d) state.house3d={built:[],parts:{},active:0}; return state.house3d; }
+function hbMaxBuilt(){ var b=hbState().built; return b.length?Math.max.apply(null,b):0; }
+function hbCurrentTier(){ var m=hbMaxBuilt(); return HOUSE_TIERS.filter(function(t){ return t.id===m+1; })[0]||null; }
+function openHouseBuild(){
+  if(!state) return;
+  if(!document.getElementById('hbModal')){
+    var d=document.createElement('div'); d.className='modal-mask'; d.id='hbModal';
+    d.innerHTML='<div class="modal" style="max-width:480px;text-align:left;padding:14px 12px"><button class="modal-close" onclick="hideModal(\'hbModal\')">✕</button><div id="hbBody"></div></div>';
+    document.body.appendChild(d);
+  }
+  try{ crUpdateTodayLog(); }catch(e){}
+  hbRender(); showModal('hbModal');
+}
+function hbRender(){
+  var h=hbState(), cur=hbCurrentTier(), body=document.getElementById('hbBody'); if(!body) return;
+  var html='<h3 style="text-align:center;margin:2px 0 4px">🏗️ 3D小屋建造中心</h3>'
+    +'<div class="small" style="text-align:center;color:#7b1fa2;margin-bottom:8px">完成指定打卡任务赢零件，凑齐零件就能建造3D小屋！</div>';
+  if(h.built.length){
+    html+='<div style="background:#e8f5e9;border-radius:12px;padding:8px;margin-bottom:8px"><b>✅ 我建好的小屋：</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+      +h.built.slice().sort().map(function(id){ var t=HOUSE_TIERS[id-1]; return '<button class="btn btn-success btn-sm" onclick="hbEnter('+id+')">进入 '+t.name+'</button>'; }).join('')+'</div></div>';
+  }
+  HOUSE_TIERS.forEach(function(t){
+    var built=h.built.indexOf(t.id)>=0, isCur=cur&&cur.id===t.id, locked=!built&&!isCur;
+    var got=t.parts.filter(function(p){ return h.parts[p.id]; }).length;
+    html+='<div style="border-radius:14px;padding:10px;margin:8px 0;background:'+(built?'#f1f8e9':isCur?'#fff8e1':'#f5f5f5')+';border:2px solid '+(isCur?'#ffb300':built?'#a5d6a7':'#e0e0e0')+';'+(locked?'opacity:.7':'')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">'+(locked?'🔒 ':'')+t.name+'</b><span class="small">'+(built?'✅ 已建成':got+' / '+t.parts.length+' 个零件')+'</span></div>'
+      +'<div class="small" style="color:#666">'+t.desc+'</div>';
+    if(isCur){
+      html+=t.parts.map(function(p){
+        var own=!!h.parts[p.id], prog=Math.min(p.g,p.f()), done=prog>=p.g;
+        return '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;background:#fff;border-radius:10px;padding:6px 8px">'
+          +'<div style="font-size:22px;'+(own?'':'filter:grayscale(1);opacity:.5')+'">'+p.n.split(' ')[0]+'</div>'
+          +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">'+p.n.split(' ')[1]+'</div><div class="small" style="color:#666">'+p.d+'</div>'
+          +'<div style="height:7px;background:#eee;border-radius:4px;margin-top:3px;overflow:hidden"><div style="height:100%;width:'+Math.round(prog/p.g*100)+'%;background:#ffb300"></div></div>'
+          +'<div class="small" style="color:#888">'+prog+' / '+p.g+'</div></div>'
+          +(own?'<span style="color:#2e7d32;font-weight:700">✅</span>':done?'<button class="btn btn-primary btn-sm" onclick="hbClaim(\''+p.id+'\')">领取</button>':'')
+          +'</div>';
+      }).join('');
+      if(got===t.parts.length) html+='<button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#ff8f00,#7b1fa2);color:#fff;font-size:17px" onclick="hbBuild('+t.id+')">🔨 零件齐了！开始建造</button>';
+    }else if(locked){
+      html+='<div class="small" style="color:#999;margin-top:4px">先建好上一级的小屋才能解锁（需要 '+t.parts.length+' 个零件）</div>';
+    }
+    html+='</div>';
+  });
+  html+='<div class="small" style="color:#999;margin-top:6px">小提示：「连续」的任务中间断一天就要重新数哦～进度从开启这个功能后开始记录。</div>';
+  body.innerHTML=html;
+}
+function hbClaim(pid){
+  var cur=hbCurrentTier(); if(!cur) return;
+  var p=cur.parts.filter(function(x){ return x.id===pid; })[0]; if(!p||p.f()<p.g) return;
+  hbState().parts[pid]=true; saveStore(); hbRender();
+  try{ ttsToast('🎁 获得小屋零件：'+p.n,2500); }catch(e){}
+}
+function hbBuild(tid){
+  var t=HOUSE_TIERS[tid-1], h=hbState();
+  if(!t||t.parts.some(function(p){ return !h.parts[p.id]; })) return;
+  var body=document.getElementById('hbBody');
+  body.innerHTML='<div style="text-align:center;padding:16px 0"><div style="font-size:16px;color:#6a1b9a;font-weight:700">🔨 正在建造 '+t.name+'…</div>'
+    +'<div style="font-size:30px;margin:14px 0;letter-spacing:6px" id="hbParts">'+t.parts.map(function(p){ return '<span style="display:inline-block;opacity:.25;transition:all .4s">'+p.n.split(' ')[0]+'</span>'; }).join('')+'</div>'
+    +'<div style="height:14px;background:#eee;border-radius:8px;overflow:hidden;margin:0 20px"><div id="hbBar" style="height:100%;width:0;background:linear-gradient(90deg,#ffb300,#ab47bc);transition:width .4s"></div></div></div>';
+  var spans=body.querySelectorAll('#hbParts span'), i=0;
+  var iv=setInterval(function(){
+    if(i<spans.length){ spans[i].style.opacity='1'; spans[i].style.transform='translateY(-8px) scale(1.2)'; i++; document.getElementById('hbBar').style.width=Math.round(i/spans.length*100)+'%'; return; }
+    clearInterval(iv);
+    h.built.push(tid); h.active=tid; saveStore();
+    body.innerHTML='<div style="text-align:center;padding:14px 0"><div style="font-size:60px">'+t.name.split(' ')[0]+'</div><div style="font-size:20px;font-weight:800;color:#2e7d32">🎉 '+t.name.split(' ')[1]+' 建成啦！</div>'
+      +'<div class="small" style="margin:6px 0 10px">快带宠物们住进去吧～'+(tid<4?'<br>下一级「'+HOUSE_TIERS[tid].name+'」已经解锁！':'<br>你已经拥有最豪华的城堡啦！')+'</div>'
+      +'<button class="btn btn-primary btn-block" onclick="hbEnter('+tid+')">🏠 进入小屋</button><button class="btn btn-gray btn-block" onclick="hbRender()">返回建造中心</button></div>';
+    try{ petHeartFx(10); }catch(e){}
+  },450);
+}
+function hbEnter(tid){ hbState().active=tid; saveStore(); hideModal('hbModal'); openHouse3D(); }
+// 进3D小屋前检查：还没建好任何房子 → 打开建造中心
+var _hbOrigOpen3D=openHouse3D;
+openHouse3D=function(){
+  if(!state||!state.pet||!state.pet.chosen){ alert('先孵化/选择一只宠物哦～'); return; }
+  if(!hbMaxBuilt()){ openHouseBuild(); return; }
+  var h=hbState(); if(h.built.indexOf(h.active)<0) h.active=hbMaxBuilt();
+  H3.tier=h.active;
+  return _hbOrigOpen3D.apply(this,arguments);
+};
+// 不同等级的房子有哪些路线点/房间
+var H3_TIER_NODES={1:['G','FD','L'],2:['G','FD','L','LK','K','KB','B'],3:['G','FD','L','LK','K','KB','B','SB','ST','F2','R','RP','P'],4:['G','FD','L','LK','K','KB','B','SB','ST','F2','R','RP','P','PL']};
+H3_NODES.PL={p:[-8.6,0,-1.2],room:'pool'};
+H3_EDGES.push(['G','PL']);
+H3_ROOMS.pool={n:'🏊 游泳池',node:'PL'};
+function h3NodeOk(n){ var l=H3_TIER_NODES[H3.tier||3]; return !l||l.indexOf(n)>=0; }
+function h3RoomsOk(){ return Object.keys(H3_ROOMS).filter(function(k){ return h3NodeOk(H3_ROOMS[k].node); }); }
+// 按等级搭建房子
+function h3BuildHouse(scene){
+  var tier=H3.tier||3, D=6, H=3, T=0.15, two=tier>=3, wide=tier>=2;
+  var grass=new THREE.Mesh(new THREE.PlaneGeometry(40,24),h3Mat(0x9ccc65)); grass.rotation.x=-Math.PI/2; grass.position.y=-0.02; scene.add(grass);
+  if(wide) h3Box(scene,13,0.2,D+0.4,0,-0.1,0,0xd7ccc8); else h3Box(scene,5.6,0.2,D+0.4,-3.5,-0.1,0,0xd7ccc8);
+  h3Box(scene,5,0.05,D,-3.5,0.02,0,0xe6b980);
+  if(wide){ h3Box(scene,4,0.05,D,1,0.02,0,0xf5f0e1); h3Box(scene,3,0.05,D,4.5,0.02,0,0xb3e5fc); }
+  var wallH=two?H*2+0.2:H;
+  if(wide) h3Box(scene,12.3,wallH,T,0,wallH/2,-D/2,0xfff3e0); else h3Box(scene,5.3,H,T,-3.5,H/2,-D/2,0xfff3e0);
+  if(wide) h3Box(scene,T,wallH,D,6.05,wallH/2,0,0xffe0b2);
+  h3Box(scene,T,H,3.6,-6.05,H/2,-1.2,0xffe0b2); h3Box(scene,T,H,1.2,-6.05,H/2,2.4,0xffe0b2); h3Box(scene,T,0.8,1.2,-6.05,H-0.4,1.2,0xffe0b2);
+  if(two) h3Box(scene,T,H,D,-6.05,H+H/2,0,0xffe0b2);
+  if(wide){
+    [-1,3].forEach(function(x){ h3Box(scene,T,H,3.6,x,H/2,-1.2,0xfffde7); h3Box(scene,T,H,1.2,x,H/2,2.4,0xfffde7); h3Box(scene,T,0.8,1.2,x,H-0.4,1.2,0xfffde7); });
+  }else h3Box(scene,T,H,D,-1,H/2,0,0xffe0b2);
+  if(two){
+    h3Box(scene,6,0.2,D-2.2,-3,H,1.1,0xc8a27a); h3Box(scene,2.2,0.2,2.2,-1.1,H,-1.9,0xc8a27a); h3Box(scene,6,0.2,D,3,H,0,0xb39ddb);
+    h3Box(scene,6,0.03,D-2.2,-3,H+0.11,1.1,0xf8bbd0);
+    h3Box(scene,T,H,3.6,0,H+H/2,-1.2,0xf3e5f5); h3Box(scene,T,H,1.2,0,H+H/2,2.4,0xf3e5f5); h3Box(scene,T,0.8,1.2,0,H*2-0.4,1.2,0xf3e5f5);
+    h3Box(scene,3.7,0.6,0.06,-4.05,H+0.4,-0.8,0x8d6e63);
+    var steps=12; for(var i=0;i<steps;i++){ var sx=-5.3+(i+0.5)*(3.1/steps), sy=(i+1)*(H/steps); h3Box(scene,3.1/steps+0.02,sy,1.5,sx,sy/2,-1.9,i%2?0xa1887f:0x8d6e63); }
+  }
+  // 屋顶
+  var roofY=two?H*2+0.9:H+0.9;
+  var roof=wide?h3Box(scene,12.8,0.25,3.8,0,roofY,-1.9,tier>=4?0x5e35b1:0xd84315):h3Box(scene,5.8,0.25,3.8,-3.5,roofY,-1.9,0x8d6e63);
+  roof.rotation.x=0.5;
+  // 客厅家具（所有等级都有）
+  h3Box(scene,1.8,0.45,0.8,-2.3,0.3,-0.2,0xef9a9a); h3Box(scene,1.8,0.7,0.2,-2.3,0.6,-0.55,0xe57373);
+  h3Box(scene,1.6,0.5,0.4,-3.6,0.27,2.6,0x6d4c41); h3Box(scene,1.4,0.8,0.08,-3.6,0.95,2.6,0x263238);
+  h3Cyl(scene,1.1,1.1,0.03,-3.6,0.06,0.9,0xce93d8,24);
+  h3Cyl(scene,0.25,0.2,0.4,-1.5,0.2,-2.5,0x8d6e63); h3Sphere(scene,0.45,-1.5,0.75,-2.5,0x66bb6a);
+  if(wide){
+    h3Box(scene,2.5,0.9,0.7,1,0.45,-2.55,0xeceff1); h3Box(scene,0.8,0.05,0.5,0.6,0.92,-2.55,0x37474f); h3Box(scene,0.8,1.9,0.7,2.4,0.95,-2.55,0xffffff);
+    h3Cyl(scene,0.6,0.6,0.06,1,0.7,1.6,0xffcc80,20); h3Cyl(scene,0.06,0.06,0.7,1,0.35,1.6,0x8d6e63,8);
+    h3Sphere(scene,0.13,0.85,0.83,1.5,0xe53935); h3Sphere(scene,0.13,1.15,0.83,1.65,0xfdd835);
+    h3Box(scene,1.9,0.6,1,4.6,0.3,-2.3,0xffffff); h3Box(scene,1.7,0.05,0.8,4.6,0.58,-2.3,0x81d4fa);
+    h3Box(scene,0.6,0.8,0.45,5.6,0.4,1.6,0xffffff); h3Box(scene,0.06,0.8,0.6,5.95,1.4,1.6,0xb3e5fc);
+  }
+  if(two){
+    h3Box(scene,1.6,0.45,2.2,-1.3,H+0.35,-1.8,0xffffff); h3Box(scene,1.6,0.12,1.6,-1.3,H+0.62,-1.5,0xf48fb1); h3Box(scene,1.1,0.18,0.4,-1.3,H+0.66,-2.65,0xfff9c4);
+    h3Box(scene,0.6,1.9,1.0,-5.6,H+1.05,2.0,0xbcaaa4);
+    h3Cyl(scene,0.05,0.05,0.7,-0.4,H+0.45,-0.4,0x5d4037,8); h3Cyl(scene,0.18,0.28,0.3,-0.4,H+0.9,-0.4,0xfff176,12);
+    [[1.6,-1.8,0xe53935],[2.1,-1.8,0x1e88e5],[1.85,-1.8,0xfdd835]].forEach(function(b,i){ h3Box(scene,0.45,0.45,0.45,b[0],H+0.33+(i===2?0.45:0),b[1],b[2]); });
+    h3Sphere(scene,0.35,4.5,H+0.45,1.6,0xff7043);
+    var slide=h3Box(scene,0.6,0.06,2.2,4.8,H+0.7,-1.6,0x4dd0e1); slide.rotation.x=0.45; h3Box(scene,0.6,1.3,0.3,4.8,H+0.75,-2.65,0x26a69a);
+  }
+  // 院子
+  h3Cyl(scene,0.18,0.25,1.6,-10,0.8,-1.5,0x795548); h3Sphere(scene,1.1,-10,2.1,-1.5,0x43a047);
+  for(var f=-11;f<=-6.5;f+=0.7) h3Box(scene,0.12,0.7,0.12,f,0.35,3.5,0xffffff);
+  h3Box(scene,4.6,0.08,0.06,-8.8,0.55,3.5,0xffffff);
+  [[-8,2.4,0xff80ab],[-8.6,2.7,0xffeb3b],[-9.3,2.3,0xba68c8]].forEach(function(fl){ h3Cyl(scene,0.02,0.02,0.4,fl[0],0.2,fl[1],0x388e3c,6); h3Sphere(scene,0.12,fl[0],0.45,fl[1],fl[2]); });
+  // 城堡专属：塔楼、旗帜、游泳池、灯串
+  if(tier>=4){
+    [[-6.6,0xb39ddb],[6.6,0x9fa8da]].forEach(function(tw){
+      h3Cyl(scene,0.9,1.0,H*2+1.6,tw[0],(H*2+1.6)/2,-2.2,tw[1],20);
+      var cone=new THREE.Mesh(new THREE.ConeGeometry(1.2,1.8,20),h3Mat(0x7e57c2)); cone.position.set(tw[0],H*2+2.5,-2.2); scene.add(cone);
+      h3Cyl(scene,0.03,0.03,1.2,tw[0],H*2+3.9,-2.2,0x5d4037,6);
+      var flag=h3Box(scene,0.7,0.4,0.03,tw[0]+0.36,H*2+4.3,-2.2,0xff1744);
+    });
+    h3Box(scene,2.6,0.08,1.8,-8.6,0.02,-1.6,0xe0e0e0); h3Box(scene,2.3,0.06,1.5,-8.6,0.05,-1.6,0x29b6f6);
+    for(var s2=0;s2<14;s2++){ h3Sphere(scene,0.08,-5.8+s2*0.9,H*2+0.25-Math.sin(s2/13*Math.PI)*0.3,3.0,[0xffeb3b,0xff4081,0x40c4ff,0x69f0ae][s2%4]); }
+  }
+  // 房间名字
+  h3RoomsOk().forEach(function(k){ var n=H3_NODES[H3_ROOMS[k].node].p; var sp=h3TextSprite(H3_ROOMS[k].n,0.8); sp.position.set(n[0],n[1]+0.35,k==='pool'||k==='yard'?n[2]+1.6:3.05); scene.add(sp); });
+  // 门
+  H3.doors={};
+  var doorList=[['front',-6.05,0,0.6]]; if(wide) doorList.push(['lk',-1,0,0.6],['kb',3,0,0.6]); if(two) doorList.push(['rp',0,H,0.6]);
+  doorList.forEach(function(d){
+    var pivot=new THREE.Group(); pivot.position.set(d[1],d[2]+1.1,d[3]); scene.add(pivot);
+    h3Box(scene,0.08,2.2,1.2,0,0,0.6,d[0]==='front'?0xd84315:0x8d6e63,pivot);
+    var knob=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,6),h3Mat(0xffd54f)); knob.position.set(0.08,0,1.05); pivot.add(knob);
+    H3.doors[d[0]]={pivot:pivot,ang:0};
+  });
 }
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
