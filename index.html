@@ -39479,6 +39479,7 @@ function famDef(ev){ return FAM_EVENTS.filter(function(e){ return e.id===ev.id; 
 function famPet(i){ var ps=(state.pets&&state.pets.length)?state.pets:[state.pet]; return ps[i]||null; }
 function famStart(force){
   var f=famState(); if(f.pending) return;
+  var fm=document.getElementById('famModal'); if(!force&&(FAM_ACC||(fm&&fm.classList.contains('show')))) return;
   var ev=famMakeEvent(force); if(!ev) return;
   f.pending=ev; f.count++; f.last=Date.now();
   try{ saveStoreLocalOnly(); }catch(e){}
@@ -39572,18 +39573,77 @@ function famResolve(oi){
   famShow(); famUpdateBell();
   try{ if(typeof H3!=='undefined'&&H3.open&&q===0&&!H3.preview){ H3.builtTier=null; setTimeout(function(){ if(H3.open) h3Init(); },3500); } }catch(e){}
 }
-// 哄一哄生气的宠物
-var FAM_COAX=[[2,'真诚地说「对不起，是我没处理好」，再抱抱它','那…好吧，我原谅你了！下次要公平哦💕'],[1,'给它一个零食，叫它别生气了','零食我收下了…可是我心里还有点难过'],[0,'说「爱生气就生气吧，我不管你了」','哼！！我更生气了😤']];
+// 哄宠物要付出：时间和精力（陪它）或者金钱（买零食/礼物）
+var FAM_COAX=[
+  ['🤗 道歉，再好好陪它一会儿','花时间和精力','#43a047'],
+  ['🍪 买零食给它吃','花 5 金币','#fb8c00'],
+  ['🎁 买个大礼物送它','花 20 金币','#8e24aa'],
+  ['😒 不理它，爱生气就生气吧','','#e53935']
+];
+var FAM_ACC=null;
+function famAccNeed(p){ var m=Math.max(1,Math.ceil(((p.sulkUntil||0)-Date.now())/60000)); return Math.max(6,Math.min(12,Math.ceil(m/3)+4)); }
 function famCoax(i,k){
-  var p=famPet(i); if(!p) return; var c=FAM_COAX[k];
-  if(c[0]===2){ p.sulkUntil=0; p.happy=Math.min(100,(p.happy||0)+5); }
-  else if(c[0]===1){ p.sulkUntil=Date.now()+Math.max(0,(p.sulkUntil-Date.now())/2); }
-  else p.sulkUntil=(p.sulkUntil||Date.now())+10*60*1000;
+  var p=famPet(i); if(!p) return; var nm=escapeAttr(famName(p));
+  if(k===0){ FAM_ACC={i:i,need:famAccNeed(p),done:0,start:Date.now(),minSec:30,cd:0}; famAccRender(); return; }
+  if(k===1||k===2){
+    var cost=k===1?5:20;
+    if((state.moneyBalance||0)<cost){ ttsToast('金币不够哦，还差'+(cost-(state.moneyBalance||0))+'金币。试试花时间好好陪它吧～',3500); return; }
+    addCoinChange(-cost,k===1?'家庭小管家：买零食哄宠物':'家庭小管家：买礼物哄宠物');
+    if(k===1){ p.sulkUntil=Date.now()+Math.max(0,((p.sulkUntil||0)-Date.now())/2); p.happy=Math.min(100,(p.happy||0)+2); }
+    else { p.sulkUntil=0; p.happy=Math.min(100,(p.happy||0)+3); }
+    try{ saveStore(); }catch(e){}
+    var line=k===1?'零食好好吃…可是我还是有点难过，我更想要你陪陪我😔':'礼物我收下了…下次别再这样对我了哦。（其实我更想你陪我玩）';
+    famPetSay(i,line);
+    famPanel('<div style="background:#fff8e1;border-radius:10px;padding:8px 10px;margin-bottom:6px">🪙 花了 '+cost+' 金币。'+nm+'：「'+line+'」</div>');
+    return;
+  }
+  p.sulkUntil=Math.max(p.sulkUntil||0,Date.now())+10*60*1000; p.happy=Math.max(0,(p.happy||0)-5);
   try{ saveStore(); }catch(e){}
-  famPetSay(i,c[2]);
-  try{ if(c[0]===2&&typeof H3!=='undefined'&&H3.open){ var a=H3.actors.filter(function(x){ return x.idx===i; })[0]; if(a){ a.anim='happy'; a.animStart=Date.now(); a.animUntil=Date.now()+2000; } } }catch(e){}
-  famPanel('<div style="background:#fff8e1;border-radius:10px;padding:8px 10px;margin-bottom:6px">'+escapeAttr(famName(p))+'：「'+c[2]+'」</div>');
+  famPetSay(i,'哼！！你不理我，我更生气了😤');
+  famPanel('<div style="background:#ffebee;border-radius:10px;padding:8px 10px;margin-bottom:6px">'+nm+'：「哼！！你不理我，我更生气了😤」（又多生气10分钟）</div>');
 }
+var FAM_ACC_ACTS=[['🫳 摸摸头','嗯…还挺舒服的'],['🤗 抱一抱','…再抱紧一点'],['📖 讲个故事','然后呢然后呢？'],['🎾 陪它玩球','接住啦！'],['🍎 喂它吃水果','谢谢…'],['🎵 给它唱首歌','嘿嘿，好听'],['💬 跟它说对不起','你真的知道错了吗？']];
+function famAccRender(){
+  var A=FAM_ACC; if(!A) return; var p=famPet(A.i); if(!p){ FAM_ACC=null; return; }
+  var sec=Math.floor((Date.now()-A.start)/1000), pct=Math.min(100,Math.round(A.done/A.need*100));
+  var wait=A.cd>Date.now();
+  var acts=FAM_ACC_ACTS.slice().sort(function(a,b){ return (a[0].charCodeAt(2)+A.done*7)%5-(b[0].charCodeAt(2)+A.done*7)%5; }).slice(0,4);
+  var mood=pct<30?'😤':pct<70?'😕':pct<100?'🙂':'🥰';
+  famEnsureModal();
+  document.getElementById('famBody').innerHTML='<h3 style="margin:0 0 4px;color:#2e7d32">🤗 好好陪陪 '+escapeAttr(famName(p))+'</h3>'
+    +'<div class="small" style="color:#6d4c41">哄好它需要你的时间和耐心：陪它做 '+A.need+' 件事，至少陪 '+A.minSec+' 秒，中途离开就要重新来哦</div>'
+    +'<div style="text-align:center;margin:6px 0"><img src="'+famPetImg(A.i)+'" style="height:96px"><div style="font-size:30px">'+mood+'</div>'
+    +'<div id="famAccSay" style="min-height:22px;font-weight:700;color:#6a1b9a">'+(A.lastSay||'哼…你来干嘛')+'</div></div>'
+    +'<div style="background:#eee;border-radius:10px;height:16px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#ffb74d,#66bb6a);transition:width .3s"></div></div>'
+    +'<div class="small" style="text-align:center;margin:3px 0 6px">已陪 '+A.done+' / '+A.need+' 件事 · 已陪 '+sec+' 秒</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+acts.map(function(a){ var idx=FAM_ACC_ACTS.indexOf(a); return '<button class="btn" style="background:'+(wait?'#bdbdbd':'#26a69a')+';color:#fff;font-size:15px;padding:10px 4px" '+(wait?'disabled':'')+' onclick="famAccDo('+idx+')">'+a[0]+'</button>'; }).join('')+'</div>'
+    +(wait?'<div class="small" style="text-align:center;color:#8d6e63;margin-top:4px">慢慢来，它在感受你的心意…</div>':'')
+    +'<button class="btn btn-gray btn-block" style="margin-top:8px" onclick="FAM_ACC=null;famPanel()">先不陪了（进度会清零）</button>';
+  famShow();
+}
+function famAccDo(idx){
+  var A=FAM_ACC; if(!A||A.cd>Date.now()) return;
+  var a=FAM_ACC_ACTS[idx]; A.done++; A.cd=Date.now()+2500; A.lastSay=a[1];
+  try{ famPetSay(A.i,a[1]); }catch(e){}
+  famAccCheck();
+}
+function famAccCheck(){
+  var A=FAM_ACC; if(!A) return;
+  var sec=(Date.now()-A.start)/1000;
+  if(A.done>=A.need&&sec>=A.minSec){
+    var p=famPet(A.i); FAM_ACC=null; if(!p) return;
+    p.sulkUntil=0; p.happy=Math.min(100,(p.happy||0)+8);
+    try{ saveStore(); }catch(e){}
+    var line='你真的陪了我好久…我原谅你啦！最喜欢你了💕';
+    famPetSay(A.i,line);
+    try{ if(typeof H3!=='undefined'&&H3.open){ var ac=H3.actors.filter(function(x){ return x.idx===A.i; })[0]; if(ac){ ac.anim='happy'; ac.animStart=Date.now(); ac.animUntil=Date.now()+2500; } } }catch(e){}
+    famPanel('<div style="background:#e8f5e9;border-radius:10px;padding:8px 10px;margin-bottom:6px;color:#2e7d32">🥰 '+escapeAttr(famName(p))+'：「'+line+'」<br><span class="small">用心陪伴是最好的哄法，比买东西有用多啦！</span></div>');
+    return;
+  }
+  if(A.done>=A.need) A.lastSay='再陪我一下下嘛…（还要 '+Math.ceil(A.minSec-sec)+' 秒）';
+  famAccRender();
+}
+setInterval(function(){ try{ if(!FAM_ACC) return; var m=document.getElementById('famModal'); if(!m||!m.classList.contains('show')){ FAM_ACC=null; return; } famAccCheck(); }catch(e){} },1000);
 function famPanel(msg){
   var f=famState(), ps=famPets(), sul=ps.filter(function(x){ return famIsSulk(x.p); });
   var html='<h3 style="margin:0 0 6px;color:#6a1b9a">🏠 家庭小管家</h3>'+(msg||'')
@@ -39592,8 +39652,8 @@ function famPanel(msg){
     html+='<div style="margin-top:8px;font-weight:700;color:#c62828">😤 正在生你气的宠物：</div>';
     sul.forEach(function(x){
       var m=Math.ceil((x.p.sulkUntil-Date.now())/60000);
-      html+='<div style="display:flex;gap:8px;align-items:center;background:#ffebee;border-radius:12px;padding:6px 8px;margin:6px 0"><img src="'+famPetImg(x.i)+'" style="height:56px"><div style="flex:1"><b>'+escapeAttr(famName(x.p))+'</b> 还要生气 '+m+' 分钟<br>'
-        +FAM_COAX.map(function(c,k){ return '<button class="btn btn-sm" style="margin:3px 3px 0 0;background:'+['#43a047','#fb8c00','#e53935'][k]+';color:#fff" onclick="famCoax('+x.i+','+k+')">'+c[1]+'</button>'; }).join('')+'</div></div>';
+      html+='<div style="display:flex;gap:8px;align-items:center;background:#ffebee;border-radius:12px;padding:6px 8px;margin:6px 0"><img src="'+famPetImg(x.i)+'" style="height:56px"><div style="flex:1"><b>'+escapeAttr(famName(x.p))+'</b> 还要生气 '+m+' 分钟 · 🪙 你有 '+(state.moneyBalance||0)+' 金币<br>'
+        +FAM_COAX.map(function(c,k){ return '<button class="btn btn-sm" style="margin:3px 3px 0 0;background:'+c[2]+';color:#fff" onclick="famCoax('+x.i+','+k+')">'+c[0]+(c[1]?' <span style="opacity:.85;font-size:11px">（'+c[1]+'）</span>':'')+'</button>'; }).join('')+'</div></div>';
     });
   }else html+='<div style="margin-top:8px;color:#2e7d32">😊 现在没有宠物生你的气，家里很和睦！</div>';
   html+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="hideModal(\'famModal\')">好的</button>';
