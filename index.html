@@ -37428,6 +37428,60 @@ renderExerciseTimer=function(){
   }
   box.innerHTML=html+'<div style="margin-top:4px">'+voice+'</div></div>';
 };
+
+/* ========== 2026-11新增：朗读可以随时停止 ==========
+   家长反馈：读一整段文字时切到别的地方，它还在一直读。现在：
+   1) 再点一次同一个🔊按钮 → 停止（朗读时按钮会变成⏹）
+   2) 点页面上其它任何地方、切换页面、关闭弹窗、切到别的App → 自动停止 */
+var TTS_NOW={text:'',btn:null,btnHtml:'',watch:null};
+function ttsIsSpeaking(){
+  try{ if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending)) return true; }catch(e){}
+  var a=window._ttsNetAudio; return !!(a&&!a.paused&&!a.ended);
+}
+function ttsRestoreBtn(){
+  if(TTS_NOW.btn){ try{ TTS_NOW.btn.innerHTML=TTS_NOW.btnHtml; }catch(e){} TTS_NOW.btn=null; }
+  clearInterval(TTS_NOW.watch); TTS_NOW.watch=null;
+}
+function ttsStopAll(){
+  try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){}
+  try{ if(window._ttsNetAudio){ window._ttsNetAudio.pause(); } }catch(e){}
+  try{ for(var k in _audioSpriteCache){ _audioSpriteCache[k].pause(); } }catch(e){}
+  try{ petStopTalking(); }catch(e){}
+  TTS_NOW.text=''; ttsRestoreBtn();
+}
+var _ttsLastBtn=null, _ttsLastBtnT=0;
+function ttsIsSpeakBtn(el){
+  var b=el&&el.closest&&el.closest('button'); if(!b) return null;
+  var oc=b.getAttribute('onclick')||'';
+  return /studySpeak|ttsPreviewVoice|setTtsAccent/.test(oc)?b:null;
+}
+document.addEventListener('pointerdown',function(e){
+  var b=ttsIsSpeakBtn(e.target);
+  if(b){ _ttsLastBtn=b; _ttsLastBtnT=Date.now(); return; }
+  if(TTS_NOW.text&&ttsIsSpeaking()) ttsStopAll();
+},true);
+var _ttsOrigStudySpeak=studySpeak;
+studySpeak=function(text,lang){
+  if(TTS_NOW.text===text&&ttsIsSpeaking()&&!(store&&store._ttsForceDevice)){ ttsStopAll(); return; }
+  if(!(store&&store._ttsForceDevice)) ttsStopAll();
+  TTS_NOW.text=text;
+  var r=_ttsOrigStudySpeak.apply(this,arguments);
+  if(_ttsLastBtn&&Date.now()-_ttsLastBtnT<1500&&!TTS_NOW.btn){
+    TTS_NOW.btn=_ttsLastBtn; TTS_NOW.btnHtml=_ttsLastBtn.innerHTML; _ttsLastBtn.innerHTML='⏹';
+    var started=Date.now();
+    TTS_NOW.watch=setInterval(function(){
+      // 给在线语音一点加载时间；之后一旦不在朗读了，就把按钮恢复成🔊
+      if(Date.now()-started<2500) return;
+      if(!ttsIsSpeaking()){ TTS_NOW.text=''; ttsRestoreBtn(); }
+    },400);
+  }
+  return r;
+};
+var _ttsOrigShowPage=showPage;
+showPage=function(){ if(ttsIsSpeaking()) ttsStopAll(); return _ttsOrigShowPage.apply(this,arguments); };
+var _ttsOrigHideModal=hideModal;
+hideModal=function(){ if(TTS_NOW.text&&ttsIsSpeaking()) ttsStopAll(); return _ttsOrigHideModal.apply(this,arguments); };
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') ttsStopAll(); });
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
@@ -38263,6 +38317,7 @@ function netSpeakFallback(text, lang, onDone){
     if(i>=candidates.length){ onDone(false); return; }
     var settled=false;
     var au=new Audio();
+    window._ttsNetAudio=au; // 记下来，方便"停止朗读"时能把它停掉
     au.oncanplaythrough=function(){
       if(settled) return; settled=true;
       au.play().then(function(){ onDone(true); }).catch(function(){ onDone(false); });
@@ -38312,6 +38367,7 @@ function playOfflineAudio(text,onResult){
     }
     var stopAt=start+dur;
     function doPlay(){
+      window._ttsNetAudio=audioEl;
       try{audioEl.pause();}catch(ePause){}
       try{audioEl.currentTime=start;}catch(eSeek){}
       try{audioEl.volume=(typeof ttsVolFrac==='function')?ttsVolFrac():1;}catch(eVol){}
