@@ -39404,6 +39404,286 @@ setInterval(function(){
     else { h3Say(a,pickLine(H3_DIRTY_LINES),3500); a.anim='sad'; a.animStart=Date.now(); a.animUntil=Date.now()+2500; }
   }catch(e){}
 },14000);
+/* ========== 2026-11新增：家庭小管家——小朋友当"家长"，处理宠物之间的家庭琐事 ==========
+   像真的养小孩一样：家里宠物越多，越容易抢玩具、吵架、打架、告状、吃醋、发脾气。
+   小朋友要像家长一样去处理：
+   - 处理得好（公平、先听两边说、先安抚情绪、一起想办法）→ 宠物和好、开心，得"好家长⭐"，攒够有勋章和金币
+   - 处理得一般 → 事情过去了，但宠物有点不开心
+   - 处理得不好（偏心、吼、打、不管）→ 宠物生小主人的气（😤生闷气一段时间，叫它不理、摸它躲开），
+     还会把家里弄乱（3D小屋变乱）；要去「哄一哄」它才会和好
+   - 一直不管（10分钟没处理）→ 算"不管"，两只宠物都生气，家里更乱
+   事件只在宠物页（平面小窝或3D小屋）出现，宠物越多越频繁。 */
+var FAM_OPT_GOOD=2, FAM_OPT_MEH=1, FAM_OPT_BAD=0;
+var FAM_EVENTS=[
+  {id:'toy',two:1,icon:'⚽',q:'{A}和{B}在抢同一个玩具球，谁也不让谁，吵得好大声！',say:['这是我的！','是我先拿到的！'],opts:[
+    [2,'让他们轮流玩，每人玩5分钟⏱️','{A}和{B}都同意了，排好队轮流玩，还说下次要一起玩！',''],
+    [0,'把球给{A}，{B}别哭了','{B}觉得你偏心，气呼呼地跑开了：「哼！你只喜欢{A}！」','B'],
+    [1,'把球收走，谁都别玩了！','两个都不吵了，但都有点不开心…下次试试想个公平的办法吧',''],
+    [0,'不管他们，让他们自己吵','他们越吵越凶，还把家里弄得一团糟！','AB']]},
+  {id:'snack',two:1,icon:'🍪',q:'{A}偷吃了{B}的零食，{B}哭着来告状！',say:['好吃…','呜呜呜，我的零食！'],opts:[
+    [2,'先问问{A}为什么，再让它道歉，把零食还给{B}','{A}说它太饿了，跟{B}说了对不起，{B}原谅它啦～',''],
+    [0,'大声骂{A}：你是坏孩子！','{A}被骂得很伤心，躲到角落里不理你了','A'],
+    [1,'再给{B}一份零食就好了','{B}不哭了，可是{A}觉得偷吃也没关系…',''] ]},
+  {id:'fight',two:1,icon:'💥',q:'{A}和{B}打起来了！你推我、我推你！',say:['你推我！','是你先推的！'],opts:[
+    [2,'先把他们分开，等冷静下来，再听听各自怎么想','冷静下来以后，两只宠物说出了心里话，抱在一起和好了💕',''],
+    [1,'两个一起罚站！','不打了，但两个都噘着嘴，心里还是不服气',''],
+    [0,'谁先动手就打谁！','用打解决不了问题…两只宠物都害怕又生气','AB']]},
+  {id:'vase',two:1,icon:'🏺',q:'{B}说花瓶是{A}打碎的，可{A}说不是它！',say:['真的不是我！','就是你！'],opts:[
+    [2,'听两边都说说，一起去看看到底发生了什么','原来是风把花瓶吹倒的！你冤枉谁都没有，两只宠物都很佩服你👍',''],
+    [0,'相信{B}，惩罚{A}','{A}委屈得哭了：「真的不是我！你都不相信我！」','A'],
+    [1,'两个都不许说了！','吵声停了，可真相是什么，谁也不知道…',''] ]},
+  {id:'jealous',two:1,icon:'💔',q:'{A}看你一直陪{B}玩，吃醋了，噘着嘴说：「你都不爱我了！」',say:['你都不爱我了…','嘻嘻'],opts:[
+    [2,'抱抱{A}，告诉它你也很爱它，然后大家一起玩','{A}笑了：「原来你也爱我！」三个好朋友一起玩得好开心～',''],
+    [0,'跟{A}说：别闹了，你都这么大了','{A}更伤心了，觉得你真的不爱它了','A'],
+    [1,'给{A}买个新玩具','{A}拿着玩具，心里还是想要你陪它…',''] ]},
+  {id:'noise',two:1,icon:'😴',q:'{B}想睡觉，{A}却在旁边又唱又跳吵个不停！',say:['啦啦啦～','好吵！我要睡觉！'],opts:[
+    [2,'让{A}去别的房间玩，给{B}一个安静睡觉的地方','{B}睡得香香的，{A}也玩得很开心，两个都满意！',''],
+    [0,'让{B}忍一忍','{B}一晚上没睡好，生你的气了','B'],
+    [0,'吼{A}：闭嘴！','{A}被吓到了，委屈地躲起来不理你','A']]},
+  {id:'tantrum',two:0,icon:'😭',q:'{A}在地上打滚发脾气：「我不要我不要！」',say:['我不要我不要！'],opts:[
+    [2,'蹲下来抱抱它，问问它哪里不开心','{A}说它想要你多陪陪它，被你抱抱后马上不哭了🤗',''],
+    [1,'等它自己哭完，不理它','它哭累了才停下来，心里还是委屈委屈的',''],
+    [0,'大声吼它：再闹就不要你了！','{A}吓坏了，哭得更厉害，还生你的气','A']]},
+  {id:'mess',two:0,icon:'🧸',q:'{A}把玩具扔得满地都是，还不肯收拾！',say:['我才不收拾！'],opts:[
+    [2,'跟它一起收拾，比比谁收得快','{A}收得比你还快！家里干干净净，它也学会收拾了✨',''],
+    [1,'你自己全部帮它收好','家里干净了，可是它下次还会乱扔…',''],
+    [0,'罚它今天不许吃饭','{A}饿着肚子很生气，还把玩具扔得更乱了','A']]},
+  {id:'bath',two:0,icon:'🛁',q:'{A}不肯洗澡，满屋子乱跑！',say:['不洗不洗！'],opts:[
+    [2,'放点泡泡和小鸭子，把洗澡变成游戏','{A}玩泡泡玩得好开心，洗得香喷喷的🫧',''],
+    [0,'硬把它抓去洗','{A}一边洗一边哭，现在不想理你了','A'],
+    [1,'今天就不洗了吧','它开心地跑了，可是身上脏脏的…','']]}
+];
+function famState(){
+  if(!state.family) state.family={day:'',count:0,bad:0,good:0,goodTotal:0,coinsDay:0,pending:null,last:0,medal:0};
+  var f=state.family, k=todayKey();
+  if(f.day!==k){ f.day=k; f.count=0; f.bad=0; f.good=0; f.coinsDay=0; }
+  return f;
+}
+function famPets(){ var ps=(state.pets&&state.pets.length)?state.pets:[state.pet]; return ps.map(function(p,i){ return {p:p,i:i}; }).filter(function(x){ return x.p&&x.p.chosen&&x.p.hatched; }); }
+function famName(p){ return (p&&p.name)||(typeof PET_LIBRARY!=='undefined'&&PET_LIBRARY[p.type]&&PET_LIBRARY[p.type].name)||'宠物'; }
+function famIsSulk(p){ return !!(p&&p.sulkUntil&&p.sulkUntil>Date.now()); }
+function famOnPetPage(){ var pp=document.getElementById('page-pet'); return !!((pp&&pp.classList.contains('active'))||(typeof H3!=='undefined'&&H3.open)); }
+function famFill(s,ev){ return s.replace(/\{A\}/g,ev.an).replace(/\{B\}/g,ev.bn||''); }
+function famMakeEvent(force){
+  var ps=famPets(); if(!ps.length) return null;
+  var two=ps.length>=2;
+  var pool=FAM_EVENTS.filter(function(e){ return two?true:!e.two; });
+  if(two&&Math.random()<0.75) pool=pool.filter(function(e){ return e.two; });
+  var e=pool[Math.floor(Math.random()*pool.length)];
+  var a=ps[Math.floor(Math.random()*ps.length)], b=null;
+  if(e.two){ var rest=ps.filter(function(x){ return x!==a; }); b=rest[Math.floor(Math.random()*rest.length)]; }
+  var order=e.opts.map(function(o,i){ return i; }).sort(function(){ return Math.random()-0.5; });
+  return {id:e.id,ai:a.i,bi:b?b.i:-1,an:famName(a.p),bn:b?famName(b.p):'',t:Date.now(),order:order};
+}
+function famDef(ev){ return FAM_EVENTS.filter(function(e){ return e.id===ev.id; })[0]; }
+function famPet(i){ var ps=(state.pets&&state.pets.length)?state.pets:[state.pet]; return ps[i]||null; }
+function famStart(force){
+  var f=famState(); if(f.pending) return;
+  var ev=famMakeEvent(force); if(!ev) return;
+  f.pending=ev; f.count++; f.last=Date.now();
+  try{ saveStoreLocalOnly(); }catch(e){}
+  famActIn3D(ev); famUpdateBell(); famOpen();
+}
+// 自动出事：宠物越多越频繁
+setInterval(function(){
+  try{
+    if(!state||document.hidden) return;
+    var f=famState();
+    if(f.pending&&Date.now()-f.pending.t>10*60*1000){ famResolve(-1); return; }
+    if(f.pending||!famOnPetPage()) return;
+    var n=famPets().length; if(!n) return;
+    var maxDay=n>=2?Math.min(7,n+1):1;
+    if(f.count>=maxDay||Date.now()-(f.last||0)<3*60*1000) return;
+    var first=f.count===0&&n>=2;
+    var p=first?0.5:Math.min(0.35,0.03+0.05*(n-1));
+    if(Math.random()<p) famStart();
+  }catch(e){}
+},40000);
+function famEnsureModal(){
+  var m=document.getElementById('famModal'); if(m) return m;
+  m=document.createElement('div'); m.className='modal-mask'; m.id='famModal';
+  m.innerHTML='<div class="modal" style="max-width:520px;width:100%"><div id="famBody"></div></div>';
+  document.body.appendChild(m); return m;
+}
+function famShow(){ famEnsureModal(); showModal('famModal'); document.getElementById('famModal').style.zIndex='10060'; }
+function famPetImg(i){ var p=famPet(i); try{ return p?imgForPetStage(p):''; }catch(e){ return ''; } }
+function famOpen(){
+  var f=famState(), ev=f.pending;
+  if(!ev){ famPanel(); return; }
+  var d=famDef(ev); if(!d){ f.pending=null; return; }
+  famEnsureModal();
+  var q=famFill(d.q,ev);
+  var imgs='<div style="display:flex;justify-content:center;gap:18px;margin:6px 0">'
+    +'<div style="text-align:center"><img src="'+famPetImg(ev.ai)+'" style="height:84px;animation:famShake .5s infinite alternate"><div class="small">'+escapeAttr(ev.an)+'</div></div>'
+    +(ev.bi>=0?'<div style="font-size:34px;align-self:center">'+d.icon+'</div><div style="text-align:center"><img src="'+famPetImg(ev.bi)+'" style="height:84px;transform:scaleX(-1);animation:famShake .5s infinite alternate-reverse"><div class="small">'+escapeAttr(ev.bn)+'</div></div>':'')
+    +'</div>';
+  var cols=['#7e57c2','#26a69a','#ef6c00','#5c6bc0'];
+  var btns=ev.order.map(function(oi,k){ var o=d.opts[oi]; return '<button class="btn btn-block" style="background:'+cols[k%4]+';color:#fff;font-size:16px;padding:12px 10px;margin:7px 0;text-align:left;border-radius:14px" onclick="famResolve('+oi+')">'+['🅰️','🅱️','©️','🅳'][k]+' '+escapeAttr(famFill(o[1],ev))+'</button>'; }).join('');
+  document.getElementById('famBody').innerHTML='<style>@keyframes famShake{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}</style>'
+    +'<h3 style="margin:0 0 4px;color:#c62828">🏠 家里出事啦！你是家长，你来处理～</h3>'+imgs
+    +'<div style="font-size:17px;line-height:1.6;background:#fff3e0;border-radius:12px;padding:10px 12px;color:#4e342e;font-weight:700">'+escapeAttr(q)+' <button class="btn btn-sm btn-gray" onclick="studySpeak(\''+q.replace(/'/g,'')+'\',\'zh-CN\')">🔊</button></div>'
+    +'<div class="small" style="margin:8px 0 2px;color:#6a1b9a">想一想：好家长会怎么做？👇</div>'+btns
+    +'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal(\'famModal\')">等一下再处理（10分钟不管，它们会更生气哦）</button>';
+  famShow();
+}
+function famPetSay(i,text){
+  try{
+    if(typeof H3!=='undefined'&&H3.open){ var a=(H3.actors||[]).filter(function(x){ return x.idx===i; })[0]; if(a){ h3Say(a,text,3000); return; } }
+    if(i===(state.activePetIdx||0)&&typeof petSay==='function') petSay(text,2600);
+  }catch(e){}
+}
+function famSulk(i,mins){
+  var p=famPet(i); if(!p) return;
+  p.sulkUntil=Math.max(p.sulkUntil||0,Date.now())+mins*60*1000;
+  p.happy=Math.max(0,(p.happy||0)-10);
+}
+function famResolve(oi){
+  var f=famState(), ev=f.pending; if(!ev) return;
+  var d=famDef(ev); f.pending=null; famEnsureModal();
+  var o=oi<0?[0,'（没人管）','你一直没来管，{A}'+(ev.bi>=0?'和{B}':'')+'越闹越凶，家里乱成一团，它们都觉得你不关心它们！','AB']:d.opts[oi];
+  var q=o[0], who=o[3], res=famFill(o[2],ev);
+  var ids=[ev.ai].concat(ev.bi>=0?[ev.bi]:[]);
+  var reward='';
+  if(q===2){
+    f.good++; f.goodTotal=(f.goodTotal||0)+1;
+    ids.forEach(function(i){ var p=famPet(i); if(p){ p.happy=Math.min(100,(p.happy||0)+8); p.sulkUntil=0; } });
+    if((f.coinsDay||0)<5){ f.coinsDay=(f.coinsDay||0)+1; try{ earnCoins(1,'好家长：处理家庭小事'); }catch(e){} reward='🪙 +1 金币　'; }
+    reward+='⭐ 好家长 +1（共 '+f.goodTotal+' 颗）';
+    var medals=[[5,'🥉 铜牌好家长',5],[15,'🥈 银牌好家长',10],[30,'🥇 金牌好家长',20],[60,'👑 超级好家长',30]];
+    medals.forEach(function(m,k){ if(f.goodTotal>=m[0]&&(f.medal||0)<k+1){ f.medal=k+1; try{ earnCoins(m[2],'好家长勋章'); }catch(e){} setTimeout(function(){ showReward('🏅 '+m[1],'你已经很会当家长啦！宠物们都很爱你～<br>奖励 🪙 '+m[2]+' 金币'); document.getElementById('rewardModal').style.zIndex='10070'; },2600); } });
+  }else if(q===1){
+    ids.forEach(function(i){ var p=famPet(i); if(p) p.happy=Math.max(0,(p.happy||0)-3); });
+    reward='事情过去了，但还可以做得更好哦～';
+  }else{
+    f.bad++;
+    var sl=[]; if(who.indexOf('A')>=0) sl.push(ev.ai); if(who.indexOf('B')>=0&&ev.bi>=0) sl.push(ev.bi);
+    sl.forEach(function(i){ famSulk(i,oi<0?20:15); });
+    reward='😤 '+sl.map(function(i){ return escapeAttr(famName(famPet(i))); }).join('、')+' 生你的气了！家里也变乱了。<br>去「家庭小管家」里哄哄它，它才会和好～';
+  }
+  try{ saveStore(); }catch(e){}
+  famAfterIn3D(ev,q,who);
+  var face=q===2?'🥰':q===1?'😐':'😤';
+  document.getElementById('famBody')&&(document.getElementById('famBody').innerHTML=
+    '<h3 style="margin:0 0 6px;color:'+(q===2?'#2e7d32':q===1?'#ef6c00':'#c62828')+'">'+face+' '+(q===2?'处理得真棒！':q===1?'还可以，但不是最好的办法':'哎呀，这样处理不太好…')+'</h3>'
+    +'<div style="font-size:16px;line-height:1.6;background:#f3e5f5;border-radius:12px;padding:10px 12px">'+escapeAttr(res)+'</div>'
+    +'<div style="margin:8px 0;font-size:14px;color:#5d4037">'+reward+'</div>'
+    +(q<2&&oi>=0?'<div class="small" style="background:#e8f5e9;border-radius:10px;padding:6px 10px;color:#2e7d32">💡 好家长的办法：'+escapeAttr(famFill(d.opts.filter(function(x){ return x[0]===2; })[0][1],ev))+'</div>':'')
+    +'<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="hideModal(\'famModal\')">知道了</button>');
+  famShow(); famUpdateBell();
+  try{ if(typeof H3!=='undefined'&&H3.open&&q===0&&!H3.preview){ H3.builtTier=null; setTimeout(function(){ if(H3.open) h3Init(); },3500); } }catch(e){}
+}
+// 哄一哄生气的宠物
+var FAM_COAX=[[2,'真诚地说「对不起，是我没处理好」，再抱抱它','那…好吧，我原谅你了！下次要公平哦💕'],[1,'给它一个零食，叫它别生气了','零食我收下了…可是我心里还有点难过'],[0,'说「爱生气就生气吧，我不管你了」','哼！！我更生气了😤']];
+function famCoax(i,k){
+  var p=famPet(i); if(!p) return; var c=FAM_COAX[k];
+  if(c[0]===2){ p.sulkUntil=0; p.happy=Math.min(100,(p.happy||0)+5); }
+  else if(c[0]===1){ p.sulkUntil=Date.now()+Math.max(0,(p.sulkUntil-Date.now())/2); }
+  else p.sulkUntil=(p.sulkUntil||Date.now())+10*60*1000;
+  try{ saveStore(); }catch(e){}
+  famPetSay(i,c[2]);
+  try{ if(c[0]===2&&typeof H3!=='undefined'&&H3.open){ var a=H3.actors.filter(function(x){ return x.idx===i; })[0]; if(a){ a.anim='happy'; a.animStart=Date.now(); a.animUntil=Date.now()+2000; } } }catch(e){}
+  famPanel('<div style="background:#fff8e1;border-radius:10px;padding:8px 10px;margin-bottom:6px">'+escapeAttr(famName(p))+'：「'+c[2]+'」</div>');
+}
+function famPanel(msg){
+  var f=famState(), ps=famPets(), sul=ps.filter(function(x){ return famIsSulk(x.p); });
+  var html='<h3 style="margin:0 0 6px;color:#6a1b9a">🏠 家庭小管家</h3>'+(msg||'')
+    +'<div style="font-size:14px;line-height:1.7;background:#f3e5f5;border-radius:12px;padding:8px 12px">今天家里发生了 <b>'+f.count+'</b> 件事，处理得好 <b style="color:#2e7d32">'+f.good+'</b> 件，没处理好 <b style="color:#c62828">'+f.bad+'</b> 件<br>⭐ 好家长星星：<b>'+(f.goodTotal||0)+'</b> 颗　'+(f.medal?['','🥉铜牌','🥈银牌','🥇金牌','👑超级'][f.medal]+'好家长':'（攒5颗得铜牌勋章）')+'<br><span class="small">宠物越多，家里越容易吵架闹脾气，要当个公平、有耐心的好家长哦！</span></div>';
+  if(sul.length){
+    html+='<div style="margin-top:8px;font-weight:700;color:#c62828">😤 正在生你气的宠物：</div>';
+    sul.forEach(function(x){
+      var m=Math.ceil((x.p.sulkUntil-Date.now())/60000);
+      html+='<div style="display:flex;gap:8px;align-items:center;background:#ffebee;border-radius:12px;padding:6px 8px;margin:6px 0"><img src="'+famPetImg(x.i)+'" style="height:56px"><div style="flex:1"><b>'+escapeAttr(famName(x.p))+'</b> 还要生气 '+m+' 分钟<br>'
+        +FAM_COAX.map(function(c,k){ return '<button class="btn btn-sm" style="margin:3px 3px 0 0;background:'+['#43a047','#fb8c00','#e53935'][k]+';color:#fff" onclick="famCoax('+x.i+','+k+')">'+c[1]+'</button>'; }).join('')+'</div></div>';
+    });
+  }else html+='<div style="margin-top:8px;color:#2e7d32">😊 现在没有宠物生你的气，家里很和睦！</div>';
+  html+='<button class="btn btn-primary btn-block" style="margin-top:8px" onclick="hideModal(\'famModal\')">好的</button>';
+  famEnsureModal(); document.getElementById('famBody').innerHTML=html; famShow(); famUpdateBell();
+}
+// 悬浮小铃铛：有事发生/有宠物生气时出现在宠物页上方
+function famUpdateBell(){
+  var b=document.getElementById('famBell');
+  if(!b){ b=document.createElement('div'); b.id='famBell'; b.onclick=function(){ famOpen(); };
+    b.style.cssText='position:fixed;top:94px;left:50%;transform:translateX(-50%);z-index:10003;border-radius:18px;padding:7px 14px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.25);display:none;white-space:nowrap';
+    document.body.appendChild(b); }
+  if(!state||!famOnPetPage()){ b.style.display='none'; return; }
+  var f=famState(), sul=famPets().filter(function(x){ return famIsSulk(x.p); }).length;
+  if(f.pending){ b.style.display='block'; b.style.background='#e53935'; b.style.color='#fff'; b.style.animation='famBellShake 0.6s infinite alternate'; b.innerHTML='🔔 家里出事啦！快去处理'; }
+  else if(sul){ b.style.display='block'; b.style.background='#fff3e0'; b.style.color='#c62828'; b.style.animation='none'; b.innerHTML='😤 '+sul+' 只宠物在生你的气 · 去哄哄'; }
+  else b.style.display='none';
+}
+(function(){ var st=document.createElement('style'); st.textContent='@keyframes famBellShake{from{transform:translateX(-50%) rotate(-3deg)}to{transform:translateX(-50%) rotate(3deg)}}'; document.head.appendChild(st); })();
+setInterval(function(){ try{ famUpdateBell(); }catch(e){} },1000);
+// 嵌入模式下底部几排按钮/提示自动往上叠，不互相遮挡
+setInterval(function(){ try{
+  if(typeof H3==='undefined'||!H3.open) return;
+  var btns=document.getElementById('h3Btns'), ctl=document.getElementById('h3EmbedCtl'), mb=document.getElementById('h3MessBadge');
+  if(H3.embedded&&ctl&&btns){ var cb=btns.offsetHeight+16; ctl.style.bottom=cb+'px'; if(mb){ mb.style.top='auto'; mb.style.bottom=(cb+ctl.offsetHeight+8)+'px'; } }
+}catch(e){} },500);
+// 3D小屋里：吵架的两只宠物跑到一起，冒火气泡
+function famActor(i){ return (typeof H3!=='undefined'&&H3.open)?(H3.actors||[]).filter(function(x){ return x.idx===i; })[0]:null; }
+function famActIn3D(ev){
+  var d=famDef(ev), a=famActor(ev.ai), b=ev.bi>=0?famActor(ev.bi):null; if(!a) return;
+  if(b){ var path=h3Path(b.node,a.node); if(path[0]===b.node) path.shift(); b.path=path; b.goal=null; }
+  a.path=[];
+  var k=0;
+  var tick=function(){
+    var f=famState(); if(!f.pending||f.pending.t!==ev.t||!H3.open) return;
+    [a,b].forEach(function(x,j){ if(!x) return; x.path=j===0?[]:x.path; x.anim='angry'; x.animStart=Date.now(); x.animUntil=Date.now()+3200; x.nextWander=Date.now()+60000; });
+    if(k%2===0||!b) h3Say(a,'💢 '+d.say[0],2600); else h3Say(b,'💢 '+d.say[1],2600);
+    k++; setTimeout(tick,3000);
+  };
+  setTimeout(tick,400);
+}
+function famAfterIn3D(ev,q,who){
+  var a=famActor(ev.ai), b=ev.bi>=0?famActor(ev.bi):null;
+  [a,b].forEach(function(x,j){
+    if(!x) return; x.animUntil=Date.now(); x.nextWander=Date.now()+4000;
+    var mine=(j===0?'A':'B');
+    if(q===2){ x.anim='happy'; x.animStart=Date.now(); x.animUntil=Date.now()+2500; h3Say(x,j===0?(b?'对不起～我们和好吧！':'谢谢你，我好多了🤗'):'没关系！我们和好啦💕',2800); }
+    else if(q===0&&who.indexOf(mine)>=0){ x.anim='sad'; x.animStart=Date.now(); x.animUntil=Date.now()+3000; h3Say(x,'哼！我不理你了😤',2800); setTimeout(function(){ try{ h3WanderPick(x); }catch(e){} },1200); }
+    else { x.anim='idle'; }
+  });
+}
+// 生气中的宠物：叫它不动、摸它躲开
+var _famOrigCmd=h3Command;
+h3Command=function(room){
+  var a=(H3.actors||[]).filter(function(x){ return x.idx===H3.mainIdx; })[0]||(H3.actors||[])[0];
+  if(a&&famIsSulk(a.pet)){ a.anim='sad'; a.animStart=Date.now(); a.animUntil=Date.now()+2000; h3Say(a,'哼！我还在生你的气呢😤 先来哄哄我！',3000); return; }
+  return _famOrigCmd.apply(this,arguments);
+};
+var _famOrigTap=h3Tap;
+h3Tap=function(x,y){
+  try{
+    var ray=new THREE.Raycaster(), v=new THREE.Vector2(x/H3W()*2-1,-(y/H3H())*2+1); ray.setFromCamera(v,H3.camera);
+    var hits=ray.intersectObjects(H3.actors.map(function(a){ return a.sp; }));
+    if(hits.length){ var a=H3.actors.filter(function(q){ return q.sp===hits[0].object; })[0];
+      if(a&&famIsSulk(a.pet)){ h3Say(a,pickLine(['哼！别碰我😤','我还在生气！','你要先跟我道歉！']),2200); a.anim='sad'; a.animStart=Date.now(); a.animUntil=Date.now()+1500; try{ h3WanderPick(a); }catch(e){} return; } }
+  }catch(e){}
+  return _famOrigTap.apply(this,arguments);
+};
+// 生气的宠物头上画一个💢
+var _famOrigDraw=h3DrawPet;
+h3DrawPet=function(a,t,moving){
+  var before=a.lastDraw; _famOrigDraw.apply(this,arguments);
+  if(a.lastDraw!==before&&famIsSulk(a.pet)){ var c=a.ctx; c.setTransform(1,0,0,1,0,0); c.font='44px sans-serif'; c.fillText('💢',176+Math.sin(t*5)*4,62); a.tex.needsUpdate=true; }
+};
+// 生闷气时偶尔嘟囔
+setInterval(function(){ try{ if(typeof H3==='undefined'||!H3.open) return; var s=(H3.actors||[]).filter(function(a){ return famIsSulk(a.pet); }); if(!s.length||Math.random()<0.5) return; var a=s[Math.floor(Math.random()*s.length)]; h3Say(a,pickLine(['哼！😤','我不想理你…','你刚才一点都不公平！','除非你跟我道歉…']),2500); }catch(e){} },11000);
+// 没处理好的家庭琐事会让家里变乱（3D小屋）
+var _famOrigMess=h3MessInfo;
+h3MessInfo=function(){
+  var r=_famOrigMess.apply(this,arguments);
+  if(r.cleaned) return r;
+  try{ var f=famState(); if(f.bad>0){ r.score+=f.bad*0.9; r.reasons.unshift('今天有'+f.bad+'件家庭琐事没处理好，宠物闹脾气把家里弄乱了'); r.level=r.score>=4?3:r.score>=2?2:r.score>=0.5?1:0; } }catch(e){}
+  return r;
+};
+// 每天第一次进宠物页、家里有2只以上宠物时，过一会儿就会出点小状况
+var _famOrigShow=showPage;
+showPage=function(name){
+  var r=_famOrigShow.apply(this,arguments);
+  try{ if(name==='pet'){ var f=famState(); if(!f.pending&&f.count===0&&famPets().length>=2) setTimeout(function(){ if(famOnPetPage()&&!famState().pending&&famState().count===0) famStart(); },12000); } }catch(e){}
+  return r;
+};
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
