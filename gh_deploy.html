@@ -35529,6 +35529,343 @@ function crSelfTestReward(correct,total,firstToday){
   return '<div style="margin-top:6px;font-size:15px;color:#6a1b9a">'+parts.join('　')+'</div>'
     +(c.eggs?'<button class="btn btn-gray btn-block" style="margin-top:6px" onclick="hideModal(\'selfTestModal\');openCreatures(\'egg\')">✨ 去精灵图鉴孵蛋（'+c.eggs+'个）</button>':'');
 }
+/* ========== 2026-11新增：宠物骨骼动画（参考Meta开源Animated Drawings的思路，自己实现的网页版） ==========
+   给每张宠物图标注好关节点（头/脖子/骨盆/肩-肘-手/胯-膝-脚/尾巴），网页打开时：
+   1) 读出图片的透明通道，在宠物身体范围内铺一张三角网格；
+   2) 按每个网格点离各根骨头的远近算"蒙皮权重"（离手臂近的点跟着手臂动，离腿近的跟着腿动…）；
+   3) 每一帧按动作（走路/跑步/跳舞/挥手/吃东西/被拎起来…）算出每根骨头转多少度，
+      用WebGL把图片贴在变形后的网格上画出来——手脚真的会摆动，而不是整张图在晃。
+   坐标都是图片宽高的比例(0~1)。没有标注的图片(洗澡/喂奶等动作图)自动退回之前的软体动画；
+   本身就是动图的舞蹈素材直接播放原动图，不做任何处理。 */
+var RIGS={
+ 'naolong_baby.webp':{head:[.62,.30],neck:[.6,.47],pelvis:[.55,.78],arms:[[[.62,.58],[.72,.48]],[[.85,.6],[.84,.48]]],legs:[[[.42,.78],[.45,.97]],[[.7,.8],[.65,.97]]],tail:[[.35,.86],[.22,.9],[.12,.92]]},
+ 'naolong_teen.webp':{head:[.55,.30],neck:[.55,.5],pelvis:[.55,.8],arms:[[[.72,.55],[.92,.44]],[[.48,.58],[.62,.66]]],legs:[[[.42,.82],[.42,.97]],[[.68,.82],[.7,.97]]],tail:[[.3,.78],[.12,.82],[.03,.68]]},
+ 'naolong_adult.webp':{head:[.55,.30],neck:[.55,.52],pelvis:[.55,.82],arms:[[[.6,.58],[.62,.73]],[[.78,.6],[.78,.72]]],legs:[[[.38,.84],[.38,.97]],[[.65,.84],[.68,.97]]],tail:[[.28,.8],[.12,.86],[.04,.68]]},
+ 'naolong_happy.webp':{head:[.55,.32],neck:[.55,.5],pelvis:[.55,.82],arms:[[[.45,.6],[.62,.58]],[[.8,.6],[.78,.66]]],legs:[[[.4,.84],[.42,.98]],[[.65,.84],[.65,.98]]],tail:[[.28,.82],[.12,.85],[.04,.7]]},
+ 'naolong_run.webp':{head:[.55,.30],neck:[.55,.5],pelvis:[.55,.8],arms:[[[.75,.57],[.92,.5]],[[.48,.6],[.62,.62]]],legs:[[[.42,.82],[.45,.97]],[[.68,.82],[.68,.97]]],tail:[[.3,.82],[.15,.88],[.04,.86]]},
+ 'naolong_sad.webp':{head:[.55,.30],neck:[.55,.51],pelvis:[.55,.8],arms:[[[.5,.6],[.64,.68]],[[.85,.58],[.82,.68]]],legs:[[[.42,.83],[.42,.97]],[[.68,.83],[.7,.97]]],tail:[[.25,.78],[.2,.86]]},
+ 'xiaojinlong_adult.webp':{head:[.55,.28],neck:[.55,.5],pelvis:[.55,.82],arms:[[[.78,.56],[.93,.52]],[[.42,.58],[.58,.63]]],legs:[[[.45,.86],[.45,.97]],[[.75,.86],[.78,.97]]],tail:[[.33,.78],[.2,.62],[.12,.4]]},
+ 'xiaojinlong_happy.webp':{head:[.5,.30],neck:[.52,.5],pelvis:[.52,.78],arms:[[[.42,.56],[.55,.62]],[[.74,.55],[.87,.48]]],legs:[[[.4,.8],[.38,.88]],[[.65,.8],[.68,.88]]],tail:[[.3,.72],[.18,.7],[.08,.62]],ground:.9},
+ 'xiaojinlong_run.webp':{head:[.5,.30],neck:[.5,.55],pelvis:[.5,.85],arms:[[[.35,.62],[.48,.5]],[[.68,.62],[.75,.5]]],legs:[],tail:[[.2,.8],[.1,.74],[.06,.6]],sit:1},
+ 'xiaojinlong_sad.webp':{head:[.5,.32],neck:[.52,.55],pelvis:[.55,.82],arms:[[[.38,.62],[.5,.66]],[[.75,.6],[.87,.57]]],legs:[[[.42,.85],[.4,.97]],[[.7,.85],[.72,.97]]],tail:[[.28,.75],[.18,.78],[.08,.65]]},
+ 'xiaojinlin_happy.webp':{head:[.52,.30],neck:[.55,.52],pelvis:[.55,.78],arms:[[[.42,.58],[.52,.63]],[[.78,.58],[.92,.53]]],legs:[[[.45,.82],[.45,.95]],[[.72,.82],[.7,.93]]],tail:[[.35,.58],[.18,.62],[.04,.66]]},
+ 'xiaojinlin_run.webp':{head:[.5,.30],neck:[.55,.53],pelvis:[.55,.8],arms:[[[.38,.62],[.52,.66]],[[.78,.6],[.92,.52]]],legs:[[[.38,.85],[.35,.96]],[[.75,.83],[.82,.88]]],tail:[[.25,.65],[.12,.62],[.1,.52]]},
+ 'xiaojinlin_sad.webp':{head:[.5,.30],neck:[.55,.54],pelvis:[.55,.82],arms:[[[.38,.62],[.4,.8]],[[.78,.62],[.8,.76]]],legs:[[[.45,.85],[.45,.96]],[[.7,.85],[.72,.96]]],tail:[[.3,.8],[.18,.85],[.08,.82]]},
+ 'shuangyu_happy.webp':{human:1,ground:.985,head:[.5,.15],neck:[.5,.25],pelvis:[.5,.5],arms:[[[.33,.3],[.2,.42],[.06,.53]],[[.67,.3],[.78,.42],[.92,.52]]],legs:[[[.42,.52],[.42,.7],[.42,.93]],[[.58,.52],[.55,.68],[.57,.9]]]},
+ 'shuangyu_run.webp':{human:1,armsStill:1,ground:.985,head:[.5,.12],neck:[.5,.22],pelvis:[.5,.55],arms:[[[.3,.32],[.08,.4],[.28,.48]],[[.7,.32],[.93,.4],[.72,.48]]],legs:[[[.38,.58],[.33,.75],[.32,.93]],[[.62,.58],[.65,.75],[.66,.93]]]},
+ 'shuangyu_sad.webp':{human:1,ground:.985,head:[.5,.12],neck:[.5,.23],pelvis:[.5,.55],arms:[[[.28,.32],[.12,.38],[.05,.4]],[[.72,.32],[.88,.38],[.95,.38]]],legs:[[[.38,.58],[.3,.75],[.3,.93]],[[.65,.58],[.7,.75],[.72,.93]]]}
+};
+function rigKeyOf(src){ var m=/([^\/?#]+\.webp)/.exec(src||''); return m?m[1]:''; }
+var RG={gl:null,cv:null,prog:null,meshes:{},failed:false};
+function rgInitGL(){
+  if(RG.gl||RG.failed) return RG.gl;
+  try{
+    var cv=document.createElement('canvas');
+    var gl=cv.getContext('webgl',{premultipliedAlpha:true,alpha:true,preserveDrawingBuffer:true,antialias:true});
+    if(!gl){ RG.failed=true; return null; }
+    var vs='attribute vec2 p;attribute vec2 uv;uniform vec2 sz;varying vec2 v;void main(){v=uv;gl_Position=vec4(p.x/sz.x*2.0-1.0,1.0-p.y/sz.y*2.0,0.0,1.0);}';
+    var fs='precision mediump float;varying vec2 v;uniform sampler2D t;void main(){gl_FragColor=texture2D(t,v);}';
+    function sh(type,src){ var s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error('shader'); return s; }
+    var pr=gl.createProgram(); gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr);
+    if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error('link');
+    gl.useProgram(pr);
+    RG.loc={p:gl.getAttribLocation(pr,'p'),uv:gl.getAttribLocation(pr,'uv'),sz:gl.getUniformLocation(pr,'sz')};
+    RG.posBuf=gl.createBuffer(); RG.uvBuf=gl.createBuffer(); RG.idxBuf=gl.createBuffer();
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);
+    RG.gl=gl; RG.cv=cv; RG.prog=pr;
+    return gl;
+  }catch(e){ RG.failed=true; return null; }
+}
+function rgDist(px,py,a,b){
+  var dx=b[0]-a[0], dy=b[1]-a[1], l=dx*dx+dy*dy, t=l?((px-a[0])*dx+(py-a[1])*dy)/l:0;
+  t=Math.max(0,Math.min(1,t)); var x=a[0]+t*dx-px, y=a[1]+t*dy-py; return Math.sqrt(x*x+y*y);
+}
+// 根据标注生成骨骼（坐标换成像素）
+function rgBones(rig,W,H){
+  var P=function(q){ return [q[0]*W,q[1]*H]; };
+  var bones=[];
+  var add=function(name,a,b,parent,kind,side){ bones.push({name:name,a:P(a),b:P(b),parent:parent,kind:kind,side:side||0}); return bones.length-1; };
+  var spine=add('spine',rig.pelvis,rig.neck,-1,'body');
+  add('head',rig.neck,rig.head,spine,'head');
+  (rig.arms||[]).forEach(function(arm,i){
+    var side=arm[arm.length-1][0]>arm[0][0]?1:-1;
+    var a1=add('arm'+i,arm[0],arm[1],spine,'arm',side);
+    if(arm.length>2) add('fore'+i,arm[1],arm[2],a1,'fore',side);
+  });
+  (rig.legs||[]).forEach(function(leg,i){
+    var l1=add('leg'+i,leg[0],leg[1],-1,'leg',i===0?-1:1);
+    if(leg.length>2) add('shin'+i,leg[1],leg[2],l1,'shin',i===0?-1:1);
+  });
+  if(rig.tail&&rig.tail.length>1){
+    var t1=add('tail0',rig.tail[0],rig.tail[1],-1,'tail');
+    if(rig.tail.length>2) add('tail1',rig.tail[1],rig.tail[2],t1,'tail');
+  }
+  return bones;
+}
+function rgBuildMesh(img,key){
+  if(RG.meshes[key]) return RG.meshes[key];
+  var rig=RIGS[key]; var gl=RG.gl;
+  var W=img.naturalWidth, H=img.naturalHeight;
+  // 读透明通道
+  var c=document.createElement('canvas'), S=4; c.width=Math.ceil(W/S); c.height=Math.ceil(H/S);
+  var cx=c.getContext('2d'); cx.drawImage(img,0,0,c.width,c.height);
+  var data=cx.getImageData(0,0,c.width,c.height).data;
+  var alphaAt=function(x,y){ var ix=Math.min(c.width-1,Math.max(0,Math.floor(x/S))), iy=Math.min(c.height-1,Math.max(0,Math.floor(y/S))); return data[(iy*c.width+ix)*4+3]; };
+  var cols=30, cell=W/cols, rows=Math.ceil(H/cell);
+  var used={}, verts=[], vIndex={}, tris=[];
+  var cellHas=function(i,j){
+    for(var yy=0;yy<4;yy++) for(var xx=0;xx<4;xx++){ if(alphaAt((i+(xx+0.5)/4)*cell,(j+(yy+0.5)/4)*cell)>6) return true; }
+    return false;
+  };
+  var vid=function(i,j){ var k=i+','+j; if(vIndex[k]===undefined){ vIndex[k]=verts.length; verts.push([Math.min(W,i*cell),Math.min(H,j*cell)]); } return vIndex[k]; };
+  for(var j=0;j<rows;j++) for(var i=0;i<cols;i++){
+    if(!cellHas(i,j)) continue;
+    var a=vid(i,j),b=vid(i+1,j),d=vid(i,j+1),e=vid(i+1,j+1);
+    tris.push(a,b,d,b,e,d);
+  }
+  var bones=rgBones(rig,W,H);
+  // 判断每条手脚是"伸在身体外面的"(free)还是"贴在身体前面的"：伸在外面的做成独立的块，
+  // 只在关节附近和身体柔和过渡；贴在肚子上的手用柔和权重、小幅度动作，避免露出身体上的空洞
+  var px=rig.pelvis[0]*W;
+  bones.forEach(function(bn){
+    var root=bn; while(root.parent>=0 && bones[root.parent].kind!=='body' && bones[root.parent].kind!=='head' && root.kind!=='arm' && root.kind!=='leg' && root.kind!=='tail') root=bones[root.parent];
+    if(bn.kind==='leg'||bn.kind==='shin'||bn.kind==='tail') bn.free=true;
+    else if(bn.kind==='arm'||bn.kind==='fore'){
+      var tipX=bn.b[0]; bn.free=!!rig.human || Math.abs(tipX-px)>0.3*W || Math.abs(bn.a[0]-px)>0.3*W && Math.abs(tipX-px)>0.24*W;
+    }
+  });
+  // 同一条手/腿的上下节共用"是否独立"
+  bones.forEach(function(bn){ if((bn.kind==='fore'||bn.kind==='shin')&&bn.parent>=0) bn.free=bones[bn.parent].free; });
+  var neckY=rig.neck[1]*H, hipY=Math.min.apply(null,(rig.legs||[]).map(function(l){return l[0][1];}).concat([rig.pelvis[1]]))*H;
+  var groundY=rig.ground?rig.ground*H:1e9;
+  var groupOf=function(bi){ var bn=bones[bi]; if(bn.kind==='body'||bn.kind==='head') return 0; var r=bi; while(bones[r].parent>=0 && (bones[r].kind==='fore'||bones[r].kind==='shin'||bones[r].name==='tail1')) r=bones[r].parent; return r+1; };
+  var radius=function(bn){ var k=bn.kind; var r=(k==='tail'?0.065:(k==='leg'||k==='shin')?0.085:0.065); return r*H*(rig.human?0.75:1); };
+  var vinfo=[];
+  var weights=verts.map(function(v){
+    var w=new Array(bones.length).fill(0);
+    if(v[1]>=groundY){ vinfo.push({g:-1,joint:true}); return {w:w,root:1}; }
+    var band=0.06*H, k=Math.max(0,Math.min(1,(neckY-v[1])/band*0.5+0.5));
+    // 找最近的"独立"手脚
+    var best=-1, bestScore=1e9, bestT=0;
+    bones.forEach(function(bn,bi){
+      if(!bn.free) return;
+      if(bn.kind==='leg'||bn.kind==='shin') return; // 腿单独按左右分区处理（见下）
+      var dx=bn.b[0]-bn.a[0], dy=bn.b[1]-bn.a[1], l=dx*dx+dy*dy, tt=l?((v[0]-bn.a[0])*dx+(v[1]-bn.a[1])*dy)/l:0;
+      var d=rgDist(v[0],v[1],bn.a,bn.b), sc=d/radius(bn);
+      if(sc<bestScore){ bestScore=sc; best=bi; bestT=tt; }
+    });
+    var limbW=0, joint=false;
+    // 腿：骨盆以下按左右分给左腿/右腿，越往下越完全跟着腿走；有膝盖的按位置分给大腿/小腿
+    var legBones=[]; bones.forEach(function(bn,bi){ if(bn.kind==='leg') legBones.push(bi); });
+    if(legBones.length && v[1]>hipY-0.04*H && bestScore>=0.7){
+      var li=legBones.length>1 ? (v[0]<px ? legBones[0] : legBones[1]) : legBones[0];
+      if(legBones.length>1 && bones[legBones[0]].a[0]>bones[legBones[1]].a[0]) li=(v[0]<px?legBones[1]:legBones[0]);
+      var lb=bones[li], shinI=-1; bones.forEach(function(bn,bi){ if(bn.kind==='shin'&&bn.parent===li) shinI=bi; });
+      var footP=shinI>=0?bones[shinI].b:lb.b;
+      var own2=Math.max(0,Math.min(1,(v[1]-(hipY-0.04*H))/(0.1*H))); own2=own2*own2*(3-2*own2);
+      if(own2<1) joint=true;
+      if(shinI>=0){
+        var kneeY=lb.b[1], kz=0.05*H, ks=Math.max(0,Math.min(1,(v[1]-kneeY)/kz*0.5+0.5)); ks=ks*ks*(3-2*ks);
+        if(ks>0&&ks<1) joint=true;
+        w[li]+=own2*(1-ks); w[shinI]+=own2*ks;
+      }else w[li]+=own2;
+      limbW=own2;
+    }
+    if(limbW===0 && best>=0 && bestScore<1){
+      var bn=bones[best];
+      // 越靠近这一节的起点（关节）越和上一级混合
+      var segLen=Math.hypot(bn.b[0]-bn.a[0],bn.b[1]-bn.a[1]);
+      var jz=Math.min(0.45, (radius(bn)*0.9)/Math.max(1,segLen));
+      var own=Math.max(0,Math.min(1,(bestT+jz*0.4)/jz));
+      own=own*own*(3-2*own);
+      if(own<1) joint=true;
+      var par=bn.parent;
+      if(par>=0 && bones[par].kind!=='body' && bones[par].kind!=='head'){ w[best]+=own; w[par]+=1-own; limbW=1; }
+      else { w[best]+=own; limbW=own; }
+    }
+    // 贴在身体前面的手（非独立）：柔和权重
+    bones.forEach(function(bn,bi){
+      if(bn.free||bn.kind==='body'||bn.kind==='head') return;
+      var d=rgDist(v[0],v[1],bn.a,bn.b), sig=0.05*H, ww=Math.exp(-Math.pow(d/sig,2))*(1-limbW);
+      if(ww<0.03) return; w[bi]+=ww; limbW+=ww;
+    });
+    if(limbW>1){ for(var q=0;q<w.length;q++) w[q]/=limbW; limbW=1; }
+    var rest=1-limbW; w[0]+=(1-k)*rest; w[1]+=k*rest;
+    // 记录这个点主要属于哪一组（身体/某条手/某条腿/尾巴），用来去掉跨越空隙的三角形
+    var gi=0, gm=0; for(var z=0;z<w.length;z++){ if(w[z]>gm){ gm=w[z]; gi=z; } }
+    vinfo.push({g:bones[gi].free?groupOf(gi):0, joint:joint||gm<0.85});
+    return {w:w,root:0};
+  });
+  // 一个三角形如果连着两个不同的部位、而且都不在关节附近，就说明它跨在手和身体之间的空隙上，删掉，
+  // 否则手一抬就会把中间拉出一层"连皮"
+  var keep=[];
+  for(var ti=0;ti<tris.length;ti+=3){
+    var A1=vinfo[tris[ti]], B1=vinfo[tris[ti+1]], C1=vinfo[tris[ti+2]];
+    var diff=!(A1.g===B1.g&&B1.g===C1.g);
+    // 左右两条腿之间的三角形一律删掉（两条腿贴得很近时，不删会被拉成一张"布"）
+    var gs=[A1.g,B1.g,C1.g].filter(function(g){ return g>0 && bones[g-1] && bones[g-1].kind==='leg'; });
+    if(gs.length>=2 && gs.some(function(g){ return g!==gs[0]; })){
+      var la=verts[tris[ti]], lb2=verts[tris[ti+1]], lc=verts[tris[ti+2]];
+      if(alphaAt((la[0]+lb2[0]+lc[0])/3,(la[1]+lb2[1]+lc[1])/3)<(rig.human?150:60)) continue;
+    }
+    if(diff && !(A1.joint||B1.joint||C1.joint)){
+      // 只有这个三角形本身基本是透明的（真的是空隙）才删掉；有身体图案的保留，不然会出现缺口
+      var va=verts[tris[ti]], vb=verts[tris[ti+1]], vc=verts[tris[ti+2]];
+      var aSum=0, pts=[[1/3,1/3,1/3],[.6,.2,.2],[.2,.6,.2],[.2,.2,.6],[.5,.5,0],[0,.5,.5],[.5,0,.5]];
+      pts.forEach(function(q){ aSum+=alphaAt(va[0]*q[0]+vb[0]*q[1]+vc[0]*q[2], va[1]*q[0]+vb[1]*q[1]+vc[1]*q[2]); });
+      if(aSum/pts.length<(rig.human?200:60)) continue;
+    }
+    keep.push(tris[ti],tris[ti+1],tris[ti+2]);
+  }
+  tris=keep;
+  var uvs=new Float32Array(verts.length*2);
+  verts.forEach(function(v,i){ uvs[i*2]=v[0]/W; uvs[i*2+1]=v[1]/H; });
+  var tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  var idx=verts.length>65535?new Uint32Array(tris):new Uint16Array(tris);
+  var m={W:W,H:H,verts:verts,weights:weights,bones:bones,uvs:uvs,idx:idx,tex:tex,rig:rig,out:new Float32Array(verts.length*2)};
+  RG.meshes[key]=m;
+  return m;
+}
+// 按动作算每根骨头的角度（度）
+function rgPose(m,st,t,ts,ext){
+  var A={}, bones=m.bones, human=!!m.rig.human;
+  var sinp=function(f,ph){ return Math.sin(t*Math.PI*2*f+(ph||0)); };
+  var set=function(name,deg){ A[name]=(A[name]||0)+deg; };
+  // 待机：轻微呼吸摆动
+  set('spine',1.2*sinp(0.35)); set('head',3*sinp(0.22,1)+ext.lag*12+ext.lean*40);
+  set('tail0',10*sinp(0.7)); set('tail1',14*sinp(0.7,-0.8));
+  bones.forEach(function(b){ if(b.kind==='arm') set(b.name,3*sinp(0.35,b.side)); });
+  var raise=function(deg){ bones.forEach(function(b){ if(b.kind==='arm') set(b.name,-b.side*deg); }); };
+  var raiseOne=function(i,deg){ bones.forEach(function(b){ if(b.name==='arm'+i) set(b.name,-b.side*deg); }); };
+  var legs=function(amp,f,kneeAmp){
+    var ph=t*Math.PI*2*f;
+    bones.forEach(function(b){
+      if(b.kind==='leg') set(b.name,amp*Math.sin(ph+(b.side<0?0:Math.PI)));
+      if(b.kind==='shin') set(b.name,(kneeAmp||0)*Math.max(0,Math.sin(ph+(b.side<0?0:Math.PI)+1.2)));
+    });
+  };
+  var armSwing=function(amp,f){
+    var ph=t*Math.PI*2*f;
+    bones.forEach(function(b){ if(b.kind==='arm') set(b.name,amp*Math.sin(ph+(b.side<0?Math.PI:0))); if(b.kind==='fore') set(b.name,amp*0.4*Math.sin(ph+(b.side<0?Math.PI:0)-0.5)); });
+  };
+  if(ext.sleepy){ set('head',8); raise(-8); return A; }
+  if(ext.carry){
+    var w=t*Math.PI*2;
+    bones.forEach(function(b){
+      if(b.kind==='leg') set(b.name,22*Math.sin(w*1.6+(b.side<0?0:1.7)));
+      if(b.kind==='shin') set(b.name,18*Math.sin(w*1.6+(b.side<0?0.6:2.3)));
+    });
+    raise(45+20*Math.sin(w*2.2)); set('tail0',25*Math.sin(w*2)); return A;
+  }
+  if(ext.walking){
+    var f=ext.fast?2.2:1.5;
+    legs(human?(ext.fast?12:8):(ext.fast?26:18),f,human?(ext.fast?18:12):0);
+    armSwing(human?(ext.fast?18:12):(ext.fast?26:16),f);
+    set('spine',3*Math.sin(t*Math.PI*2*f)); set('head',-2.5*Math.sin(t*Math.PI*4*f));
+    set('tail0',16*Math.sin(t*Math.PI*2*f)); set('tail1',20*Math.sin(t*Math.PI*2*f-0.8));
+    return A;
+  }
+  if(ext.petting>0){ set('head',9*Math.sin(t*3)); set('tail0',25*sinp(2.5)); set('tail1',30*sinp(2.5,-0.7)); raise(12); }
+  switch(st){
+    case 'happy':
+      raise(40+18*sinp(2.6)); set('tail0',22*sinp(2.6)); set('tail1',28*sinp(2.6,-0.7));
+      if(ext.air>0.2) bones.forEach(function(b){ if(b.kind==='leg') set(b.name,b.side*14*ext.air); });
+      break;
+    case 'dance': case 'dance-simple': case 'play': case 'kemusan':
+      var bf=st==='kemusan'?1.6:1.0, ph=ts*Math.PI*2*bf;
+      bones.forEach(function(b){
+        if(b.kind==='arm') set(b.name,-b.side*(human?(18+22*Math.sin(ph+(b.side<0?0:Math.PI))):(55+35*Math.sin(ph+(b.side<0?0:Math.PI)))));
+        if(b.kind==='fore') set(b.name,-b.side*30*Math.sin(ph*2+(b.side<0?0:Math.PI)));
+        if(b.kind==='leg') set(b.name,(human?7:14)*Math.max(0,Math.sin(ph+(b.side<0?0:Math.PI)))*-b.side);
+        if(b.kind==='shin') set(b.name,(human?12:25)*Math.max(0,Math.sin(ph+(b.side<0?0:Math.PI))));
+      });
+      set('spine',9*Math.sin(ph)); set('head',8*Math.sin(ph+0.6)); set('tail0',28*Math.sin(ph*2)); set('tail1',30*Math.sin(ph*2-0.8));
+      break;
+    case 'wave':
+      raiseOne(m.rig.arms&&m.rig.arms.length>1?1:0,75+25*Math.sin(ts*Math.PI*2*2.2)); set('head',5*Math.sin(ts*4));
+      break;
+    case 'talk':
+      raiseOne(0,12+12*Math.sin(ts*Math.PI*2*1.2)); set('head',4*Math.sin(ts*Math.PI*2*1.8));
+      break;
+    case 'eat': case 'pat':
+      var nod=Math.max(0,Math.sin(ts*Math.PI*2*1.8)); set('head',10*nod); raise(18*nod);
+      break;
+    case 'sad':
+      set('head',7); raise(-6); set('tail0',-8);
+      break;
+    case 'scared':
+      raise(55+5*Math.sin(t*60)); set('head',3*Math.sin(t*50));
+      break;
+    case 'pushup': case 'lift':
+      raise(30+40*(Math.sin(ts*Math.PI*2*2.1)+1)/2);
+      break;
+  }
+  return A;
+}
+function rgSkin(m,A){
+  // 正向运动学：每根骨头绕自己起点转动，再叠加父骨头的变换
+  var bones=m.bones, M=new Array(bones.length);
+  for(var i=0;i<bones.length;i++){
+    var b=bones[i], ang=(A[b.name]||0)*Math.PI/180, c=Math.cos(ang), s=Math.sin(ang), px=b.a[0], py=b.a[1];
+    // 局部：T(p) R T(-p)  => [a b tx; c d ty]
+    var L=[c,-s,px-c*px+s*py, s,c,py-s*px-c*py];
+    if(b.parent>=0){ var P=M[b.parent];
+      M[i]=[P[0]*L[0]+P[1]*L[3], P[0]*L[1]+P[1]*L[4], P[0]*L[2]+P[1]*L[5]+P[2],
+            P[3]*L[0]+P[4]*L[3], P[3]*L[1]+P[4]*L[4], P[3]*L[2]+P[4]*L[5]+P[5]];
+    }else M[i]=L;
+  }
+  var out=m.out, vs=m.verts, ws=m.weights;
+  for(var v=0;v<vs.length;v++){
+    var x=vs[v][0], y=vs[v][1], wv=ws[v];
+    if(wv.root){ out[v*2]=x; out[v*2+1]=y; continue; }
+    var ox=0, oy=0, w=wv.w;
+    for(var k=0;k<w.length;k++){ var wk=w[k]; if(!wk) continue; var Mk=M[k]; ox+=wk*(Mk[0]*x+Mk[1]*y+Mk[2]); oy+=wk*(Mk[3]*x+Mk[4]*y+Mk[5]); }
+    out[v*2]=ox; out[v*2+1]=oy;
+  }
+  return out;
+}
+// 画到WebGL离屏画布上，返回{canvas, 画布里图片区域的位置}，失败返回null
+var RG_MARGIN_X=0.45, RG_MARGIN_TOP=0.3;
+function rgRender(img,st,t,ts,ext,scalePx){
+  var key=rigKeyOf(img.src);
+  if(!RIGS[key]) return null;
+  var gl=rgInitGL(); if(!gl) return null;
+  var m;
+  try{ m=rgBuildMesh(img,key); }catch(e){ RIGS[key]=null; return null; }
+  var A=rgPose(m,st,t,ts,ext);
+  m.bones.forEach(function(b){ if(!b.free && A[b.name]) A[b.name]*=0.35; });
+  if(m.rig.armsStill) m.bones.forEach(function(b){ if(b.kind==='arm'||b.kind==='fore') A[b.name]=0; });
+  // 关节活动范围限制：手臂"往外抬"的总角度不超过约150度（本来就举着的手不会再甩到脸上）、不往身体里面折太多
+  m.bones.forEach(function(b){
+    if(b.kind!=='arm'||!A[b.name]) return;
+    if(b.rest===undefined){ var dx=(b.b[0]-b.a[0])*b.side, dy=b.b[1]-b.a[1]; b.rest=Math.atan2(dx,dy)*180/Math.PI; }
+    var delta=-b.side*A[b.name], tot=Math.max(-25,Math.min(150,b.rest+delta));
+    A[b.name]=-b.side*(tot-b.rest);
+  });
+  var pos=rgSkin(m,A);
+  var s=scalePx/m.W; // 图片像素 → 画布像素
+  var cw=Math.round(m.W*s*(1+RG_MARGIN_X*2)), ch=Math.round(m.H*s*(1+RG_MARGIN_TOP)+m.H*s*0.02);
+  if(RG.cv.width!==cw||RG.cv.height!==ch){ RG.cv.width=cw; RG.cv.height=ch; }
+  var ox=m.W*s*RG_MARGIN_X, oy=m.H*s*RG_MARGIN_TOP;
+  var p2=new Float32Array(pos.length);
+  for(var i=0;i<pos.length;i+=2){ p2[i]=pos[i]*s+ox; p2[i+1]=pos[i+1]*s+oy; }
+  gl.viewport(0,0,cw,ch); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(RG.prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER,RG.posBuf); gl.bufferData(gl.ARRAY_BUFFER,p2,gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(RG.loc.p); gl.vertexAttribPointer(RG.loc.p,2,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,RG.uvBuf); gl.bufferData(gl.ARRAY_BUFFER,m.uvs,gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(RG.loc.uv); gl.vertexAttribPointer(RG.loc.uv,2,gl.FLOAT,false,0,0);
+  gl.uniform2f(RG.loc.sz,cw,ch);
+  gl.bindTexture(gl.TEXTURE_2D,m.tex);
+  if(m.idx instanceof Uint32Array && !gl.getExtension('OES_element_index_uint')) return null;
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,RG.idxBuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,m.idx,gl.STATIC_DRAW);
+  gl.drawElements(gl.TRIANGLES,m.idx.length,m.idx instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT,0);
+  return {canvas:RG.cv,x:ox,y:oy,w:m.W*s,h:m.H*s};
+}
 /* ========== 2026-11新增：宠物"活体"动画引擎（软体骨骼 + 物理 + 互动） ==========
    以前宠物就是一张图片整体做CSS晃动/缩放，看起来像"图片在晃"，不逼真。
    现在把宠物图片画到canvas上，每一帧把图片切成几十条横条分别变形（类似Live2D的简化版）：
@@ -35560,7 +35897,7 @@ function lpInit(){
     petWrap.classList.add('live');
     var st=document.createElement('style');
     st.textContent='#petWrap.live #petImg{visibility:hidden!important;animation:none!important}'
-      +'#petCanvas{position:absolute;left:-30%;width:160%;bottom:-4%;pointer-events:none}'
+      +'#petCanvas{position:absolute;left:-50%;width:200%;bottom:-4%;pointer-events:none}'
       +'#petWrap.live #petHit{touch-action:none}'
       +'#petWrap.pet-hiding #petCanvas{transform:scale(.58) translateY(10%);transform-origin:50% 100%}'
       +'#petWrap.pet-critical #petCanvas{filter:saturate(.45) brightness(.78)!important}';
@@ -35589,6 +35926,10 @@ function lpFrame(now){
   var t=(now-LP.t0)/1000;
   // 当前图片（跟着原来的petImg.src走，换图时做淡入淡出）
   var src=petImg.getAttribute('src')||'';
+  // 本身就是动图的素材（舞蹈动图等）直接显示原图，保留原来的舞蹈效果
+  var isAnimSrc=/_dance\.webp|xiaojinlong_baby\.webp/.test(src);
+  if(isAnimSrc!==!!LP.native){ LP.native=isAnimSrc; petWrap.classList.toggle('live',!isAnimSrc); LP.cv.style.display=isAnimSrc?'none':''; }
+  if(isAnimSrc){ LP.raf=requestAnimationFrame(lpFrame); return; }
   if(src&&src!==LP.imgSrc){ LP.prevImg=LP.img; LP.img=lpLoad(src); LP.imgSrc=src; LP.fade=LP.prevImg?0:1; }
   if(LP.fade<1) LP.fade=Math.min(1,LP.fade+dt*5);
   var fl=petImg.style.filter||''; if(LP.cv.style.filter!==fl) LP.cv.style.filter=fl;
@@ -35678,6 +36019,7 @@ function lpFrame(now){
     LP.carryAng=ar[0]; LP.carryAngV=ar[1];
     P.sy=1.06; P.sx=0.96; P.bend=Math.sin(t*10)*0.05; P.hop=0;
   }
+  LP.ext={walking:walkState,fast:walkState&&(st==='run'||Math.abs(LP.vx)+Math.abs(LP.vy)>500),carry:LP.carry,sleepy:LP.sleepy,petting:LP.petting,lag:LP.lag,lean:LP.lean,air:P.hop*5,st:st,ts:ts};
   lpDraw(img,P,dir,t);
   LP.raf=requestAnimationFrame(lpFrame);
 }
@@ -35686,7 +36028,7 @@ function lpDraw(img,P,dir,t){
   var iw=img.naturalWidth, ih=img.naturalHeight;
   var drawW=wrapW, drawH=drawW*ih/iw;
   var dpr=Math.min(2,window.devicePixelRatio||1);
-  var cssW=wrapW*1.6, cssH=drawH*1.75;
+  var cssW=wrapW*2.0, cssH=drawH*1.75;
   var pw=Math.round(cssW*dpr), ph=Math.round(cssH*dpr);
   if(cv.width!==pw||cv.height!==ph){ cv.width=pw; cv.height=ph; cv.style.height=cssH+'px'; }
   ctx.setTransform(1,0,0,1,0,0);
@@ -35721,6 +36063,15 @@ function lpDraw(img,P,dir,t){
     oc.rotate(P.tilt+P.rot);
     oc.scale(P.sx*(dir<0?-1:1)*P.flipX,P.sy);
     var iw2=im.naturalWidth, ih2=im.naturalHeight, dh2=drawW*ih2/iw2, sh2=dh2/N, srcH2=ih2/N;
+    var rr=null;
+    if(LP.ext && RIGS[rigKeyOf(im.src)]){ try{ rr=rgRender(im,LP.ext.st,t,LP.ext.ts,LP.ext,drawW*dpr); }catch(eR){ rr=null; } }
+    if(rr){
+      // 骨骼动画：整张变形后的图按脚底对齐画上去（全局的跳跃/压扁/倾斜/转向照样叠加）
+      var k=drawW/rr.w;
+      oc.drawImage(rr.canvas,-drawW/2-rr.x*k,-dh2-rr.y*k,rr.canvas.width*k,rr.canvas.height*k);
+      ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=a; ctx.drawImage(LP.off,0,0); ctx.restore();
+      continue;
+    }
     for(var i=0;i<N;i++){
       var yTop=-dh2+i*sh2;
       var h=1-(i+0.5)/N;
