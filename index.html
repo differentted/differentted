@@ -1381,6 +1381,7 @@ textarea,input[type=text]{width:100%;padding:9px;border:1px solid #d1c4e9;border
       <div class="pet-room" id="petRoom" style="display:none"></div>
     </div>
     <button class="btn btn-primary btn-block" id="btnChoosePet" onclick="openChoose()">🥚 选择你的电子宠物伙伴</button>
+    <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#4fc3f7,#7e57c2);color:#fff;font-weight:700;font-size:16px" onclick="openHouse3D()">🏠 进入宠物3D小屋（上下楼梯·进门出门）</button>
     <button class="btn btn-block" style="margin-top:8px;background:linear-gradient(90deg,#ffb300,#ab47bc);color:#fff;font-weight:700" onclick="openCreatures()">✨ 精灵图鉴：孵蛋收集 50 种精灵</button>
   </div>
 
@@ -37482,6 +37483,309 @@ showPage=function(){ if(ttsIsSpeaking()) ttsStopAll(); return _ttsOrigShowPage.a
 var _ttsOrigHideModal=hideModal;
 hideModal=function(){ if(TTS_NOW.text&&ttsIsSpeaking()) ttsStopAll(); return _ttsOrigHideModal.apply(this,arguments); };
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') ttsStopAll(); });
+/* ========== 2026-11新增：🏠 宠物3D小屋（Three.js 开源3D引擎，MIT协议，放在本站 lib/ 目录） ==========
+   一栋"正面剖开"的两层娃娃屋：
+     一楼：🛋客厅（有楼梯和大门）｜🍳厨房｜🛁浴室        二楼：🛏卧室｜🎮游戏室        屋外：🌳院子
+   - 房间之间有门，宠物走近时门会自动打开、走过后关上；客厅的楼梯通到二楼
+   - 家里所有已孵化的宠物都在屋里，用骨骼动画画成"纸片人"站在3D场景里，会自己逛来逛去、上下楼、进门出门
+   - 点下面的按钮叫"当前宠物"去某个房间：到了厨房会吃东西、浴室洗澡、卧室睡觉、游戏室跳舞、院子里撒欢
+   - 点宠物：它会蹦一下、冒爱心、说话
+   - 单指拖动转视角，双指捏合/鼠标滚轮缩放 */
+var H3={open:false,raf:0};
+function h3LoadThree(){
+  if(window.THREE) return Promise.resolve();
+  if(H3.loading) return H3.loading;
+  H3.loading=new Promise(function(res,rej){
+    var s=document.createElement('script'); s.src='lib/three.min.js'; s.onload=res;
+    s.onerror=function(){ var s2=document.createElement('script'); s2.src='https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js'; s2.onload=res; s2.onerror=rej; document.head.appendChild(s2); };
+    document.head.appendChild(s);
+  });
+  return H3.loading;
+}
+var H3_NODES={
+  G:{p:[-9,0,1.2],room:'yard'},   FD:{p:[-6,0,1.2],door:'front'},
+  L:{p:[-3.6,0,1],room:'living'}, SB:{p:[-5.3,0,-1.9]}, ST:{p:[-2.2,3.1,-1.9]},
+  F2:{p:[-1.6,3.1,-0.4]},         R:{p:[-3.2,3.1,1.3],room:'bed'},
+  LK:{p:[-1,0,1.2],door:'lk'},    K:{p:[1,0,1],room:'kitchen'},
+  KB:{p:[3,0,1.2],door:'kb'},     B:{p:[4.6,0,1],room:'bath'},
+  RP:{p:[0,3.1,1.2],door:'rp'},   P:{p:[3,3.1,1],room:'play'}
+};
+var H3_EDGES=[['G','FD'],['FD','L'],['L','SB'],['SB','ST'],['ST','F2'],['F2','R'],['F2','RP'],['R','RP'],['RP','P'],['L','LK'],['LK','K'],['K','KB'],['KB','B']];
+var H3_ROOMS={living:{n:'🛋 客厅',node:'L'},kitchen:{n:'🍳 厨房',node:'K'},bath:{n:'🛁 浴室',node:'B'},bed:{n:'🛏 卧室',node:'R'},play:{n:'🎮 游戏室',node:'P'},yard:{n:'🌳 院子',node:'G'}};
+function h3Path(from,to){
+  var adj={}; H3_EDGES.forEach(function(e){ (adj[e[0]]=adj[e[0]]||[]).push(e[1]); (adj[e[1]]=adj[e[1]]||[]).push(e[0]); });
+  var prev={}, q=[from], seen={}; seen[from]=1;
+  while(q.length){ var c=q.shift(); if(c===to) break; (adj[c]||[]).forEach(function(n){ if(!seen[n]){ seen[n]=1; prev[n]=c; q.push(n); } }); }
+  var path=[to]; while(path[0]!==from){ if(!prev[path[0]]) return [to]; path.unshift(prev[path[0]]); }
+  return path;
+}
+function h3Mat(c){ return new THREE.MeshLambertMaterial({color:c}); }
+function h3Box(scene,w,h,d,x,y,z,c,parent){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),h3Mat(c)); m.position.set(x,y,z); (parent||scene).add(m); return m; }
+function h3Cyl(scene,rt,rb,h,x,y,z,c,seg){ var m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg||16),h3Mat(c)); m.position.set(x,y,z); scene.add(m); return m; }
+function h3Sphere(scene,r,x,y,z,c){ var m=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),h3Mat(c)); m.position.set(x,y,z); scene.add(m); return m; }
+function h3TextSprite(text,scale,bg){
+  var c=document.createElement('canvas'); c.width=256; c.height=64; var x=c.getContext('2d');
+  x.fillStyle=bg||'rgba(255,255,255,.85)'; x.beginPath(); if(x.roundRect) x.roundRect(4,8,248,48,22); else x.rect(4,8,248,48); x.fill();
+  x.font='bold 30px sans-serif'; x.fillStyle='#6a1b9a'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(text,128,33);
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthTest:false}));
+  sp.scale.set(2.4*(scale||1),0.6*(scale||1),1); return sp;
+}
+function h3BuildHouse(scene){
+  var D=6, H=3, T=0.15; // 进深6，层高3
+  // 院子和地面
+  var grass=new THREE.Mesh(new THREE.PlaneGeometry(40,24),h3Mat(0x9ccc65)); grass.rotation.x=-Math.PI/2; grass.position.y=-0.02; scene.add(grass);
+  h3Box(scene,13,0.2,D+0.4,0,-0.1,0,0xd7ccc8);
+  // 一楼地板（各房间不同颜色）
+  h3Box(scene,5,0.05,D,-3.5,0.02,0,0xe6b980); h3Box(scene,4,0.05,D,1,0.02,0,0xf5f0e1); h3Box(scene,3,0.05,D,4.5,0.02,0,0xb3e5fc);
+  // 后墙、左右墙
+  h3Box(scene,12.3,H*2+0.2,T,0,H,-D/2,0xfff3e0);
+  h3Box(scene,T,H*2+0.2,D,6.05,H,0,0xffe0b2);
+  // 左墙(客厅)带大门洞：门洞 z 0.6~1.8
+  h3Box(scene,T,H,3.6,-6.05,H/2,-1.2,0xffe0b2);
+  h3Box(scene,T,H,1.2,-6.05,H/2,2.4,0xffe0b2);
+  h3Box(scene,T,0.8,1.2,-6.05,H-0.4,1.2,0xffe0b2);
+  h3Box(scene,T,H,D,-6.05,H+H/2,0,0xffe0b2);
+  // 一楼内墙 x=-1、x=3，门洞 z 0.6~1.8
+  [-1,3].forEach(function(x){
+    h3Box(scene,T,H,3.6,x,H/2,-1.2,0xfffde7); h3Box(scene,T,H,1.2,x,H/2,2.4,0xfffde7); h3Box(scene,T,0.8,1.2,x,H-0.4,1.2,0xfffde7);
+  });
+  // 二楼楼板：留出楼梯口（x -5.9~-2.2, z -3~-0.8）
+  h3Box(scene,6,0.2,D-2.2,-3,H,1.1,0xc8a27a);
+  h3Box(scene,2.2,0.2,2.2,-1.1+0,H,-1.9,0xc8a27a);
+  h3Box(scene,6,0.2,D,3,H,0,0xb39ddb);
+  h3Box(scene,6,0.03,D-2.2,-3,H+0.11,1.1,0xf8bbd0);
+  // 二楼内墙 x=0 带门
+  h3Box(scene,T,H,3.6,0,H+H/2,-1.2,0xf3e5f5); h3Box(scene,T,H,1.2,0,H+H/2,2.4,0xf3e5f5); h3Box(scene,T,0.8,1.2,0,H*2-0.4,1.2,0xf3e5f5);
+  // 楼梯栏杆（二楼楼梯口边）
+  h3Box(scene,3.7,0.6,0.06,-4.05,H+0.4,-0.8,0x8d6e63);
+  // 楼梯：沿x从-5.3升到-2.2
+  var steps=12;
+  for(var i=0;i<steps;i++){ var x=-5.3+(i+0.5)*(3.1/steps), y=(i+1)*(H/steps); h3Box(scene,3.1/steps+0.02,y,1.5,x,y/2,-1.9,i%2?0xa1887f:0x8d6e63); }
+  // 屋顶（只做后半个斜顶，正面开放方便看）
+  var roof=h3Box(scene,12.8,0.25,3.8,0,H*2+0.9,-1.9,0xd84315); roof.rotation.x=0.5;
+  // ---- 家具 ----
+  // 客厅：沙发、电视、地毯、植物
+  h3Box(scene,1.8,0.45,0.8,-2.3,0.3,-0.2,0xef9a9a); h3Box(scene,1.8,0.7,0.2,-2.3,0.6,-0.55,0xe57373);
+  h3Box(scene,1.6,0.5,0.4,-3.6,0.27,2.6,0x6d4c41); h3Box(scene,1.4,0.8,0.08,-3.6,0.95,2.6,0x263238);
+  var rug=h3Cyl(scene,1.1,1.1,0.03,-3.6,0.06,0.9,0xce93d8,24);
+  h3Cyl(scene,0.25,0.2,0.4,-1.5,0.2,-2.5,0x8d6e63); h3Sphere(scene,0.45,-1.5,0.75,-2.5,0x66bb6a);
+  // 厨房：灶台、冰箱、餐桌
+  h3Box(scene,2.5,0.9,0.7,1,0.45,-2.55,0xeceff1); h3Box(scene,0.8,0.05,0.5,0.6,0.92,-2.55,0x37474f);
+  h3Box(scene,0.8,1.9,0.7,2.4,0.95,-2.55,0xffffff);
+  h3Cyl(scene,0.6,0.6,0.06,1,0.7,1.6,0xffcc80,20); h3Cyl(scene,0.06,0.06,0.7,1,0.35,1.6,0x8d6e63,8);
+  h3Sphere(scene,0.13,0.85,0.83,1.5,0xe53935); h3Sphere(scene,0.13,1.15,0.83,1.65,0xfdd835);
+  // 浴室：浴缸、洗手台、镜子
+  h3Box(scene,1.9,0.6,1,4.6,0.3,-2.3,0xffffff); h3Box(scene,1.7,0.05,0.8,4.6,0.58,-2.3,0x81d4fa);
+  h3Box(scene,0.6,0.8,0.45,5.6,0.4,1.6,0xffffff); h3Box(scene,0.06,0.8,0.6,5.95,1.4,1.6,0xb3e5fc);
+  // 卧室：床、枕头、衣柜、台灯
+  h3Box(scene,1.6,0.45,2.2,-1.3,H+0.35,-1.8,0xffffff); h3Box(scene,1.6,0.12,1.6,-1.3,H+0.62,-1.5,0xf48fb1); h3Box(scene,1.1,0.18,0.4,-1.3,H+0.66,-2.65,0xfff9c4);
+  h3Box(scene,0.6,1.9,1.0,-5.6,H+1.05,2.0,0xbcaaa4);
+  h3Cyl(scene,0.05,0.05,0.7,-0.4,H+0.45,-0.4,0x5d4037,8); h3Cyl(scene,0.18,0.28,0.3,-0.4,H+0.9,-0.4,0xfff176,12);
+  // 游戏室：积木、球、小滑梯
+  [[1.6,-1.8,0xe53935],[2.1,-1.8,0x1e88e5],[1.85,-1.8,0xfdd835]].forEach(function(b,i){ h3Box(scene,0.45,0.45,0.45,b[0],H+0.33+(i===2?0.45:0),b[1],b[2]); });
+  h3Sphere(scene,0.35,4.5,H+0.45,1.6,0xff7043);
+  var slide=h3Box(scene,0.6,0.06,2.2,4.8,H+0.7,-1.6,0x4dd0e1); slide.rotation.x=0.45; h3Box(scene,0.6,1.3,0.3,4.8,H+0.75,-2.65,0x26a69a);
+  // 院子：树、栅栏、花
+  h3Cyl(scene,0.18,0.25,1.6,-10,0.8,-1.5,0x795548); h3Sphere(scene,1.1,-10,2.1,-1.5,0x43a047);
+  for(var f=-11;f<=-6.5;f+=0.7) h3Box(scene,0.12,0.7,0.12,f,0.35,3.5,0xffffff);
+  h3Box(scene,4.6,0.08,0.06,-8.8,0.55,3.5,0xffffff);
+  [[-8,2.4,0xff80ab],[-8.6,2.7,0xffeb3b],[-9.3,2.3,0xba68c8]].forEach(function(fl){ h3Cyl(scene,0.02,0.02,0.4,fl[0],0.2,fl[1],0x388e3c,6); h3Sphere(scene,0.12,fl[0],0.45,fl[1],fl[2]); });
+  // 房间名字
+  Object.keys(H3_ROOMS).forEach(function(k){ var n=H3_NODES[H3_ROOMS[k].node].p; var sp=h3TextSprite(H3_ROOMS[k].n,0.8); sp.position.set(n[0],n[1]+0.35,3.05); scene.add(sp); });
+  // 门（以门框一侧为轴转动）
+  H3.doors={};
+  [['front',-6.05,0,0.6,'x'],['lk',-1,0,0.6,'x'],['kb',3,0,0.6,'x'],['rp',0,H,0.6,'x']].forEach(function(d){
+    var pivot=new THREE.Group(); pivot.position.set(d[1],d[2]+1.1,d[3]); scene.add(pivot);
+    var door=h3Box(scene,0.08,2.2,1.2,0,0,0.6,d[0]==='front'?0xd84315:0x8d6e63,pivot);
+    var knob=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,6),h3Mat(0xffd54f)); knob.position.set(0.08,0,1.05); pivot.add(knob);
+    H3.doors[d[0]]={pivot:pivot,ang:0};
+  });
+}
+function h3PetSprite(p,idx){
+  var cv=document.createElement('canvas'); cv.width=256; cv.height=256;
+  var tex=new THREE.CanvasTexture(cv);
+  var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
+  sp.center.set(0.5,0.02); sp.scale.set(2.5,2.5,1);
+  var sh=new THREE.Mesh(new THREE.CircleGeometry(0.42,20),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.18}));
+  sh.rotation.x=-Math.PI/2;
+  var startNodes=['L','K','B','R','P'];
+  var node=startNodes[idx%startNodes.length], p0=H3_NODES[node].p;
+  var a={pet:p,idx:idx,sp:sp,cv:cv,ctx:cv.getContext('2d'),tex:tex,sh:sh,pos:new THREE.Vector3(p0[0]+(idx%2?0.6:-0.6),p0[1],p0[2]),node:node,path:[],anim:'idle',animUntil:0,faceLeft:false,speed:1.6,nextWander:Date.now()+2000+Math.random()*4000,bubble:null,lastDraw:0};
+  return a;
+}
+function h3ImgFor(a){
+  var p=a.pet, lib=PET_LIBRARY[p.type]||PET_LIBRARY.xiaojinlin;
+  if((a.anim==='sad'||a.anim==='scared')&&lib.img.sad) return lib.img.sad;
+  return imgForPetStage(p);
+}
+function h3DrawPet(a,t,moving){
+  var now=performance.now(); if(now-a.lastDraw<33) return; a.lastDraw=now;
+  var src=h3ImgFor(a); if(src!==a.src){ a.src=src; a.img=lpLoad(src); }
+  var img=a.img; if(!img||!img.complete||!img.naturalWidth) return;
+  var ctx=a.ctx, W=256, H=256; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,W,H);
+  var drawW=W*0.62, drawH=drawW*img.naturalHeight/img.naturalWidth; if(drawH>H*0.86){ drawH=H*0.86; drawW=drawH*img.naturalWidth/img.naturalHeight; }
+  var hop=0, sx=1, sy=1, tilt=0, anim=a.anim, ts=(Date.now()-(a.animStart||0))/1000;
+  if(moving){ var ph=t*Math.PI*3.2, s=Math.abs(Math.sin(ph)); hop=s*0.06; tilt=Math.sin(ph)*0.06; sy=1-(1-s)*0.05; }
+  else if(anim==='happy'||anim==='dance-simple'){ var q=(ts*2.2)%1; hop=q<0.6?Math.sin(q/0.6*Math.PI)*0.16:0; }
+  ctx.translate(W/2,H-6-hop*drawH); ctx.rotate(tilt); ctx.scale(sx*(a.faceLeft?-1:1),sy);
+  var ext={walking:moving,fast:false,carry:false,sleepy:anim==='sleep',petting:0,lag:0,lean:0,air:hop*5,st:anim==='sleep'?'idle':anim,ts:ts};
+  var rr=null; if(RIGS[rigKeyOf(img.src)]){ try{ rr=rgRender(img,ext.st,t+a.idx*1.3,ts,ext,drawW*1.4); }catch(e){} }
+  if(rr){ var k=drawW/rr.w; ctx.drawImage(rr.canvas,0,0,rr.cw,rr.ch,-drawW/2-rr.x*k,-drawH-rr.y*k,rr.cw*k,rr.ch*k); }
+  else ctx.drawImage(img,-drawW/2,-drawH,drawW,drawH);
+  if(anim==='sleep'){ ctx.setTransform(1,0,0,1,0,0); ctx.font='bold 30px sans-serif'; ctx.fillStyle='#7e57c2'; var z=(t*0.6)%1; ctx.globalAlpha=Math.sin(z*Math.PI); ctx.fillText('Z',W*0.68+z*20,H*0.35-z*30); ctx.globalAlpha=1; }
+  a.tex.needsUpdate=true;
+}
+function h3GoTo(a,room){
+  var target=H3_ROOMS[room]; if(!target) return;
+  var path=h3Path(a.node,target.node);
+  if(path[0]===a.node) path.shift();
+  a.path=path; a.goal=room; a.anim='idle';
+}
+function h3Say(a,text,ms){
+  if(!a.bubble){ var b=document.createElement('div'); b.className='pet-companion-bubble'; b.style.animation='none'; b.style.zIndex='10002'; document.getElementById('h3Wrap').appendChild(b); a.bubble=b; }
+  a.bubble.textContent=text; a.bubble.style.display='block'; a.bubbleUntil=Date.now()+(ms||1800);
+}
+function h3Arrive(a){
+  var r=a.goal; a.goal=null; if(!r) return;
+  var acts={kitchen:['eat','好香～吃饭啦！🍎'],bath:['happy','洗澡澡，泡泡好多～🫧'],bed:['sleep','困了，睡一会儿…💤'],play:['dance-simple','游戏室最好玩啦！🎵'],yard:['happy','外面空气真好！🌸'],living:['wave','回到客厅啦～📺']};
+  var x=acts[r]; if(!x) return;
+  a.anim=x[0]; a.animStart=Date.now(); a.animUntil=Date.now()+(x[0]==='sleep'?9000:3500);
+  if(a.idx===H3.mainIdx||Math.random()<0.4) h3Say(a,x[1],2200);
+  try{ if(a.pet) a.pet.happy=Math.min(100,(a.pet.happy||0)+1); }catch(e){}
+}
+function openHouse3D(){
+  if(!state||!state.pet||!state.pet.chosen){ alert('先孵化/选择一只宠物，才能进3D小屋哦～'); return; }
+  if(!document.getElementById('h3Wrap')){
+    var w=document.createElement('div'); w.id='h3Wrap';
+    w.style.cssText='position:fixed;inset:0;z-index:10000;background:linear-gradient(180deg,#b3e5fc,#e1f5fe 60%,#c5e1a5);display:none;touch-action:none';
+    w.innerHTML='<div id="h3Canvas" style="position:absolute;inset:0"></div>'
+      +'<div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;pointer-events:none">'
+      +'<div style="background:rgba(255,255,255,.85);border-radius:14px;padding:6px 12px;font-weight:800;color:#6a1b9a;pointer-events:auto">🏠 宠物3D小屋</div>'
+      +'<button class="btn btn-gray" style="pointer-events:auto" onclick="closeHouse3D()">✕ 关闭</button></div>'
+      +'<div id="h3Tip" style="position:absolute;top:56px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.8);border-radius:10px;padding:4px 10px;font-size:12px;color:#6a1b9a">拖动转视角 · 双指/滚轮缩放 · 点宠物和它玩</div>'
+      +'<div id="h3Btns" style="position:absolute;left:8px;right:8px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center"></div>'
+      +'<div id="h3Loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6a1b9a">🏠 小屋搭建中…</div>';
+    document.body.appendChild(w);
+  }
+  var wrap=document.getElementById('h3Wrap'); wrap.style.display='block'; H3.open=true;
+  try{ if(petWrap) petWrap.style.visibility='hidden'; var pc=document.getElementById('petCompanions'); if(pc) pc.style.visibility='hidden'; }catch(e){}
+  h3LoadThree().then(function(){ h3Init(); }).catch(function(){ document.getElementById('h3Loading').textContent='3D引擎加载失败，请检查网络后再试'; });
+}
+function closeHouse3D(){
+  H3.open=false; cancelAnimationFrame(H3.raf); H3.raf=0;
+  var wrap=document.getElementById('h3Wrap'); if(wrap) wrap.style.display='none';
+  try{ if(petWrap) petWrap.style.visibility=''; var pc=document.getElementById('petCompanions'); if(pc) pc.style.visibility=''; }catch(e){}
+  try{ saveStoreLocalOnly(); }catch(e){}
+}
+function h3Init(){
+  document.getElementById('h3Loading').style.display='none';
+  var host=document.getElementById('h3Canvas');
+  if(!H3.renderer){
+    var r=new THREE.WebGLRenderer({antialias:true,alpha:true}); r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+    host.appendChild(r.domElement); H3.renderer=r;
+    H3.scene=new THREE.Scene();
+    H3.scene.add(new THREE.HemisphereLight(0xffffff,0xb0bec5,0.95));
+    var dl=new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(5,12,10); H3.scene.add(dl);
+    H3.camera=new THREE.PerspectiveCamera(45,1,0.1,200);
+    h3BuildHouse(H3.scene);
+    H3.yaw=0.12; H3.pitch=0.36; H3.dist=14; H3.target=new THREE.Vector3(-1.2,2.4,0);
+    h3BindControls(r.domElement);
+    window.addEventListener('resize',h3Resize);
+  }
+  // 宠物
+  (H3.actors||[]).forEach(function(a){ H3.scene.remove(a.sp); H3.scene.remove(a.sh); if(a.bubble) a.bubble.remove(); });
+  H3.actors=[];
+  var pets=(state.pets&&state.pets.length)?state.pets:[state.pet];
+  H3.mainIdx=state.activePetIdx||0;
+  pets.forEach(function(p,i){ if(!p||!p.chosen||!p.hatched) return; var a=h3PetSprite(p,i); H3.scene.add(a.sp); H3.scene.add(a.sh); H3.actors.push(a); });
+  var main=H3.actors.filter(function(a){ return a.idx===H3.mainIdx; })[0]||H3.actors[0];
+  if(main){ main.pos.set(-3.6,0,1.6); main.node='L'; }
+  document.getElementById('h3Btns').innerHTML='<span style="background:rgba(255,255,255,.85);border-radius:10px;padding:5px 8px;font-size:12px;color:#6a1b9a;align-self:center">叫'+escapeAttr((main&&main.pet&&main.pet.name)||'宠物')+'去：</span>'
+    +Object.keys(H3_ROOMS).map(function(k){ return '<button class="btn btn-primary btn-sm" onclick="h3Command(\''+k+'\')">'+H3_ROOMS[k].n+'</button>'; }).join('');
+  h3Resize();
+  cancelAnimationFrame(H3.raf); H3.last=performance.now(); H3.raf=requestAnimationFrame(h3Loop);
+}
+function h3Command(room){
+  var a=H3.actors.filter(function(x){ return x.idx===H3.mainIdx; })[0]||H3.actors[0]; if(!a) return;
+  h3GoTo(a,room); a.nextWander=Date.now()+20000;
+  h3Say(a,room==='yard'?'出门玩咯～':'好的，我去'+H3_ROOMS[room].n.replace(/^\S+\s/,'')+'！',1500);
+}
+function h3Resize(){
+  if(!H3.renderer) return;
+  var w=window.innerWidth, h=window.innerHeight;
+  H3.renderer.setSize(w,h); H3.camera.aspect=w/h; H3.camera.updateProjectionMatrix();
+  H3.dist=w<600?Math.max(H3.dist,20):H3.dist;
+}
+function h3BindControls(el){
+  var drag=null, pinch=null;
+  var pts={};
+  el.addEventListener('pointerdown',function(e){ pts[e.pointerId]={x:e.clientX,y:e.clientY}; drag={x:e.clientX,y:e.clientY,moved:0,yaw:H3.yaw,pitch:H3.pitch}; try{ el.setPointerCapture(e.pointerId); }catch(e2){} });
+  el.addEventListener('pointermove',function(e){
+    if(!pts[e.pointerId]) return; pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    var ids=Object.keys(pts);
+    if(ids.length>=2){ var a=pts[ids[0]], b=pts[ids[1]], d=Math.hypot(a.x-b.x,a.y-b.y); if(pinch){ H3.dist=Math.max(9,Math.min(30,pinch.dist*pinch.d/d)); } else pinch={d:d,dist:H3.dist}; if(drag) drag.moved=99; return; }
+    if(!drag) return;
+    var dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.moved=Math.max(drag.moved,Math.abs(dx)+Math.abs(dy));
+    H3.yaw=Math.max(-0.9,Math.min(0.9,drag.yaw-dx*0.006)); H3.pitch=Math.max(0.12,Math.min(1.1,drag.pitch+dy*0.004));
+  });
+  var up=function(e){
+    var wasTap=drag&&drag.moved<6&&Object.keys(pts).length===1;
+    delete pts[e.pointerId]; if(Object.keys(pts).length<2) pinch=null;
+    if(wasTap) h3Tap(e.clientX,e.clientY);
+    if(!Object.keys(pts).length) drag=null;
+  };
+  el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',function(e){ e.preventDefault(); H3.dist=Math.max(9,Math.min(30,H3.dist*(e.deltaY>0?1.08:0.93))); },{passive:false});
+}
+function h3Tap(x,y){
+  var ray=new THREE.Raycaster(), v=new THREE.Vector2(x/window.innerWidth*2-1,-(y/window.innerHeight)*2+1);
+  ray.setFromCamera(v,H3.camera);
+  var hits=ray.intersectObjects(H3.actors.map(function(a){ return a.sp; }));
+  if(!hits.length) return;
+  var a=H3.actors.filter(function(x){ return x.sp===hits[0].object; })[0]; if(!a) return;
+  a.anim='happy'; a.animStart=Date.now(); a.animUntil=Date.now()+1800; a.path=[];
+  h3Say(a,pickLine(['嘻嘻～','摸摸头好舒服！','你来看我啦！','一起玩吧！💕']),1600);
+}
+function h3Loop(now){
+  if(!H3.open) return;
+  var dt=Math.min(0.05,(now-H3.last)/1000); H3.last=now; var t=now/1000;
+  // 相机
+  var c=H3.camera, tg=H3.target;
+  c.position.set(tg.x+H3.dist*Math.sin(H3.yaw)*Math.cos(H3.pitch), tg.y+H3.dist*Math.sin(H3.pitch), tg.z+H3.dist*Math.cos(H3.yaw)*Math.cos(H3.pitch));
+  c.lookAt(tg);
+  // 宠物移动
+  H3.actors.forEach(function(a){
+    var moving=false;
+    if(a.animUntil&&Date.now()>a.animUntil){ a.anim='idle'; a.animUntil=0; }
+    if(a.path.length){
+      var n=a.path[0], p=H3_NODES[n].p, target=new THREE.Vector3(p[0]+(a.idx%3-1)*0.35,p[1],p[2]+(a.idx%2)*0.3);
+      var d=target.clone().sub(a.pos); var dist=d.length();
+      if(dist<0.08){ a.pos.copy(target); a.node=n; a.path.shift(); if(!a.path.length) h3Arrive(a); }
+      else{
+        var step=Math.min(dist,a.speed*dt*(H3_NODES[n].p[1]!==a.pos.y?0.75:1)); a.pos.add(d.multiplyScalar(step/dist)); moving=true;
+        // 面朝方向（按屏幕上的左右判断）
+        var sNow=a.pos.clone().project(c), sNext=target.clone().project(c); if(Math.abs(sNext.x-sNow.x)>0.002) a.faceLeft=sNext.x<sNow.x;
+      }
+    }else if(Date.now()>a.nextWander&&a.anim!=='sleep'){
+      var rooms=Object.keys(H3_ROOMS); h3GoTo(a,rooms[Math.floor(Math.random()*rooms.length)]); a.nextWander=Date.now()+9000+Math.random()*9000;
+    }
+    a.sp.position.copy(a.pos); a.sh.position.set(a.pos.x,a.pos.y+0.06,a.pos.z);
+    h3DrawPet(a,t,moving);
+    // 说话气泡跟着宠物头顶
+    if(a.bubble){
+      if(Date.now()>a.bubbleUntil) a.bubble.style.display='none';
+      else{ var hp=a.pos.clone(); hp.y+=2.5; hp.project(c); a.bubble.style.left=((hp.x+1)/2*window.innerWidth)+'px'; a.bubble.style.top=((1-hp.y)/2*window.innerHeight)+'px'; a.bubble.style.opacity='1'; }
+    }
+  });
+  // 门：附近有宠物就打开
+  var doorNodes={front:'FD',lk:'LK',kb:'KB',rp:'RP'};
+  Object.keys(H3.doors).forEach(function(k){
+    var dn=H3_NODES[doorNodes[k]].p, near=H3.actors.some(function(a){ return Math.abs(a.pos.x-dn[0])<1.3&&Math.abs(a.pos.y-dn[1])<0.5&&Math.abs(a.pos.z-dn[2])<1.5; });
+    var D=H3.doors[k], want=near?-1.45:0; D.ang+=(want-D.ang)*Math.min(1,dt*6); D.pivot.rotation.y=D.ang;
+  });
+  H3.renderer.render(H3.scene,c);
+  H3.raf=requestAnimationFrame(h3Loop);
+}
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
