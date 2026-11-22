@@ -41050,8 +41050,10 @@ function h3FixStructure(scene){
   // 删掉旧的斜木板屋顶和悬空烟囱
   var rm=[]; scene.traverse(function(o){ if(o.isMesh&&(o.material===roofM||o.material===oldChim)) rm.push(o); });
   rm.forEach(function(o){ if(o.parent) o.parent.remove(o); });
+  // 盖了卧室层的话，先搭卧室层，屋顶整体往上抬一层
+  var extra=0; try{ if(!H3.preview) extra=bedBuildStorey(scene)||0; }catch(e){ try{ console.warn('bedBuildStorey',e); }catch(e2){} }
   // 人字形双坡屋顶
-  var base=roofY+0.22, R=wide?2.1:1.7, hd=D/2+0.35, L=Math.hypot(hd,R)+0.08, th=Math.atan2(R,hd), len=rw+0.5;
+  var base=roofY+0.22+extra, R=wide?2.1:1.7, hd=D/2+0.35, L=Math.hypot(hd,R)+0.08, th=Math.atan2(R,hd), len=rw+0.5;
   [1,-1].forEach(function(s){ var m=hqBox(scene,len,0.16,L,rx0,base+R/2+0.08,s*hd/2,roofM); m.rotation.x=s*th; });
   var ridge=hqCyl(scene,0.1,0.1,len+0.1,rx0,base+R+0.14,0,hqM('#8d3b2a',{r:0.7}),12); ridge.rotation.z=Math.PI/2;
   // 两头的三角形山墙
@@ -41065,8 +41067,7 @@ function h3FixStructure(scene){
     var fr=new THREE.Mesh(new THREE.TorusGeometry(0.33,0.05,8,28),hqM('#ffffff',{r:0.5})); fr.rotation.y=Math.PI/2; fr.position.set(outX,base+R*0.4,0); scene.add(fr);
   });
   // 烟囱：从后坡屋面里伸出来
-  var cz=-1.5, cx=rx0+rw*0.28, slopeY=base+R*(1-Math.abs(cz)/hd);
-  hqRB(scene,0.6,1.7,0.6,cx,slopeY+0.45,cz,hqM('#a8604b',{r:0.9}),0.04);
+  var cz=-1.5, cx=rx0+rw*0.28, slopeY=base+R*(1-Math.abs(cz)/hd);  hqRB(scene,0.6,1.7,0.6,cx,slopeY+0.45,cz,hqM('#a8604b',{r:0.9}),0.04);
   hqRB(scene,0.78,0.14,0.78,cx,slopeY+1.33,cz,hqM('#6d4c41',{r:0.8}),0.03);
   // 二楼楼梯口旁边的地板缺口
   if(two) hqBox(scene,0.72,0.22,2.2,-5.64,H,-1.9,hqM('#ffffff',{map:hqTex('woodB',512,512,HQ_DRAW.wood('#e2b98c'),2,2),r:0.5}));
@@ -41507,6 +41508,309 @@ var _psOrigAucBtn=renderAuctionEntryBtn;
 renderAuctionEntryBtn=function(){ var r=_psOrigAucBtn.apply(this,arguments);
   try{ var a=document.getElementById('auctionEntryBtn'), b=document.getElementById('petSchoolEntryBtn'); if(a&&b) b.style.display=a.style.display; }catch(e){}
   return r; };
+
+/* ========== 2026-11新增：🛏️ 宠物卧室（靠打卡盖卧室，一只一间；没卧室的只能挤在一起） ==========
+   家长原话："屋子卧室需要小朋友去完成一定量任务才可以让宠物一只住一个卧室，不然就只能全挤在一间屋子里，
+   当然挤在一起更容易有矛盾和更多琐事，房间更容易乱"。
+   规则：
+   - 小朋友每真正完成 1 项打卡任务（免做卡不算），卧室进度 +1（从这个功能上线开始算）。
+   - 第 1 间卧室要 20 项，第 2 间再 30 项，第 3 间再 40 项，第 4 间再 50 项；够了就在「🛏️ 卧室」里点「🔨 盖卧室」。
+   - 卧室盖在房子最上面新加的"卧室层"（一排小房间，用旋转楼梯上去），屋顶会跟着往上抬一层。
+     🛖小木屋最多 2 间，其它房子最多 4 间；卧室数量不会超过宠物数量。
+   - 每间卧室可以指定给哪只宠物住；有自己卧室的宠物困了会回自己房间睡。
+   - 没有自己卧室的宠物都挤在一起（小木屋/平房挤在客厅打地铺，别墅/城堡挤在原来那间卧室）。
+     挤在一起的有 2 只以上时：① 家里更容易乱（每多挤 1 只，"家里乱"分数 +0.6，当天打扫过照样清零）；
+     ② 家庭小管家吵架更频繁，还会多出"抢床位、打呼噜、被挤下床、东西混在一起"这些挤出来的琐事。
+   数据：state.house3d.beds = {tasks:累计完成任务数, built:已盖几间, assign:[第几间住哪只宠物(下标)]}。 */
+var BED_NEED=[20,30,40,50];
+function bedState(){ var h=hbState(); if(!h.beds) h.beds={tasks:0,built:0,assign:[]}; var b=h.beds; if(typeof b.tasks!=='number') b.tasks=0; if(typeof b.built!=='number') b.built=0; if(!Array.isArray(b.assign)) b.assign=[]; return b; }
+function bedCapacity(tier){ tier=tier||(typeof H3!=='undefined'&&H3.tier)||hbMaxBuilt()||1; return tier>=2?4:2; }
+function bedNeedFor(n){ var s=0; for(var i=0;i<n&&i<BED_NEED.length;i++) s+=BED_NEED[i]; return s; } // 盖到第 n 间，累计要完成多少项
+function bedPetsAll(){ var out=[]; (state.pets||[]).forEach(function(p,i){ if(p&&p.chosen&&p.hatched) out.push(i); }); return out; }
+function bedBuiltNow(){ var b=bedState(); return Math.min(b.built, bedCapacity(hbState().active||hbMaxBuilt())); }
+// 整理分配：只保留有效、不重复的宠物；空房间自动分给还没房间的宠物
+function bedAssign(){
+  var b=bedState(), n=bedBuiltNow(), pets=bedPetsAll(), used={}, a=[];
+  for(var i=0;i<n;i++){ var v=b.assign[i]; if(typeof v==='number'&&pets.indexOf(v)>=0&&!used[v]){ a[i]=v; used[v]=1; } else a[i]=-1; }
+  for(var j=0;j<n;j++){ if(a[j]<0){ var free=pets.filter(function(x){ return !used[x]; })[0]; if(free!=null){ a[j]=free; used[free]=1; } } }
+  b.assign=a; return a;
+}
+function bedRoomOf(petIdx){ var a=bedAssign(); return a.indexOf(petIdx); }
+// 挤在一起的宠物（没有自己卧室、也没去上学的）
+function bedCrowd(){ if(!hbMaxBuilt()) return []; var a=bedAssign(); return bedPetsAll().filter(function(i){ return a.indexOf(i)<0&&!(typeof psInClass==='function'&&psInClass(state.pets[i])); }); }
+// 打卡完成时记进度
+var _bedOrigMarkDone=markDone;
+markDone=function(cat,key,viaFree){ var r=_bedOrigMarkDone.apply(this,arguments); try{ if(!viaFree&&state) bedState().tasks++; }catch(e){} return r; };
+
+// ---------------- 3D：卧室层 ----------------
+var BED_COLS=['#ffd6e7','#d6ecff','#e3f7d6','#fff1c9'], BED_BLANKET=['#f06292','#64b5f6','#81c784','#ffb74d'];
+function bedGeo(){ // 跟房子等级有关的尺寸
+  var tier=H3.tier||3, D=6, H=3, two=tier>=3, wide=tier>=2;
+  var roofY=two?H*2:H, X0=-6.05, X1=wide?6.05:-0.95, cap=bedCapacity(tier);
+  var cx=wide?5.25:-1.75, cz=2.15; // 旋转楼梯中心（最高那层的右前角）
+  var yb=two?3.11:0.08;           // 楼梯从哪层地板出发
+  return {tier:tier,D:D,H:H,two:two,wide:wide,roofY:roofY,X0:X0,X1:X1,cap:cap,W:(X1-X0)/cap,cx:cx,cz:cz,yb:yb,yt:roofY+0.23,rx0:wide?0:-3.5,rw:wide?13:6.2};
+}
+// 把挡住楼梯的家具挪开一点
+function bedMoveNear(scene,x,z,rx,rz,ymin,ymax,dx,dz){ scene.traverse(function(o){ if((o.isMesh||o.isSprite)&&o.parent===scene){ var p=o.position; if(Math.abs(p.x-x)<rx&&Math.abs(p.z-z)<rz&&p.y>=ymin&&p.y<=ymax){ p.x+=dx; p.z+=dz; } } }); }
+function bedBuildStorey(scene){
+  var n=bedBuiltNow(); if(n<=0) return 0;
+  var G=bedGeo(), D=G.D, H=G.H, T=0.18, Y=G.yt-0.01; // Y=卧室层地板面
+  // 1) 原来最上层的天花板（现在是卧室层的地板）挖一个楼梯口
+  var ceilM=hqM('#f4ebe0',{r:0.8}), slab=null;
+  scene.traverse(function(o){ if(o.isMesh&&o.material===ceilM&&Math.abs(o.position.y-(G.roofY+0.11))<0.05) slab=o; });
+  if(slab) slab.parent.remove(slab);
+  var sx0=G.rx0-G.rw/2, sx1=G.rx0+G.rw/2, hz0=-D/2-0.25, hz1=D/2+0.25, hx0=G.cx-0.8, hx1=G.cx+0.8, hzs=G.cz-0.8;
+  hqBox(scene,hx0-sx0,0.22,hz1-hz0,(sx0+hx0)/2,G.roofY+0.11,0,ceilM);
+  if(sx1>hx1) hqBox(scene,sx1-hx1,0.22,hz1-hz0,(hx1+sx1)/2,G.roofY+0.11,0,ceilM);
+  hqBox(scene,hx1-hx0,0.22,hzs-hz0,G.cx,G.roofY+0.11,(hz0+hzs)/2,ceilM);
+  // 2) 挪开挡楼梯的东西
+  if(G.tier===1) bedMoveNear(scene,-1.4,1.9,0.35,0.4,0,2.2,0,-0.9);            // 小木屋客厅的落地灯
+  if(G.tier===2) bedMoveNear(scene,5.75,1.5,0.5,0.4,0,2.0,0,-0.75);            // 平房浴室的马桶和镜子
+  if(G.two) bedMoveNear(scene,4.4,1.5,0.45,0.45,G.H,G.H+1.2,-0.55,0);          // 游戏室的大皮球
+  // 3) 旋转楼梯
+  var stepM=hqM('#ffffff',{map:hqTex('woodC',256,256,HQ_DRAW.wood('#a8744a'),1,1),r:0.5}), poleM=hqM('#8d6e63',{r:0.5});
+  var rise=G.yt-G.yb, N=14;
+  hqCyl(scene,0.07,0.07,rise+1.0,G.cx,G.yb+(rise+1.0)/2,G.cz,poleM,12);
+  var rail=[];
+  for(var i=0;i<N;i++){ var a=Math.PI+(i+0.5)/N*Math.PI*2, y=G.yb+(i+1)/N*rise;
+    var st=hqRB(scene,0.64,0.07,0.3,G.cx+Math.cos(a)*0.38,y-0.03,G.cz+Math.sin(a)*0.38,stepM,0.02); st.rotation.y=-a;
+    rail.push(new THREE.Vector3(G.cx+Math.cos(a)*0.68,y+0.85,G.cz+Math.sin(a)*0.68)); }
+  if(rail.length>2){ var tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail),60,0.03,6,false),hqM('#8d5a3b',{r:0.4})); tube.castShadow=true; scene.add(tube); }
+  // 楼梯口围栏（卧室层这边，防止掉下去）
+  var fence=hqM('#ffffff',{r:0.5});
+  hqBox(scene,0.05,0.9,hz1-0.15-hzs,hx0,Y+0.45,(hzs+hz1-0.15)/2,hqM('#e3f6ff',{r:0.05,op:0.35}));
+  hqRB(scene,0.07,0.07,hz1-0.15-hzs,hx0,Y+0.92,(hzs+hz1-0.15)/2,fence,0.02);
+  // 后面那段护栏左边留出一个口子，宠物从这里下楼梯
+  hqBox(scene,hx1-(G.cx+0.1),0.9,0.05,((G.cx+0.1)+hx1)/2,Y+0.45,hzs,hqM('#e3f6ff',{r:0.05,op:0.35}));
+  hqRB(scene,hx1-(G.cx+0.1),0.07,0.07,((G.cx+0.1)+hx1)/2,Y+0.92,hzs,fence,0.02);
+  // 4) 卧室层的墙：外墙、每间的后墙（不同颜色墙纸）、房间之间带门洞的隔墙、天花板
+  var ext=hqM('#ffffff',{map:hqTex('siding',256,256,HQ_DRAW.siding,2,3),r:0.85}), trim=hqM('#ffffff',{r:0.5});
+  hqBox(scene,T,H,D,G.X0,Y+H/2,0,ext); hqBox(scene,T,H,D,G.X1,Y+H/2,0,ext);
+  hqBox(scene,G.rw,0.2,D+0.5,G.rx0,Y+H+0.1,0,ceilM);
+  hqBox(scene,G.X1-G.X0,0.08,0.1,(G.X0+G.X1)/2,Y+0.05,D/2-0.05,trim);
+  var a=bedAssign(), labels=[];
+  for(var r=0;r<G.cap;r++){
+    var xr1=G.X1-r*G.W, xr0=xr1-G.W, cxr=(xr0+xr1)/2, open=r<n, col=BED_COLS[r%4];
+    hqBox(scene,G.W,H,T,cxr,Y+H/2,-D/2,hqM('#ffffff',{map:hqTex('brWall'+r,256,256,HQ_DRAW.paper(col,'#ffffff',['dots','stars','leaf','stripes'][r%4]),2,2),r:0.9}));
+    if(r>0){ // 跟右边那间之间的隔墙，门洞在 z 0.6~1.6
+      var wm=hqM('#ffffff',{map:hqTex('brWall'+(r-1),256,256,HQ_DRAW.paper(BED_COLS[(r-1)%4],'#ffffff',['dots','stars','leaf','stripes'][(r-1)%4]),2,2),r:0.9});
+      hqBox(scene,T,H,3.6,xr1,Y+H/2,-1.2,wm); hqBox(scene,T,H,1.4,xr1,Y+H/2,2.3,wm); hqBox(scene,T,0.8,1.0,xr1,Y+H-0.4,1.1,wm);
+      hqBox(scene,0.24,2.25,0.08,xr1,Y+1.12,0.56,trim); hqBox(scene,0.24,2.25,0.08,xr1,Y+1.12,1.64,trim); hqBox(scene,0.24,0.08,1.16,xr1,Y+2.22,1.1,trim);
+      if(!open){ var dr=new THREE.Mesh(new THREE.RoundedBoxGeometry(0.08,2.15,0.98,2,0.02),hqM('#a1785a',{r:0.55})); dr.position.set(xr1,Y+1.08,1.1); scene.add(dr); hqSph(scene,0.05,xr1-0.06,Y+1.05,1.45,hqM('#d4af37',{m:0.9,r:0.2})); }
+    }
+    hqWindow(scene,cxr,Y+1.75,-D/2+0.1,Math.min(1.1,G.W-1.2),0.85);
+    if(!open){ // 还没解锁：空房间 + 黄黑施工带
+      var tape=hqM('#ffd600',{r:0.6}); [-0.4,0.4].forEach(function(o){ var tp=hqBox(scene,G.W*0.9,0.12,0.03,cxr,Y+1.2+o,D/2-0.2,tape); tp.rotation.z=o>0?0.18:-0.18; });
+      labels.push([cxr,'🔒 还没盖好的卧室']); continue;
+    }
+    // 床：床架 + 床垫 + 被子 + 枕头，床头靠后墙
+    var bw=Math.min(1.35,G.W-0.9), bx=cxr+(r===0?-0.35:0), wood=hqM('#ffffff',{map:hqTex('woodBed',256,256,HQ_DRAW.wood('#e8c39e'),1,1),r:0.5});
+    hqRB(scene,bw,0.32,2.0,bx,Y+0.26,-1.85,wood,0.05); hqRB(scene,bw+0.05,0.9,0.12,bx,Y+0.55,-2.85,wood,0.05);
+    hqRB(scene,bw-0.1,0.18,1.85,bx,Y+0.5,-1.8,hqM('#ffffff',{r:0.9}),0.08);
+    hqRB(scene,bw-0.04,0.1,1.2,bx,Y+0.62,-1.4,hqM(BED_BLANKET[r%4],{r:0.95}),0.06);
+    hqRB(scene,bw*0.55,0.14,0.34,bx,Y+0.66,-2.55,hqM('#fffde7',{r:0.95}),0.07);
+    // 床头柜 + 小台灯 + 小地毯
+    var nx=bx+bw/2+0.32; if(nx+0.25<xr1-0.1){ hqRB(scene,0.42,0.48,0.4,nx,Y+0.25,-2.6,wood,0.04); hqCyl(scene,0.07,0.09,0.05,nx,Y+0.52,-2.6,hqM('#90a4ae',{m:0.5})); hqLathe(scene,[[0.07,0],[0.15,-0.17],[0.16,-0.18],[0.06,-0.01]],nx,Y+0.78,-2.6,hqM('#fff3e0',{e:0xffcc80,ei:0.5})); }
+    var rug=new THREE.Mesh(new THREE.CircleGeometry(0.6,32),hqM(col,{r:1})); rug.rotation.x=-Math.PI/2; rug.position.set(bx,Y+0.02,0.1); rug.receiveShadow=true; scene.add(rug);
+    var pet=a[r]>=0?state.pets[a[r]]:null;
+    labels.push([cxr,pet?('🛏 '+(pet.name||'宠物')+'的卧室'):'🛏 空卧室']);
+  }
+  labels.forEach(function(l){ var sp=h3TextSprite(l[1],0.62); sp.position.set(l[0],Y+2.55,D/2+0.05); sp.material.depthTest=true; scene.add(sp); });
+  // 5) 路线点：楼梯（螺旋上去）→ 最右边那间 → 一间间往左通过门洞
+  bedSyncNodes(G,n);
+  H3._bedStorey=true;
+  return H+0.2;
+}
+var BED_EDGE_IN=['L','BS0'];
+(function(){ // 固定的路线（点的位置在每次搭房子时更新）
+  var chain=['BS0','BS1','BS2','BS3','BS4','BST','BR0'];
+  for(var i=0;i<chain.length-1;i++) H3_EDGES.push([chain[i],chain[i+1]]);
+  for(var r=1;r<4;r++){ H3_EDGES.push(['BR'+(r-1),'BP'+r]); H3_EDGES.push(['BP'+r,'BR'+r]); }
+  H3_EDGES.push(BED_EDGE_IN);
+  ['BS0','BS1','BS2','BS3','BS4','BST','BR0','BR1','BR2','BR3','BP1','BP2','BP3'].forEach(function(k){ H3_NODES[k]={p:[0,-50,0]}; });
+})();
+function bedSyncNodes(G,n){
+  var rise=G.yt-G.yb, y0=G.yb+(G.two?-0.01:-0.08);
+  H3_NODES.BS0={p:[G.cx-1.0,y0,G.cz-0.1]};
+  for(var k=1;k<=4;k++){ var ang=Math.PI+k/4*Math.PI*2*0.9; H3_NODES['BS'+k]={p:[G.cx+Math.cos(ang)*0.42,G.yb+k/4.4*rise,G.cz+Math.sin(ang)*0.42]}; }
+  H3_NODES.BST={p:[G.cx-0.35,G.yt,G.cz-1.2]};
+  for(var r=0;r<4;r++){ var xr1=G.X1-r*G.W, cxr=xr1-G.W/2; H3_NODES['BR'+r]={p:[r===0?cxr-0.5:cxr,G.yt,0.0]}; if(r>0) H3_NODES['BP'+r]={p:[xr1,G.yt,1.1]}; }
+  BED_EDGE_IN[0]=G.tier>=3?'P':(G.tier===2?'B':'L');
+  H3._bedN=n;
+}
+var _bedOrigNodeOk=h3NodeOk;
+h3NodeOk=function(nd){
+  if(typeof nd==='string'&&/^B[SRP]/.test(nd)&&nd!=='B'){
+    if(H3.preview||!H3._bedStorey||(typeof h3IsOutdoor==='function'&&h3IsOutdoor())) return false;
+    var m=nd.match(/^B[RP](\d)$/); if(m) return +m[1]<(H3._bedN||0);
+    return true;
+  }
+  return _bedOrigNodeOk.apply(this,arguments);
+};
+// 有自己卧室的宠物：困了回自己房间睡（晚上更常回去）；叫它"去卧室"也去自己那间
+var _bedOrigWander=h3WanderPick;
+h3WanderPick=function(a){
+  try{
+    if(H3._bedStorey&&!a.c3&&!H3.preview&&!(typeof GD!=='undefined'&&GD.edit)){
+      var r=bedRoomOf(a.idx);
+      if(r>=0&&Math.random()<(H3.night?0.5:0.12)){ var path=h3Path(a.node,'BR'+r); if(path.length&&path[path.length-1]==='BR'+r){ if(path[0]===a.node) path.shift(); a.path=path; a.goal='mybed'; a.anim='idle'; a.nextWander=Date.now()+16000; return; } }
+    }
+  }catch(e){}
+  return _bedOrigWander.apply(this,arguments);
+};
+var _bedOrigGoTo=h3GoTo;
+h3GoTo=function(a,room){
+  try{ if(room==='bed'&&H3._bedStorey){ var r=bedRoomOf(a.idx); if(r>=0){ var path=h3Path(a.node,'BR'+r); if(path.length&&path[path.length-1]==='BR'+r){ if(path[0]===a.node) path.shift(); a.path=path; a.goal='mybed'; a.anim='idle'; return; } } } }catch(e){}
+  return _bedOrigGoTo.apply(this,arguments);
+};
+var _bedOrigArrive=h3Arrive;
+h3Arrive=function(a){
+  if(a&&a.goal==='mybed'){ a.goal=null; a.anim='sleep'; a.animStart=Date.now(); a.animUntil=Date.now()+9000;
+    h3Say(a,pickLine(['回到自己的小房间，好安心～💤','我的床最舒服啦！晚安～','自己的房间，想怎么睡就怎么睡😴']),2200);
+    try{ if(a.pet) a.pet.happy=Math.min(100,(a.pet.happy||0)+1); }catch(e){} return; }
+  return _bedOrigArrive.apply(this,arguments);
+};
+// 挤在一起的地方摆满地铺垫子（一眼就看得出来挤）
+function bedCrowdVisual(scene){
+  var c=bedCrowd(); if(c.length<2) return;
+  var tier=H3.tier||3, cols=['#f48fb1','#90caf9','#a5d6a7','#ffe082','#ce93d8','#ffab91'];
+  for(var i=0;i<Math.min(6,c.length);i++){
+    var x, y, z;
+    if(tier>=3){ x=-5.3+i*0.72; y=3.13; z=1.6+(i%2)*0.55; } else { x=-5.3+i*0.62; y=0.1; z=1.95+(i%2)*0.45; }
+    var cu=hqRB(scene,0.62,0.12,0.5,x,y+0.06,z,hqM(cols[i%6],{r:0.95}),0.06); cu.rotation.y=(i%2?0.25:-0.2);
+    hqRB(scene,0.26,0.1,0.18,x-0.12,y+0.15,z-0.12,hqM('#ffffff',{r:0.95}),0.05);
+  }
+}
+var _bedOrigBuild=h3BuildHouse;
+h3BuildHouse=function(scene){ H3._bedStorey=false; H3._bedN=0; var r=_bedOrigBuild.apply(this,arguments); try{ if(!H3.preview) bedCrowdVisual(scene); }catch(e){} return r; };
+// 卧室层盖好后，镜头往上抬一点，整栋都看得到
+var _bedOrigInit=h3Init;
+h3Init=function(){ var rebuilt=H3.builtTier!==H3.tier||!H3.scene; var r=_bedOrigInit.apply(this,arguments);
+  try{ if(rebuilt&&H3._bedStorey&&H3.target&&!(typeof GD!=='undefined'&&GD.edit)){ H3.target.y+=1.5; H3.dist=Math.min(30,H3.dist*1.18); } }catch(e){}
+  try{ bedAddButtons(); }catch(e){}
+  return r; };
+
+// ---------------- 挤在一起的后果 ----------------
+// ① 家里更容易乱
+var _bedOrigMess=h3MessInfo;
+h3MessInfo=function(){ var r=_bedOrigMess.apply(this,arguments);
+  try{ if(r.cleaned) return r; var c=bedCrowd(); if(c.length>=2){ r.score+=0.6*(c.length-1); r.reasons.unshift(c.length+'只宠物挤在一间屋子睡，东西到处乱放'); r.level=r.score>=4?3:r.score>=2?2:r.score>=0.5?1:0; } }catch(e){}
+  return r; };
+// ② 多出"挤出来的"家庭琐事
+FAM_EVENTS.push(
+  {id:'bedgrab',two:1,crowd:1,icon:'🛏️',q:'只有一个好位置，{A}和{B}都抢着要睡那儿，谁也不让谁！',say:['这是我的位置！','我先来的！'],opts:[
+    [2,'一起排个睡觉位置表，今天{A}、明天{B}','排好表以后两个都觉得很公平，也更想要自己的卧室了——快去多打卡盖卧室吧！',''],
+    [0,'让{A}睡，{B}睡地上','{B}觉得你偏心，委屈地缩在角落里','B'],
+    [1,'两个都别睡了！','谁也没睡成，两个都困得直打哈欠…','']]},
+  {id:'snore',two:1,crowd:1,icon:'😪',q:'{A}打呼噜太响了，挤在旁边的{B}一晚上都没睡着！',say:['呼噜～呼噜～','吵死啦！我要睡觉！'],opts:[
+    [2,'给{B}一个耳塞，再帮{A}换个侧着睡的姿势','{B}终于睡着了，{A}也不打呼噜了，第二天两个都精神满满',''],
+    [0,'叫醒{A}，骂它别打呼噜','{A}觉得打呼噜又不是故意的，很委屈','A'],
+    [1,'让{B}忍一忍','{B}顶着黑眼圈，一整天都没精神…','']]},
+  {id:'kicked',two:1,crowd:1,icon:'🦶',q:'半夜{A}翻身太大，把{B}挤到床下面去了！',say:['zzz…','哎哟！我掉下来了！'],opts:[
+    [2,'先抱起{B}看看有没有摔疼，再给它们中间放个枕头隔开','{B}没事，中间隔了枕头以后两个都睡得很好',''],
+    [0,'笑{B}：谁让你睡那么边上','{B}摔疼了还被笑，伤心地哭了','B'],
+    [1,'让它们自己解决','两个吵吵闹闹到天亮，谁也没睡好…','']]},
+  {id:'mixup',two:1,crowd:1,icon:'🧺',q:'{A}和{B}的东西都堆在一起，{B}的小毯子找不到了，说是{A}拿的！',say:['不是我拿的！','就是你！'],opts:[
+    [2,'一起把东西分开收拾好，各放各的篮子','毯子找到了，原来压在玩具下面！东西分好以后再也不会弄混了',''],
+    [0,'直接把{A}的毯子给{B}','{A}没有毯子用了，气呼呼地不理你','A'],
+    [1,'再买一条新毯子','{B}有新毯子了，可是东西还是乱成一团…','']]}
+);
+var _bedOrigMake=famMakeEvent;
+famMakeEvent=function(force){
+  var crowd=[]; try{ crowd=bedCrowd(); }catch(e){}
+  var all=FAM_EVENTS;
+  try{
+    if(crowd.length>=2&&Math.random()<0.5){ // 挤在一起时，一半的琐事是"挤出来的"
+      var pool=all.filter(function(e){ return e.crowd; }), e=pool[Math.floor(Math.random()*pool.length)];
+      var ai=crowd[Math.floor(Math.random()*crowd.length)], rest=crowd.filter(function(x){ return x!==ai; }), bi=rest[Math.floor(Math.random()*rest.length)];
+      var A=state.pets[ai], B=state.pets[bi], an=famName(A), bn=famName(B); if(an===bn){ an='大'+an; bn='小'+bn; }
+      return {id:e.id,ai:ai,bi:bi,an:an,bn:bn,t:Date.now(),order:e.opts.map(function(o,i){ return i; }).sort(function(){ return Math.random()-0.5; })};
+    }
+    FAM_EVENTS=all.filter(function(e){ return !e.crowd; });
+    return _bedOrigMake.apply(this,arguments);
+  } finally { FAM_EVENTS=all; }
+};
+// ③ 吵架更频繁：挤在一起的越多，额外多一次出事的机会（每天额外最多 挤的数量 次）
+setInterval(function(){
+  try{
+    if(!state||document.hidden||!famOnPetPage()) return;
+    var c=bedCrowd(); if(c.length<2) return;
+    var f=famState(); if(f.pending||FAM_ACC) return;
+    var n=famPets().length, maxDay=(n>=2?Math.min(7,n+1):1)+c.length;
+    if(f.count>=maxDay||Date.now()-(f.last||0)<2*60*1000) return;
+    if(Math.random()<0.05*(c.length-1)) famStart();
+  }catch(e){}
+},45000);
+
+// ---------------- 界面：🛏️ 卧室 ----------------
+function bedOpen(){
+  var m=document.getElementById('bedModal');
+  if(!m){ m=document.createElement('div'); m.className='modal-mask'; m.id='bedModal'; m.innerHTML='<div class="modal" style="max-width:460px;text-align:left;padding:14px 12px"><button class="modal-close" onclick="hideModal(\'bedModal\')">✕</button><div id="bedBody"></div></div>'; document.body.appendChild(m); }
+  bedRender(); showModal('bedModal'); m.style.zIndex='10060';
+}
+function bedRender(){
+  var body=document.getElementById('bedBody'); if(!body) return;
+  var b=bedState(), built=bedBuiltNow(), tier=hbState().active||hbMaxBuilt(), cap=bedCapacity(tier), pets=bedPetsAll(), a=bedAssign(), crowd=bedCrowd();
+  var h='<h3 style="text-align:center;margin:2px 0 4px">🛏️ 宠物卧室</h3><div class="small" style="text-align:center;color:#7b1fa2;margin-bottom:8px">完成打卡任务攒进度，给每只宠物盖一间自己的卧室！</div>';
+  if(!hbMaxBuilt()) h+='<div style="background:#fff3e0;border-radius:12px;padding:8px;margin-bottom:8px;font-size:13px">🏗️ 先在「建造中心」盖好一栋3D小屋，卧室要盖在小屋上面哦。（打卡进度从现在就开始记）</div>';
+  // 进度
+  var canMore=built<Math.min(cap,pets.length), need=bedNeedFor(built+1), have=b.tasks;
+  h+='<div style="background:#f3e5f5;border-radius:12px;padding:8px;margin-bottom:8px">';
+  if(canMore){
+    var pct=Math.min(100,Math.round(have/need*100));
+    h+='<b style="font-size:13px">🔨 第 '+(built+1)+' 间卧室：已完成 '+have+' / '+need+' 项打卡</b>'
+      +'<div style="height:10px;background:#fff;border-radius:6px;overflow:hidden;margin:5px 0"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#ffb300,#ab47bc)"></div></div>';
+    h+=have>=need&&hbMaxBuilt()?'<button class="btn btn-block" style="background:linear-gradient(90deg,#ff8f00,#7b1fa2);color:#fff;font-size:16px" onclick="bedBuild()">🔨 进度够啦！盖第 '+(built+1)+' 间卧室</button>'
+      :'<div class="small" style="color:#666">每完成 1 项打卡（运动/学习/家务/唱歌跳舞/日记…都算，免做卡不算）进度 +1，还差 '+Math.max(0,need-have)+' 项</div>';
+  }else if(built>=cap&&pets.length>cap){
+    h+='<div style="font-size:13px">🏠 这栋房子最多只能盖 '+cap+' 间卧室，已经盖满啦。'+(tier<2?'升级成更大的房子就能盖更多卧室！':'')+'</div>';
+  }else{
+    h+='<div style="font-size:13px;color:#2e7d32;font-weight:700">🎉 每只宠物都有自己的卧室啦！（以后再养新宠物，可以继续盖）</div>';
+  }
+  h+='</div>';
+  // 挤在一起的提醒
+  if(crowd.length>=2){
+    h+='<div style="background:#ffebee;border:2px solid #ef9a9a;border-radius:12px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.6"><b style="color:#c62828">😣 '+crowd.map(function(i){ return escapeAttr(state.pets[i].name||'宠物'); }).join('、')+' 挤在'+(tier>=3?'一间卧室':'客厅打地铺')+'</b><br>'
+      +'挤在一起：家里更容易乱，吵架更频繁，还会抢床位、打呼噜、被挤下床、东西混在一起……<br>👉 多完成打卡，给它们盖自己的卧室吧！</div>';
+  }
+  // 房间分配
+  if(built>0){
+    h+='<div style="font-weight:700;margin:4px 0 6px">🗝️ 谁住哪一间（可以换）</div>';
+    for(var r=0;r<built;r++){
+      h+='<div style="display:flex;align-items:center;gap:8px;background:'+BED_COLS[r%4]+';border-radius:12px;padding:6px 8px;margin-bottom:6px"><b style="flex:0 0 auto">🛏 第 '+(r+1)+' 间</b><select style="flex:1;padding:4px;border-radius:8px" onchange="bedSetRoom('+r+',this.value)">'
+        +pets.map(function(i){ return '<option value="'+i+'"'+(a[r]===i?' selected':'')+'>'+escapeAttr(state.pets[i].name||'宠物')+'</option>'; }).join('')+'</select></div>';
+    }
+  }
+  h+='<div class="small" style="color:#777;line-height:1.6;margin-top:4px">💡 卧室盖在房子最上面的"卧室层"，从旋转楼梯上去。有自己卧室的宠物困了会回自己房间睡觉。'+(tier<2?'小木屋最多 2 间卧室，':'这栋房子最多 '+cap+' 间卧室，')+'第 1 间要 20 项打卡，之后每间多 10 项。</div>';
+  body.innerHTML=h;
+}
+function bedBuild(){
+  var b=bedState(), built=bedBuiltNow(), cap=bedCapacity(hbState().active||hbMaxBuilt());
+  if(!hbMaxBuilt()||built>=Math.min(cap,bedPetsAll().length)||b.tasks<bedNeedFor(built+1)) return;
+  b.built=built+1; bedAssign();
+  try{ saveStore(); }catch(e){}
+  try{ addLog('🛏️ 盖好了第 '+b.built+' 间宠物卧室！'); }catch(e){}
+  try{ ttsToast('🎉 第 '+b.built+' 间卧室盖好啦！快去3D小屋最上面看看～',3200); }catch(e){}
+  bedRender();
+  try{ if(H3.open&&!H3.preview){ H3.builtTier=null; h3Init(); } }catch(e){}
+}
+function bedSetRoom(r,v){
+  var a=bedAssign(); v=parseInt(v,10); if(isNaN(v)) v=-1;
+  if(v>=0){ var j=a.indexOf(v); if(j>=0&&j!==r) a[j]=a[r]; }
+  a[r]=v; bedState().assign=a;
+  try{ saveStore(); }catch(e){}
+  bedRender();
+  try{ if(H3.open&&!H3.preview){ H3.builtTier=null; h3Init(); } }catch(e){}
+}
+// 3D小屋底部那排、嵌入模式按钮里加「🛏️ 卧室」
+function bedAddButtons(){
+  if(H3.preview) return;
+  var row=document.getElementById('h3Btns');
+  if(row&&!document.getElementById('bedBtnTop')){ var b=document.createElement('button'); b.id='bedBtnTop'; b.className='btn btn-sm'; b.style.cssText='background:linear-gradient(90deg,#ba68c8,#7e57c2);color:#fff'; b.textContent='🛏️ 卧室'; b.onclick=bedOpen; row.appendChild(b); }
+  var emb=document.getElementById('gdBtnEmb')||document.getElementById('diyBtnEmb');
+  if(emb&&!document.getElementById('bedBtnEmb')){ var b2=document.createElement('button'); b2.id='bedBtnEmb'; b2.className='btn btn-sm'; b2.style.cssText='background:linear-gradient(90deg,#ba68c8,#7e57c2);color:#fff'; b2.textContent='🛏️ 卧室'; b2.onclick=bedOpen; emb.parentNode.insertBefore(b2,emb.nextSibling); }
+}
 
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
