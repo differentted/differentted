@@ -41812,6 +41812,164 @@ function bedAddButtons(){
   if(emb&&!document.getElementById('bedBtnEmb')){ var b2=document.createElement('button'); b2.id='bedBtnEmb'; b2.className='btn btn-sm'; b2.style.cssText='background:linear-gradient(90deg,#ba68c8,#7e57c2);color:#fff'; b2.textContent='🛏️ 卧室'; b2.onclick=bedOpen; emb.parentNode.insertBefore(b2,emb.nextSibling); }
 }
 
+/* ========== 2026-11修复：朗读声音又变难听、单词都听不懂 ==========
+   查下来有两个原因叠在一起：
+   1) iPad/iPhone 上有道真人发音根本没播出来：以前是"先加载，等加载好(canplaythrough)再 play()"，
+      苹果浏览器规定声音必须在孩子点下去的那一瞬间开始播放，等加载完再播会被拒绝 → 于是退回设备自带声音。
+   2) 退回设备声音时挑中的是最机械的那种：新版 iPad/Mac 上有一批给读屏软件用的 Eloquence 声音
+      (Flo/Sandy/Shelley/Grandma/Eddy/Reed/Rocko/Grandpa)，打分没认出来；Samantha 又因为名字带 compact 被扣成负分，
+      结果最机械的声音排第一。另外所有句子音调都被调高 1.08 倍，听起来更假。
+   修复：
+   - 有道发音改成点击的同一瞬间就开始播放（共用一个声音播放器，iPad 上也能播）；
+   - Eloquence 这类机械声音直接排除；
+   - 只有设备上真正自然的声音（Natural/Neural/Siri/增强版/高品质）才比有道优先，其它一律用有道真人发音；
+   - 音调恢复正常 1.0，只有问句/感叹句稍微有一点起伏。 */
+var TTS_ROBOT_RE=/eloquence|\b(flo|sandy|shelley|grandma|grandpa|eddy|reed|rocko)\b/i;
+var _ttsFixOrigScore=ttsVoiceScore;
+ttsVoiceScore=function(v){ var n=(v.name||'')+' '+(v.voiceURI||''); var s=_ttsFixOrigScore.apply(this,arguments); if(TTS_ROBOT_RE.test(n)) s-=300; return s; };
+ttsUseOnline=function(){
+  if(store&&store._ttsForceDevice) return false;
+  var v=ttsBestAccentVoice();
+  return !v || ttsVoiceScore(v)<90; // 设备上没有真正自然的声音，就用有道真人发音
+};
+ttsProsody=function(chunk,lang){
+  var c=String(chunk||'').trim(), p={pitch:1, rate:1};
+  if(/[!！]["'”’]?$/.test(c)){ p.pitch=1.05; p.rate=1.03; }
+  else if(/[?？]["'”’]?$/.test(c)){ p.pitch=1.04; }
+  return p;
+};
+netSpeakFallback=function(text, lang, onDone){
+  var isZh = /^zh/i.test(lang||'') || /[一-龥]/.test(text||'');
+  var enc = encodeURIComponent(text||'');
+  var candidates = isZh ? [
+    'https://dict.youdao.com/dictvoice?audio='+enc+'&le=zh',
+    'https://fanyi.baidu.com/gettts?lan=zh&text='+enc+'&spd=5&source=web'
+  ] : [
+    'https://dict.youdao.com/dictvoice?audio='+enc+'&type='+(ttsAccent()==='uk'?1:2),
+    'https://fanyi.baidu.com/gettts?lan=en&text='+enc+'&spd=5&source=web'
+  ];
+  // 共用一个播放器：第一次在点击里播过以后，苹果浏览器就允许它后面再换地址播放
+  var au=window._ttsNetAudioEl; if(!au){ au=window._ttsNetAudioEl=new Audio(); au.preload='auto'; }
+  window._ttsNetAudio=au;
+  try{ au.pause(); }catch(e){}
+  try{ au.volume=ttsVolFrac(); }catch(e){}
+  var token={}; au._ttsToken=token;
+  tryNext(0);
+  function tryNext(i){
+    if(au._ttsToken!==token) return; // 已经开始读下一句了
+    if(i>=candidates.length){ onDone(false); return; }
+    var settled=false;
+    var finish=function(ok){ if(settled||au._ttsToken!==token) return; settled=true; au.onerror=null; clearTimeout(tm); if(ok) onDone(true); else tryNext(i+1); };
+    au.onerror=function(){ finish(false); };
+    var tm=setTimeout(function(){ if(!settled){ try{ au.pause(); }catch(e){} finish(false); } },4500);
+    try{
+      au.src=candidates[i];
+      var p=au.play(); // 跟点击同一瞬间调用，iPad 才会放行
+      if(p&&p.then){
+        p.then(function(){ finish(true); }).catch(function(err){
+          if(err&&err.name==='NotAllowedError'){ if(!settled){ settled=true; clearTimeout(tm); onDone(false); } return; } // 浏览器不让播，换地址也没用
+          finish(false);
+        });
+      }else{ au.onplaying=function(){ finish(true); }; }
+    }catch(e){ finish(false); }
+  }
+};
+
+/* ========== 2026-11新增：🧭 新手引导 ==========
+   家长反馈："对新登录的人不太友好，他们不知道要怎么操作和使用"。
+   - 新角色第一次打开时自动出现（记录少于 30 条才算新角色，老用户不会被突然打扰）；
+   - 右上角「❓」随时可以再看一遍；
+   - 一步一步走：要介绍的按钮被"圈亮"，周围变暗，旁边小卡片用小朋友看得懂的话说明，
+     可以「上一步 / 下一步 / 跳过」，每一步都能点 🔊 把说明读出来；
+   - 看完或跳过后记在 state.onboardV1，下次不再自动出现。 */
+var OB_STEPS=[
+  {t:'👋 欢迎来到库洛米打卡乐园！',d:'这里每天打卡、学习、赚金币，还能养一只会长大的电子宠物。跟着小提示走一圈，1 分钟就学会怎么玩～'},
+  {sel:'.child-switch',t:'🙋 这是你的名字',d:'点这里可以换成别的小朋友，或者新建一个自己的角色。'},
+  {sel:'.wallet-mini .wm',t:'💰 金币',d:'每完成一个打卡任务都能赚金币。金币可以去商店给宠物买吃的、买道具，还能装修小屋。'},
+  {sel:'#checkinTabbar',page:'home',t:'📋 每天的任务都在这里',d:'运动、学习、阅读、家务……点一个分类，就能看到今天要做的任务。做完以后点「完成」，就能拿到金币和经验。'},
+  {sel:'.tabbar .tab-btn[data-page="pet"]',t:'🐾 你的宠物',d:'宠物住在这里。你每完成打卡，它就会长大一点。记得给它喂饭、喝水、洗澡、陪它玩，不然它会不开心哦！'},
+  {sel:'.tabbar .tab-btn[data-page="board"]',t:'🎁 心愿挑战',d:'坚持打卡，就能换到你想要的心愿奖励。'},
+  {sel:'.tabbar .tab-btn[data-page="wheel"]',t:'🎡 转盘',d:'转一转，看看今天能抽到什么惊喜！'},
+  {sel:'.tabbar .tab-btn[data-page="shop"]',t:'🛒 商店',d:'用金币买宠物粮食、水、牛奶和各种道具。'},
+  {sel:'.tabbar .tab-btn[data-page="bag"]',t:'🎒 背包',d:'买到的、抽到的东西都放在背包里，要用的时候来这里找。'},
+  {sel:'.wallet-mini button[onclick*="openVolumeModal"]',t:'🎚️ 声音设置',d:'觉得朗读太快、太小声，就在这里调。还能选美音或英音。'},
+  {sel:'.tabbar .tab-btn[data-page="profile"]',t:'👤 角色管理',d:'这里是家长用的：管理小朋友的账号和各种设置。'},
+  {t:'🎉 准备好啦！',d:'先去完成今天的第一个打卡任务吧💪 想再看一次这个引导，点右上角的「❓」就行。',end:1}
+];
+var OB={i:0,on:false};
+function obEnsureDom(){
+  if(document.getElementById('obWrap')) return;
+  var w=document.createElement('div'); w.id='obWrap';
+  w.style.cssText='position:fixed;inset:0;z-index:10080;display:none';
+  w.innerHTML='<div id="obShade" style="position:fixed;inset:0;background:rgba(30,10,45,.62)"></div>'
+    +'<div id="obHole" style="position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(30,10,45,.62),0 0 0 4px #ffd54f,0 0 22px 6px rgba(255,213,79,.8);pointer-events:none;transition:all .25s;display:none"></div>'
+    +'<div id="obCard" style="position:fixed;left:12px;right:12px;max-width:380px;margin:0 auto;background:#fff;border-radius:18px;padding:14px 14px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:top .25s"></div>';
+  document.body.appendChild(w);
+}
+function obVisible(el){ if(!el) return false; var r=el.getBoundingClientRect(); return r.width>0&&r.height>0&&r.bottom>0&&r.top<window.innerHeight; }
+function obRender(){
+  var s=OB_STEPS[OB.i]; if(!s) return obEnd();
+  if(s.page){ try{ if(!pageActive(s.page)) showPage(s.page); }catch(e){} }
+  var el=s.sel?document.querySelector(s.sel):null;
+  if(el&&!obVisible(el)){ try{ el.scrollIntoView({block:'center'}); }catch(e){} }
+  var hole=document.getElementById('obHole'), shade=document.getElementById('obShade'), card=document.getElementById('obCard');
+  var last=OB.i===OB_STEPS.length-1;
+  card.innerHTML='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><b style="font-size:16px;color:#6a1b9a;flex:1">'+s.t+'</b>'
+    +'<button onclick="obSpeak()" style="border:none;background:#f3e5f5;border-radius:10px;padding:3px 8px;font-size:15px;cursor:pointer">🔊</button></div>'
+    +'<div style="font-size:14px;line-height:1.65;color:#4a3a55">'+s.d+'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-top:10px">'
+    +'<span style="font-size:12px;color:#999;flex:1">'+(OB.i+1)+' / '+OB_STEPS.length+'</span>'
+    +(OB.i>0?'<button class="btn btn-gray btn-sm" onclick="obGo(-1)">上一步</button>':'<button class="btn btn-gray btn-sm" onclick="obEnd()">跳过</button>')
+    +'<button class="btn btn-primary btn-sm" onclick="'+(last?'obEnd()':'obGo(1)')+'">'+(last?'开始打卡！':'下一步 ▶')+'</button></div>';
+  setTimeout(function(){ // 等翻页/滚动停下来再量位置
+    var vh=window.innerHeight, ch=card.offsetHeight||160;
+    if(el&&obVisible(el)){
+      var r=el.getBoundingClientRect(), pad=6;
+      hole.style.display='block'; shade.style.background='transparent'; // 遮罩还在（挡住误点），只是变透明，暗色由亮框的阴影提供
+      hole.style.left=(r.left-pad)+'px'; hole.style.top=(r.top-pad)+'px'; hole.style.width=(r.width+pad*2)+'px'; hole.style.height=(r.height+pad*2)+'px';
+      // 卡片放在亮框下面，放不下就放上面
+      var top=r.bottom+pad+12; if(top+ch>vh-8) top=Math.max(8,r.top-pad-12-ch);
+      card.style.top=top+'px';
+    }else{
+      hole.style.display='none'; shade.style.background='rgba(30,10,45,.62)';
+      card.style.top=Math.max(8,(vh-ch)/2)+'px';
+    }
+  },s.page?260:40);
+}
+function obGo(d){ OB.i=Math.max(0,Math.min(OB_STEPS.length-1,OB.i+d)); try{ ttsStopAll(); }catch(e){} obRender(); }
+function obSpeak(){ var s=OB_STEPS[OB.i]; if(!s) return; try{ studySpeak(s.t.replace(/^\S+\s/,'')+'。'+s.d.replace(/[💪🐾]/g,''),'zh-CN'); }catch(e){} }
+function obStart(){
+  if(!state) return;
+  obEnsureDom(); OB.i=0; OB.on=true;
+  document.getElementById('obWrap').style.display='block';
+  obRender();
+}
+function obEnd(){
+  OB.on=false; try{ ttsStopAll(); }catch(e){}
+  var w=document.getElementById('obWrap'); if(w) w.style.display='none';
+  if(state&&!state.onboardV1){ state.onboardV1=1; try{ saveStore(); }catch(e){} }
+  try{ showPage('home'); }catch(e){}
+}
+window.addEventListener('resize',function(){ if(OB.on) obRender(); });
+// 右上角「❓」按钮：随时再看一遍
+(function(){
+  var box=document.querySelector('.wallet-mini'); if(!box||document.getElementById('obHelpBtn')) return;
+  var b=document.createElement('button'); b.id='obHelpBtn'; b.className='music-toggle-btn'; b.title='新手引导：怎么玩'; b.textContent='❓';
+  b.onclick=function(){ obStart(); };
+  box.appendChild(b);
+})();
+// 新角色第一次打开：等页面准备好、没有别的弹窗挡着，再自动开始（每次打开网页最多自动一次）
+var _obAutoTried=false;
+setInterval(function(){
+  try{
+    if(_obAutoTried||OB.on||!state||state.onboardV1) return;
+    if(((state.log||[]).length)>=30){ state.onboardV1=1; return; } // 老用户：不打扰，以后想看点❓
+    if(!pageActive('home')||document.querySelector('.modal-mask.show')) return;
+    if(typeof H3!=='undefined'&&H3.open) return;
+    _obAutoTried=true; obStart();
+  }catch(e){}
+},2000);
+
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
