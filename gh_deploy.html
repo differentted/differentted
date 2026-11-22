@@ -41032,6 +41032,482 @@ function jdPunish(){
 function jdParentUnfreeze(){
   rcParentGate(function(){ var j=jdDay(); j.frozen=false; j.pts=0; j.lv=0; if(state.day) state.day.stEff=j.prevEff||0; try{ saveStore(); }catch(e){} hideModal('jdModal'); ttsToast('已解除今天的冻结（回收的奖励不退回）',3000); });
 }
+/* ========== 2026-11修复：3D小屋房屋结构不合理 ==========
+   家长反馈"3D小屋有BUG，结构不符合真实房屋"。检查后发现：
+   1. 屋顶只是一整块斜木板：从房子前面往后翘起，最高处悬在后墙外面1米多，房子前半截顶上根本没有屋顶。
+      → 换成真实的"人字形"双坡屋顶：屋脊在房子正中间，前后两面坡，两头用三角形山墙封住，还有屋脊压条。
+   2. 烟囱悬在半空，没有落在屋顶上 → 改成从后坡屋面里伸出来，带烟囱帽。
+   3. 房间名牌（客厅/卧室…）会穿透墙壁显示，转到侧面也能隔墙看到 → 名牌改成会被墙挡住。
+   4. 二楼楼梯口旁边有一条约0.7米宽、没有楼梯的地板缺口，直接通到一楼 → 用地板补上。
+   做法：包装 h3BuildHouse，原来的房子照常搭好以后，再把旧屋顶/旧烟囱删掉、换成新的，不改动原有代码。 */
+var _fixLabelCollect=null, _fixOrigTextSprite=h3TextSprite;
+h3TextSprite=function(){ var s=_fixOrigTextSprite.apply(this,arguments); if(_fixLabelCollect) _fixLabelCollect.push(s); return s; };
+function h3FixStructure(scene){
+  var tier=H3.tier||3, D=6, H=3, two=tier>=3, wide=tier>=2;
+  var roofY=two?H*2:H, rx0=wide?0:-3.5, rw=wide?13:6.2;
+  var roofM=hqM('#ffffff',{map:hqTex('roof',256,256,HQ_DRAW.roof,6,2),r:0.7});
+  var oldChim=hqM('#b0705a',{r:0.9});
+  // 删掉旧的斜木板屋顶和悬空烟囱
+  var rm=[]; scene.traverse(function(o){ if(o.isMesh&&(o.material===roofM||o.material===oldChim)) rm.push(o); });
+  rm.forEach(function(o){ if(o.parent) o.parent.remove(o); });
+  // 人字形双坡屋顶
+  var base=roofY+0.22, R=wide?2.1:1.7, hd=D/2+0.35, L=Math.hypot(hd,R)+0.08, th=Math.atan2(R,hd), len=rw+0.5;
+  [1,-1].forEach(function(s){ var m=hqBox(scene,len,0.16,L,rx0,base+R/2+0.08,s*hd/2,roofM); m.rotation.x=s*th; });
+  var ridge=hqCyl(scene,0.1,0.1,len+0.1,rx0,base+R+0.14,0,hqM('#8d3b2a',{r:0.7}),12); ridge.rotation.z=Math.PI/2;
+  // 两头的三角形山墙
+  var sh=new THREE.Shape(); sh.moveTo(-D/2-0.02,0); sh.lineTo(D/2+0.02,0); sh.lineTo(0,R); sh.lineTo(-D/2-0.02,0);
+  var gGeo=new THREE.ExtrudeGeometry(sh,{depth:0.18,bevelEnabled:false});
+  var gMat=hqM('#f6efe4',{r:0.85});
+  var edges=wide?[-6.14,5.96]:[-6.14,-1.04];
+  edges.forEach(function(x){ var m=new THREE.Mesh(gGeo,gMat); m.rotation.y=Math.PI/2; m.position.set(x,base,0); m.castShadow=true; m.receiveShadow=true; scene.add(m);
+    // 山墙上的小圆窗
+    var outX=x<0?x-0.01:x+0.19, win=new THREE.Mesh(new THREE.CircleGeometry(0.32,28),hqM('#9fd3f0',{r:0.1,m:0.2})); win.rotation.y=x<0?-Math.PI/2:Math.PI/2; win.position.set(outX,base+R*0.4,0); scene.add(win);
+    var fr=new THREE.Mesh(new THREE.TorusGeometry(0.33,0.05,8,28),hqM('#ffffff',{r:0.5})); fr.rotation.y=Math.PI/2; fr.position.set(outX,base+R*0.4,0); scene.add(fr);
+  });
+  // 烟囱：从后坡屋面里伸出来
+  var cz=-1.5, cx=rx0+rw*0.28, slopeY=base+R*(1-Math.abs(cz)/hd);
+  hqRB(scene,0.6,1.7,0.6,cx,slopeY+0.45,cz,hqM('#a8604b',{r:0.9}),0.04);
+  hqRB(scene,0.78,0.14,0.78,cx,slopeY+1.33,cz,hqM('#6d4c41',{r:0.8}),0.03);
+  // 二楼楼梯口旁边的地板缺口
+  if(two) hqBox(scene,0.72,0.22,2.2,-5.64,H,-1.9,hqM('#ffffff',{map:hqTex('woodB',512,512,HQ_DRAW.wood('#e2b98c'),2,2),r:0.5}));
+}
+var _fixBaseBuild=h3BuildHouse;
+h3BuildHouse=function(scene){
+  _fixLabelCollect=[]; var r, labs;
+  try{ r=_fixBaseBuild.apply(this,arguments); } finally{ labs=_fixLabelCollect||[]; _fixLabelCollect=null; }
+  try{ labs.forEach(function(sp){ if(sp&&sp.material){ sp.material.depthTest=true; sp.renderOrder=3; } }); }catch(e){}
+  try{ h3FixStructure(scene); }catch(e){ try{ console.warn('h3FixStructure',e); }catch(e2){} }
+  try{ if(!H3.preview) gdBuild(scene); }catch(e){ try{ console.warn('gdBuild',e); }catch(e2){} }
+  return r;
+};
+
+/* ========== 2026-11新增：🌷 自由布置花园（屋外浇花、宠物喝水） ==========
+   家长要求："增加屋外喝水浇花等装饰花园的设置，让小朋友可以自由布置他们喜欢的花园"。
+   - 房子前面草地小路再往前，有一片 3 行 × 19 列的花园格子（城堡前面有护城河，格子往前挪到护城河外面）。
+   - 点 3D 小屋里的「🌷 花园」进入布置模式：下面选一样东西，点草地格子就种/摆上去；
+     还可以「↻ 转方向」「🗑️ 收起」。收起的东西回到花园仓库，下次再摆不用重新花钱。
+   - 东西用打卡赚的金币买（花几个金币～几十个金币）。
+   - 💧 浇花：花和菜每天要浇一次水；超过 2 天没浇，花就会蔫掉（垂头、变矮），浇了马上恢复。
+     每天第一次浇花，家里每只宠物都开心 +3。
+   - 💧 宠物喝水：花园里摆了「饮水盆 / 小鸟浴盆 / 小池塘 / 小喷泉」，宠物平时闲逛时会自己跑到花园去喝水
+     （纯动画，不扣、不加任何数值，不会影响商店里买水的规则）。
+   数据存在 state.house3d.garden：{inv:{物品:剩余数量}, placed:[{id,x,z,r}], waterDay:'哪天浇过水'}。 */
+var GD_ITEMS=[
+  {id:'tulip',e:'🌷',n:'郁金香',p:5,kind:'flower'},
+  {id:'sunflower',e:'🌻',n:'向日葵',p:6,kind:'flower'},
+  {id:'rose',e:'🌹',n:'玫瑰丛',p:8,kind:'flower'},
+  {id:'daisy',e:'🌼',n:'小雏菊',p:4,kind:'flower'},
+  {id:'veg',e:'🥕',n:'小菜园',p:12,kind:'flower'},
+  {id:'sakura',e:'🌸',n:'樱花小树',p:30,kind:'flower'},
+  {id:'tree',e:'🌳',n:'圆圆树',p:25,kind:'deco'},
+  {id:'bush',e:'🌿',n:'小灌木',p:8,kind:'deco'},
+  {id:'mushroom',e:'🍄',n:'蘑菇',p:4,kind:'deco'},
+  {id:'rock',e:'🪨',n:'小石头',p:3,kind:'deco'},
+  {id:'bowl',e:'🥣',n:'宠物饮水盆',p:15,kind:'water'},
+  {id:'birdbath',e:'🐦',n:'小鸟浴盆',p:30,kind:'water'},
+  {id:'pond',e:'🦆',n:'小池塘',p:45,kind:'water'},
+  {id:'fountain',e:'⛲',n:'小喷泉',p:60,kind:'water'},
+  {id:'bench',e:'🪑',n:'长椅',p:20,kind:'deco'},
+  {id:'lamp',e:'🏮',n:'花园灯',p:18,kind:'deco'},
+  {id:'windmill',e:'🎐',n:'小风车',p:15,kind:'deco'},
+  {id:'can',e:'🚿',n:'浇水壶',p:6,kind:'deco'}
+];
+var GD={edit:false, tool:'place', sel:'tulip', saveCam:null};
+function gdItem(id){ return GD_ITEMS.filter(function(x){ return x.id===id; })[0]; }
+function gdState(){ var h=hbState(); if(!h.garden) h.garden={inv:{},placed:[],waterDay:null}; var g=h.garden; if(!g.inv) g.inv={}; if(!g.placed) g.placed=[]; return g; }
+function gdRows(){ return (H3.tier||3)>=4?[7.1,8.0,8.9]:[5.2,6.1,7.0]; }
+var GD_COL_MIN=-9, GD_COL_MAX=9;
+function gdWilted(){ var g=gdState(); if(!g.waterDay) return false; try{ return daysBetween(g.waterDay,todayKey())>=2; }catch(e){ return false; } }
+function gdSave(){ try{ saveStore(); }catch(e){} }
+// ---- 每样东西的3D造型（原点在格子中心、地面上）----
+function gdStem(p,x,z,h,c){ hqCyl(p,0.018,0.022,h,x,h/2,z,hqM(c||'#43a047',{r:0.7}),6); }
+var GD_BUILD={
+  tulip:function(p){ [['#ff4081',-0.18,0],['#ffd740',0.12,0.12],['#e040fb',0.1,-0.16]].forEach(function(q){ gdStem(p,q[1],q[2],0.5); hqSph(p,0.1,q[1],0.55,q[2],hqM(q[0],{r:0.5}),0.9,1.3,0.9); var lf=hqSph(p,0.06,q[1]+0.06,0.18,q[2],hqM('#66bb6a',{r:0.7}),0.6,2.2,0.4); lf.rotation.z=-0.5; }); },
+  sunflower:function(p){ gdStem(p,0,0,1.0); var head=new THREE.Group(); head.position.set(0,1.02,0.02); head.rotation.x=-0.3; p.add(head);
+    for(var i=0;i<12;i++){ var a=i/12*Math.PI*2; var pt=hqSph(head,0.07,Math.cos(a)*0.17,Math.sin(a)*0.17,0,hqM('#ffca28',{r:0.6}),1.6,0.7,0.3); pt.rotation.z=a; }
+    hqCyl(head,0.12,0.12,0.06,0,0,0.02,hqM('#6d4c41',{r:0.9}),20).rotation.x=Math.PI/2;
+    [[0.25,0.6],[-0.25,0.45]].forEach(function(q){ var lf=hqSph(p,0.12,q[0]*0.5,q[1],0,hqM('#4caf50',{r:0.7}),1.6,0.4,0.9); lf.rotation.z=q[0]>0?-0.4:0.4; }); },
+  rose:function(p){ hqBush(p,0,0,'#2e7d32'); [[0.15,0.55,0.15],[-0.25,0.48,0.05],[0.3,0.4,-0.15],[-0.05,0.62,-0.2],[0.05,0.45,0.32]].forEach(function(q,i){ hqSph(p,0.09,q[0],q[1],q[2],hqM(['#e91e63','#ff5252','#f8bbd0'][i%3],{r:0.5})); }); },
+  daisy:function(p){ for(var i=0;i<6;i++){ var a=i/6*Math.PI*2, r=0.22+(i%2)*0.1; hqFlower(p,Math.cos(a)*r,Math.sin(a)*r,['#ffffff','#fff59d','#f8bbd0'][i%3]); } hqFlower(p,0,0,'#ffffff'); },
+  veg:function(p){ hqRB(p,0.85,0.14,0.85,0,0.07,0,hqM('#6d4c41',{r:1}),0.04);
+    for(var i=0;i<3;i++) for(var j=0;j<2;j++){ var x=-0.25+i*0.25, z=-0.18+j*0.36; var c=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.16,10),hqM('#ff7043',{r:0.6})); c.position.set(x,0.17,z); c.rotation.x=Math.PI; p.add(c); for(var k=0;k<3;k++){ var lf=hqCyl(p,0.012,0.012,0.2,x+(k-1)*0.03,0.32,z,hqM('#43a047',{r:0.7}),5); lf.rotation.z=(k-1)*0.4; } } },
+  sakura:function(p){ hqCyl(p,0.08,0.12,1.0,0,0.5,0,hqM('#6d4c41',{r:0.9}),10); var pk=hqM('#f8bbd0',{r:0.7}), pk2=hqM('#f48fb1',{r:0.7});
+    [[0,1.25,0,0.45],[0.3,1.1,0.1,0.32],[-0.3,1.12,-0.05,0.33],[0.05,1.5,0,0.3],[-0.1,1.15,0.3,0.28]].forEach(function(b,i){ hqSph(p,b[3],b[0],b[1],b[2],i%2?pk:pk2); }); },
+  tree:function(p){ hqTree(p,0,0,0.62); },
+  bush:function(p){ hqBush(p,0,0,'#5aa845'); },
+  mushroom:function(p){ [[0,0,1],[0.22,0.15,0.7],[-0.2,0.12,0.6]].forEach(function(q){ var s=q[2]; hqCyl(p,0.05*s,0.07*s,0.22*s,q[0],0.11*s,q[1],hqM('#fff8e1',{r:0.7}),12); var cap=hqSph(p,0.16*s,q[0],0.24*s,q[1],hqM('#e53935',{r:0.5}),1,0.6,1); for(var d=0;d<4;d++){ var a=d/4*Math.PI*2; hqSph(p,0.025*s,q[0]+Math.cos(a)*0.09*s,0.3*s,q[1]+Math.sin(a)*0.09*s,hqM('#ffffff')); } }); },
+  rock:function(p){ var m=hqM('#9e9e9e',{r:0.95}); [[0,0.14,0,0.22],[0.22,0.09,0.1,0.13],[-0.18,0.08,-0.1,0.11]].forEach(function(q){ var r=new THREE.Mesh(new THREE.DodecahedronGeometry(q[3]),m); r.position.set(q[0],q[1],q[2]); r.castShadow=true; p.add(r); }); },
+  bowl:function(p){ hqLathe(p,[[0,0],[0.3,0],[0.34,0.14],[0.3,0.15],[0.26,0.04],[0,0.04]],0,0,0,hqM('#4fc3f7',{r:0.35}));
+    var w=new THREE.Mesh(new THREE.CircleGeometry(0.27,24),hqM('#b3e5fc',{r:0.05,op:0.85})); w.rotation.x=-Math.PI/2; w.position.y=0.11; p.add(w);
+    hqSph(p,0.05,0.25,0.03,0.3,hqM('#ffffff')); var bone=hqRB(p,0.22,0.05,0.06,-0.25,0.03,0.3,hqM('#fff3e0'),0.02); bone.rotation.y=0.6; },
+  birdbath:function(p){ var st=hqM('#eceff1',{r:0.4}); hqLathe(p,[[0,0],[0.25,0],[0.12,0.1],[0.09,0.65],[0.14,0.72],[0,0.72]],0,0,0,st);
+    hqLathe(p,[[0,0],[0.42,0.02],[0.45,0.12],[0.4,0.13],[0,0.06]],0,0.72,0,st);
+    var w=new THREE.Mesh(new THREE.CircleGeometry(0.38,28),hqM('#81d4fa',{r:0.05,op:0.85})); w.rotation.x=-Math.PI/2; w.position.y=0.83; p.add(w);
+    var bd=new THREE.Group(); bd.position.set(0.3,0.9,0); p.add(bd); hqSph(bd,0.07,0,0,0,hqM('#42a5f5',{r:0.5}),1.3,1,1); hqSph(bd,0.05,0.07,0.06,0,hqM('#42a5f5',{r:0.5})); var bk=new THREE.Mesh(new THREE.ConeGeometry(0.015,0.05,6),hqM('#ffb300')); bk.rotation.z=-Math.PI/2; bk.position.set(0.12,0.06,0); bd.add(bk);
+    H3.anims.push(function(dt,t){ bd.rotation.z=Math.max(0,Math.sin(t*2.2))*0.5; }); },
+  pond:function(p){ var w=new THREE.Mesh(new THREE.CircleGeometry(0.55,32),hqM('#4fc3f7',{r:0.05,m:0.1,op:0.9})); w.rotation.x=-Math.PI/2; w.position.y=0.03; w.scale.set(1.3,1,1); p.add(w);
+    var stn=hqM('#bdbdbd',{r:0.9}); for(var i=0;i<12;i++){ var a=i/12*Math.PI*2; var s=new THREE.Mesh(new THREE.DodecahedronGeometry(0.09),stn); s.position.set(Math.cos(a)*0.72,0.05,Math.sin(a)*0.56); p.add(s); }
+    var lily=new THREE.Mesh(new THREE.CircleGeometry(0.12,16,0.3,Math.PI*1.8),hqM('#66bb6a',{r:0.6})); lily.rotation.x=-Math.PI/2; lily.position.set(0.2,0.04,0.1); p.add(lily);
+    var duck=new THREE.Group(); p.add(duck); hqSph(duck,0.09,0,0.08,0,hqM('#ffd600',{r:0.4}),1.3,0.8,1); hqSph(duck,0.06,0.08,0.16,0,hqM('#ffd600',{r:0.4})); var bk2=new THREE.Mesh(new THREE.ConeGeometry(0.02,0.05,6),hqM('#ff6d00')); bk2.rotation.z=-Math.PI/2; bk2.position.set(0.14,0.15,0); duck.add(bk2);
+    H3.anims.push(function(dt,t){ duck.position.set(Math.cos(t*0.5)*0.32,Math.sin(t*2)*0.01,Math.sin(t*0.5)*0.22); duck.rotation.y=-t*0.5; }); },
+  fountain:function(p){ var sub=new THREE.Group(); sub.scale.setScalar(0.42); p.add(sub); luxFountain(sub,0,0,false); },
+  bench:function(p){ var wd=hqM('#a1785a',{r:0.6}), ir=hqM('#37474f',{m:0.6,r:0.4}); for(var i=0;i<3;i++) hqRB(p,0.95,0.04,0.09,0,0.42,-0.12+i*0.11,wd,0.02); for(var j=0;j<2;j++) hqRB(p,0.95,0.09,0.04,0,0.62+j*0.13,-0.2,wd,0.02);
+    [-0.4,0.4].forEach(function(x){ hqBox(p,0.05,0.42,0.3,x,0.21,-0.02,ir); hqBox(p,0.05,0.35,0.05,x,0.6,-0.2,ir); }); },
+  lamp:function(p){ var ir=hqM('#37474f',{m:0.6,r:0.4}); hqCyl(p,0.04,0.06,1.3,0,0.65,0,ir,10); hqCyl(p,0.12,0.12,0.05,0,0.02,0,ir,16);
+    var lm=diyMat('#fff3c4',{e:0xffd27a,ei:0.4}); var gl=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,12),lm); gl.position.y=1.38; p.add(gl); hqLathe(p,[[0,0],[0.18,-0.02],[0.05,0.1],[0,0.1]],0,1.48,0,ir); diyNightAnim([lm],0.4,2.6); luxGlow(p,0,1.38,0,1.3,0xffd27a,0.05); },
+  windmill:function(p){ hqCyl(p,0.03,0.03,1.0,0,0.5,0,hqM('#ffffff',{r:0.5}),8); var hub=new THREE.Group(); hub.position.set(0,1.0,0.05); p.add(hub);
+    ['#ef5350','#ffca28','#42a5f5','#66bb6a'].forEach(function(c,i){ var bl=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.3,3),new THREE.MeshStandardMaterial({color:c,roughness:0.5,side:THREE.DoubleSide})); bl.position.set(Math.cos(i*Math.PI/2)*0.15,Math.sin(i*Math.PI/2)*0.15,0); bl.rotation.z=i*Math.PI/2-Math.PI/2; hub.add(bl); });
+    H3.anims.push(function(dt,t){ hub.rotation.z=-t*2.5; }); },
+  can:function(p){ var m=hqM('#26a69a',{r:0.35,m:0.2}); hqCyl(p,0.15,0.17,0.3,0,0.15,0,m,20); var sp=hqCyl(p,0.025,0.04,0.35,0.2,0.27,0,m,10); sp.rotation.z=-0.9; var hd=new THREE.Mesh(new THREE.TorusGeometry(0.11,0.02,8,20,Math.PI),m); hd.position.set(-0.05,0.3,0); hd.rotation.z=Math.PI/2+0.3; p.add(hd); }
+};
+// ---- 把花园搭进场景（场景重建时自动调用，摆放/收起时只刷新这一组）----
+function gdBuild(scene){
+  if(!scene) return;
+  if(H3.gdGroup&&H3.gdGroup.parent) H3.gdGroup.parent.remove(H3.gdGroup);
+  // 上一次花园登记的动画（风车转、小鸟点头、鸭子游…）先清掉，不然每摆一次就多一份，越来越卡
+  (GD.anims||[]).forEach(function(f){ var k=(H3.anims||[]).indexOf(f); if(k>=0) H3.anims.splice(k,1); });
+  if(!H3.anims) H3.anims=[];
+  var animStart=H3.anims.length;
+  var grp=new THREE.Group(); grp.name='garden'; scene.add(grp); H3.gdGroup=grp;
+  var g=gdState(), rows=gdRows(), wilt=gdWilted();
+  GD.waterSpot=null;
+  // 花园边上的矮篱笆，告诉小朋友"这里是花园"
+  var fence=hqM('#ffffff',{r:0.5}), z0=rows[0]-0.6, z1=rows[2]+0.6;
+  [[GD_COL_MIN-0.6,GD_COL_MIN-0.6],[GD_COL_MAX+0.6,GD_COL_MAX+0.6]].forEach(function(q){ for(var z=z0;z<=z1+0.01;z+=0.45) hqRB(grp,0.07,0.38,0.07,q[0],0.19,z,fence,0.02); hqBox(grp,0.04,0.05,z1-z0,q[0],0.3,(z0+z1)/2,fence); });
+  for(var x=GD_COL_MIN-0.6;x<=GD_COL_MAX+0.61;x+=0.45) hqRB(grp,0.07,0.38,0.07,x,0.19,z1,fence,0.02);
+  hqBox(grp,GD_COL_MAX-GD_COL_MIN+1.2,0.05,0.04,0,0.3,z1,fence);
+  g.placed.forEach(function(it){
+    var def=gdItem(it.id), fn=GD_BUILD[it.id]; if(!def||!fn) return;
+    var p=new THREE.Group(); p.position.set(it.x,0,it.z); p.rotation.y=(it.r||0)*Math.PI/2; grp.add(p);
+    try{ fn(p); }catch(e){ try{ console.warn('garden item',it.id,e); }catch(e2){} }
+    if(def.kind==='flower'&&wilt){ p.scale.y=0.72; p.rotation.z=0.18; }
+    if(def.kind==='water'&&!GD.waterSpot) GD.waterSpot={x:it.x,z:it.z,id:it.id};
+  });
+  if(GD.edit) gdBuildGrid(grp);
+  GD.anims=H3.anims.slice(animStart);
+  gdSyncNode();
+}
+function gdBuildGrid(grp){
+  var g=gdState(), rows=gdRows(), used={};
+  g.placed.forEach(function(it){ used[it.x+'|'+it.z]=1; });
+  var free=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.35,depthWrite:false}), busy=new THREE.MeshBasicMaterial({color:0xffb300,transparent:true,opacity:0.3,depthWrite:false});
+  rows.forEach(function(z){ for(var x=GD_COL_MIN;x<=GD_COL_MAX;x++){ var m=new THREE.Mesh(new THREE.PlaneGeometry(0.86,0.8),used[x+'|'+z]?busy:free); m.rotation.x=-Math.PI/2; m.position.set(x,0.02,z); grp.add(m); } });
+}
+function gdRefresh(){ try{ if(H3.scene) gdBuild(H3.scene); }catch(e){ try{ console.warn(e); }catch(e2){} } }
+// 宠物去花园喝水用的路线点（跟饮水盆的位置走），没有饮水设施时这个点不能走
+function gdSyncNode(){
+  if(!GD.waterSpot){ return; }
+  var w=GD.waterSpot, near='O2', best=1e9;
+  ['O1','O2','O3','O4'].forEach(function(n){ var p=H3_NODES[n]&&H3_NODES[n].p; if(p){ var d=Math.abs(p[0]-w.x); if(d<best){ best=d; near=n; } } });
+  H3_NODES.GW={p:[w.x-0.55,0,w.z-0.15]};
+  if(!GD.edge){ GD.edge=[near,'GW']; H3_EDGES.push(GD.edge); } else GD.edge[0]=near;
+}
+var _gdOrigNodeOk=h3NodeOk;
+h3NodeOk=function(n){ if(n==='GW') return !!GD.waterSpot&&!H3.preview; return _gdOrigNodeOk.apply(this,arguments); };
+// 宠物闲逛时，偶尔自己跑去花园喝水（纯动画）
+var _gdOrigWander=h3WanderPick;
+h3WanderPick=function(a){
+  try{
+    if(GD.waterSpot&&!GD.edit&&!a.c3&&!H3.preview&&Math.random()<0.18){
+      var path=h3Path(a.node,'GW');
+      if(path.length&&path[path.length-1]==='GW'){ if(path[0]===a.node) path.shift(); a.path=path; a.goal='gdrink'; a.anim='idle'; a.nextWander=Date.now()+14000; return; }
+    }
+  }catch(e){}
+  return _gdOrigWander.apply(this,arguments);
+};
+var _gdOrigArrive=h3Arrive;
+h3Arrive=function(a){
+  if(a&&a.goal==='gdrink'){
+    a.goal=null; a.anim='drink'; a.animStart=Date.now(); a.animUntil=Date.now()+3800; a.faceLeft=false;
+    var nm={bowl:'饮水盆',birdbath:'小鸟浴盆',pond:'小池塘',fountain:'小喷泉'}[GD.waterSpot&&GD.waterSpot.id]||'花园';
+    h3Say(a,pickLine(['去'+nm+'喝口水～💧','咕嘟咕嘟，花园的水好清凉！','喝饱啦，看看花开了没有🌷']),2000);
+    return;
+  }
+  if(a&&a.goal==='gwater'){
+    a.goal=null; a.anim='happy'; a.animStart=Date.now(); a.animUntil=Date.now()+3000;
+    h3Say(a,'浇浇水，快快长大～🌱',2200); return;
+  }
+  return _gdOrigArrive.apply(this,arguments);
+};
+// ---- 💧 浇花 ----
+function gdWater(){
+  var g=gdState(), today=todayKey();
+  var flowers=g.placed.filter(function(it){ var d=gdItem(it.id); return d&&d.kind==='flower'; });
+  if(!flowers.length){ ttsToast('花园里还没有花和菜哦，先去种几棵吧～🌷',2800); return; }
+  if(g.waterDay===today){ ttsToast('今天已经浇过水啦，花儿们喝饱饱了～明天再来吧💧',2800); return; }
+  var first=g.waterHappyDay!==today;
+  g.waterDay=today; g.waterHappyDay=today;
+  if(first){ (state.pets||[]).forEach(function(p){ if(p&&p.chosen&&p.hatched) p.happy=Math.min(100,(p.happy||0)+3); }); }
+  gdSave(); gdRefresh();
+  // 水滴动画
+  try{ flowers.forEach(function(it,i){ for(var k=0;k<3;k++){ (function(delay){ setTimeout(function(){ if(!H3.open||!H3.scene) return; var d=c3EmojiSprite('💧',0.28); d.position.set(it.x+(Math.random()-0.5)*0.5,1.8,it.z+(Math.random()-0.5)*0.4); H3.scene.add(d); var t0=performance.now(); (function fall(){ var k2=(performance.now()-t0)/900; if(k2>1||!H3.open){ H3.scene.remove(d); return; } d.position.y=1.8-k2*1.6; d.material.opacity=1-k2*0.5; requestAnimationFrame(fall); })(); },delay); })(i*60+k*250); } }); }catch(e){}
+  // 当前宠物跑到花园边上
+  try{ var a=c3Main(); if(a&&!a.c3){ var to=gdRows()[0]<6?'O2':'O1'; var path=h3Path(a.node,to); if(path[0]===a.node) path.shift(); a.path=path; a.goal='gwater'; a.nextWander=Date.now()+15000; } }catch(e){}
+  ttsToast('💧 浇好水啦！花儿们精神起来了'+(first?'，宠物们都很开心 +3':''),3000);
+  gdRenderPanel();
+}
+// ---- 布置模式 ----
+function gdOpen(){
+  if(!H3.open||H3.preview||!H3.scene) return;
+  GD.edit=true;
+  GD.saveCam={t:H3.target&&H3.target.clone(),yaw:H3.yaw,pitch:H3.pitch,dist:H3.dist};
+  var rows=gdRows(); if(H3.target) H3.target.set(0,0.4,rows[1]-0.5); H3.yaw=0; H3.pitch=0.78; H3.dist=17;
+  gdRefresh(); gdRenderPanel();
+}
+function gdClose(){
+  GD.edit=false;
+  var pn=document.getElementById('gdPanel'); if(pn) pn.remove();
+  var s=GD.saveCam; if(s){ if(s.t&&H3.target) H3.target.copy(s.t); H3.yaw=s.yaw; H3.pitch=s.pitch; H3.dist=s.dist; }
+  GD.saveCam=null; gdRefresh();
+}
+function gdSetTool(t){ GD.tool=t; gdRenderPanel(); }
+function gdPick(id){ GD.sel=id; GD.tool='place'; gdRenderPanel(); }
+function gdRenderPanel(){
+  if(!GD.edit) return;
+  var w=document.getElementById('h3Wrap'); if(!w) return;
+  var pn=document.getElementById('gdPanel');
+  if(!pn){ pn=document.createElement('div'); pn.id='gdPanel'; pn.style.cssText='position:absolute;left:6px;right:6px;bottom:6px;z-index:10010;background:rgba(255,255,255,.95);border-radius:16px;padding:8px;box-shadow:0 4px 18px rgba(0,0,0,.25);max-height:46%;overflow:auto;touch-action:pan-x pan-y';
+    ['pointerdown','pointerup','wheel'].forEach(function(ev){ pn.addEventListener(ev,function(e){ e.stopPropagation(); }); }); w.appendChild(pn); }
+  var g=gdState(), wilt=gdWilted(), today=todayKey(), bal=state.moneyBalance||0;
+  var toolBtn=function(t,label){ return '<button class="btn btn-sm '+(GD.tool===t?'btn-primary':'btn-gray')+'" onclick="gdSetTool(\''+t+'\')">'+label+'</button>'; };
+  var html='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">'
+    +'<b style="color:#2e7d32">🌷 布置花园</b><span class="small" style="background:#fff8e1;border-radius:8px;padding:2px 8px;font-weight:700;color:#e65100">🪙 '+bal+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="btn btn-sm btn-info" onclick="gdWater()">💧 浇花'+(g.waterDay===today?'（已浇）':'')+'</button>'
+    +'<button class="btn btn-sm btn-success" onclick="gdClose()">✅ 完成</button></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+toolBtn('place','🌱 摆放')+toolBtn('rotate','↻ 转方向')+toolBtn('remove','🗑️ 收起')+'</div>';
+  if(wilt) html+='<div class="small" style="color:#c62828;margin-bottom:4px">🥀 花儿已经两天没喝水，蔫掉了！快点「💧 浇花」</div>';
+  html+='<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">'
+    +GD_ITEMS.map(function(it){ var on=GD.sel===it.id&&GD.tool==='place', have=g.inv[it.id]||0;
+      return '<button onclick="gdPick(\''+it.id+'\')" style="flex:0 0 auto;min-width:64px;border:2px solid '+(on?'#8e24aa':'#e0e0e0')+';background:'+(on?'#f3e5f5':'#fff')+';border-radius:12px;padding:4px 6px;cursor:pointer">'
+        +'<div style="font-size:24px;line-height:1.1">'+it.e+'</div><div style="font-size:11px;font-weight:700;color:#4a148c;white-space:nowrap">'+it.n+'</div>'
+        +'<div style="font-size:10px;color:'+(have?'#2e7d32':'#e65100')+'">'+(have?('仓库 '+have):('🪙 '+it.p))+'</div></button>'; }).join('')
+    +'</div>'
+    +'<div class="small" style="color:#777;margin-top:2px">'+({place:'先选下面的东西，再点草地上的白色格子种下去（仓库里有的不用花钱）',rotate:'点一下花园里的东西，让它转个方向',remove:'点一下花园里的东西，把它收回仓库（不会丢，下次免费再摆）'}[GD.tool])
+    +'。🥣饮水盆、🐦小鸟浴盆、🦆小池塘、⛲小喷泉摆好以后，宠物会自己跑来喝水；花和菜每天要浇一次水哦。</div>';
+  pn.innerHTML=html;
+}
+function gdTapAt(cx,cy){
+  var el=H3.renderer.domElement, rc=el.getBoundingClientRect();
+  var v=new THREE.Vector2((cx-rc.left)/rc.width*2-1,-((cy-rc.top)/rc.height)*2+1);
+  var ray=new THREE.Raycaster(); ray.setFromCamera(v,H3.camera);
+  var hit=new THREE.Vector3(); if(!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),hit)) return;
+  var rows=gdRows(), col=Math.round(hit.x), row=null, best=0.6;
+  rows.forEach(function(z){ var d=Math.abs(hit.z-z); if(d<best){ best=d; row=z; } });
+  if(row===null||col<GD_COL_MIN||col>GD_COL_MAX){ ttsToast('要点在花园的白色格子上哦～',1800); return; }
+  var g=gdState(), idx=-1; g.placed.forEach(function(it,i){ if(it.x===col&&it.z===row) idx=i; });
+  if(GD.tool==='rotate'){ if(idx<0){ ttsToast('这个格子是空的',1500); return; } g.placed[idx].r=((g.placed[idx].r||0)+1)%4; gdSave(); gdRefresh(); return; }
+  if(GD.tool==='remove'){ if(idx<0){ ttsToast('这个格子是空的',1500); return; } var it=g.placed.splice(idx,1)[0]; g.inv[it.id]=(g.inv[it.id]||0)+1; gdSave(); gdRefresh(); gdRenderPanel(); ttsToast('收回仓库啦：'+gdItem(it.id).e+gdItem(it.id).n,1500); return; }
+  if(idx>=0){ ttsToast('这里已经有东西了，先用「🗑️ 收起」把它收起来',2200); return; }
+  var def=gdItem(GD.sel); if(!def) return;
+  if((g.inv[def.id]||0)>0){ g.inv[def.id]--; }
+  else{
+    var bal=state.moneyBalance||0;
+    if(bal<def.p){ ttsToast('金币还差 '+(def.p-bal)+' 个～多完成打卡任务就能攒够！',2600); return; }
+    addCoinChange(-def.p,'花园布置：'+def.n);
+  }
+  if(!g.waterDay&&def.kind==='flower') g.waterDay=todayKey();
+  g.placed.push({id:def.id,x:col,z:row,r:0});
+  gdSave(); gdRefresh(); gdRenderPanel();
+}
+var _gdOrigTap=h3Tap;
+h3Tap=function(x,y){ if(GD.edit&&H3.renderer&&H3.camera){ try{ gdTapAt(x,y); }catch(e){ try{ console.warn(e); }catch(e2){} } return; } return _gdOrigTap.apply(this,arguments); };
+// 3D小屋里加「🌷 花园」按钮（跟「🛠️ 装修DIY」放在一起）
+function gdAddButtons(){
+  var w=document.getElementById('h3Wrap'); if(!w) return;
+  // 全屏模式：放在底部"叫宠物去"那一排的最后（顶栏在手机上已经很挤，再加按钮会把「✕ 关闭」挤到看不见）
+  var row=document.getElementById('h3Btns');
+  if(row&&!document.getElementById('gdBtnTop')){ var b=document.createElement('button'); b.id='gdBtnTop'; b.className='btn btn-success btn-sm'; b.style.background='linear-gradient(90deg,#66bb6a,#26a69a)'; b.textContent='🌷 布置花园'; b.onclick=gdOpen; row.appendChild(b); }
+  var emb=document.getElementById('diyBtnEmb');
+  if(emb&&!document.getElementById('gdBtnEmb')){ var b2=document.createElement('button'); b2.id='gdBtnEmb'; b2.className='btn btn-success btn-sm'; b2.textContent='🌷 花园'; b2.onclick=gdOpen; emb.parentNode.insertBefore(b2,emb.nextSibling); }
+  ['gdBtnTop','gdBtnEmb'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=H3.preview?'none':''; });
+}
+var _gdOrigInit=h3Init;
+h3Init=function(){
+  if(GD.edit){ GD.edit=false; var pn=document.getElementById('gdPanel'); if(pn) pn.remove(); GD.saveCam=null; }
+  var r=_gdOrigInit.apply(this,arguments);
+  try{ gdAddButtons(); }catch(e){}
+  // 花蔫了：进小屋时宠物提醒一句
+  try{ if(!H3.preview&&gdWilted()){ var a=c3Main(); if(a) setTimeout(function(){ if(H3.open) h3Say(a,'花园的花渴坏了🥀，快带我去浇水吧！',3200); },2500); } }catch(e){}
+  return r;
+};
+var _gdOrigClose=closeHouse3D;
+closeHouse3D=function(){ if(GD.edit){ GD.edit=false; var pn=document.getElementById('gdPanel'); if(pn) pn.remove(); GD.saveCam=null; } return _gdOrigClose.apply(this,arguments); };
+
+/* ========== 2026-11新增：🎓 宠物学校（小主人管每一只宠物：安排上学、跟我学技能） ==========
+   家长原话："小主人能否控制每个小宠物？比如可以设置一些让小宠物去上学校学习技能，但是技能必须是和平时打卡
+   有关联，必须打卡完成才可以安排学习"；以及之前说的"主人完成一次任务获得1点，一个点数只能让一只上课一小时，
+   才艺类必须有才艺打卡点数才能学才艺，体育要有运动点数才能学体育"。
+   规则：
+   - 每只宠物都有自己的 5 项技能（pet.skills，每项 0~100）：🧹家务 🏃运动 📖学习 🎤才艺 💞情商。
+   - 学习点数：小主人每真正完成一项打卡（免做卡不算），对应类别 +1 点：
+       家务打卡→🧹家务点；运动打卡→🏃运动点；学习打卡→📖学习点；娱乐(唱歌跳舞)→🎤才艺点；日记/沟通→💞情商点。
+   - 🏫 上学：给某一只宠物报一门课。必须①今天已经完成过这一类打卡，②有这一类的学习点数（1 点 = 1 只上 1 小时），
+     ③付学费金币。上课期间宠物"去学校了"（不在家里晃、不参与吵架）；下课回家技能每小时 +4、心情 +10。
+   - 🫡 跟我学：花 1 点对应学习点数，马上让宠物练一次，技能 +1（不用金币，也不用等）。
+   - 技能越高，宠物每小时越会"自己主动"做事：家务高→自己把自己收拾干净；运动高→自己锻炼更开心；
+     学习高→自己看书涨经验；才艺高→表演给大家看，全家开心；技能练满 100 时主动率最高。
+   - 💞 情商高的宠物会劝架：家里吵架（家庭小管家）的次数会变少。
+   - 跟副本的"天赋点"是两套东西，互不影响：天赋点照样按原规则发、照样只用在副本里。 */
+var PS_KEYS=['house','sport','study','talent','empathy'];
+var PS_META={
+  house:{e:'🧹',n:'家务',cat:'house',src:'家务打卡'},
+  sport:{e:'🏃',n:'运动',cat:'sport',src:'运动打卡'},
+  study:{e:'📖',n:'学习',cat:'study',src:'学习打卡'},
+  talent:{e:'🎤',n:'才艺',cat:'music',src:'唱歌/跳舞打卡'},
+  empathy:{e:'💞',n:'情商',cat:'empathy',src:'日记/沟通打卡'}
+};
+var PS_FROM_CAT={house:'house',sport:'sport',study:'study',fun:'talent',diary:'empathy',comm:'empathy'};
+var PS_CLASSES=[
+  {id:'chores',k:'house',e:'🧽',n:'家政小课堂',p:15},
+  {id:'pe',k:'sport',e:'⚽',n:'体育运动班',p:20},
+  {id:'tutor',k:'study',e:'📚',n:'学科补习班',p:20},
+  {id:'arts',k:'talent',e:'🎹',n:'才艺兴趣班',p:25},
+  {id:'manners',k:'empathy',e:'🤝',n:'情商礼仪班',p:20}
+];
+var PS_CLASS_GAIN=4, PS_CLASS_HAPPY=10;
+var PS_UI={sel:{},msg:''};
+function psState(){ if(!state.petSchool) state.petSchool={pts:{},lastHourAt:Date.now()}; var s=state.petSchool; if(!s.pts) s.pts={}; PS_KEYS.forEach(function(k){ if(typeof s.pts[k]!=='number') s.pts[k]=0; }); if(!s.lastHourAt) s.lastHourAt=Date.now(); return s; }
+function psSkills(p){ if(!p.skills) p.skills={}; PS_KEYS.forEach(function(k){ if(typeof p.skills[k]!=='number') p.skills[k]=0; }); return p.skills; }
+function psInClass(p){ return !!(p&&p.classUntil&&p.classUntil>Date.now()); }
+function psPets(){ var out=[]; (state.pets||[]).forEach(function(p,i){ if(p&&p.chosen&&p.hatched) out.push({p:p,i:i}); }); return out; }
+function psDoneToday(k){ try{ return petCategoryDoneToday(PS_META[k].cat); }catch(e){ return false; } }
+function psSave(){ try{ saveStore(); }catch(e){} }
+function psGain(p,k,n){ var s=psSkills(p), b=s[k]; s[k]=Math.min(100,b+n); if(b<100&&s[k]>=100){ try{ addLog('🏅'+(p.name||'宠物')+' 的'+PS_META[k].n+'技能练满100啦！以后会更主动地帮忙'); }catch(e){} } return s[k]-b; }
+// 打卡完成时发学习点数（跟天赋点同一个时机，免做卡不算）
+var _psOrigMarkDone=markDone;
+markDone=function(cat,key,viaFree){
+  var r=_psOrigMarkDone.apply(this,arguments);
+  try{ var k=PS_FROM_CAT[cat]; if(k&&!viaFree&&state){ psState().pts[k]++; } }catch(e){}
+  return r;
+};
+// ---- 🫡 跟我学 ----
+function psTeach(i,k){
+  var p=state.pets&&state.pets[i]; if(!p||!p.hatched) return;
+  var s=psState();
+  if(psInClass(p)){ PS_UI.msg='📚 '+escapeAttr(p.name)+' 正在学校上课，下课再来吧'; psRender(); return; }
+  if(s.pts[k]<1){ PS_UI.msg='⚠️ '+PS_META[k].e+PS_META[k].n+'点数不够！先去完成一次「'+PS_META[k].src+'」，宠物才能跟你学'; psRender(); return; }
+  s.pts[k]--; var g=psGain(p,k,1);
+  var lines={house:'学着把玩具摆整齐',sport:'跟着你做了几个开合跳',study:'认真地看了一页书',talent:'跟着你哼了一段歌',empathy:'学着说"谢谢"和"对不起"'};
+  PS_UI.msg='✅ '+escapeAttr(p.name)+' '+lines[k]+'，'+PS_META[k].n+'技能 '+(g?'+1':'已满100');
+  try{ addLog('🫡'+p.name+' 跟小主人学'+PS_META[k].n+'，技能 '+psSkills(p)[k]); }catch(e){}
+  psSave(); psRender();
+}
+// ---- 🏫 上学 ----
+function psPick(i,id){ PS_UI.sel[i]=id; psRender(); }
+function psEnroll(i){
+  var p=state.pets&&state.pets[i], c=PS_CLASSES.filter(function(x){ return x.id===PS_UI.sel[i]; })[0]; if(!p||!c) return;
+  var hEl=document.getElementById('psHours'+i), h=Math.max(1,Math.min(3,parseInt(hEl&&hEl.value,10)||1)), s=psState(), k=c.k;
+  if(psInClass(p)){ PS_UI.msg=escapeAttr(p.name)+' 已经在上课啦'; psRender(); return; }
+  if(!psDoneToday(k)){ PS_UI.msg='🔒 今天还没完成「'+PS_META[k].src+'」！小主人先做到，才能安排宠物去学'+PS_META[k].n; psRender(); return; }
+  if(s.pts[k]<h){ PS_UI.msg='⚠️ 上 '+h+' 小时要 '+h+' 点'+PS_META[k].e+PS_META[k].n+'点数（1点=1只宠物上1小时），你现在有 '+s.pts[k]+' 点'; psRender(); return; }
+  var cost=c.p*h;
+  if((state.moneyBalance||0)<cost){ PS_UI.msg='⚠️ 学费要 '+cost+' 金币，金币不够哦'; psRender(); return; }
+  if(!confirm('花 '+cost+' 金币 + '+h+' 点'+PS_META[k].n+'点数，让'+p.name+'去上'+c.n+' '+h+' 小时吗？')) return;
+  s.pts[k]-=h; addCoinChange(-cost,'宠物学校：'+p.name+'上'+c.n+h+'小时');
+  p.classKey=c.id; p.classHours=h; p.classUntil=Date.now()+h*3600000;
+  PS_UI.msg='🎒 '+escapeAttr(p.name)+' 背上小书包去上'+c.n+'啦，'+h+' 小时后放学回家';
+  try{ addLog('🏫'+p.name+' 去上'+c.n+'（'+h+'小时，学费'+cost+'金币）'); }catch(e){}
+  psSave(); psRender();
+  try{ renderCompanionPets(); }catch(e){}
+}
+function psFinishClasses(){
+  var notes=[];
+  psPets().forEach(function(o){ var p=o.p; if(!p.classUntil||p.classUntil>Date.now()) return;
+    var c=PS_CLASSES.filter(function(x){ return x.id===p.classKey; })[0], h=p.classHours||1;
+    if(c){ var g=psGain(p,c.k,PS_CLASS_GAIN*h); p.happy=Math.min(100,(p.happy||0)+PS_CLASS_HAPPY); notes.push('🎒'+p.name+' 放学回家啦！'+c.n+'学到好多，'+PS_META[c.k].n+'技能 +'+g); }
+    p.classUntil=0; p.classKey=null; p.classHours=0; });
+  notes.forEach(function(t){ try{ addLog(t); }catch(e){} });
+  if(notes.length){ try{ ttsToast(notes[0],3500); }catch(e){} }
+  return notes.length;
+}
+// ---- 每过一整小时：技能越高，越会自己主动做事（最多补算 12 小时）----
+function psHourly(){
+  var s=psState(), hrs=Math.floor((Date.now()-s.lastHourAt)/3600000); if(hrs<=0) return 0;
+  s.lastHourAt+=hrs*3600000; hrs=Math.min(hrs,12); var cnt=0;
+  for(var h=0;h<hrs;h++){
+    psPets().forEach(function(o){ var p=o.p, sk=psSkills(p); if(psInClass(p)) return;
+      PS_KEYS.forEach(function(k){ var v=sk[k]; if(v<=0||k==='empathy') return; var prob=v>=100?0.6:v/100*0.25; if(Math.random()>=prob) return; cnt++;
+        if(k==='house') p.clean=Math.min(100,(p.clean||0)+(v>=100?6:3));
+        else if(k==='sport') p.happy=Math.min(100,(p.happy||0)+(v>=100?5:3));
+        else if(k==='study'){ try{ gainExpForPet(p,v>=100?4:2,'宠物自己看书'); }catch(e){} }
+        else if(k==='talent') psPets().forEach(function(q){ if(!psInClass(q.p)) q.p.happy=Math.min(100,(q.p.happy||0)+2); });
+      }); });
+  }
+  if(cnt){ try{ addLog('🏡 宠物们这段时间自己主动做了 '+cnt+' 件事（收拾自己、锻炼、看书、表演）'); }catch(e){} }
+  return cnt;
+}
+setInterval(function(){ try{ if(!state||!state.pets) return; var a=psFinishClasses(), b=psHourly(); if(a||b){ try{ saveStoreLocalOnly(); }catch(e){} try{ renderCompanionPets(); }catch(e){} if(document.getElementById('psModal')&&document.getElementById('psModal').classList.contains('show')) psRender(); } }catch(e){} },60000);
+// 上学的宠物不在家：不在屏幕上晃、不参与家庭小管家的吵架
+var _psOrigCompanion=companionWantedIdxs;
+companionWantedIdxs=function(){ return _psOrigCompanion.apply(this,arguments).filter(function(i){ return !psInClass(state.pets[i]); }); };
+var _psOrigFamPets=famPets;
+famPets=function(){ return _psOrigFamPets.apply(this,arguments).filter(function(x){ return !psInClass(x.p); }); };
+// 💞 情商高的宠物会劝架：家里情商最高的那只，情商每 10 点让一次吵架有 5% 的机会被劝住（满100最多劝住一半）
+var _psOrigFamStart=famStart;
+famStart=function(force){
+  try{
+    if(!force){ var best=null; famPets().forEach(function(x){ var v=psSkills(x.p).empathy; if(!best||v>best.v) best={p:x.p,v:v}; });
+      if(best&&best.v>0&&Math.random()<best.v/200){ var f=famState(); f.last=Date.now(); try{ ttsToast('💞 '+best.p.name+' 情商好高，悄悄把一场吵架劝住了～',3200); }catch(e){} try{ addLog('💞'+best.p.name+' 劝住了一场宠物吵架'); }catch(e){} return; } }
+  }catch(e){}
+  return _psOrigFamStart.apply(this,arguments);
+};
+// 3D小屋里，上学的宠物也不在家
+var _psOrigH3Init=h3Init;
+h3Init=function(){ var r=_psOrigH3Init.apply(this,arguments);
+  try{ (H3.actors||[]).slice().forEach(function(a){ if(a.pet&&psInClass(a.pet)){ H3.scene.remove(a.sp); H3.scene.remove(a.sh); if(a.bubble) a.bubble.remove(); H3.actors.splice(H3.actors.indexOf(a),1); } }); }catch(e){}
+  return r; };
+// ---- 界面 ----
+function psOpen(){
+  if(!state||!state.pets||!psPets().length){ alert('宠物破壳以后，才能送它去上学哦～'); return; }
+  var m=document.getElementById('psModal');
+  if(!m){ m=document.createElement('div'); m.className='modal-mask'; m.id='psModal'; m.innerHTML='<div class="modal" style="max-width:460px;text-align:left;padding:14px 12px"><button class="modal-close" onclick="hideModal(\'psModal\')">✕</button><div id="psBody"></div></div>'; document.body.appendChild(m); }
+  try{ psFinishClasses(); }catch(e){}
+  PS_UI.msg=''; psRender(); showModal('psModal');
+}
+function psBar(v){ return '<div style="flex:1;height:8px;background:#eee;border-radius:5px;overflow:hidden"><div style="height:100%;width:'+v+'%;background:'+(v>=100?'#ffb300':'#ab47bc')+'"></div></div>'; }
+function psRender(){
+  var body=document.getElementById('psBody'); if(!body) return;
+  var s=psState(), bal=state.moneyBalance||0;
+  var h='<h3 style="text-align:center;margin:2px 0 4px">🎓 宠物学校</h3>'
+    +'<div class="small" style="text-align:center;color:#7b1fa2;margin-bottom:8px">小主人先完成打卡，宠物才能学会这个本领！</div>'
+    +'<div style="background:#f3e5f5;border-radius:12px;padding:8px;margin-bottom:8px"><b style="font-size:13px">📌 我的学习点数（每完成一项打卡 +1）</b><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">'
+    +PS_KEYS.map(function(k){ var done=psDoneToday(k); return '<span style="background:#fff;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:700">'+PS_META[k].e+PS_META[k].n+' '+s.pts[k]+(done?' ✅':' <span style="color:#bbb">今天未打卡</span>')+'</span>'; }).join('')
+    +'<span style="background:#fff8e1;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:800;color:#e65100">🪙 '+bal+'</span></div></div>';
+  if(PS_UI.msg) h+='<div style="background:#fff8e1;border-radius:10px;padding:7px 9px;margin-bottom:8px;font-size:13px">'+PS_UI.msg+'</div>';
+  psPets().forEach(function(o){
+    var p=o.p, i=o.i, sk=psSkills(p), inC=psInClass(p);
+    h+='<div style="border:2px solid '+(inC?'#90caf9':'#e1bee7')+';border-radius:14px;padding:8px;margin-bottom:8px;background:#fff">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><img src="'+petDisplayImgSrc(p)+'" style="width:40px;height:40px;object-fit:contain"><b style="font-size:15px">'+escapeAttr(p.name||'宠物')+'</b>'+(p.injured?' 🤕':'')+'</div>';
+    PS_KEYS.forEach(function(k){ h+='<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px"><span style="width:58px">'+PS_META[k].e+' '+PS_META[k].n+'</span>'+psBar(sk[k])+'<span style="width:66px;text-align:right;white-space:nowrap">'+sk[k]+(sk[k]>=100?'🏅':'')+'/100</span></div>'; });
+    if(inC){
+      var c=PS_CLASSES.filter(function(x){ return x.id===p.classKey; })[0], mins=Math.max(1,Math.ceil((p.classUntil-Date.now())/60000));
+      h+='<div style="margin-top:6px;background:#e3f2fd;border-radius:10px;padding:6px;font-size:13px;color:#1565c0;font-weight:700">🎒 正在上'+(c?c.e+c.n:'课')+'，还有 '+mins+' 分钟放学</div>';
+    }else{
+      h+='<div style="font-size:12px;font-weight:700;color:#6a1b9a;margin-top:6px">🫡 跟我学（花 1 点学习点数，技能 +1）</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">'
+        +PS_KEYS.map(function(k){ return '<button class="btn btn-sm" style="padding:3px 8px;font-size:12px;opacity:'+(s.pts[k]>0?1:0.45)+'" onclick="psTeach('+i+',\''+k+'\')">'+PS_META[k].e+PS_META[k].n+'</button>'; }).join('')+'</div>';
+      var sel=PS_UI.sel[i];
+      h+='<div style="font-size:12px;font-weight:700;color:#6a1b9a;margin-top:6px">🏫 送去上学（今天打过这一类卡才能报；1点=1只上1小时 + 学费）</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">'
+        +PS_CLASSES.map(function(c){ var on=sel===c.id, ok=psDoneToday(c.k); return '<button class="btn btn-sm" style="padding:3px 7px;font-size:12px;'+(on?'background:#8e24aa;color:#fff;':'')+(ok?'':'opacity:.45;')+'" onclick="psPick('+i+',\''+c.id+'\')">'+(ok?'':'🔒')+c.e+c.n+' · '+PS_META[c.k].e+'1+🪙'+c.p+'</button>'; }).join('')+'</div>';
+      if(sel) h+='<div style="display:flex;align-items:center;gap:6px;margin-top:5px"><select id="psHours'+i+'" style="padding:3px;border-radius:6px"><option value="1">1 小时</option><option value="2">2 小时</option><option value="3">3 小时</option></select><button class="btn btn-success btn-sm" onclick="psEnroll('+i+')">✅ 报名上学</button></div>';
+    }
+    h+='</div>';
+  });
+  h+='<div class="small" style="color:#777;line-height:1.6">💡 技能越高，宠物每小时越会自己主动做事：🧹收拾自己、🏃锻炼、📖看书涨经验、🎤表演让全家开心；练满100时最主动。💞情商高的宠物会劝架，家里吵架会变少。上学期间宠物不在家，也不会吵架。</div>';
+  body.innerHTML=h;
+}
+// 宠物页右边那列悬浮按钮里加「🎓」（跟3D小屋/精灵图鉴按钮放一起，只在宠物页显示）
+(function(){
+  var b=document.createElement('button'); b.className='hud-act-btn'; b.id='petSchoolEntryBtn'; b.title='宠物学校'; b.textContent='🎓';
+  b.style.cssText='display:none;position:fixed;right:10px;bottom:428px;z-index:58;font-size:20px;background:linear-gradient(135deg,#c8e6c9,#a5d6a7)';
+  b.onclick=function(){ psOpen(); };
+  (document.body||document.documentElement).appendChild(b);
+})();
+var _psOrigAucBtn=renderAuctionEntryBtn;
+renderAuctionEntryBtn=function(){ var r=_psOrigAucBtn.apply(this,arguments);
+  try{ var a=document.getElementById('auctionEntryBtn'), b=document.getElementById('petSchoolEntryBtn'); if(a&&b) b.style.display=a.style.display; }catch(e){}
+  return r; };
+
 /* 2026-11新增：英语单词/句子按《新概念英语》第一册课文顺序编排，在单词/句子区顶部标出今天对应第几课 */
 function nceBannerHtml(theme){
   return '<div class="small" style="background:#ede7f6;color:#5e35b1;border-radius:8px;padding:3px 8px;margin:2px 0 4px">📘 '
